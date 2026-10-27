@@ -26,8 +26,27 @@ file length ≥ 600 bytes, song length 1–128, every order < 128, sample volume
 | 951 | 1 | Restart position (often 127; treat ≥ song length as 0) |
 | 952 | 128 | Order table (pattern indices) |
 | 1080 | 4 | Tag |
-| 1084 | N × 1024 | Patterns, N = max(order table, all 128 entries) + 1 |
+| 1084 | N × 1024 | Patterns, N = highest order-table entry + 1 (see *Pattern count*) |
 | … | | Sample data, in sample order, 8-bit **signed** PCM |
+
+### Pattern count
+
+ProTracker stores every pattern up to the highest entry in the **whole** 128-entry order table, but some
+trackers leave garbage in entries past the song length. `ModReader` computes both readings (all 128 entries vs.
+only the played orders) and picks the one whose expected size — header + patterns + sample data — is closest
+to the real file size; ties go to all entries.
+
+### Damaged files (implemented in `src/Mod/ModReader.cs`)
+
+| Problem | Handling |
+|---|---|
+| File shorter than the 1084-byte header, or ends inside the pattern data | Rejected, exit 3, with byte offset |
+| Song length 0 or > 128 | Rejected, exit 3 |
+| Sample data cut short (common in old rips) | Kept up to the end of the file; conversion note |
+| Loop runs past the sample end | Loop shortened; conversion note |
+| Loop starts past the sample end | Loop removed; conversion note |
+| Loop length ≤ 2 bytes | No loop (ProTracker convention) |
+| Names | Latin-1, cut at the first NUL, trailing spaces removed, leading spaces kept |
 
 15-sample layout: same but 15 headers, song length at 470, restart at 471, orders at 472, **no tag**,
 patterns at 600.
