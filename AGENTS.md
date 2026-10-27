@@ -61,6 +61,8 @@ libraries for these.
 /Directory.Build.props      settings shared by every project (net10.0, nullable, warnings-as-errors, analyzers)
 /Directory.Packages.props   central package versions — PackageReference items carry no Version
 /.gitattributes             line-ending normalization (LF in the repo)
+/.editorconfig              formatting and code style; rules at "warning" fail the build
+/THIRD-PARTY-NOTICES.md     licenses of every library and copied/ported source — update when adding one
 /docs/                      design and format documentation (start at docs/README.md)
 /src/Mod2Xgm.csproj         the console app (Native AOT)
 /src/Program.cs             entry point
@@ -154,7 +156,8 @@ compiler, analyzer, trim/AOT, NuGet or MSBuild warning fails the build.
      (`DirectPInvoke` + `NativeLibrary` items) so the tool stays a single file.
    - License: permissive (MIT, BSD, zlib, Apache-2.0) is fine. LGPL only as a separately loaded native
      library, not statically linked. GPL needs David's approval. Record the license in `docs/decisions.md`.
-   - Pin the version in `Directory.Packages.props` and log the addition in `docs/decisions.md`.
+   - Pin the version in `Directory.Packages.props`, log the addition in `docs/decisions.md`, and add it to
+     `THIRD-PARTY-NOTICES.md`.
    Approved so far: **Serilog**, **Serilog.Sinks.Console**, **System.CommandLine**; test-only **xUnit v3**.
    The BCL still covers the basics: `ZLibStream` (DMF is zlib-compressed), `BinaryPrimitives` (endianness), `Span<T>`.
 3. **Local-only.** The tool never touches the network.
