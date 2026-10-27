@@ -42,7 +42,7 @@
 | T0.1 ✅ | `git init`, `.gitignore` (`.vs/`, `bin/`, `obj/`, `artifacts/`, `*.user`), first commit; create `github.com/davidpizon/Mod2Xgm` (private unless told otherwise) | Repo pushed |
 | T0.2 (partly, PR #1; `.editorconfig` and `THIRD-PARTY-NOTICES.md` still to do) | Move `Mod2Xgm.slnx` to repo root; `Directory.Build.props` (warnings-as-errors/AOT/analysis settings moved out of the csproj); `Directory.Packages.props`; `.editorconfig`; `THIRD-PARTY-NOTICES.md` | `dotnet build` from root; settings apply to all projects |
 | T0.3 (PR #1) | `tests/` folder for test projects; `tests/Mod2Xgm.Tests` (xUnit v3); smoke test | `dotnet test` from root passes |
-| T0.4 (build/test matrix + coverage upload: PR_REF; AOT release artifacts still to do) | GitHub Actions matrix (windows/ubuntu/macos): restore, build, test; on tag: AOT publish `win-x64`, `linux-x64`, `osx-arm64`, upload artifacts | Green CI; artifacts on a test tag |
+| T0.4 (build/test matrix + coverage upload: PR #4; AOT release artifacts still to do) | GitHub Actions matrix (windows/ubuntu/macos): restore, build, test; on tag: AOT publish `win-x64`, `linux-x64`, `osx-arm64`, upload artifacts | Green CI; artifacts on a test tag |
 | T0.5 | Update AGENTS.md commands for the new layout | Docs match reality |
 
 ### M1 — CLI and logging skeleton
