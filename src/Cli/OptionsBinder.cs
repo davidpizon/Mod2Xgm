@@ -24,14 +24,12 @@ internal static class OptionsBinder
         Region region = parseResult.GetValue(definition.Region) == "ntsc" ? Region.Ntsc : Region.Pal;
         Quality quality = ParseQuality(parseResult.GetValue(definition.Quality));
 
-        HashSet<int> ignoreSamples = [];
-        foreach (string list in parseResult.GetValue(definition.IgnoreSamples) ?? [])
-        {
-            if (ValueParsers.TryParseSampleList(list, ConversionDefaults.MaxModSamples, ignoreSamples) is { } error)
-            {
-                errors.Add($"--ignore-samples: {error}");
-            }
-        }
+        HashSet<int> ignoreSamples = SampleList(parseResult.GetValue(definition.IgnoreSamples), "--ignore-samples", errors);
+        HashSet<int> requireFm = SampleList(parseResult.GetValue(definition.RequireFm), "--require-fm", errors);
+        HashSet<int> requirePcm = SampleList(parseResult.GetValue(definition.RequirePcm), "--require-pcm", errors);
+        AddConflict(requireFm, "--require-fm", requirePcm, "--require-pcm", "a sample can be FM or PCM, not both", errors);
+        AddConflict(ignoreSamples, "--ignore-samples", requireFm, "--require-fm", "an ignored sample isn't converted at all", errors);
+        AddConflict(ignoreSamples, "--ignore-samples", requirePcm, "--require-pcm", "an ignored sample isn't converted at all", errors);
 
         long maxPcmBytes = ConversionDefaults.MaxPcmBytes;
         if (parseResult.GetValue(definition.MaxPcmBytes) is { } sizeText
@@ -72,6 +70,8 @@ internal static class OptionsBinder
             Region = region,
             Mapping = parseResult.GetValue(definition.Mapping),
             IgnoreSamples = ignoreSamples,
+            RequireFm = requireFm,
+            RequirePcm = requirePcm,
             NoConsolidate = parseResult.GetValue(definition.NoConsolidate),
             MaxPcmBytes = maxPcmBytes,
             Quality = quality,
@@ -85,6 +85,37 @@ internal static class OptionsBinder
         };
 
         return new Result(options, errors);
+    }
+
+    private static HashSet<int> SampleList(string[]? lists, string optionName, List<string> errors)
+    {
+        HashSet<int> samples = [];
+        foreach (string list in lists ?? [])
+        {
+            if (ValueParsers.TryParseSampleList(list, ConversionDefaults.MaxModSamples, samples) is { } error)
+            {
+                errors.Add($"{optionName}: {error}");
+            }
+        }
+
+        return samples;
+    }
+
+    /// <summary>Reports samples that appear in two option lists that exclude each other.</summary>
+    internal static void AddConflict(
+        IReadOnlySet<int> first,
+        string firstName,
+        IReadOnlySet<int> second,
+        string secondName,
+        string reason,
+        List<string> errors)
+    {
+        int[] both = [.. first.Intersect(second).Order()];
+        if (both.Length > 0)
+        {
+            string samples = string.Join(", ", both);
+            errors.Add($"{firstName} and {secondName} both list sample{(both.Length == 1 ? string.Empty : "s")} {samples}; {reason}.");
+        }
     }
 
     internal static string? ReserveSfxError(OutputFormat format, int channels)

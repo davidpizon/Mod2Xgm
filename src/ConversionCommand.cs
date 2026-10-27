@@ -45,9 +45,16 @@ internal static class ConversionCommand
             options.ReserveSfxChannels,
             !options.NoConsolidate,
             !options.NoCache);
-        if (options.IgnoreSamples.Count > 0)
+        LogSampleList(logger, "Ignoring samples {Samples}", options.IgnoreSamples);
+        LogSampleList(logger, "Samples required as FM {Samples}", options.RequireFm);
+        LogSampleList(logger, "Samples required as PCM {Samples}", options.RequirePcm);
+    }
+
+    private static void LogSampleList(ILogger logger, string messageTemplate, IReadOnlySet<int> samples)
+    {
+        if (samples.Count > 0)
         {
-            logger.Debug("Ignoring samples {IgnoredSamples}", string.Join(",", options.IgnoreSamples.Order()));
+            logger.Debug(messageTemplate, string.Join(",", samples.Order()));
         }
     }
 

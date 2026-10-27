@@ -2,6 +2,13 @@
 
 Newest first. Each entry: date, decision, options considered, reason.
 
+## 2026-10-27 — --require-fm / --require-pcm
+- Two new sample-list options pin a sample's rendering: `--require-fm` (always FM, never PCM/PSG) and
+  `--require-pcm` (always digitized PCM, never FM/PSG). Hard constraints for the mapper and optimizer.
+- A sample in both lists is a usage error (exit 1). So is a sample that is both ignored and required.
+- Required PCM that overlaps beyond the PCM voices: the least important note is cut (noted), never moved to FM.
+  Required PCM that can't fit the slots/bytes after PCM-preserving consolidation: exit 6.
+
 ## 2026-10-27 — Logging setup (T1.3)
 - A `LoggingLevelSwitch` controls the console logger; `--verbose` raises it to Debug.
 - `ConversionNotes` logs each note at Warning immediately and keeps the rendered text (string values unquoted)
