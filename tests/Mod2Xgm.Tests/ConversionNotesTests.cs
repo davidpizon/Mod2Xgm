@@ -33,13 +33,23 @@ public sealed class ConversionNotesTests
     }
 
     [Fact]
-    public void ASilentLoggerStillKeepsTheNote()
+    public void ASilentLoggerStillRendersTheNote()
     {
         ConversionNotes notes = new(Logger.None);
 
         notes.Add("Sample {Sample} skipped", "vocal");
 
         Assert.Equal(1, notes.Count);
-        Assert.Equal("Sample {Sample} skipped", Assert.Single(notes.Messages));
+        Assert.Equal("Sample vocal skipped", Assert.Single(notes.Messages));
+    }
+
+    [Fact]
+    public void AMalformedTemplateIsKeptAsWritten()
+    {
+        ConversionNotes notes = new(Logger.None);
+
+        notes.Add("Unclosed {Sample", "vocal");
+
+        Assert.Equal("Unclosed {Sample", Assert.Single(notes.Messages));
     }
 }

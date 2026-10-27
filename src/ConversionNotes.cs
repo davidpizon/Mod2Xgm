@@ -16,6 +16,10 @@ internal sealed class ConversionNotes(ILogger logger)
     // "l" renders text values without quotes, like the console's {Message:lj}.
     private static readonly MessageTemplateTextFormatter LiteralMessage = new("{Message:l}", CultureInfo.InvariantCulture);
 
+    // Binds templates for the stored text independently of the output logger: a silent or filtered logger
+    // (e.g. Logger.None) refuses to bind, but the note must still be rendered for the summary.
+    private static readonly ILogger Binder = new LoggerConfiguration().CreateLogger();
+
     private readonly List<string> _messages = [];
 
     /// <summary>Rendered note texts, in the order they were added.</summary>
@@ -29,9 +33,9 @@ internal sealed class ConversionNotes(ILogger logger)
         _messages.Add(Render(messageTemplate, propertyValues));
     }
 
-    private string Render(string messageTemplate, object?[] propertyValues)
+    private static string Render(string messageTemplate, object?[] propertyValues)
     {
-        if (!logger.BindMessageTemplate(messageTemplate, propertyValues, out MessageTemplate? template, out IEnumerable<LogEventProperty>? properties)
+        if (!Binder.BindMessageTemplate(messageTemplate, propertyValues, out MessageTemplate? template, out IEnumerable<LogEventProperty>? properties)
             || template is null
             || properties is null)
         {

@@ -153,4 +153,63 @@ public sealed class ConversionCommandTests
 
         Assert.Empty(sink.Messages(LogEventLevel.Debug));
     }
+
+    [Fact]
+    public void AnInvalidModIsInvalidInput()
+    {
+        using TempDirectory temp = new();
+        ConversionOptions options = new() { InputPath = temp.CreateFile("song.mod", [1, 2, 3, 4]) };
+
+        Assert.Equal(ExitCode.InvalidInput, CodeOf(() => ConversionCommand.Execute(options)));
+    }
+
+    [Fact]
+    public void AnOversizedFileIsInvalidInput()
+    {
+        using TempDirectory temp = new();
+        string path = temp.Combine("huge.mod");
+        using (FileStream stream = File.Create(path))
+        {
+            stream.SetLength(ConversionCommand.MaxInputBytes + 1);
+        }
+
+        ConversionException error = Assert.Throws<ConversionException>(() => ConversionCommand.Execute(new() { InputPath = path }));
+
+        Assert.Equal(ExitCode.InvalidInput, error.Code);
+        Assert.Contains("larger than any MOD", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AnUnreadableFileIsInputNotFound()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            // Explicit guard (not Assert.SkipWhen) so the platform analyzer (CA1416) sees SetUnixFileMode is Unix-only.
+            Assert.Skip("Unix file permissions are needed to make a file unreadable.");
+            return;
+        }
+
+        using TempDirectory temp = new();
+        string path = temp.CreateFile("song.mod");
+        File.SetUnixFileMode(path, UnixFileMode.None);
+        try
+        {
+            Assert.Equal(ExitCode.InputNotFound, CodeOf(() => ConversionCommand.Execute(new() { InputPath = path })));
+        }
+        finally
+        {
+            File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+        }
+    }
+
+    [Fact]
+    public void TheModSummaryIsLoggedAtDebug()
+    {
+        using TempDirectory temp = new();
+        CollectingSink sink = new();
+
+        ConversionCommand.Execute(new() { InputPath = temp.CreateFile("song.mod") }, sink.CreateLogger());
+
+        Assert.Contains(sink.Messages(LogEventLevel.Debug), m => m.Contains("Read ProTracker31 MOD", StringComparison.Ordinal));
+    }
 }
