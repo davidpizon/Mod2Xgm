@@ -8,10 +8,8 @@ public sealed class OutputPathsTests
     [InlineData(nameof(OutputFormat.Dmf), ".dmf")]
     [InlineData(nameof(OutputFormat.Xgm), ".xgm")]
     [InlineData(nameof(OutputFormat.Xgm2), ".xgm2")]
-    public void ExtensionMatchesTheFormat(string format, string expected)
-    {
+    public void ExtensionMatchesTheFormat(string format, string expected) =>
         Assert.Equal(expected, OutputPaths.ExtensionFor(Enum.Parse<OutputFormat>(format)));
-    }
 
     [Theory]
     [InlineData(nameof(OutputFormat.Dmf), "song.dmf")]

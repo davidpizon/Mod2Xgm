@@ -106,7 +106,9 @@ CI (`.github/workflows/ci.yml`) runs on every pull request and push to `main`: b
 Linux and macOS; **Native AOT publish + smoke run** of the binary on `win-x64`, `linux-x64`, `osx-arm64`; and
 code coverage. **Qodana** (`.github/workflows/code_quality.yml`, config in `qodana.yaml`) runs JetBrains' .NET
 inspections on every PR and push to `main` and uploads the findings to GitHub code scanning, next to CodeQL; review
-new Qodana findings on your PR like any other review comment. The **nightly audit**
+new Qodana findings on your PR like any other review comment. On a PR it also keeps one comment starting with
+`<!-- qodana-findings -->` that lists every finding (severity, file:line, rule, message); read it with
+`gh api repos/davidpizon/Mod2Xgm/issues/<PR>/comments`. The **nightly audit**
 (`.github/workflows/nightly-audit.yml`, script `.github/scripts/nightly_audit.py`) runs the same Qodana scan plus
 `dotnet list package --vulnerable` every day and files one GitHub issue per finding, labelled `audit:smell` or
 `audit:vulnerability` plus `severity:<level>`. Code-scanning alerts can't be read through the API from an agent
@@ -190,7 +192,10 @@ compiler, analyzer, trim/AOT, NuGet or MSBuild warning fails the build.
   exit code from `docs/cli.md`; readers include the byte offset in the message. `Program.Run` prints the message
   (no stack trace) and exits with that code. Any other exception is a bug and exits 5 with a stack trace.
 - Lossy conversion is expected. Every lossy decision (dropped effect, clipped note range, resampled or
-  truncated sample, channel collision) must produce a **conversion note**, never be silent. (The word
+  truncated sample, channel collision) must produce a **conversion note**, never be silent. So must every
+  **assumption** the converter makes (e.g. "no tag, so this is a 15-sample Soundtracker file") and every **sign of a
+  damaged or unusual input** (odd volumes, unprintable names, impossible pattern cells), even when nothing is changed.
+  Be relaxed about accepting input and loud about doubts: reject only what can't be read, and say why. (The word
   "warning" is reserved for build warnings, which are errors.) Conversion notes are collected in a
   `ConversionNotes` (`src/ConversionNotes.cs`) and **logged to the console at Serilog `Warning` level**:
   `notes.Add("Sample {Sample} truncated to {Length} bytes", name, length)`. Stages receive the collector and a

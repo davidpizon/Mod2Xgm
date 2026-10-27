@@ -35,9 +35,7 @@ internal sealed class ConversionNotes(ILogger logger)
 
     private static string Render(string messageTemplate, object?[] propertyValues)
     {
-        if (!Binder.BindMessageTemplate(messageTemplate, propertyValues, out MessageTemplate? template, out IEnumerable<LogEventProperty>? properties)
-            || template is null
-            || properties is null)
+        if (!Binder.BindMessageTemplate(messageTemplate, propertyValues, out MessageTemplate? template, out IEnumerable<LogEventProperty>? properties))
         {
             return messageTemplate;
         }

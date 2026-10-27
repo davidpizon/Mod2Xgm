@@ -76,11 +76,12 @@ public sealed class CommandLineTests
         Assert.Equal("out/level1.xgm2", options.OutputPath);
         Assert.Equal(Region.Ntsc, options.Region);
         Assert.Equal("simple", options.Mapping);
-        Assert.Equal(new[] { 3, 7, 12, 13, 14, 31 }, options.IgnoreSamples.Order());
+        int[] ignored = [3, 7, 12, 13, 14, 31];
+        Assert.Equal(ignored, options.IgnoreSamples.Order());
         Assert.True(options.NoConsolidate);
         Assert.Equal(1024L * 1024, options.MaxPcmBytes);
         Assert.Equal(Quality.Best, options.Quality);
-        Assert.Equal<TimeSpan?>(TimeSpan.FromSeconds(90), options.TimeBudget);
+        Assert.Equal(TimeSpan.FromSeconds(90), options.TimeBudget);
         Assert.Equal(42, options.Seed);
         Assert.True(options.NoCache);
         Assert.Equal(2, options.ReserveSfxChannels);
@@ -107,17 +108,15 @@ public sealed class CommandLineTests
     public void QualityValues(string text, string expected)
     {
         // Enum names as strings: the enums are internal, and public test methods can't take internal types.
-        Assert.Equal<Quality?>(Enum.Parse<Quality>(expected), Run("song.mod", "--quality", text).Options?.Quality);
+        Assert.Equal(Enum.Parse<Quality>(expected), Run("song.mod", "--quality", text).Options?.Quality);
     }
 
     [Theory]
     [InlineData("dmf", nameof(OutputFormat.Dmf))]
     [InlineData("xgm", nameof(OutputFormat.Xgm))]
     [InlineData("xgm2", nameof(OutputFormat.Xgm2))]
-    public void FormatValues(string text, string expected)
-    {
-        Assert.Equal<OutputFormat?>(Enum.Parse<OutputFormat>(expected), Run("song.mod", "--format", text).Options?.Format);
-    }
+    public void FormatValues(string text, string expected) =>
+        Assert.Equal(Enum.Parse<OutputFormat>(expected), Run("song.mod", "--format", text).Options?.Format);
 
     [Fact]
     public void MissingInputIsAUsageError()
@@ -182,10 +181,8 @@ public sealed class CommandLineTests
     [InlineData(nameof(OutputFormat.Xgm2), 3, true)]
     [InlineData(nameof(OutputFormat.Xgm2), 4, false)]
     [InlineData(nameof(OutputFormat.Xgm), -1, false)]
-    public void ReserveSfxChannelLimits(string format, int channels, bool valid)
-    {
+    public void ReserveSfxChannelLimits(string format, int channels, bool valid) =>
         Assert.Equal(valid, OptionsBinder.ReserveSfxError(Enum.Parse<OutputFormat>(format), channels) is null);
-    }
 
     [Fact]
     public void HelpSucceedsWithoutConverting()
@@ -212,10 +209,8 @@ public sealed class CommandLineTests
     }
 
     [Fact]
-    public void DefaultWritersAreUsedWhenNoneAreGiven()
-    {
+    public void DefaultWritersAreUsedWhenNoneAreGiven() =>
         Assert.Equal(ExitCode.Success, CommandLineDefinition.Invoke(["song.mod"], _ => ExitCode.Success));
-    }
 
     [Fact]
     public void RequiredFmAndPcmListsAreBound()
@@ -223,8 +218,10 @@ public sealed class CommandLineTests
         Outcome result = Run("song.mod", "--require-fm", "4,9-11", "--require-pcm", "1", "--require-pcm", "0x02");
 
         ConversionOptions options = Assert.IsType<ConversionOptions>(result.Options);
-        Assert.Equal(new[] { 4, 9, 10, 11 }, options.RequireFm.Order());
-        Assert.Equal(new[] { 1, 2 }, options.RequirePcm.Order());
+        int[] fm = [4, 9, 10, 11];
+        int[] pcm = [1, 2];
+        Assert.Equal(fm, options.RequireFm.Order());
+        Assert.Equal(pcm, options.RequirePcm.Order());
     }
 
     [Fact]

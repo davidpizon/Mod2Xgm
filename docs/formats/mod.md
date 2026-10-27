@@ -9,12 +9,22 @@ Read the 4-byte tag at offset **1080** (`0x438`):
 | Tag | Channels | Samples | v1 |
 |---|---|---|---|
 | `M.K.`, `M!K!`, `FLT4`, `4CHN` | 4 | 31 | supported |
-| `6CHN`, `8CHN`, `FLT8`, `CD81`, `OKTA`, `xxCH` | 6–32 | 31 | **rejected** (exit 3, clear message) |
-| anything else | 4 | **15** (Soundtracker) | supported, after sanity checks |
+| `6CHN`, `8CHN`, `FLT8`, `CD81`, `OKTA`, `xxCH` | 6–32 | 31 | **rejected** (exit 3, names the tag) |
+| `N.T.`, `M&K!`, `FEST`, `LARD`, `NSMS` | 4 | 31 | **rejected for now** (exit 3, names the tag and tracker) |
+| anything else | 4 | **15** (Soundtracker) | supported, see below |
 
-A 15-sample file has no tag, so "anything else" also matches garbage. Accept it as Soundtracker only if:
-file length ≥ 600 bytes, song length 1–128, every order < 128, sample volumes ≤ 64, and
-`600 + patterns×1024 + Σ sample bytes` ≈ file length (allow a small tail). Otherwise exit 3.
+A 15-sample file has no tag, so "anything else" also matches garbage. Detection is deliberately **relaxed**
+(David, 2026-10-27): the hard checks are only what's needed to read the file at all, and every sign of junk is a
+conversion note instead (see *Damaged files*).
+
+- **Rejected (exit 3)** if the file is shorter than the 600-byte header, the song length (offset 470) is outside
+  1–128, a played order is ≥ 128, or the file ends inside the pattern data. The message gives both reasons: what was
+  found at offset 1080 instead of a tag, and why the 15-sample reading failed, with the byte offset.
+- **Accepted** otherwise, with a conversion note saying the file is assumed to be a 15-sample Soundtracker module
+  (it shows the bytes found at offset 1080).
+- Ultimate Soundtracker (the first version) and later Soundtrackers can't be told apart from the header. Byte 471 is
+  the tempo in Ultimate Soundtracker and the restart position later, and effects 1/2 differ. The reader keeps the
+  bytes as stored and always adds a note; the song model (plan M3) decides.
 
 ## Layout (31-sample)
 
@@ -40,8 +50,17 @@ to the real file size; ties go to all entries.
 
 | Problem | Handling |
 |---|---|
-| File shorter than the 1084-byte header, or ends inside the pattern data | Rejected, exit 3, with byte offset |
+| File shorter than the header (1084 bytes; 600 for 15-sample), or ends inside the pattern data | Rejected, exit 3, with byte offset |
 | Song length 0 or > 128 | Rejected, exit 3 |
+| 15-sample: a played order ≥ 128 | Rejected, exit 3 |
+| Order-table entries past the song end point at patterns the file doesn't hold | Ignored (see *Pattern count*); conversion note |
+| Bytes after the last sample's data | Ignored; conversion note |
+| Title or sample name with control characters | Kept as stored; conversion note |
+| Volume above 64 | Kept as stored (players cap it at 64); conversion note |
+| Sample longer than 64 KB | Kept; conversion note |
+| Finetune byte with its high 4 bits set | Low 4 bits used; conversion note |
+| 15-sample: finetune not 0 (Soundtracker had none) | Kept as stored; conversion note |
+| Pattern cells with a sample number above the sample count, or a period outside 108–907 | Kept as stored; one conversion note each, with the count and the first location |
 | Sample data cut short (common in old rips) | Kept up to the end of the file; conversion note |
 | Loop runs past the sample end | Loop shortened; conversion note |
 | Loop starts past the sample end | Loop removed; conversion note |
@@ -59,10 +78,16 @@ patterns at 600.
 | 22 | 2 | Length in words |
 | 24 | 1 | Finetune: low nibble, signed 4-bit (−8…+7, 1/8 semitone steps) |
 | 25 | 1 | Volume 0–64 |
-| 26 | 2 | Loop start in words (some 15-sample files store **bytes**; detect if start+len > length) |
+| 26 | 2 | Loop start in words (some 15-sample files store **bytes**: see below) |
 | 28 | 2 | Loop length in words; ≤ 1 means no loop |
 
 The first 2 bytes of each sample are traditionally ignored by the Amiga player for looping samples.
+
+**Loop start in bytes (15-sample files only).** Ultimate Soundtracker stored the loop start in bytes. If a loop only
+fits inside the sample when its start is read in bytes, it's read that way, with a conversion note. If it fits
+either way, it's read as words (as stored by later Soundtrackers) and one note counts such samples; the song model
+(M3) can halve those starts if it decides the file is from Ultimate Soundtracker. If it fits neither way, the normal
+damaged-loop rules apply. 31-sample files always use words.
 
 ### Pattern cell (4 bytes, 64 rows × 4 channels per pattern)
 

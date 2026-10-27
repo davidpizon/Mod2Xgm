@@ -56,10 +56,8 @@ public sealed class ValueParsersTests
     [InlineData("12G")]
     [InlineData("1.5M")]
     [InlineData("9223372036854775807K")]
-    public void ByteSizeRejects(string text)
-    {
+    public void ByteSizeRejects(string text) =>
         Assert.NotNull(ValueParsers.TryParseByteSize(text, out _));
-    }
 
     [Theory]
     [InlineData("90", 90)]
@@ -81,8 +79,6 @@ public sealed class ValueParsersTests
     [InlineData("1.5m")]
     [InlineData("-5m")]
     [InlineData("2147483647h")]
-    public void DurationRejects(string text)
-    {
+    public void DurationRejects(string text) =>
         Assert.NotNull(ValueParsers.TryParseDuration(text, out _));
-    }
 }

@@ -164,6 +164,62 @@ jobs:
 
                   print("Rewrote {0} SARIF path(s); all now name files in the checkout.".format(rewritten))
                   PY
+            # Code-scanning alerts can't be read from an agent session, and the action's own comment only gives
+            # counts. List every finding (file, line, rule, message) in one PR comment that is updated in place.
+            - name: 'List findings on the pull request'
+              if: ${{ always() && github.event_name == 'pull_request' }}
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  PR_NUMBER: ${{ github.event.pull_request.number }}
+                  SARIF: ${{ runner.temp }}/qodana/results/qodana.sarif.json
+                  BODY: ${{ runner.temp }}/qodana-findings.md
+              run: |
+                  set -euo pipefail
+                  if [ ! -f "$SARIF" ]; then
+                      echo "No SARIF report; nothing to list."
+                      exit 0
+                  fi
+                  python3 - <<'PY'
+                  import json
+                  import os
+
+                  MARKER = "<!-- qodana-findings -->"
+                  RANK = {"critical": 0, "high": 1, "moderate": 2, "low": 3, "info": 4}
+                  LIMIT = 300
+
+                  with open(os.environ["SARIF"], encoding="utf-8-sig") as handle:
+                      results = json.load(handle)["runs"][0].get("results") or []
+
+                  rows = []
+                  for result in results:
+                      if result.get("kind") in ("pass", "notApplicable") or result.get("baselineState") in ("unchanged", "absent"):
+                          continue
+                      severity = str((result.get("properties") or {}).get("qodanaSeverity") or result.get("level") or "info").lower()
+                      location = (result.get("locations") or [{}])[0].get("physicalLocation") or {}
+                      path = (location.get("artifactLocation") or {}).get("uri") or "?"
+                      line = (location.get("region") or {}).get("startLine") or 0
+                      message = " ".join(str((result.get("message") or {}).get("text") or "").split()).replace("|", "\\|")
+                      rows.append((RANK.get(severity, 5), path, line, severity, str(result.get("ruleId")), message))
+
+                  rows.sort()
+                  lines = [MARKER, f"### Qodana findings: {len(rows)}", ""]
+                  if rows:
+                      lines += ["| Severity | Location | Rule | Message |", "|---|---|---|---|"]
+                      lines += [f"| {s} | `{p}:{l}` | `{r}` | {m} |" for _, p, l, s, r, m in rows[:LIMIT]]
+                      if len(rows) > LIMIT:
+                          lines += ["", f"…and {len(rows) - LIMIT} more (see the `qodana-report` artifact)."]
+                  else:
+                      lines.append("No findings.")
+                  with open(os.environ["BODY"], "w", encoding="utf-8") as handle:
+                      handle.write("\n".join(lines) + "\n")
+                  PY
+                  existing=$(gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments?per_page=100" --paginate \
+                      --jq '.[] | select(.body | startswith("<!-- qodana-findings -->")) | .id' | head -n 1)
+                  if [ -n "$existing" ]; then
+                      gh api -X PATCH "repos/${GITHUB_REPOSITORY}/issues/comments/${existing}" -F "body=@${BODY}" > /dev/null
+                  else
+                      gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" -F "body=@${BODY}" > /dev/null
+                  fi
             - name: 'Upload SARIF to GitHub code scanning'
               uses: github/codeql-action/upload-sarif@v4
               if: ${{ always() }}  # publish findings even when the scan trips its quality gate

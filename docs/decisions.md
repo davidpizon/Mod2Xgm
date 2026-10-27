@@ -2,6 +2,17 @@
 
 Newest first. Each entry: date, decision, options considered, reason.
 
+## 2026-10-27 — 15-sample Soundtracker detection (T2.3)
+- Untagged files are read as 15-sample Soundtracker modules with **relaxed** checks (David's choice): reject only
+  what can't be read (header under 600 bytes, song length outside 1–128, a played order ≥ 128, patterns cut off),
+  and report **every sign of junk** as a conversion note. Rejections give the bytes found at offset 1080 and the
+  reason the 15-sample reading failed.
+- Standing rule from David: always log assumptions and potential bad conditions. The reader notes the 15-sample
+  assumption, the ambiguous byte 471, ambiguous loop starts, and header/pattern anomalies in both layouts.
+- Loop starts stored in bytes: detected only when the words reading can't fit; a conversion note every time.
+- Other 31-sample tags (`N.T.`, `M&K!`, `FEST`, `LARD`, `NSMS`) stay rejected for now, with the tag and tracker named.
+- Ultimate vs. later Soundtracker is decided in M3, not in the reader; the reader keeps the bytes as stored.
+
 ## 2026-10-27 — Nightly audit files issues for Qodana and NuGet findings
 - Code-scanning alerts aren't readable from agent sessions (the API returns 403), so findings need another channel.
   `.github/workflows/nightly-audit.yml` (ported from TotallyHot-ArcRouter) runs Qodana and
@@ -39,7 +50,7 @@ Newest first. Each entry: date, decision, options considered, reason.
 - Pattern count: choose between "all 128 order entries" and "played orders" by which matches the file size.
 - Truncated sample data and bad loops are repaired and reported as conversion notes; structural damage is exit 3.
 - Inputs over 64 MB are rejected as not a MOD; unreadable files exit 2.
-- 15-sample Soundtracker files are still rejected until T2.3.
+- 15-sample Soundtracker files were rejected until T2.3 (see above).
 
 ## 2026-10-27 — Logging setup (T1.3)
 - A `LoggingLevelSwitch` controls the console logger; `--verbose` raises it to Debug.
