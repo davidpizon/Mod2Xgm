@@ -42,7 +42,7 @@
 | T0.1 ✅ | `git init`, `.gitignore` (`.vs/`, `bin/`, `obj/`, `artifacts/`, `*.user`), first commit; create `github.com/davidpizon/Mod2Xgm` (private unless told otherwise) | Repo pushed |
 | T0.2 ✅ (PR #1, PR #8) | Move `Mod2Xgm.slnx` to repo root; `Directory.Build.props` (warnings-as-errors/AOT/analysis settings moved out of the csproj); `Directory.Packages.props`; `.editorconfig`; `THIRD-PARTY-NOTICES.md` | `dotnet build` from root; settings apply to all projects |
 | T0.3 ✅ (PR #1) | `tests/` folder for test projects; `tests/Mod2Xgm.Tests` (xUnit v3); smoke test | `dotnet test` from root passes |
-| T0.4 (build/test matrix + coverage upload: PR #4; AOT release artifacts still to do) | GitHub Actions matrix (windows/ubuntu/macos): restore, build, test; on tag: AOT publish `win-x64`, `linux-x64`, `osx-arm64`, upload artifacts | Green CI; artifacts on a test tag |
+| T0.4 ✅ (PR #4, PR #6, PR #9) | GitHub Actions matrix (windows/ubuntu/macos): restore, build, test; on tag: AOT publish `win-x64`, `linux-x64`, `osx-arm64`, upload artifacts | Green CI; artifacts on a test tag |
 | T0.5 ✅ (PR #1, PR #4) | Update AGENTS.md commands for the new layout | Docs match reality |
 
 ### M1 — CLI and logging skeleton
@@ -92,7 +92,7 @@
 | Task | Work | Acceptance |
 |---|---|---|
 | T6.1 | Corpus of 10–20 freely licensed MODs; `tests/data/LICENSES.md` | Licenses recorded |
-| T6.2 | `src/Scoring` (pure C#): STFT, multi-resolution log-mel distance, onset error, alignment | Unit tests on synthetic signals |
+| T6.2 | `src/Scoring` (pure C#): STFT, multi-resolution log-mel distance, MFCC distance (compared on the corpus; see [references/fm-matching.md](references/fm-matching.md)), onset error, alignment | Unit tests on synthetic signals |
 | T6.3 | `tools/Mod2Xgm.Harness`: openmpt123 reference renders; ingest DefleMask WAV exports and emulator captures; CSV + markdown report | Stable scores on reruns |
 | T6.4 | Baseline for the simple mapper | Recorded in decisions.md |
 
@@ -109,7 +109,7 @@
 | Task | Work | Acceptance |
 |---|---|---|
 | T8.1 | Sample analysis: percussive/tonal, pitch stability, envelope, spectral envelope per pitch region | Tests |
-| T8.2 | FM patch library + fitting (CMA-ES / Nelder-Mead, deterministic seed, per pitch region) | Fitted patches beat library patches on per-instrument error |
+| T8.2 | FM patch library + fitting per [references/fm-matching.md](references/fm-matching.md): per-algorithm structure search (GA or pruned exhaustive over MULT/DT), then local search over levels and envelopes on the integer grid; deterministic seed; per pitch region | Fitted patches beat library patches on per-instrument error |
 | T8.3 | PSG candidates (tone / noise) | Tests |
 | T8.4 | PCM variant candidates with costs | Tests |
 | T8.5 | Locked-pair detection; combined candidates: CH3 special dual voice (DMF/XGM2), pre-mixed PCM | Tests; CH3 never offered for XGM v1 |

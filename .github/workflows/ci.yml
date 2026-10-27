@@ -37,6 +37,35 @@ jobs:
       - name: Test
         run: dotnet test --no-build -c Release
 
+  aot:
+    name: AOT publish (${{ matrix.rid }})
+    # Native AOT publish runs the trim/AOT analyzers on the whole app and its dependencies; any IL2xxx/IL3xxx
+    # warning fails the build. Also smoke-runs the native binary.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, rid: win-x64 }
+          - { os: ubuntu-latest, rid: linux-x64 }
+          - { os: macos-latest, rid: osx-arm64 }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Install Native AOT prerequisites (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
+      - name: Publish (Native AOT)
+        run: dotnet publish src/Mod2Xgm.csproj -c Release -r ${{ matrix.rid }} -o artifacts/publish/${{ matrix.rid }}
+      - name: Smoke test
+        shell: bash
+        run: |
+          bin="artifacts/publish/${{ matrix.rid }}/Mod2Xgm"
+          [ -f "$bin.exe" ] && bin="$bin.exe"
+          "$bin"
+
   coverage:
     name: Code coverage
     runs-on: ubuntu-latest
