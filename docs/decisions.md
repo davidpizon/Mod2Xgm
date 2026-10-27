@@ -2,6 +2,11 @@
 
 Newest first. Each entry: date, decision, options considered, reason.
 
+## 2026-10-27 — Logging setup (T1.3)
+- A `LoggingLevelSwitch` controls the console logger; `--verbose` raises it to Debug.
+- `ConversionNotes` logs each note at Warning immediately and keeps the rendered text (string values unquoted)
+  for the summary. Stages take the logger and notes as parameters for testability.
+
 ## 2026-10-27 — Exit codes and output checks (T1.2)
 - Expected failures throw `ConversionException` carrying the exit code; `Program.Run` prints the message only.
 - The output path never equals the input (exit 4 even with `--force`); output directories aren't created.

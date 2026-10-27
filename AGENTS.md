@@ -179,7 +179,9 @@ compiler, analyzer, trim/AOT, NuGet or MSBuild warning fails the build.
 - Lossy conversion is expected. Every lossy decision (dropped effect, clipped note range, resampled or
   truncated sample, channel collision) must produce a **conversion note**, never be silent. (The word
   "warning" is reserved for build warnings, which are errors.) Conversion notes are collected in a
-  `ConversionNotes` list and **logged to the console at Serilog `Warning` level**.
+  `ConversionNotes` (`src/ConversionNotes.cs`) and **logged to the console at Serilog `Warning` level**:
+  `notes.Add("Sample {Sample} truncated to {Length} bytes", name, length)`. Stages receive the collector and a
+  logger as parameters (not the static `Log`), so tests can capture output with `tests/.../CollectingSink.cs`.
 
 ## Logging (Serilog)
 

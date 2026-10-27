@@ -9,8 +9,12 @@ namespace Mod2Xgm;
 /// </summary>
 internal static class ConversionCommand
 {
-    public static ExitCode Execute(ConversionOptions options)
+    public static ExitCode Execute(ConversionOptions options) => Execute(options, Log.Logger);
+
+    public static ExitCode Execute(ConversionOptions options, ILogger logger)
     {
+        LogOptions(options, logger);
+
         string input = Path.GetFullPath(options.InputPath);
         CheckInput(input);
 
@@ -20,8 +24,31 @@ internal static class ConversionCommand
             CheckOutput(input, output, options.Force);
         }
 
-        Log.Information("{Input} -> {Output}", input, options.InfoOnly ? "(--info: no file written)" : output);
+        ConversionNotes notes = new(logger);
+
+        // Pipeline stages (read, map, write) are added by later plan tasks; they report lossy decisions to notes.
+
+        logger.Information(
+            "{Input} -> {Output} ({NoteCount} conversion notes)",
+            Path.GetFileName(input),
+            options.InfoOnly ? "(--info: no file written)" : output,
+            notes.Count);
         return ExitCode.Success;
+    }
+
+    private static void LogOptions(ConversionOptions options, ILogger logger)
+    {
+        logger.Debug("Format {Format}, region {Region}, quality {Quality}, seed {Seed}", options.Format, options.Region, options.Quality, options.Seed);
+        logger.Debug(
+            "PCM budget {MaxPcmBytes} bytes, reserved SFX channels {ReserveSfx}, consolidate {Consolidate}, cache {Cache}",
+            options.MaxPcmBytes,
+            options.ReserveSfxChannels,
+            !options.NoConsolidate,
+            !options.NoCache);
+        if (options.IgnoreSamples.Count > 0)
+        {
+            logger.Debug("Ignoring samples {IgnoredSamples}", string.Join(",", options.IgnoreSamples.Order()));
+        }
     }
 
     private static void CheckInput(string input)

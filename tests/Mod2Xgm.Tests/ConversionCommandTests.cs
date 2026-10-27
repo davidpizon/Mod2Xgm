@@ -1,4 +1,5 @@
 using Mod2Xgm.Cli;
+using Serilog.Events;
 
 namespace Mod2Xgm.Tests;
 
@@ -96,5 +97,52 @@ public sealed class ConversionCommandTests
         ConversionOptions options = new() { InputPath = temp.CreateFile("song.mod"), OutputPath = temp.Path };
 
         Assert.Equal(ExitCode.OutputNotWritable, CodeOf(() => ConversionCommand.Execute(options)));
+    }
+
+    [Fact]
+    public void SummaryReportsTheNoteCount()
+    {
+        using TempDirectory temp = new();
+        CollectingSink sink = new();
+
+        ConversionCommand.Execute(new() { InputPath = temp.CreateFile("song.mod") }, sink.CreateLogger());
+
+        Assert.Contains(sink.Messages(LogEventLevel.Information), m => m.Contains("(0 conversion notes)", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void InfoSummarySaysNoFileIsWritten()
+    {
+        using TempDirectory temp = new();
+        CollectingSink sink = new();
+
+        ConversionCommand.Execute(new() { InputPath = temp.CreateFile("song.mod"), InfoOnly = true }, sink.CreateLogger());
+
+        Assert.Contains(sink.Messages(LogEventLevel.Information), m => m.Contains("no file written", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void OptionsAreLoggedAtDebug()
+    {
+        using TempDirectory temp = new();
+        CollectingSink sink = new();
+        ConversionOptions options = new() { InputPath = temp.CreateFile("song.mod"), IgnoreSamples = new HashSet<int> { 7, 3 } };
+
+        ConversionCommand.Execute(options, sink.CreateLogger());
+
+        string[] debug = [.. sink.Messages(LogEventLevel.Debug)];
+        Assert.Contains(debug, m => m.Contains("PCM budget 131072 bytes", StringComparison.Ordinal));
+        Assert.Contains(debug, m => m.Contains("Ignoring samples \"3,7\"", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void DebugIsHiddenAtInformationLevel()
+    {
+        using TempDirectory temp = new();
+        CollectingSink sink = new();
+
+        ConversionCommand.Execute(new() { InputPath = temp.CreateFile("song.mod") }, sink.CreateLogger(LogEventLevel.Information));
+
+        Assert.Empty(sink.Messages(LogEventLevel.Debug));
     }
 }

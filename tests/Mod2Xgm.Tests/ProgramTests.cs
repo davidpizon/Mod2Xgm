@@ -1,3 +1,7 @@
+using Mod2Xgm.Cli;
+using Serilog.Core;
+using Serilog.Events;
+
 namespace Mod2Xgm.Tests;
 
 public sealed class ProgramTests
@@ -45,9 +49,26 @@ public sealed class ProgramTests
     }
 
     [Fact]
-    public void CreateLoggerReturnsALogger()
+    public void CreateLoggerFollowsTheLevelSwitch()
     {
-        Assert.NotNull(Program.CreateLogger());
+        LoggingLevelSwitch levelSwitch = new(LogEventLevel.Information);
+        Serilog.ILogger logger = Program.CreateLogger(levelSwitch);
+
+        Assert.False(logger.IsEnabled(LogEventLevel.Debug));
+        levelSwitch.MinimumLevel = LogEventLevel.Debug;
+        Assert.True(logger.IsEnabled(LogEventLevel.Debug));
+    }
+
+    [Theory]
+    [InlineData(true, LogEventLevel.Debug)]
+    [InlineData(false, LogEventLevel.Information)]
+    public void VerboseSetsTheLogLevel(bool verbose, LogEventLevel expected)
+    {
+        using TempDirectory temp = new();
+
+        Program.ConvertMod(new ConversionOptions { InputPath = temp.CreateFile("song.mod"), Verbose = verbose });
+
+        Assert.Equal(expected, Program.LevelSwitch.MinimumLevel);
     }
 
     [Fact]
