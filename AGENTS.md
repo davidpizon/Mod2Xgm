@@ -170,8 +170,9 @@ compiler, analyzer, trim/AOT, NuGet or MSBuild warning fails the build.
 - C# latest, file-scoped namespaces, `Nullable` enabled — no `!` suppressions without a comment why.
 - Keep parsing, the format-neutral model, mapping and writing in separate layers. Writers never see MOD
   types; the reader never knows about Genesis.
-- Readers validate and throw a single domain exception type (e.g. `ModFormatException`) with the byte
-  offset and a human-readable reason. The CLI turns it into an exit code; no stack traces for user errors.
+- Expected failures throw **`ConversionException(ExitCode, message)`** (`src/ConversionException.cs`) with the
+  exit code from `docs/cli.md`; readers include the byte offset in the message. `Program.Run` prints the message
+  (no stack trace) and exits with that code. Any other exception is a bug and exits 5 with a stack trace.
 - Lossy conversion is expected. Every lossy decision (dropped effect, clipped note range, resampled or
   truncated sample, channel collision) must produce a **conversion note**, never be silent. (The word
   "warning" is reserved for build warnings, which are errors.) Conversion notes are collected in a

@@ -10,8 +10,9 @@ internal static class Program
     internal static int Main(string[] args) => Run(args, static a => CommandLineDefinition.Invoke(a, ConvertMod));
 
     /// <summary>
-    /// Sets up logging, runs <paramref name="body"/>, and turns an unexpected exception into
-    /// <see cref="ExitCode.InternalError"/>. Separated from <see cref="Main"/> so the error path is testable.
+    /// Sets up logging and runs <paramref name="body"/>. A <see cref="ConversionException"/> prints its message and
+    /// exits with its code; any other exception is unexpected and exits with <see cref="ExitCode.InternalError"/>.
+    /// Separated from <see cref="Main"/> so the error paths are testable.
     /// </summary>
     internal static int Run(string[] args, Func<string[], ExitCode> body)
     {
@@ -20,6 +21,11 @@ internal static class Program
         try
         {
             return (int)body(args);
+        }
+        catch (ConversionException ex)
+        {
+            Log.Error("{Message}", ex.Message);
+            return (int)ex.Code;
         }
         catch (Exception ex)
         {
@@ -41,10 +47,5 @@ internal static class Program
                 standardErrorFromLevel: LogEventLevel.Warning)
             .CreateLogger();
 
-    // Placeholder until the conversion pipeline exists (plan M2+).
-    internal static ExitCode ConvertMod(ConversionOptions options)
-    {
-        Log.Information("Mod2Xgm: {Input} -> {Format}", options.InputPath, options.Format);
-        return ExitCode.Success;
-    }
+    internal static ExitCode ConvertMod(ConversionOptions options) => ConversionCommand.Execute(options);
 }
