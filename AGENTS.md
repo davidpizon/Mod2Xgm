@@ -106,7 +106,9 @@ CI (`.github/workflows/ci.yml`) runs on every pull request and push to `main`: b
 Linux and macOS; **Native AOT publish + smoke run** of the binary on `win-x64`, `linux-x64`, `osx-arm64`; and
 code coverage. **Qodana** (`.github/workflows/code_quality.yml`, config in `qodana.yaml`) runs JetBrains' .NET
 inspections on every PR and push to `main` and uploads the findings to GitHub code scanning, next to CodeQL; review
-new Qodana findings on your PR like any other review comment. The **nightly audit**
+new Qodana findings on your PR like any other review comment. On a PR it also keeps one comment starting with
+`<!-- qodana-findings -->` that lists every finding (severity, file:line, rule, message); read it with
+`gh api repos/davidpizon/Mod2Xgm/issues/<PR>/comments`. The **nightly audit**
 (`.github/workflows/nightly-audit.yml`, script `.github/scripts/nightly_audit.py`) runs the same Qodana scan plus
 `dotnet list package --vulnerable` every day and files one GitHub issue per finding, labelled `audit:smell` or
 `audit:vulnerability` plus `severity:<level>`. Code-scanning alerts can't be read through the API from an agent
