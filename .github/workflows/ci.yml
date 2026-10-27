@@ -49,11 +49,21 @@ jobs:
         with:
           dotnet-version: 10.0.x
       - name: Test with coverage
-        run: >
-          dotnet test -c Release
-          --collect:"XPlat Code Coverage"
-          --settings tests/coverage.runsettings
-          --results-directory artifacts/coverage
+        shell: bash
+        run: |
+          set -o pipefail
+          dotnet test -c Release \
+            --collect:"XPlat Code Coverage" \
+            --settings tests/coverage.runsettings \
+            --results-directory artifacts/coverage 2>&1 | tee test-output.log
+      - name: Report test failure output
+        # Surfaces the end of the test output as an annotation, readable without downloading logs.
+        if: failure()
+        shell: bash
+        run: |
+          [ -f test-output.log ] || exit 0
+          tail -n 60 test-output.log | sed -e 's/%/%25/g' -e 's/\r//' | awk 'BEGIN{ORS="%0A"} {print}' > tail.txt
+          echo "::error title=dotnet test output (last 60 lines)::$(cat tail.txt)"
       - name: Locate Cobertura report
         shell: bash
         run: |
