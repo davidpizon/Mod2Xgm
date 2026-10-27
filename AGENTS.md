@@ -210,6 +210,13 @@ the 10-point drop is checked by you, the agent.
    number. A red coverage job is fixed in the same PR with tests.
 5. Never exclude code from coverage (attributes, runsettings filters, `[ExcludeFromCodeCoverage]`) to meet the number.
 
+## Research references
+
+Before working on FM fitting, scoring or the optimizer (plan M6–M9), read [`docs/references/`](docs/references/README.md),
+starting with `fm-matching.md`. Each paper has a summary with a TL;DR, method, results and a "What applies to Mod2Xgm"
+table. Add a summary in the same format when a new paper informs the design. Never commit the papers themselves
+(copyright, public repo).
+
 ## Documentation rules
 
 - If you change behavior, CLI flags, or a format detail, update the matching file in `docs/` **in the same
