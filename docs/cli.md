@@ -45,7 +45,18 @@ Parsed by System.CommandLine; values are converted and checked by `src/Cli/Optio
 ## Output naming
 
 Same directory and base name as the input; extension by format: `.dmf`, `.xgm` (XGM v1) or `.xgm2` (XGM2).
-`C:\music\song.mod` → `C:\music\song.dmf`. Without `--force`, an existing file is not overwritten (exit 4).
+`C:\music\song.mod` → `C:\music\song.dmf`. `--output` is used exactly as given (any extension).
+
+Checks before converting (`src/ConversionCommand.cs`):
+
+| Check | Exit |
+|---|---|
+| Input missing, or a directory | 2 |
+| Output is the input file (never overwritten, even with `--force`) | 4 |
+| Output is a directory, or its directory doesn't exist (not created) | 4 |
+| Output exists and `--force` not given | 4 |
+
+With `--info` no file is written, so the output checks are skipped.
 
 ## Region
 
