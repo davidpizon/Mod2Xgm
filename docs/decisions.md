@@ -2,6 +2,12 @@
 
 Newest first. Each entry: date, decision, options considered, reason.
 
+## 2026-10-27 — Qodana code scanning
+- `.github/workflows/code_quality.yml` replicates the TotallyHot-ArcRouter Qodana workflow: Qodana Community for
+  .NET in Docker, SARIF paths normalized to repository files, uploaded to GitHub code scanning (alongside CodeQL).
+- No baseline yet (new project); add `.qodana/qodana.sarif.json` from a `main` run when findings accumulate.
+- `QODANA_TOKEN` is optional for the Community linter.
+
 ## 2026-10-27 — MOD reader (T2.1, T2.2)
 - `ModModule` is a faithful image of the file (no interpretation); sample lengths and loops in bytes.
 - Pattern count: choose between "all 128 order entries" and "played orders" by which matches the file size.
