@@ -26,8 +26,8 @@ jobs:
         os: [windows-latest, ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 10.0.x
       - name: Restore
@@ -50,8 +50,8 @@ jobs:
           - { os: macos-latest, rid: osx-arm64 }
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 10.0.x
       - name: Install Native AOT prerequisites (Linux)
@@ -76,8 +76,8 @@ jobs:
     env:
       MIN_LINE_COVERAGE: 80
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 10.0.x
       - name: Test with coverage
@@ -118,7 +118,7 @@ jobs:
           echo "::notice title=Line coverage::${pct}% of Mod2Xgm lines covered (required: ${MIN_LINE_COVERAGE}%)"
       - name: Keep report as artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-cobertura
           path: coverage.cobertura.xml
