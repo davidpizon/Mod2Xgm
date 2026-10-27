@@ -1,12 +1,16 @@
 ﻿using System.Globalization;
 using Mod2Xgm.Cli;
 using Serilog;
+using Serilog.Core;
 using Serilog.Events;
 
 namespace Mod2Xgm;
 
 internal static class Program
 {
+    /// <summary>Minimum log level; raised to Debug by <c>--verbose</c>.</summary>
+    internal static LoggingLevelSwitch LevelSwitch { get; } = new(LogEventLevel.Information);
+
     internal static int Main(string[] args) => Run(args, static a => CommandLineDefinition.Invoke(a, ConvertMod));
 
     /// <summary>
@@ -16,7 +20,8 @@ internal static class Program
     /// </summary>
     internal static int Run(string[] args, Func<string[], ExitCode> body)
     {
-        Log.Logger = CreateLogger();
+        LevelSwitch.MinimumLevel = LogEventLevel.Information;
+        Log.Logger = CreateLogger(LevelSwitch);
 
         try
         {
@@ -38,14 +43,18 @@ internal static class Program
         }
     }
 
-    internal static Serilog.ILogger CreateLogger() =>
+    internal static Serilog.ILogger CreateLogger(LoggingLevelSwitch levelSwitch) =>
         new LoggerConfiguration()
-            .MinimumLevel.Information()
+            .MinimumLevel.ControlledBy(levelSwitch)
             .WriteTo.Console(
                 outputTemplate: "{Level:u3} {Message:lj}{NewLine}{Exception}",
                 formatProvider: CultureInfo.InvariantCulture,
                 standardErrorFromLevel: LogEventLevel.Warning)
             .CreateLogger();
 
-    internal static ExitCode ConvertMod(ConversionOptions options) => ConversionCommand.Execute(options);
+    internal static ExitCode ConvertMod(ConversionOptions options)
+    {
+        LevelSwitch.MinimumLevel = options.Verbose ? LogEventLevel.Debug : LogEventLevel.Information;
+        return ConversionCommand.Execute(options, Log.Logger);
+    }
 }

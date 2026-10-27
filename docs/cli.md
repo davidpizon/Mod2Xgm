@@ -129,8 +129,8 @@ Non-printable characters in names are shown as `·`; names are printed in quotes
 
 Logged with Serilog (console sink, invariant culture):
 
-- stdout: `Information` (and `Debug` with `--verbose`) — e.g. the summary
-  `song.mod -> song.dmf  (4 ch, 31 samples, 12 conversion notes)`.
+- stdout: `Information` (and `Debug` with `--verbose`: the effective options, ignored samples, and later
+  per-stage detail). The run ends with a summary such as `song.mod -> C:\music\song.dmf (12 conversion notes)`.
 - stderr: every **conversion note** at `Warning` level (always shown), including the **capacity warning**
   when the samples exceed what XGM/XGM2 (or DMF) can hold — see [sample-capacity.md](sample-capacity.md) —
   plus `Error` / `Fatal`.
