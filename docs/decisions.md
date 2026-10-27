@@ -2,6 +2,13 @@
 
 Newest first. Each entry: date, decision, options considered, reason.
 
+## 2026-10-27 — Code coverage is an agent requirement
+- The GitHub **Code coverage** ruleset is disabled: `actions/upload-code-coverage` returned HTTP 404 (code
+  coverage isn't available for this repository).
+- Instead, **agents enforce it**: line coverage of `Mod2Xgm` ≥ 80 % and no drop > 10 points vs `main`, measured
+  locally and stated in each PR description (AGENTS.md § Testing expectations).
+- CI's `Code coverage` job only reports the number (job summary, `Line coverage` notice, artifact).
+
 ## 2026-10-27 — Project renamed Mod2Xgm
 - Project, solution (`src/Mod2Xgm.slnx`), project file (`src/Mod2Xgm.csproj`), namespace and command name
   (`mod2xgm`) renamed from Mod2Dmf. GitHub repository: `davidpizon/Mod2Xgm`.

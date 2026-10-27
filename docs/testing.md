@@ -14,6 +14,39 @@ Test projects live in **`tests/`**, one folder each (see [`tests/README.md`](../
 5. **CLI tests** — argument parsing (incl. `--ignore-samples` lists, ranges, hex), output naming, exit
    codes, no overwrite without `--force`, console report content (metadata, empty-slot names, statuses).
 
+## Code coverage
+
+Requirement: **≥ 80 % line coverage** of the `Mod2Xgm` assembly and **no more than a 10-point drop** versus
+`main` on every pull request. It is an **agent requirement** (see AGENTS.md § Testing expectations), not a
+GitHub ruleset: the agent measures it before opening a PR and states it in the PR description.
+
+Coverage comes from **coverlet.collector** (Cobertura XML). The `Code coverage` job in
+`.github/workflows/ci.yml` runs on pull requests and pushes to `main`, writes the line coverage to the job
+summary and a `Line coverage` notice annotation, and keeps the report as the `coverage-cobertura` artifact. It
+does not fail on the percentage.
+
+Measure locally (from the repository root):
+
+```
+dotnet test --collect:"XPlat Code Coverage" --settings tests/coverage.runsettings --results-directory artifacts/coverage
+```
+
+Read the line coverage (the first `line-rate` attribute; 0.934 = 93.4 %):
+
+```powershell
+# PowerShell
+$r = Get-ChildItem artifacts/coverage -Recurse -Filter coverage.cobertura.xml | Select-Object -First 1
+'{0:P1}' -f [double]([xml](Get-Content $r.FullName)).coverage.'line-rate'
+```
+
+```bash
+# bash
+grep -o 'line-rate="[0-9.]*"' "$(find artifacts/coverage -name coverage.cobertura.xml | head -n 1)" | head -n 1
+```
+
+Only the `Mod2Xgm` assembly is measured. Don't exclude code from coverage to pass the gate — write the test,
+or make the code testable (e.g. `Program.Run` takes the work as a delegate so the error path is covered).
+
 ## Accuracy harness (drives design decisions)
 
 The goal is the most accurate **sounding** output, so it is measured, not guessed:
