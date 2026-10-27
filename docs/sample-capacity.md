@@ -92,6 +92,27 @@ most noticeable) and for notes on downbeats. The lowest-scoring items are substi
 Turns steps 4–9 off. If the song still doesn't fit after steps 0–3, the converter prints the capacity
 report and exits with code **6**.
 
+## Required FM and PCM samples
+
+The user can pin a sample's rendering. Both lists are hard constraints for the mapper and the optimizer.
+
+**`--require-fm <list>`**: the sample is always played by an **FM** channel (a fitted or library patch). It never
+uses PCM, so it costs no PCM slots, voices or bytes, and it's never moved to PSG.
+
+**`--require-pcm <list>`**: the sample is always **digitized PCM**. It is never replaced by FM or PSG: consolidation
+steps 7 (mid-song swap) and 8 (move to FM/PSG) skip it, and step 6 (merge near-duplicates) doesn't replace its data
+with another sample's. PCM-preserving steps still apply: unused data, dedupe, trim, pitch quantize, half rate.
+- **Too many at once:** when more required-PCM notes overlap than there are PCM voices (DMF has only one), the least
+  important overlapping note is cut, and a conversion note says so. It is never moved to FM.
+- **Too big for the target:** if the required-PCM samples alone still exceed the PCM slots or `--max-pcm-bytes` after
+  the PCM-preserving steps, the conversion fails with **exit 6**. The capacity report names the required samples and
+  what they need. Raise `--max-pcm-bytes` or require fewer samples.
+
+**Rules:**
+- A sample can't be in both lists, or in a list and `--ignore-samples`. The command line rejects that (exit 1).
+- A required sample that is an empty slot, or never played, gets a conversion note and the requirement is ignored.
+- Numbers above the module's sample count are rejected after the MOD is read, as for `--ignore-samples`.
+
 ## Ignoring samples
 
 `--ignore-samples <list>` (see [cli.md](cli.md)) removes MOD samples before mapping. Notes that trigger an

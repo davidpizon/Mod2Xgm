@@ -216,4 +216,63 @@ public sealed class CommandLineTests
     {
         Assert.Equal(ExitCode.Success, CommandLineDefinition.Invoke(["song.mod"], _ => ExitCode.Success));
     }
+
+    [Fact]
+    public void RequiredFmAndPcmListsAreBound()
+    {
+        Outcome result = Run("song.mod", "--require-fm", "4,9-11", "--require-pcm", "1", "--require-pcm", "0x02");
+
+        ConversionOptions options = Assert.IsType<ConversionOptions>(result.Options);
+        Assert.Equal(new[] { 4, 9, 10, 11 }, options.RequireFm.Order());
+        Assert.Equal(new[] { 1, 2 }, options.RequirePcm.Order());
+    }
+
+    [Fact]
+    public void RequiredListsDefaultToEmpty()
+    {
+        ConversionOptions options = Assert.IsType<ConversionOptions>(Run("song.mod").Options);
+
+        Assert.Empty(options.RequireFm);
+        Assert.Empty(options.RequirePcm);
+    }
+
+    [Fact]
+    public void ASampleCannotBeBothFmAndPcm()
+    {
+        Outcome result = Run("song.mod", "--require-fm", "3,5-7", "--require-pcm", "6,1,3");
+
+        Assert.Equal(ExitCode.UsageError, result.Code);
+        Assert.Null(result.Options);
+        Assert.Contains("--require-fm and --require-pcm both list samples 3, 6; a sample can be FM or PCM, not both.", result.Error, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ASingleConflictUsesTheSingularWord()
+    {
+        Outcome result = Run("song.mod", "--require-fm", "3", "--require-pcm", "3");
+
+        Assert.Contains("both list sample 3;", result.Error, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("--require-fm")]
+    [InlineData("--require-pcm")]
+    public void AnIgnoredSampleCannotBeRequired(string requireOption)
+    {
+        Outcome result = Run("song.mod", "--ignore-samples", "8", requireOption, "8");
+
+        Assert.Equal(ExitCode.UsageError, result.Code);
+        Assert.Contains($"--ignore-samples and {requireOption} both list sample 8", result.Error, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("--require-fm")]
+    [InlineData("--require-pcm")]
+    public void InvalidRequiredListsAreUsageErrors(string option)
+    {
+        Outcome result = Run("song.mod", option, "40");
+
+        Assert.Equal(ExitCode.UsageError, result.Code);
+        Assert.Contains($"{option}: Sample '40' is out of range", result.Error, StringComparison.Ordinal);
+    }
 }

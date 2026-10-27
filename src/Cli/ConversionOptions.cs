@@ -14,6 +14,12 @@ internal sealed record ConversionOptions
     /// <summary>MOD sample numbers (1-based) to leave out.</summary>
     public IReadOnlySet<int> IgnoreSamples { get; init; } = new HashSet<int>();
 
+    /// <summary>MOD sample numbers (1-based) that must be played by FM, never as PCM (<c>--require-fm</c>).</summary>
+    public IReadOnlySet<int> RequireFm { get; init; } = new HashSet<int>();
+
+    /// <summary>MOD sample numbers (1-based) that must stay PCM, never FM or PSG (<c>--require-pcm</c>).</summary>
+    public IReadOnlySet<int> RequirePcm { get; init; } = new HashSet<int>();
+
     public bool NoConsolidate { get; init; }
     public long MaxPcmBytes { get; init; } = ConversionDefaults.MaxPcmBytes;
     public Quality Quality { get; init; } = Quality.Normal;

@@ -15,6 +15,8 @@ mod2xgm <input.mod> [options]
 | `--region <pal\|ntsc>` | `pal` for MOD timing, see below | Target refresh/clock region. |
 | `--mapping <name>` | TBD | Channel-mapping strategy (see [channel-mapping.md](channel-mapping.md)). |
 | `--ignore-samples <list>` | none | MOD sample numbers to leave out, 1-based, comma-separated, ranges allowed: `3,7,12-14`. Hex accepted with `0x` (trackers show hex: `0x1F` = 31). Repeatable. Unknown/empty numbers → exit 1. |
+| `--require-fm <list>` | none | MOD samples that **must** be played by FM (never digitized PCM). Same list syntax as `--ignore-samples`. See [sample-capacity.md](sample-capacity.md#required-fm-and-pcm-samples). |
+| `--require-pcm <list>` | none | MOD samples that **must** stay digitized PCM (never replaced by FM or PSG). Same list syntax. |
 | `--no-consolidate` | off | Don't consolidate samples; if the song doesn't fit the target, print the capacity report and exit 6. |
 | `--max-pcm-bytes <n>` | 128K | PCM byte budget per song for XGM/XGM2 (suffixes `K`, `M`). Over budget → capacity warning + consolidation. |
 | `--quality <fast\|normal\|best>` | `normal` | `fast`: simple mapper, no fitting. `normal`: multi-pass with a 5-minute budget. `best`: run until no improvement. See [multi-pass.md](multi-pass.md). |
@@ -37,6 +39,10 @@ Parsed by System.CommandLine; values are converted and checked by `src/Cli/Optio
 - `--ignore-samples`: comma-separated numbers and ranges, decimal or `0x` hex, each **1–31**; repeat the option
   to add more. Numbers above the module's actual sample count (e.g. 16+ in a 15-sample MOD) are rejected after
   the MOD is read.
+- `--require-fm`, `--require-pcm`: same syntax and range as `--ignore-samples`, repeatable.
+- **Conflicts (exit 1, every conflict reported):** a sample may not appear in both `--require-fm` and
+  `--require-pcm` ("a sample can be FM or PCM, not both"), nor in `--ignore-samples` and either `--require-*`
+  list ("an ignored sample isn't converted at all").
 - `--max-pcm-bytes`: positive integer, optional `K` (×1024) or `M` (×1024²) suffix, case-insensitive.
 - `--time-budget`: positive integer with optional `s`, `m` or `h` (plain number = seconds).
 - `--reserve-sfx-channels`: `0`–`4` for `xgm`, `0`–`3` for `xgm2`; must be `0` for `dmf` (one DAC channel, nothing to reserve).
@@ -73,7 +79,7 @@ converter must rescale timing so tempo stays the same (see [genesis-audio.md](ge
 | 3 | Input is not a valid or supported MOD |
 | 4 | Output exists and `--force` not given, or output not writable |
 | 5 | Conversion failed (internal error) |
-| 6 | Song doesn't fit the target and `--no-consolidate` was given |
+| 6 | Song doesn't fit the target: `--no-consolidate` was given, or the `--require-pcm` samples alone exceed the PCM slots/bytes |
 
 ## Console report
 

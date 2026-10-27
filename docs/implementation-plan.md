@@ -82,7 +82,7 @@
 |---|---|---|
 | T5.1 | `SampleProcessor`: high-quality resampling, bit depth, loops, trim | Unit + spectral tests |
 | T5.2 | `DmfWriter` (all sections, zlib, one pattern per matrix row per channel) | Byte-exact + round trip |
-| T5.3 | `SimpleMapper`: busiest percussive channel → DAC; others → FM from a built-in patch library; noise → PSG | Tests; conversion notes |
+| T5.3 | `SimpleMapper`: busiest percussive channel → DAC; others → FM from a built-in patch library; noise → PSG; honors `--require-fm` / `--require-pcm` | Tests incl. required samples; conversion notes |
 | T5.4 | Timing: tick times, custom Hz, mid-song `Fxx` | Duration within 1 % of openmpt123 |
 | T5.5 | Effect translation MOD → DMF | Per-effect tests |
 | T5.6 | `--ignore-samples`; report section 3; `--quality fast` path | Every conversion logs metadata + full sample table (all formats, with/without `--info`, also when failing after read) |
@@ -120,7 +120,7 @@
 |---|---|---|
 | T9.1 | Target limits model (FM/CH3/PSG/PCM voices/slots/bytes, `--reserve-sfx-channels`, `--max-pcm-bytes`) | Tests per target |
 | T9.2 | Capacity check + warning; `--no-consolidate` → exit 6 | Tests |
-| T9.3 | Importance scoring; greedy allocation per section | Always produces a valid plan |
+| T9.3 | Importance scoring; greedy allocation per section; `--require-fm` / `--require-pcm` as hard constraints | Always produces a valid plan; required samples never change type; exit 6 when required PCM can't fit |
 | T9.4 | Consolidation moves (dedupe, trim, pitch quantize, half rate, merge, mid-song swap, voice stealing) as allocator moves | Tests; never a wrong pitch |
 | T9.5 | Render & refine loop (worst-section re-fit / re-allocate), `--quality` / `--time-budget` / `--seed` | Deterministic; improves corpus score vs greedy |
 | T9.6 | Optimizer vs simple mapper on DMF; switch default if better | Decision logged; **0.2.0** |
