@@ -126,13 +126,21 @@ public sealed class ConversionCommandTests
     {
         using TempDirectory temp = new();
         CollectingSink sink = new();
-        ConversionOptions options = new() { InputPath = temp.CreateFile("song.mod"), IgnoreSamples = new HashSet<int> { 7, 3 } };
+        ConversionOptions options = new()
+        {
+            InputPath = temp.CreateFile("song.mod"),
+            IgnoreSamples = new HashSet<int> { 7, 3 },
+            RequireFm = new HashSet<int> { 9 },
+            RequirePcm = new HashSet<int> { 2, 1 },
+        };
 
         ConversionCommand.Execute(options, sink.CreateLogger());
 
         string[] debug = [.. sink.Messages(LogEventLevel.Debug)];
         Assert.Contains(debug, m => m.Contains("PCM budget 131072 bytes", StringComparison.Ordinal));
         Assert.Contains(debug, m => m.Contains("Ignoring samples \"3,7\"", StringComparison.Ordinal));
+        Assert.Contains(debug, m => m.Contains("Samples required as FM \"9\"", StringComparison.Ordinal));
+        Assert.Contains(debug, m => m.Contains("Samples required as PCM \"1,2\"", StringComparison.Ordinal));
     }
 
     [Fact]

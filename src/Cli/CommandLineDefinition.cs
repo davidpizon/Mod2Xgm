@@ -41,6 +41,16 @@ internal sealed class CommandLineDefinition
         Description = "MOD samples to leave out, e.g. 3,7,12-14 or 0x1F. Repeatable.",
     };
 
+    public Option<string[]> RequireFm { get; } = new("--require-fm")
+    {
+        Description = "MOD samples that must be played by FM (never as digitized PCM), e.g. 4,9-11. Repeatable.",
+    };
+
+    public Option<string[]> RequirePcm { get; } = new("--require-pcm")
+    {
+        Description = "MOD samples that must stay digitized PCM (never replaced by FM or PSG), e.g. 1,2. Repeatable.",
+    };
+
     public Option<bool> NoConsolidate { get; } = new("--no-consolidate")
     {
         Description = "Don't consolidate samples; fail (exit 6) if the song doesn't fit.",
@@ -107,6 +117,8 @@ internal sealed class CommandLineDefinition
             Region,
             Mapping,
             IgnoreSamples,
+            RequireFm,
+            RequirePcm,
             NoConsolidate,
             MaxPcmBytes,
             Quality,

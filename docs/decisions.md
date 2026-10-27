@@ -8,6 +8,13 @@ Newest first. Each entry: date, decision, options considered, reason.
 - No baseline yet (new project); add `.qodana/qodana.sarif.json` from a `main` run when findings accumulate.
 - `QODANA_TOKEN` is optional for the Community linter.
 
+## 2026-10-27 — --require-fm / --require-pcm
+- Two new sample-list options pin a sample's rendering: `--require-fm` (always FM, never PCM/PSG) and
+  `--require-pcm` (always digitized PCM, never FM/PSG). Hard constraints for the mapper and optimizer.
+- A sample in both lists is a usage error (exit 1). So is a sample that is both ignored and required.
+- Required PCM that overlaps beyond the PCM voices: the least important note is cut (noted), never moved to FM.
+  Required PCM that can't fit the slots/bytes after PCM-preserving consolidation: exit 6.
+
 ## 2026-10-27 — MOD reader (T2.1, T2.2)
 - `ModModule` is a faithful image of the file (no interpretation); sample lengths and loops in bytes.
 - Pattern count: choose between "all 128 order entries" and "played orders" by which matches the file size.
