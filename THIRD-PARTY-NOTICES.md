@@ -27,7 +27,7 @@ Planned (add the entry when the code lands):
 |---|---|---|
 | xunit.v3, xunit.runner.visualstudio | Apache-2.0 | https://github.com/xunit/xunit |
 | Microsoft.NET.Test.Sdk | MIT | https://github.com/microsoft/vstest |
-| coverlet.collector | MIT | https://github.com/coverlet-coverage/coverlet |
+| Microsoft.Testing.Extensions.CodeCoverage | Microsoft .NET Library License (closed-source, free to use) | https://github.com/microsoft/codecoverage |
 
 ## Reference documents included in `docs/formats/`
 
