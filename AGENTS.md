@@ -190,7 +190,10 @@ compiler, analyzer, trim/AOT, NuGet or MSBuild warning fails the build.
   exit code from `docs/cli.md`; readers include the byte offset in the message. `Program.Run` prints the message
   (no stack trace) and exits with that code. Any other exception is a bug and exits 5 with a stack trace.
 - Lossy conversion is expected. Every lossy decision (dropped effect, clipped note range, resampled or
-  truncated sample, channel collision) must produce a **conversion note**, never be silent. (The word
+  truncated sample, channel collision) must produce a **conversion note**, never be silent. So must every
+  **assumption** the converter makes (e.g. "no tag, so this is a 15-sample Soundtracker file") and every **sign of a
+  damaged or unusual input** (odd volumes, unprintable names, impossible pattern cells), even when nothing is changed.
+  Be relaxed about accepting input and loud about doubts: reject only what can't be read, and say why. (The word
   "warning" is reserved for build warnings, which are errors.) Conversion notes are collected in a
   `ConversionNotes` (`src/ConversionNotes.cs`) and **logged to the console at Serilog `Warning` level**:
   `notes.Add("Sample {Sample} truncated to {Length} bytes", name, length)`. Stages receive the collector and a

@@ -6,6 +6,7 @@ namespace Mod2Xgm.Tests.Mod;
 /// <summary>
 /// Builds MOD file bytes in code (docs/formats/mod.md), so tests never need copyrighted MOD files.
 /// Defaults: 31-sample ProTracker layout, tag "M.K.", one order (pattern 0), all samples empty.
+/// Set <see cref="Soundtracker"/> for the 15-sample layout (no tag, patterns at offset 600).
 /// </summary>
 internal sealed class ModBuilder
 {
@@ -15,6 +16,12 @@ internal sealed class ModBuilder
 
     public string Title { get; set; } = "test song";
     public string Tag { get; set; } = "M.K.";
+
+    /// <summary>Writes the 15-sample Soundtracker layout: 15 sample headers and no tag (<see cref="Tag"/> is ignored).</summary>
+    public bool Soundtracker { get; set; }
+
+    /// <summary>Bytes appended after the sample data.</summary>
+    public byte[] TrailingBytes { get; set; } = [];
     public int RestartPosition { get; set; } = 127;
 
     /// <summary>Overrides the stored song length (default: number of orders).</summary>
@@ -33,9 +40,19 @@ internal sealed class ModBuilder
         int loopStart = 0,
         int loopLength = 0,
         Func<int, sbyte>? data = null,
-        byte[]? rawName = null)
+        byte[]? rawName = null,
+        int? loopStartWords = null,
+        byte? fineTuneByte = null)
     {
-        _samples[number - 1] = new SampleSpec(name, rawName, length, fineTune, volume, loopStart, loopLength, data ?? (i => (sbyte)(i % 64)));
+        _samples[number - 1] = new SampleSpec(
+            name,
+            rawName,
+            length,
+            fineTuneByte ?? (byte)(fineTune & 0x0F),
+            volume,
+            loopStartWords ?? (loopStart / 2),
+            loopLength,
+            data ?? (i => (sbyte)(i % 64)));
         return this;
     }
 
@@ -61,7 +78,13 @@ internal sealed class ModBuilder
         using MemoryStream stream = new();
         Write(stream, Text(Title, 20));
 
-        foreach (SampleSpec? spec in _samples)
+        int sampleCount = Soundtracker ? 15 : 31;
+        if (_samples.Skip(sampleCount).Any(spec => spec is not null))
+        {
+            throw new InvalidOperationException("A 15-sample module has samples 1-15 only.");
+        }
+
+        foreach (SampleSpec? spec in _samples.Take(sampleCount))
         {
             byte[] header = new byte[30];
             if (spec is not null)
@@ -69,9 +92,9 @@ internal sealed class ModBuilder
                 byte[] name = spec.RawName ?? Text(spec.Name, 22);
                 name.AsSpan(0, Math.Min(22, name.Length)).CopyTo(header);
                 BinaryPrimitives.WriteUInt16BigEndian(header.AsSpan(22), (ushort)(spec.Length / 2));
-                header[24] = (byte)(spec.FineTune & 0x0F);
+                header[24] = spec.FineTuneByte;
                 header[25] = (byte)spec.Volume;
-                BinaryPrimitives.WriteUInt16BigEndian(header.AsSpan(26), (ushort)(spec.LoopStart / 2));
+                BinaryPrimitives.WriteUInt16BigEndian(header.AsSpan(26), (ushort)spec.LoopStartWords);
                 BinaryPrimitives.WriteUInt16BigEndian(header.AsSpan(28), (ushort)(spec.LoopLength / 2));
             }
 
@@ -84,7 +107,10 @@ internal sealed class ModBuilder
         stream.WriteByte((byte)(SongLength ?? _orders.Length));
         stream.WriteByte((byte)RestartPosition);
         Write(stream, [.. table.Select(o => (byte)o)]);
-        Write(stream, Encoding.Latin1.GetBytes(Tag));
+        if (!Soundtracker)
+        {
+            Write(stream, Encoding.Latin1.GetBytes(Tag));
+        }
 
         int patternCount = table.Max() + 1;
         for (int p = 0; p < patternCount; p++)
@@ -92,7 +118,7 @@ internal sealed class ModBuilder
             Write(stream, _patterns.TryGetValue(p, out byte[]? bytes) ? bytes : new byte[1024]);
         }
 
-        foreach (SampleSpec? spec in _samples)
+        foreach (SampleSpec? spec in _samples.Take(sampleCount))
         {
             if (spec is not null)
             {
@@ -100,6 +126,7 @@ internal sealed class ModBuilder
             }
         }
 
+        Write(stream, TrailingBytes);
         return stream.ToArray();
     }
 
@@ -131,9 +158,9 @@ internal sealed class ModBuilder
         string Name,
         byte[]? RawName,
         int Length,
-        int FineTune,
+        byte FineTuneByte,
         int Volume,
-        int LoopStart,
+        int LoopStartWords,
         int LoopLength,
         Func<int, sbyte> Data);
 }
