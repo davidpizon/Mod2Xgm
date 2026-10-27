@@ -6,11 +6,13 @@ its license, in the same pull request.
 
 ## Shipped in the Mod2Xgm executable
 
-| Component | Version | License | Source |
-|---|---|---|---|
-| Serilog | 4.3.0 | Apache-2.0 | https://github.com/serilog/serilog |
-| Serilog.Sinks.Console | 6.0.0 | Apache-2.0 | https://github.com/serilog/serilog-sinks-console |
-| .NET runtime and libraries (Native AOT) | 10.0 | MIT | https://github.com/dotnet/runtime |
+Versions are pinned in [`Directory.Packages.props`](Directory.Packages.props).
+
+| Component | License | Source |
+|---|---|---|
+| Serilog | Apache-2.0 | https://github.com/serilog/serilog |
+| Serilog.Sinks.Console | Apache-2.0 | https://github.com/serilog/serilog-sinks-console |
+| .NET runtime and libraries (Native AOT, .NET 10) | MIT | https://github.com/dotnet/runtime |
 
 Planned (add the entry when the code lands):
 
