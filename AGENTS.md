@@ -135,6 +135,7 @@ compiler, analyzer, trim/AOT, NuGet or MSBuild warning fails the build.
 ## Git workflow
 
 - **Never push to `main`.** Every change goes on a branch and into a **pull request**; David reviews and merges.
+- **Open every pull request as a draft** (David, 2026-10-27). David marks it ready for review; agents never do.
 - Branch names: `feat/…`, `fix/…`, `docs/…`, `chore/…`, `test/…`. For plan work, include the task id:
   `feat/t2-2-mod-reader`.
 - One plan task (`T#.#`) per PR; put the task id in the PR title ("T2.2: MOD reader").
