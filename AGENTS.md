@@ -129,6 +129,9 @@ compiler, analyzer, trim/AOT, NuGet or MSBuild warning fails the build.
 - One plan task (`T#.#`) per PR; put the task id in the PR title ("T2.2: MOD reader").
 - Keep `main` buildable: a PR merges only with green CI (once CI exists, T0.4).
 - Line endings are normalized by `.gitattributes`; don't commit line-ending-only changes.
+- **Dependabot** (`.github/dependabot.yml`) opens dependency PRs every Monday: NuGet packages (test tooling and
+  Serilog grouped) and GitHub Actions. Treat them like any PR: CI must be green, including AOT publish. For a
+  NuGet update, also check `THIRD-PARTY-NOTICES.md` (license changes) and the decision log for major versions.
 
 ## SGDK compliance
 

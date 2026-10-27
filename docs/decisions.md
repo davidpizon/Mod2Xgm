@@ -2,6 +2,11 @@
 
 Newest first. Each entry: date, decision, options considered, reason.
 
+## 2026-10-27 — Weekly Dependabot scan
+- `.github/dependabot.yml`: weekly (Mondays 06:00 Pacific) version updates for NuGet (central
+  `Directory.Packages.props`) and GitHub Actions; test tooling, Serilog and actions grouped into single PRs.
+- Security alerts and security updates are repository settings (Settings → Code security), enabled by David.
+
 ## 2026-10-27 — --require-fm / --require-pcm
 - Two new sample-list options pin a sample's rendering: `--require-fm` (always FM, never PCM/PSG) and
   `--require-pcm` (always digitized PCM, never FM/PSG). Hard constraints for the mapper and optimizer.
