@@ -122,3 +122,11 @@ jobs:
         with:
           name: coverage-cobertura
           path: coverage.cobertura.xml
+
+  audit-script:
+    name: Nightly audit script self-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Self-test (no GitHub calls)
+        run: python3 .github/scripts/nightly_audit.py --self-test
