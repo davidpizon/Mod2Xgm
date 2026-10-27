@@ -35,6 +35,29 @@ because of how the Genesis targets play PCM:
 
 Limits live as named constants in one place (`src/Xgm/XgmLimits.cs`, `src/Dmf/DmfLimits.cs`).
 
+## Usage scan (`src/Mod/SampleUsage.cs`, plan T2.4)
+
+Before anything is dropped or merged, the converter counts how often each sample is played. The counts are the
+**Notes** column of the sample table ([cli.md](cli.md#console-report)) and feed *Importance* below. Decided by David,
+2026-10-27:
+
+- **A note counts when it really starts.** A cell with a period plays the channel's current sample: the last sample
+  number seen on that channel, even in an earlier row. A sample number without a period only selects the sample.
+- **Not counted:** tone portamento (`3xx`, `5xy`), which slides the playing sound to the new pitch, and a note delayed
+  by `EDx` with x ≥ the current speed, which never plays. Retrigger `E9x` counts once.
+- **The song's flow is followed:** `Bxx` (position jump), `Dxx` (pattern break, two decimal digits; past row 63 means
+  row 0), `E6x` (pattern loop, per channel, every repeat counted) and `F00` (stop). `Fxx` below `0x20` sets the speed
+  used for `EDx`. A jump past the last order ends the song.
+- **Loops:** a song that just reaches its end is walked once. If it jumps back to rows it already played, the repeating
+  part is walked **one more time**, then the walk stops.
+- **Status:** `used` (holds sound and is played), `unused` (holds sound, never played: dropped by consolidation step 1),
+  `empty` (no sound). `ignored` (from `--ignore-samples`) is added by T5.6.
+- **Conversion notes** report everything odd: the song looping back; `F00`; a jump past the end; orders never reached;
+  patterns stored but never played; notes delayed past their row; notes before a channel has a sample; an empty sample
+  that is played; a sample with sound that is never played.
+
+This is a row-level walk. Exact tick-by-tick playback is plan M3 (T3.4), which may refine the counts.
+
 ## Capacity check (always runs)
 
 After mapping, the converter computes the **required** variant count, peak simultaneous PCM voices and

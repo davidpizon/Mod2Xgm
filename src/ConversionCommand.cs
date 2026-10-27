@@ -37,6 +37,13 @@ internal static class ConversionCommand
             module.Patterns.Count,
             module.SongLength);
 
+        SampleUsage usage = SampleUsageScanner.Scan(module, notes);
+        logger.Debug(
+            "Usage scan: {Rows} rows played, {Used} samples used, loops back: {LoopsBack}",
+            usage.RowsPlayed,
+            usage.Samples.Count(s => s.Status == SampleStatus.Used),
+            usage.LoopsBack);
+
         // Later stages (report, model, map, write) are added by later plan tasks; they report lossy decisions to notes.
 
         logger.Information(

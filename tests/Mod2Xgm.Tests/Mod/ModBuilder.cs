@@ -131,8 +131,8 @@ internal sealed class ModBuilder
         return stream.ToArray();
     }
 
-    /// <summary>A minimal valid MOD: one empty pattern and one short sample.</summary>
-    public static byte[] Minimal() => new ModBuilder().WithSample(1, "kick", 64).Build();
+    /// <summary>A minimal valid MOD: one pattern that plays its one short sample once, so it reads without notes.</summary>
+    public static byte[] Minimal() => new ModBuilder().WithSample(1, "kick", 64).WithCell(0, row: 0, channel: 0, sample: 1, period: 428).Build();
 
     private byte[] Pattern(int index)
     {
