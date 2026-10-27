@@ -17,13 +17,14 @@ Test projects live in **`tests/`**, one folder each (see [`tests/README.md`](../
 ## Code coverage
 
 Requirement: **≥ 80 % line coverage** of the `Mod2Xgm` assembly and **no more than a 10-point drop** versus
-`main` on every pull request. It is an **agent requirement** (see AGENTS.md § Testing expectations), not a
-GitHub ruleset: the agent measures it before opening a PR and states it in the PR description.
+`main` on every pull request. **CI enforces the 80 %** (the `Code coverage` job fails below it); the agent
+also measures it before opening a PR, checks the drop versus `main`, and states the number in the PR
+description (AGENTS.md § Testing expectations). It is not a GitHub ruleset.
 
 Coverage comes from **coverlet.collector** (Cobertura XML). The `Code coverage` job in
 `.github/workflows/ci.yml` runs on pull requests and pushes to `main`, writes the line coverage to the job
-summary and a `Line coverage` notice annotation, and keeps the report as the `coverage-cobertura` artifact. It
-does not fail on the percentage.
+summary and a `Line coverage` annotation, **fails below 80 %** (`MIN_LINE_COVERAGE`), and keeps the report as
+the `coverage-cobertura` artifact.
 
 Measure locally (from the repository root):
 
