@@ -208,7 +208,7 @@ the 10-point drop is checked by you, the agent.
 3. State the number in the PR description, e.g. `Line coverage: 93.4 % (main: 95.0 %)`.
 4. Check the CI `Code coverage` job: it fails below 80 % and its `Line coverage` annotation should match your
    number. A red coverage job is fixed in the same PR with tests.
-5. Never exclude code from coverage (attributes, runsettings filters, `[ExcludeFromCodeCoverage]`) to meet the number.
+5. Never exclude code from coverage (attributes, coverage-settings filters, `[ExcludeFromCodeCoverage]`) to meet the number.
 
 ## Documentation rules
 

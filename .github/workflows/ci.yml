@@ -83,9 +83,11 @@ jobs:
         run: |
           set -o pipefail
           dotnet test -c Release \
-            --collect:"XPlat Code Coverage" \
-            --settings tests/coverage.runsettings \
-            --results-directory artifacts/coverage 2>&1 | tee test-output.log
+            --coverage \
+            --coverage-output-format cobertura \
+            --coverage-output coverage.cobertura.xml \
+            --coverage-settings "$PWD/tests/coverage.settings.xml" \
+            --results-directory "$PWD/artifacts/coverage" 2>&1 | tee test-output.log
       - name: Report test failure output
         # Surfaces the end of the test output as an annotation, readable without downloading logs.
         if: failure()

@@ -21,15 +21,20 @@ Requirement: **≥ 80 % line coverage** of the `Mod2Xgm` assembly and **no more 
 also measures it before opening a PR, checks the drop versus `main`, and states the number in the PR
 description (AGENTS.md § Testing expectations). It is not a GitHub ruleset.
 
-Coverage comes from **coverlet.collector** (Cobertura XML). The `Code coverage` job in
-`.github/workflows/ci.yml` runs on pull requests and pushes to `main`, writes the line coverage to the job
+Tests run on **Microsoft.Testing.Platform** (MTP), selected in the root `global.json` (`"test": { "runner":
+"Microsoft.Testing.Platform" }`). xunit.v3 4.x requires it: with the .NET 10 SDK, the old VSTest-based
+`dotnet test` refuses MTP test projects.
+
+Coverage comes from **Microsoft.Testing.Extensions.CodeCoverage** (Cobertura XML), configured by
+`tests/coverage.settings.xml` (measures `Mod2Xgm.dll` only). The `Code coverage` job in
+`.github/workflows/ci.yml` runs on pull requests and pushes to `main`. It writes the line coverage to the job
 summary and a `Line coverage` annotation, **fails below 80 %** (`MIN_LINE_COVERAGE`), and keeps the report as
 the `coverage-cobertura` artifact.
 
 Measure locally (from the repository root):
 
 ```
-dotnet test --collect:"XPlat Code Coverage" --settings tests/coverage.runsettings --results-directory artifacts/coverage
+dotnet test --coverage --coverage-output-format cobertura --coverage-output coverage.cobertura.xml --coverage-settings tests/coverage.settings.xml --results-directory artifacts/coverage
 ```
 
 Read the line coverage (the first `line-rate` attribute; 0.934 = 93.4 %):
