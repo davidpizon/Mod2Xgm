@@ -101,21 +101,22 @@ public sealed class CommandLineTests
     }
 
     [Theory]
-    [InlineData("fast", Quality.Fast)]
-    [InlineData("normal", Quality.Normal)]
-    [InlineData("best", Quality.Best)]
-    public void QualityValues(string text, Quality expected)
+    [InlineData("fast", nameof(Quality.Fast))]
+    [InlineData("normal", nameof(Quality.Normal))]
+    [InlineData("best", nameof(Quality.Best))]
+    public void QualityValues(string text, string expected)
     {
-        Assert.Equal<Quality?>(expected, Run("song.mod", "--quality", text).Options?.Quality);
+        // Enum names as strings: the enums are internal, and public test methods can't take internal types.
+        Assert.Equal<Quality?>(Enum.Parse<Quality>(expected), Run("song.mod", "--quality", text).Options?.Quality);
     }
 
     [Theory]
-    [InlineData("dmf", OutputFormat.Dmf)]
-    [InlineData("xgm", OutputFormat.Xgm)]
-    [InlineData("xgm2", OutputFormat.Xgm2)]
-    public void FormatValues(string text, OutputFormat expected)
+    [InlineData("dmf", nameof(OutputFormat.Dmf))]
+    [InlineData("xgm", nameof(OutputFormat.Xgm))]
+    [InlineData("xgm2", nameof(OutputFormat.Xgm2))]
+    public void FormatValues(string text, string expected)
     {
-        Assert.Equal<OutputFormat?>(expected, Run("song.mod", "--format", text).Options?.Format);
+        Assert.Equal<OutputFormat?>(Enum.Parse<OutputFormat>(expected), Run("song.mod", "--format", text).Options?.Format);
     }
 
     [Fact]
@@ -174,16 +175,16 @@ public sealed class CommandLineTests
     }
 
     [Theory]
-    [InlineData(OutputFormat.Dmf, 0, true)]
-    [InlineData(OutputFormat.Dmf, 1, false)]
-    [InlineData(OutputFormat.Xgm, 4, true)]
-    [InlineData(OutputFormat.Xgm, 5, false)]
-    [InlineData(OutputFormat.Xgm2, 3, true)]
-    [InlineData(OutputFormat.Xgm2, 4, false)]
-    [InlineData(OutputFormat.Xgm, -1, false)]
-    public void ReserveSfxChannelLimits(OutputFormat format, int channels, bool valid)
+    [InlineData(nameof(OutputFormat.Dmf), 0, true)]
+    [InlineData(nameof(OutputFormat.Dmf), 1, false)]
+    [InlineData(nameof(OutputFormat.Xgm), 4, true)]
+    [InlineData(nameof(OutputFormat.Xgm), 5, false)]
+    [InlineData(nameof(OutputFormat.Xgm2), 3, true)]
+    [InlineData(nameof(OutputFormat.Xgm2), 4, false)]
+    [InlineData(nameof(OutputFormat.Xgm), -1, false)]
+    public void ReserveSfxChannelLimits(string format, int channels, bool valid)
     {
-        Assert.Equal(valid, OptionsBinder.ReserveSfxError(format, channels) is null);
+        Assert.Equal(valid, OptionsBinder.ReserveSfxError(Enum.Parse<OutputFormat>(format), channels) is null);
     }
 
     [Fact]
