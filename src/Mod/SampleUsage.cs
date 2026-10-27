@@ -122,7 +122,7 @@ internal static class SampleUsageScanner
             for (int channel = 0; channel < channels; channel++)
             {
                 ModCell cell = cells[row, channel];
-                if (cell.Effect == SetSpeed && cell.EffectParameter is > 0 and < FirstTempoValue)
+                if (cell is { Effect: SetSpeed, EffectParameter: > 0 and < FirstTempoValue })
                 {
                     speed = cell.EffectParameter;
                 }
@@ -131,7 +131,7 @@ internal static class SampleUsageScanner
             for (int channel = 0; channel < channels; channel++)
             {
                 ModCell cell = cells[row, channel];
-                if (cell.Sample is > 0 && cell.Sample <= sampleCount)
+                if (cell.Sample > 0 && cell.Sample <= sampleCount)
                 {
                     current[channel] = cell.Sample;
                 }
@@ -163,7 +163,7 @@ internal static class SampleUsageScanner
                 break;
             }
 
-            if (loopBackRow is int loopRow)
+            if (loopBackRow is { } loopRow)
             {
                 row = loopRow;
                 continue;

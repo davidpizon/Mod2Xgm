@@ -45,7 +45,7 @@ public sealed class SampleUsageTests
         Assert.Equal(new SampleUse(3, 0, SampleStatus.Unused), usage.Samples[2]);
         Assert.Equal(new SampleUse(4, 0, SampleStatus.Empty), usage.Samples[3]);
         Assert.Equal(SampleStatus.Used, usage.Samples[0].Status);
-        Assert.Equal(31, usage.Samples.Count);
+        Assert.Equal(Enumerable.Range(1, 31), usage.Samples.Select(s => s.Number));
         HasNote(notes, "Sample 3 spare: holds 64 bytes but is never played");
     }
 
