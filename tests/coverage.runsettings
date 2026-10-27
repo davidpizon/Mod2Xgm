@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Code coverage settings for coverlet.collector. Used by CI and locally:
-     dotnet test --collect:"XPlat Code Coverage" --settings tests/coverage.runsettings -->
+<!-- Code coverage settings for coverlet.collector, used by CI and locally.
+     The command line is in docs/testing.md (XML comments can't contain a double hyphen). -->
 <RunSettings>
   <DataCollectionRunSettings>
     <DataCollectors>
