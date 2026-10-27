@@ -49,7 +49,7 @@
 | Task | Work | Acceptance |
 |---|---|---|
 | T1.1 (PR #10) | System.CommandLine with every option in [cli.md](cli.md) → immutable `ConversionOptions` | Parser tests for every option (`--ignore-samples 3,7,12-14,0x1F`, `128K`/`1M`, `90s`/`5m`, quality, seed, reserve-sfx bounds per format) |
-| T1.2 (PR_REF) | Exit codes 0–6; output naming; no overwrite without `--force` | CLI tests per exit code |
+| T1.2 (PR #12) | Exit codes 0–6; output naming; no overwrite without `--force` | CLI tests per exit code |
 | T1.3 | Serilog from options (`--verbose` → Debug); `ConversionNotes` → `Warning` | Captured-log tests |
 | T1.4 | AOT publish check with System.CommandLine + Serilog | Clean on all OSes |
 
