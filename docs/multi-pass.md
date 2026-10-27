@@ -28,11 +28,17 @@ decides by error and cost, not by a fixed "FM first" rule.
 
 ## Candidates
 
-- **FM patch fitting.** Start from the nearest patch in a built-in library, then optimize the YM2612
-  operator parameters (ALG, FB, per-op AR/DR/SL/RR/D2R, TL, MULT, DT, RS, SSG-EG) against the sample's
-  spectrum and envelope with a derivative-free optimizer (CMA-ES / Nelder-Mead), rendering through the
-  in-app YM2612 model. A sample's timbre changes with pitch, so fit **per pitch region** (typically 1–3
-  patches per instrument). Deterministic: fixed seed (`--seed`).
+- **FM patch fitting.** Hybrid search, following the research in
+  [references/fm-matching.md](references/fm-matching.md):
+  1. **Structure (discrete):** for each of the 8 algorithms, choose MULT/DT per operator by a genetic
+     algorithm or by exhaustive search pruned with harmonic analysis.
+  2. **Levels and envelopes:** with the structure fixed, fit TL, FB, AR/DR/SL/D2R/RR and SSG-EG by local search
+     on the integer parameter grid, with modulator TL bounded, against the sample's **time-varying** harmonic
+     spectrum.
+  3. **Select** by rendered audio through the in-app YM2612 model.
+
+  Every search is seeded from the nearest built-in library patch and is deterministic (`--seed`). A sample's
+  timbre changes with pitch, so fit **per pitch region** (typically 1–3 patches per instrument).
 - **PSG.** Square or noise approximations for simple tones and hi-hats/cymbals.
 - **PCM variants.** Pre-resampled copies; costs slots, voices and bytes (see [sample-capacity.md](sample-capacity.md)).
 - **Combined instruments** (only for *locked* pairs — they start together at a fixed pitch interval, e.g.

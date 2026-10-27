@@ -8,6 +8,16 @@ Newest first. Each entry: date, decision, options considered, reason.
 - The library's default exception handler is off, so unexpected exceptions reach `Program.Run` and exit 5.
 - `--reserve-sfx-channels` must be 0 for DMF.
 
+## 2026-10-27 — FM fitting approach from the literature
+- FM patch fitting (T8.2) uses a **hybrid search**: per-algorithm structure search (GA or pruned exhaustive over
+  MULT/DT), then local search over levels and envelopes against the time-varying harmonic spectrum, selected
+  by rendered audio. Based on Horner et al. 1993, Sound2Synth 2022 and DDX7 2022
+  ([references/fm-matching.md](references/fm-matching.md)).
+- MFCC distance will be tracked next to the log-mel distance in `src/Scoring`.
+- No neural parameter estimator inside the converter for now.
+- Papers are **not** copied into this public repository (copyright); citations and summaries only. Local copies
+  go in the git-ignored `docs/references/papers/`.
+
 ## 2026-10-27 — Code coverage is an agent requirement
 - The GitHub **Code coverage** ruleset is disabled: `actions/upload-code-coverage` returned HTTP 404 (code
   coverage isn't available for this repository).
