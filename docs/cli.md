@@ -28,6 +28,20 @@ mod2xgm <input.mod> [options]
 | `-h, --help` | | Usage. |
 | `--version` | | Version. |
 
+## Value syntax and validation
+
+Parsed by System.CommandLine; values are converted and checked by `src/Cli/OptionsBinder.cs`, which reports
+**every** problem at once and exits **1**.
+
+- `--format`, `--region`, `--quality`: exactly the lowercase values listed (help shows them).
+- `--ignore-samples`: comma-separated numbers and ranges, decimal or `0x` hex, each **1–31**; repeat the option
+  to add more. Numbers above the module's actual sample count (e.g. 16+ in a 15-sample MOD) are rejected after
+  the MOD is read.
+- `--max-pcm-bytes`: positive integer, optional `K` (×1024) or `M` (×1024²) suffix, case-insensitive.
+- `--time-budget`: positive integer with optional `s`, `m` or `h` (plain number = seconds).
+- `--reserve-sfx-channels`: `0`–`4` for `xgm`, `0`–`3` for `xgm2`; must be `0` for `dmf` (one DAC channel, nothing to reserve).
+- `--mapping`: accepted as text for now; valid names are defined with the optimizer (plan M9).
+
 ## Output naming
 
 Same directory and base name as the input; extension by format: `.dmf`, `.xgm` (XGM v1) or `.xgm2` (XGM2).
