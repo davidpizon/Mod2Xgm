@@ -99,6 +99,11 @@ dotnet publish src/Mod2Xgm.csproj -c Release -r win-x64     # Native AOT single 
 After a change, at minimum: `dotnet build` and `dotnet test` must pass. If you touched anything
 reflection- or serialization-adjacent, also run the AOT `publish`.
 
+CI (`.github/workflows/ci.yml`) runs on every pull request and push to `main`: build and test on Windows,
+Linux and macOS; **Native AOT publish + smoke run** of the binary on `win-x64`, `linux-x64`, `osx-arm64`; and
+code coverage. Releases (`.github/workflows/release.yml`) are built when David pushes a `v*` tag
+(e.g. `v0.1.0`; a hyphenated tag like `v0.1.0-rc.1` is marked pre-release); agents never create tags.
+
 ## Every warning is an error
 
 `Directory.Build.props` sets `TreatWarningsAsErrors`, `MSBuildTreatWarningsAsErrors`, `AnalysisLevel=latest`
