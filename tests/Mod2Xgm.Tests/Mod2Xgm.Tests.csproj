@@ -18,7 +18,7 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <!-- Code coverage for Microsoft.Testing.Platform: dotnet test --coverage (see docs/testing.md). -->
+    <!-- Code coverage for Microsoft.Testing.Platform; the command line is in docs/testing.md. -->
     <PackageReference Include="Microsoft.Testing.Extensions.CodeCoverage" />
   </ItemGroup>
 

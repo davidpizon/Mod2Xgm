@@ -191,6 +191,8 @@ compiler, analyzer, trim/AOT, NuGet or MSBuild warning fails the build.
 - Magic numbers that come from a file spec get a named constant and a comment pointing at the doc
   section (e.g. `// docs/formats/mod.md#sample-header`).
 - Prefer `ReadOnlySpan<byte>` over streams for parsing; the inputs are small (usually < 1 MB).
+- XML files (`*.csproj`, `*.props`, `*.slnx`, `tests/*.xml`): an XML comment can't contain `--`, so never quote a
+  command line with options inside `<!-- -->`; point to the doc that has it. Check that the file parses before pushing.
 
 ## Testing expectations
 
