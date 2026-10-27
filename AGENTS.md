@@ -186,6 +186,11 @@ compiler, analyzer, trim/AOT, NuGet or MSBuild warning fails the build.
 ## Code conventions
 
 - C# latest, file-scoped namespaces, `Nullable` enabled — no `!` suppressions without a comment why.
+- **XML documentation comments are required** (David, 2026-10-27) on every class, record, struct, interface and enum,
+  and on every public method, in `src/` **and** `tests/`. That includes types and methods that are only `internal`
+  to the assembly, and every test method. A `/// <summary>` that says what it is or checks, and why when that isn't
+  obvious, is enough; for a test, one line saying what it checks. Keep them true: update the comment when the code
+  changes.
 - Keep parsing, the format-neutral model, mapping and writing in separate layers. Writers never see MOD
   types; the reader never knows about Genesis.
 - Expected failures throw **`ConversionException(ExitCode, message)`** (`src/ConversionException.cs`) with the
