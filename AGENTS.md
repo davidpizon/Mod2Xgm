@@ -193,6 +193,8 @@ compiler, analyzer, trim/AOT, NuGet or MSBuild warning fails the build.
 - Prefer `ReadOnlySpan<byte>` over streams for parsing; the inputs are small (usually < 1 MB).
 - XML files (`*.csproj`, `*.props`, `*.slnx`, `tests/*.xml`): an XML comment can't contain `--`, so never quote a
   command line with options inside `<!-- -->`; point to the doc that has it. Check that the file parses before pushing.
+- After adding a file, confirm `git status` lists it: the Visual Studio `.gitignore` silently ignores many names
+  (e.g. `coverage*.xml`, `*.log`, `[Bb]in/`, `TestResults/`). `git check-ignore -v <file>` shows why.
 
 ## Testing expectations
 

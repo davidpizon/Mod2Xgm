@@ -16,7 +16,7 @@ Newest first. Each entry: date, decision, options considered, reason.
 - xunit.v3 4.x runs on Microsoft.Testing.Platform; the .NET 10 SDK's VSTest-based `dotnet test` rejects it
   ("Testing with VSTest target is no longer supported"). `global.json` now selects the MTP runner.
 - Coverage moves from coverlet.collector (a VSTest data collector) to **Microsoft.Testing.Extensions.CodeCoverage**
-  (Cobertura output; settings in `tests/coverage.settings.xml`). Test-only, not shipped.
+  (Cobertura output; settings in `tests/coverage.runsettings`). Test-only, not shipped.
 
 ## 2026-10-27 — Code coverage is an agent requirement
 - The GitHub **Code coverage** ruleset is disabled: `actions/upload-code-coverage` returned HTTP 404 (code
