@@ -27,9 +27,8 @@ public sealed class ConversionNotesTests
         notes.Add("Effect {Effect} dropped on channel {Channel}", "7xy", 2);
 
         Assert.Equal(2, notes.Count);
-        Assert.Equal(
-            new[] { "Sample snare truncated to 1024 bytes", "Effect 7xy dropped on channel 2" },
-            notes.Messages);
+        string[] expected = ["Sample snare truncated to 1024 bytes", "Effect 7xy dropped on channel 2"];
+        Assert.Equal(expected, notes.Messages);
     }
 
     [Fact]

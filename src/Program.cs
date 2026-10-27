@@ -9,7 +9,7 @@ namespace Mod2Xgm;
 internal static class Program
 {
     /// <summary>Minimum log level; raised to Debug by <c>--verbose</c>.</summary>
-    internal static LoggingLevelSwitch LevelSwitch { get; } = new(LogEventLevel.Information);
+    internal static LoggingLevelSwitch LevelSwitch { get; } = new(); // starts at Information
 
     internal static int Main(string[] args) => Run(args, static a => CommandLineDefinition.Invoke(a, ConvertMod));
 
@@ -43,7 +43,7 @@ internal static class Program
         }
     }
 
-    internal static Serilog.ILogger CreateLogger(LoggingLevelSwitch levelSwitch) =>
+    internal static ILogger CreateLogger(LoggingLevelSwitch levelSwitch) =>
         new LoggerConfiguration()
             .MinimumLevel.ControlledBy(levelSwitch)
             .WriteTo.Console(

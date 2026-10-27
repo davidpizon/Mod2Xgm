@@ -21,16 +21,12 @@ public sealed class ProgramTests
     }
 
     [Fact]
-    public void MainReturnsUsageErrorWithoutArguments()
-    {
+    public void MainReturnsUsageErrorWithoutArguments() =>
         Assert.Equal((int)ExitCode.UsageError, Program.Main([]));
-    }
 
     [Fact]
-    public void RunReturnsTheBodysExitCode()
-    {
+    public void RunReturnsTheBodysExitCode() =>
         Assert.Equal((int)ExitCode.InvalidInput, Program.Run([], _ => ExitCode.InvalidInput));
-    }
 
     [Fact]
     public void RunReturnsTheCodeOfAConversionException()
@@ -51,7 +47,7 @@ public sealed class ProgramTests
     [Fact]
     public void CreateLoggerFollowsTheLevelSwitch()
     {
-        LoggingLevelSwitch levelSwitch = new(LogEventLevel.Information);
+        LoggingLevelSwitch levelSwitch = new(); // starts at Information
         Serilog.ILogger logger = Program.CreateLogger(levelSwitch);
 
         Assert.False(logger.IsEnabled(LogEventLevel.Debug));

@@ -14,18 +14,19 @@ internal sealed class ModBuilder
     private readonly Dictionary<int, byte[]> _patterns = [];
     private int[] _orders = [0];
 
-    public string Title { get; set; } = "test song";
-    public string Tag { get; set; } = "M.K.";
+    public string Title { get; init; } = "test song";
+    public string Tag { get; init; } = "M.K.";
 
     /// <summary>Writes the 15-sample Soundtracker layout: 15 sample headers and no tag (<see cref="Tag"/> is ignored).</summary>
     public bool Soundtracker { get; init; }
 
     /// <summary>Bytes appended after the sample data.</summary>
     public byte[] TrailingBytes { get; init; } = [];
-    public int RestartPosition { get; set; } = 127;
+
+    public int RestartPosition { get; init; } = 127;
 
     /// <summary>Overrides the stored song length (default: number of orders).</summary>
-    public int? SongLength { get; set; }
+    public int? SongLength { get; init; }
 
     /// <summary>Entries stored after the played orders (default: zeros).</summary>
     public int[] UnusedOrderEntries { get; set; } = [];

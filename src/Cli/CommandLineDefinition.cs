@@ -1,5 +1,4 @@
 using System.CommandLine;
-using System.CommandLine.Parsing;
 
 namespace Mod2Xgm.Cli;
 
@@ -107,7 +106,7 @@ internal sealed class CommandLineDefinition
     /// Builds the root command; <paramref name="execute"/> runs when parsing and binding succeed. Binding errors are
     /// written to <paramref name="error"/>.
     /// </summary>
-    public RootCommand CreateRootCommand(Func<ConversionOptions, ExitCode> execute, TextWriter error)
+    private RootCommand CreateRootCommand(Func<ConversionOptions, ExitCode> execute, TextWriter error)
     {
         RootCommand root = new("Convert Amiga MOD music for the Sega Genesis / Mega Drive (DefleMask DMF, SGDK XGM/XGM2).")
         {

@@ -48,7 +48,8 @@ public sealed class ModReaderTests
         Assert.Equal("space debris", module.Title);
         Assert.Equal(4, module.SongLength);
         Assert.Equal(1, module.RestartPosition);
-        Assert.Equal(new[] { 0, 2, 1, 2 }, module.Orders);
+        int[] orders = [0, 2, 1, 2];
+        Assert.Equal(orders, module.Orders);
         Assert.Equal(128, module.OrderTable.Count);
         Assert.Equal(3, module.Patterns.Count);
         Assert.Equal(bytes.Length, module.FileSize);
@@ -127,7 +128,10 @@ public sealed class ModReaderTests
             .Build());
 
         ModCell cell = module.Patterns[0][5, 2];
-        Assert.Equal(new ModCell(0x1F, 0x1AC, 0xC, 0x40), cell);
+        Assert.Equal(0x1F, cell.Sample);
+        Assert.Equal(0x1AC, cell.Period);
+        Assert.Equal(0xC, cell.Effect);
+        Assert.Equal(0x40, cell.EffectParameter);
         Assert.Equal(default(ModCell), module.Patterns[0][0, 0]);
         Assert.Equal(4, module.Patterns[0].ChannelCount);
     }

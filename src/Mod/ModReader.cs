@@ -12,11 +12,11 @@ namespace Mod2Xgm.Mod;
 /// </summary>
 internal static class ModReader
 {
-    public const int TitleLength = 20;
-    public const int SampleHeaderSize = 30;
-    public const int SampleNameLength = 22;
-    public const int PatternSize = ModPattern.Rows * 4 * 4; // 64 rows × 4 channels × 4 bytes
-    public const int MaxOrders = 128;
+    private const int TitleLength = 20;
+    private const int SampleHeaderSize = 30;
+    private const int SampleNameLength = 22;
+    private const int PatternSize = ModPattern.Rows * 4 * 4; // 64 rows × 4 channels × 4 bytes
+    private const int MaxOrders = 128;
 
     // docs/formats/mod.md#sample-header: volumes run 0–64; trackers cap samples at 64 KB although the header
     // could store up to 128 KB.
