@@ -85,17 +85,21 @@ jobs:
         run: |
           set -o pipefail
           dotnet test -c Release \
-            --collect:"XPlat Code Coverage" \
-            --settings tests/coverage.runsettings \
-            --results-directory artifacts/coverage 2>&1 | tee test-output.log
+            --coverage \
+            --coverage-output-format cobertura \
+            --coverage-output coverage.cobertura.xml \
+            --coverage-settings "$PWD/tests/coverage.runsettings" \
+            --results-directory "$PWD/artifacts/coverage" 2>&1 | tee test-output.log
       - name: Report test failure output
         # Surfaces the end of the test output as an annotation, readable without downloading logs.
         if: failure()
         shell: bash
         run: |
           [ -f test-output.log ] || exit 0
-          tail -n 60 test-output.log | sed -e 's/%/%25/g' -e 's/\r//' | awk 'BEGIN{ORS="%0A"} {print}' > tail.txt
-          echo "::error title=dotnet test output (last 60 lines)::$(cat tail.txt)"
+          annotate() { sed -e 's/%/%25/g' -e 's/\r//' | awk 'BEGIN{ORS="%0A"} {print}'; }
+          errors=$(grep -inE 'error|invalid|unknown|not (recognized|supported)|exception' test-output.log | head -n 40 | annotate)
+          [ -n "$errors" ] && echo "::error title=dotnet test error lines::$errors"
+          echo "::error title=dotnet test output (last 60 lines)::$(tail -n 60 test-output.log | annotate)"
       - name: Check line coverage
         # Writes the line coverage to the job summary and as an annotation (readable via the API);
         # fails the job below MIN_LINE_COVERAGE.

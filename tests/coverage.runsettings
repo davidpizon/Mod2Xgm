@@ -1,17 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Code coverage settings for coverlet.collector, used by CI and locally.
-     The command line is in docs/testing.md (XML comments can't contain a double hyphen). -->
+<!-- Microsoft code coverage settings for Microsoft.Testing.Extensions.CodeCoverage (passed with the coverage-settings
+     option), used by CI and locally. The command line is in docs/testing.md.
+     Measures the Mod2Xgm application assembly only; test assemblies are excluded by default.
+     Not named coverage*.xml: the repository .gitignore ignores that pattern. -->
 <RunSettings>
   <DataCollectionRunSettings>
     <DataCollectors>
-      <DataCollector friendlyName="XPlat code coverage">
+      <DataCollector friendlyName="Code Coverage">
         <Configuration>
-          <Format>cobertura</Format>
-          <!-- Measure the application only, not test assemblies or third-party code. -->
-          <Include>[Mod2Xgm]*</Include>
-          <ExcludeByAttribute>GeneratedCodeAttribute,CompilerGeneratedAttribute</ExcludeByAttribute>
-          <SkipAutoProps>true</SkipAutoProps>
-          <DeterministicReport>true</DeterministicReport>
+          <CodeCoverage>
+            <ModulePaths>
+              <Include>
+                <ModulePath>.*[\\/]Mod2Xgm\.dll$</ModulePath>
+              </Include>
+            </ModulePaths>
+            <Attributes>
+              <Exclude>
+                <Attribute>^System\.CodeDom\.Compiler\.GeneratedCodeAttribute$</Attribute>
+              </Exclude>
+            </Attributes>
+          </CodeCoverage>
         </Configuration>
       </DataCollector>
     </DataCollectors>

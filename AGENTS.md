@@ -195,6 +195,10 @@ compiler, analyzer, trim/AOT, NuGet or MSBuild warning fails the build.
 - Magic numbers that come from a file spec get a named constant and a comment pointing at the doc
   section (e.g. `// docs/formats/mod.md#sample-header`).
 - Prefer `ReadOnlySpan<byte>` over streams for parsing; the inputs are small (usually < 1 MB).
+- XML files (`*.csproj`, `*.props`, `*.slnx`, `tests/*.xml`): an XML comment can't contain `--`, so never quote a
+  command line with options inside `<!-- -->`; point to the doc that has it. Check that the file parses before pushing.
+- After adding a file, confirm `git status` lists it: the Visual Studio `.gitignore` silently ignores many names
+  (e.g. `coverage*.xml`, `*.log`, `[Bb]in/`, `TestResults/`). `git check-ignore -v <file>` shows why.
 
 ## Testing expectations
 
@@ -212,7 +216,7 @@ the 10-point drop is checked by you, the agent.
 3. State the number in the PR description, e.g. `Line coverage: 93.4 % (main: 95.0 %)`.
 4. Check the CI `Code coverage` job: it fails below 80 % and its `Line coverage` annotation should match your
    number. A red coverage job is fixed in the same PR with tests.
-5. Never exclude code from coverage (attributes, runsettings filters, `[ExcludeFromCodeCoverage]`) to meet the number.
+5. Never exclude code from coverage (attributes, coverage-settings filters, `[ExcludeFromCodeCoverage]`) to meet the number.
 
 ## Research references
 

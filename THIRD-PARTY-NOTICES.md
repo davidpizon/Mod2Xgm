@@ -12,13 +12,13 @@ Versions are pinned in [`Directory.Packages.props`](Directory.Packages.props).
 |---|---|---|
 | Serilog | Apache-2.0 | https://github.com/serilog/serilog |
 | Serilog.Sinks.Console | Apache-2.0 | https://github.com/serilog/serilog-sinks-console |
+| System.CommandLine | MIT | https://github.com/dotnet/command-line-api |
 | .NET runtime and libraries (Native AOT, .NET 10) | MIT | https://github.com/dotnet/runtime |
 
 Planned (add the entry when the code lands):
 
 | Component | License | Use |
 |---|---|---|
-| System.CommandLine | MIT | Command-line parsing (plan M1) |
 | ymfm (C# port) | BSD-3-Clause | YM2612 emulation for in-app rendering (plan M7). The BSD-3 notice must be reproduced here in full |
 
 ## Used only for building and testing (not shipped)
