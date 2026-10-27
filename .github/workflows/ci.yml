@@ -64,7 +64,9 @@ jobs:
         run: |
           bin="artifacts/publish/${{ matrix.rid }}/Mod2Xgm"
           [ -f "$bin.exe" ] && bin="$bin.exe"
-          "$bin"
+          # No arguments is a usage error (exit 1) by design; --version and --help must succeed.
+          "$bin" --version
+          "$bin" --help > /dev/null
 
   coverage:
     name: Code coverage

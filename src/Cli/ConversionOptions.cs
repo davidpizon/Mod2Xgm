@@ -1,0 +1,46 @@
+namespace Mod2Xgm.Cli;
+
+/// <summary>
+/// Everything the command line can set, already validated. See docs/cli.md.
+/// </summary>
+internal sealed record ConversionOptions
+{
+    public required string InputPath { get; init; }
+    public OutputFormat Format { get; init; } = OutputFormat.Dmf;
+    public string? OutputPath { get; init; }
+    public Region Region { get; init; } = Region.Pal;
+    public string? Mapping { get; init; }
+
+    /// <summary>MOD sample numbers (1-based) to leave out.</summary>
+    public IReadOnlySet<int> IgnoreSamples { get; init; } = new HashSet<int>();
+
+    public bool NoConsolidate { get; init; }
+    public long MaxPcmBytes { get; init; } = ConversionDefaults.MaxPcmBytes;
+    public Quality Quality { get; init; } = Quality.Normal;
+
+    /// <summary>Optimizer time limit; <c>null</c> means the default for <see cref="Quality"/>.</summary>
+    public TimeSpan? TimeBudget { get; init; }
+
+    public int Seed { get; init; }
+    public bool NoCache { get; init; }
+    public int ReserveSfxChannels { get; init; }
+    public bool InfoOnly { get; init; }
+    public bool Force { get; init; }
+    public bool Verbose { get; init; }
+}
+
+/// <summary>Default values and limits shared by the CLI and the converter.</summary>
+internal static class ConversionDefaults
+{
+    /// <summary>128 KB PCM budget per song (docs/sample-capacity.md).</summary>
+    public const long MaxPcmBytes = 128 * 1024;
+
+    /// <summary>Highest sample number a MOD can have (31-sample ProTracker format).</summary>
+    public const int MaxModSamples = 31;
+
+    /// <summary>PCM channels the SGDK XGM driver mixes.</summary>
+    public const int XgmPcmChannels = 4;
+
+    /// <summary>PCM channels the SGDK XGM2 driver mixes.</summary>
+    public const int Xgm2PcmChannels = 3;
+}

@@ -2,6 +2,12 @@
 
 Newest first. Each entry: date, decision, options considered, reason.
 
+## 2026-10-27 — CLI parsing (T1.1)
+- **System.CommandLine 2.0.13** added (MIT). Options are declared as text and converted/validated in
+  `OptionsBinder`, which collects all errors; parse and validation errors exit 1.
+- The library's default exception handler is off, so unexpected exceptions reach `Program.Run` and exit 5.
+- `--reserve-sfx-channels` must be 0 for DMF.
+
 ## 2026-10-27 — FM fitting approach from the literature
 - FM patch fitting (T8.2) uses a **hybrid search**: per-algorithm structure search (GA or pruned exhaustive over
   MULT/DT), then local search over levels and envelopes against the time-varying harmonic spectrum, selected
