@@ -1,0 +1,122 @@
+# Command-line interface
+
+> Status: **proposed** — this is the target contract; update it when the code changes. Parsed with
+> **System.CommandLine**.
+
+```
+mod2xgm <input.mod> [options]
+```
+
+| Option | Default | Meaning |
+|---|---|---|
+| `<input.mod>` | required | Path to the MOD file. |
+| `-f, --format <dmf\|xgm\|xgm2>` | `dmf` | Output format: `dmf` → `.dmf`, `xgm` → `.xgm`, `xgm2` → `.xgm2`. |
+| `-o, --output <path>` | next to input | Output file path. |
+| `--region <pal\|ntsc>` | `pal` for MOD timing, see below | Target refresh/clock region. |
+| `--mapping <name>` | TBD | Channel-mapping strategy (see [channel-mapping.md](channel-mapping.md)). |
+| `--ignore-samples <list>` | none | MOD sample numbers to leave out, 1-based, comma-separated, ranges allowed: `3,7,12-14`. Hex accepted with `0x` (trackers show hex: `0x1F` = 31). Repeatable. Unknown/empty numbers → exit 1. |
+| `--no-consolidate` | off | Don't consolidate samples; if the song doesn't fit the target, print the capacity report and exit 6. |
+| `--max-pcm-bytes <n>` | 128K | PCM byte budget per song for XGM/XGM2 (suffixes `K`, `M`). Over budget → capacity warning + consolidation. |
+| `--quality <fast\|normal\|best>` | `normal` | `fast`: simple mapper, no fitting. `normal`: multi-pass with a 5-minute budget. `best`: run until no improvement. See [multi-pass.md](multi-pass.md). |
+| `--time-budget <duration>` | per quality | Overrides the optimizer time limit (`90s`, `5m`). |
+| `--seed <n>` | 0 | Optimizer seed; same input + options + seed → same output. |
+| `--no-cache` | off | Don't read or write the fitted-patch cache. |
+| `--reserve-sfx-channels <n>` | 0 | Leave n PCM channels free for game sound effects (XGM ≤ 4, XGM2 ≤ 3). |
+| `--info` | off | Dry run: read, report and convert in memory (all report sections and conversion notes), but write no output file. |
+| `--force` | off | Overwrite an existing output file. |
+| `-v, --verbose` | off | Also print `Debug`-level detail (per-channel mapping, sample processing). |
+| `-h, --help` | | Usage. |
+| `--version` | | Version. |
+
+## Output naming
+
+Same directory and base name as the input; extension by format: `.dmf`, `.xgm` (XGM v1) or `.xgm2` (XGM2).
+`C:\music\song.mod` → `C:\music\song.dmf`. Without `--force`, an existing file is not overwritten (exit 4).
+
+## Region
+
+MOD timing is defined against a 50 Hz (PAL Amiga) tick at BPM 125. Default is `pal`; with `ntsc` the
+converter must rescale timing so tempo stays the same (see [genesis-audio.md](genesis-audio.md)).
+
+## Exit codes
+
+| Code | Meaning |
+|---|---|
+| 0 | Success (conversion notes may have been printed) |
+| 1 | Usage error (bad or missing arguments) |
+| 2 | Input not found / unreadable |
+| 3 | Input is not a valid or supported MOD |
+| 4 | Output exists and `--force` not given, or output not writable |
+| 5 | Conversion failed (internal error) |
+| 6 | Song doesn't fit the target and `--no-consolidate` was given |
+
+## Console report
+
+**Whenever a MOD file is converted**, the converter reads and prints the MOD metadata and the full sample
+table. This is mandatory: no option suppresses it, and it is printed for every output format (`dmf`,
+`xgm`, `xgm2`) and with `--info`. Order:
+
+1. Sections 1–2 are printed **immediately after the MOD is read**, before mapping or consolidation, so they
+   appear even if conversion later fails.
+2. Section 3 is printed after mapping/consolidation, before the output file is written.
+
+Logged at `Information` level:
+
+**1. MOD metadata** — everything the file embeds:
+
+```
+INF File        : song.mod (182 344 bytes)
+INF Title       : "space debris"
+INF Format      : ProTracker M.K. — 4 channels, 31 sample slots
+INF Song length : 42 orders, restart position 0
+INF Patterns    : 28
+INF Tempo       : speed 6, 125 BPM (initial)
+```
+
+**2. Samples / instruments** — in a MOD the sample *is* the instrument. List **all** slots, including empty
+ones: composers often hide credits and messages in the names of empty samples, so those names are part of
+the metadata.
+
+```
+INF  #   Name                     Length  Loop start+len  Vol  Fine  Notes  Status
+INF  01  "bassdrum"                 4532  —                64    0     96  used
+INF  02  "snare 2"                  3870  —                64    0     64  used
+INF  03  "  by Jester"                 0  —                 0    0      0  empty
+INF  07  "vocal"                   21044  —                48   -2     12  ignored
+```
+
+Lengths in bytes; Fine = finetune −8…+7; Notes = trigger count; Status = used / unused / empty / ignored.
+
+**3. Output instruments** — after mapping/consolidation, what the target will contain:
+
+```
+INF Output (XGM2): 5 FM instruments, 41 PCM slots / 122, 118 KB / 128 KB PCM
+INF  PCM 01  ← 01 "bassdrum"     13300 Hz  4 532 B
+INF  PCM 02  ← 05 "bass" C-2     13300 Hz  2 210 B
+INF  FM  01  ← 06 "strings" (approximation)
+```
+
+DMF output lists the DMF instrument names that will be written (named after the MOD samples).
+
+Non-printable characters in names are shown as `·`; names are printed in quotes so spaces are visible.
+
+## Console output
+
+Logged with Serilog (console sink, invariant culture):
+
+- stdout: `Information` (and `Debug` with `--verbose`) — e.g. the summary
+  `song.mod -> song.dmf  (4 ch, 31 samples, 12 conversion notes)`.
+- stderr: every **conversion note** at `Warning` level (always shown), including the **capacity warning**
+  when the samples exceed what XGM/XGM2 (or DMF) can hold — see [sample-capacity.md](sample-capacity.md) —
+  plus `Error` / `Fatal`.
+
+**XGM2 extension note.** Every run with `--format xgm2` (including `--info`) logs this line at
+`Information`, verbatim, after the output path is reported:
+
+```
+INF NOTE: SGDK expects XGM2 files to use the .XGM file extension.
+```
+
+It is an informational message, not a conversion note, and isn't counted in the summary.
+
+Format: `{Level:u3} {Message:lj}` — e.g. `WRN Effect 7xy (tremolo) on channel 2, row 14 dropped`.

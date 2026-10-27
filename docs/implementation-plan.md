@@ -1,0 +1,180 @@
+# Implementation plan
+
+> Status: **approved inputs, 2026-10-27.** Milestones are the build order. Each task (`T#.#`) is sized to be
+> **one Claude Code PR** on David's PC (.NET 10 SDK available). Update this file when a task lands or the
+> plan changes.
+
+## Inputs this plan is built on
+
+| Topic | Decision |
+|---|---|
+| Goal | Most accurate **sounding** rendition of the MOD ([README.md](README.md#goal)) |
+| Standard | **SGDK compliance** — every output must play through SGDK ([AGENTS.md](../AGENTS.md#sgdk-compliance)) |
+| Output order | **DMF**, then XGM2, then XGM (v1) |
+| Mapping | **Simple mapper** for the first DMF release, then the **multi-pass optimizer** ([multi-pass.md](multi-pass.md)) |
+| In-app rendering/scoring | **Pure C#**: own MOD renderer, ymfm (BSD-3) port for YM2612, SN76489, PCM driver model |
+| Conversion time | Minutes acceptable; `--quality fast\|normal\|best` (default normal, 5-min budget) |
+| CH3 special mode | Allowed for DMF (system 0x42) and XGM2; XGM v1 after a probe ROM confirms it (T11.1) |
+| SFX | `--reserve-sfx-channels N`, default 0 |
+| CLI / logging / tests | System.CommandLine · Serilog (conversion notes at `Warning`) · xUnit v3 |
+| Platforms / CI | Windows, Linux, macOS on GitHub Actions; Native AOT artifacts per OS |
+| Dependencies | Libraries OK if AOT on all three OSes and permissively licensed; external **applications** only in tests/harness |
+| DMF spec gaps | DefleMask manual + Furnace's DMF loader as reference (GPL — read only, never copy) |
+| Harness tools (local) | openmpt123, DefleMask WAV/VGM export, SGDK rescomp + BlastEm / Genesis Plus GX |
+| PCM budget | 128 KB per song default |
+| Build rule | Every warning is an error |
+| Report | Metadata + full sample table printed on **every conversion** |
+
+## Definition of done (every task)
+
+1. `dotnet build` and `dotnet test` pass on all three OSes in CI (warnings are errors).
+2. New behavior has tests; reader/writer changes have byte-exact tests.
+3. Matching docs updated in the same PR; decisions logged in [decisions.md](decisions.md).
+4. Dependency or reflection-adjacent change → AOT `publish` is clean.
+5. User-visible lossy behavior emits conversion notes.
+6. Output-format changes keep **SGDK compliance** (checked as each format's milestone defines).
+
+## Milestones
+
+### M0 — Repository foundation
+| Task | Work | Acceptance |
+|---|---|---|
+| T0.1 | `git init`, `.gitignore` (`.vs/`, `bin/`, `obj/`, `artifacts/`, `*.user`), first commit; create `github.com/davidpizon/Mod2Xgm` (private unless told otherwise) | Repo pushed |
+| T0.2 | Move `Mod2Xgm.slnx` to repo root; `Directory.Build.props` (warnings-as-errors/AOT/analysis settings moved out of the csproj); `Directory.Packages.props`; `.editorconfig`; `THIRD-PARTY-NOTICES.md` | `dotnet build` from root; settings apply to all projects |
+| T0.3 | `tests/Mod2Xgm.Tests` (xUnit v3); smoke test | `dotnet test` from root passes |
+| T0.4 | GitHub Actions matrix (windows/ubuntu/macos): restore, build, test; on tag: AOT publish `win-x64`, `linux-x64`, `osx-arm64`, upload artifacts | Green CI; artifacts on a test tag |
+| T0.5 | Update AGENTS.md commands for the new layout | Docs match reality |
+
+### M1 — CLI and logging skeleton
+| Task | Work | Acceptance |
+|---|---|---|
+| T1.1 | System.CommandLine with every option in [cli.md](cli.md) → immutable `ConversionOptions` | Parser tests for every option (`--ignore-samples 3,7,12-14,0x1F`, `128K`/`1M`, `90s`/`5m`, quality, seed, reserve-sfx bounds per format) |
+| T1.2 | Exit codes 0–6; output naming; no overwrite without `--force` | CLI tests per exit code |
+| T1.3 | Serilog from options (`--verbose` → Debug); `ConversionNotes` → `Warning` | Captured-log tests |
+| T1.4 | AOT publish check with System.CommandLine + Serilog | Clean on all OSes |
+
+### M2 — MOD reader and console report
+| Task | Work | Acceptance |
+|---|---|---|
+| T2.1 | `ModBuilder` test helper (both variants) | Used by reader tests |
+| T2.2 | `ModReader`: tags, 31-sample layout, patterns, sample data; reject 6/8-ch (exit 3) | Field tests; corrupt files → exit 3 with offset |
+| T2.3 | 15-sample detection heuristics, loop-in-bytes quirk | Heuristic tests incl. false positives |
+| T2.4 | Usage scan: trigger counts, used/unused/empty | Tests |
+| T2.5 | `ModReport` sections 1–2, wired into the **conversion command itself** right after reading | Golden text tests |
+
+### M3 — Song model and playback semantics
+| Task | Work | Acceptance |
+|---|---|---|
+| T3.1 | IR types | No MOD types leak |
+| T3.2 | Period → note + cents, finetune, PAL/NTSC clock | Table tests |
+| T3.3 | All ProTracker effects decoded | Per-effect tests |
+| T3.4 | Order traversal (`Bxx`, `Dxx`, `E6x`, `EEx`, `Fxx`), loop point, **tick player** (tick-by-tick IR events, shared by renderers and XGM writers) | Duration vs openmpt123 ± 1 tick on the corpus |
+
+### M4 — Close the DMF spec gaps
+| Task | Work | Acceptance |
+|---|---|---|
+| T4.1 | DefleMask manual + Furnace loader → resolve every **Verify** in [formats/dmf.md](formats/dmf.md), incl. ext. CH3 (0x42) channel layout | No v1 Verify items left |
+| T4.2 | Test-only `DmfReader` | Round-trips writer output |
+| T4.3 | Probe DMFs (FM note, DAC sample, PSG note, custom Hz, ext. CH3) | David confirms in DefleMask **and** each survives VGM export → rescomp `XGM2` |
+
+### M5 — DMF writer + simple mapper (first playable release)
+| Task | Work | Acceptance |
+|---|---|---|
+| T5.1 | `SampleProcessor`: high-quality resampling, bit depth, loops, trim | Unit + spectral tests |
+| T5.2 | `DmfWriter` (all sections, zlib, one pattern per matrix row per channel) | Byte-exact + round trip |
+| T5.3 | `SimpleMapper`: busiest percussive channel → DAC; others → FM from a built-in patch library; noise → PSG | Tests; conversion notes |
+| T5.4 | Timing: tick times, custom Hz, mid-song `Fxx` | Duration within 1 % of openmpt123 |
+| T5.5 | Effect translation MOD → DMF | Per-effect tests |
+| T5.6 | `--ignore-samples`; report section 3; `--quality fast` path | Every conversion logs metadata + full sample table (all formats, with/without `--info`, also when failing after read) |
+| T5.7 | Corpus opens/plays in DefleMask; SGDK path check (VGM export → rescomp) | David's sign-off; **0.1.0** |
+
+### M6 — Accuracy harness + shared scoring
+| Task | Work | Acceptance |
+|---|---|---|
+| T6.1 | Corpus of 10–20 freely licensed MODs; `tests/data/LICENSES.md` | Licenses recorded |
+| T6.2 | `src/Scoring` (pure C#): STFT, multi-resolution log-mel distance, onset error, alignment | Unit tests on synthetic signals |
+| T6.3 | `tools/Mod2Xgm.Harness`: openmpt123 reference renders; ingest DefleMask WAV exports and emulator captures; CSV + markdown report | Stable scores on reruns |
+| T6.4 | Baseline for the simple mapper | Recorded in decisions.md |
+
+### M7 — In-app rendering (pure C#)
+| Task | Work | Acceptance |
+|---|---|---|
+| T7.1 | MOD renderer on the tick player (Amiga-accurate mixing, hard L/R) | Score vs openmpt123 render below a tight threshold on the corpus |
+| T7.2 | YM2612 model: C# port of ymfm OPN2 (BSD-3 notice) | Matches ymfm reference output on test register streams (bit-exact or within tolerance); vs BlastEm captures |
+| T7.3 | SN76489 model | Tests vs reference captures |
+| T7.4 | PCM driver models: DMF DAC, XGM (4 ch ~14 kHz), XGM2 (3 ch 13.3/6.65 kHz) | Tests vs emulator captures |
+| T7.5 | `GenesisRenderer`: plan → stereo WAV through T7.2–T7.4 | Renders corpus; performance budget recorded |
+
+### M8 — Candidate generation
+| Task | Work | Acceptance |
+|---|---|---|
+| T8.1 | Sample analysis: percussive/tonal, pitch stability, envelope, spectral envelope per pitch region | Tests |
+| T8.2 | FM patch library + fitting (CMA-ES / Nelder-Mead, deterministic seed, per pitch region) | Fitted patches beat library patches on per-instrument error |
+| T8.3 | PSG candidates (tone / noise) | Tests |
+| T8.4 | PCM variant candidates with costs | Tests |
+| T8.5 | Locked-pair detection; combined candidates: CH3 special dual voice (DMF/XGM2), pre-mixed PCM | Tests; CH3 never offered for XGM v1 |
+| T8.6 | Fitted-patch cache (sample hash → patches), `--no-cache` | Rerun is fast and identical |
+
+### M9 — Allocation, consolidation and refinement (optimizer)
+| Task | Work | Acceptance |
+|---|---|---|
+| T9.1 | Target limits model (FM/CH3/PSG/PCM voices/slots/bytes, `--reserve-sfx-channels`, `--max-pcm-bytes`) | Tests per target |
+| T9.2 | Capacity check + warning; `--no-consolidate` → exit 6 | Tests |
+| T9.3 | Importance scoring; greedy allocation per section | Always produces a valid plan |
+| T9.4 | Consolidation moves (dedupe, trim, pitch quantize, half rate, merge, mid-song swap, voice stealing) as allocator moves | Tests; never a wrong pitch |
+| T9.5 | Render & refine loop (worst-section re-fit / re-allocate), `--quality` / `--time-budget` / `--seed` | Deterministic; improves corpus score vs greedy |
+| T9.6 | Optimizer vs simple mapper on DMF; switch default if better | Decision logged; **0.2.0** |
+
+### M10 — XGM2 writer
+| Task | Work | Acceptance |
+|---|---|---|
+| T10.1 | `Xgm2Writer` per [formats/xgm.md](formats/xgm.md) (header, SID with end entry, SDAT/FMDAT/PSGDAT, alignment, loop, CH3 commands); `.xgm2` output; extension note | Byte-exact tests; CLI test asserts the exact line `NOTE: SGDK expects XGM2 files to use the .XGM file extension.` |
+| T10.2 | Confirm how SGDK ingests XGM2 data (rescomp documents only VGM input for `XGM2`; check rescomp source; fallback: compiled `.xgc` via `BIN`, or VGM — the extension is not a concern). Then `tools/sgdk-player`: minimal SGDK ROM playing the output | Ingestion path decided and logged; probe files play in BlastEm |
+| T10.3 | SGDK compliance test: every corpus output is accepted by rescomp and plays | Automated in the harness |
+| T10.4 | Harness run; tune optimizer for XGM2 | Scores recorded; **0.3.0** |
+
+### M11 — XGM (v1) writer
+| Task | Work | Acceptance |
+|---|---|---|
+| T11.1 | Probe ROMs for XGM v1 (spec saved: [formats/xgm.txt](formats/xgm.txt)): CH3 special via `$27`, music PCM priority vs SFX, confirm FM6/DAC are off-limits | Results logged; CH3 enabled or ruled out for XGM |
+| T11.2 | `XgmWriter` reusing tick player, renderers and optimizer | Byte-exact; plays via rescomp `XGM` |
+| T11.3 | Harness run | **0.4.0** |
+
+### M12 — Hardening and release
+| Task | Work | Acceptance |
+|---|---|---|
+| T12.1 | Malformed-input fuzzing (never crash, exit 3) | 10k mutations pass |
+| T12.2 | Performance: reader/writer < 1 s; optimizer respects time budget | Benchmarks recorded |
+| T12.3 | Root `README.md`, `THIRD-PARTY-NOTICES.md` complete, release workflow | **1.0.0** |
+
+## Dependencies
+
+```
+M0 → M1 → M2 → M3 ─┬→ M4 → M5 ─┬→ M6 ─┐
+                   │           │       ├→ M8 → M9 → M10 → M11 → M12
+                   └───────────┴→ M7 ──┘
+```
+
+M4 can run in parallel with M3. M7 can start once M3's tick player lands; M8 needs M6 (scoring) and M7 (rendering).
+
+## Risks
+
+| Risk | Mitigation |
+|---|---|
+| DMF spec gaps resolved wrongly | Probe files checked in DefleMask **and** through rescomp (T4.3) |
+| Furnace is GPL | Read only; nothing copied; sources noted |
+| ymfm port mismatches the real chip | Compare against ymfm reference output and BlastEm/GPGX captures (T7.2) |
+| FM fitting quality / speed | Library seeds, per-pitch-region patches, cache, time budget; harness decides |
+| Optimizer overfits the metric | Listening checks at each milestone sign-off |
+| Conversions get slow | `--quality fast`, time budget, patch cache, profiling in T12.2 |
+| DefleMask WAV export may be manual | Harness accepts manual exports |
+| 128 KB budget forces heavy consolidation | Allocator weighs error vs cost; `--max-pcm-bytes` |
+| XGM v1 driver behavior not covered by the spec (CH3 / timers, PCM priority reset) | Probe ROMs in T11.1 before enabling |
+
+## Plan review (outline critique applied)
+
+- Added DMF **probe files** checked in DefleMask *and* through rescomp, so SGDK compliance is verified early.
+- Moved the **tick player** into M3: renderers, writers and the optimizer all need it.
+- Split in-app **rendering (M7)** from **candidates (M8)** and **allocation (M9)** so each is testable alone.
+- **Scoring** lives in `src/Scoring`, shared by harness and optimizer, so "better" means the same in both.
+- Kept the **simple mapper** as `--quality fast` and as the optimizer's baseline.
