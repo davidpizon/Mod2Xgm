@@ -99,6 +99,11 @@ dotnet publish src/Mod2Xgm.csproj -c Release -r win-x64     # Native AOT single 
 After a change, at minimum: `dotnet build` and `dotnet test` must pass. If you touched anything
 reflection- or serialization-adjacent, also run the AOT `publish`.
 
+CI (`.github/workflows/ci.yml`) runs on every pull request and push to `main`: build and test on Windows,
+Linux and macOS; **Native AOT publish + smoke run** of the binary on `win-x64`, `linux-x64`, `osx-arm64`; and
+code coverage. Releases (`.github/workflows/release.yml`) are built when David pushes a `v*` tag
+(e.g. `v0.1.0`; a hyphenated tag like `v0.1.0-rc.1` is marked pre-release); agents never create tags.
+
 ## Every warning is an error
 
 `Directory.Build.props` sets `TreatWarningsAsErrors`, `MSBuildTreatWarningsAsErrors`, `AnalysisLevel=latest`
@@ -193,15 +198,16 @@ See [`docs/testing.md`](docs/testing.md). In short: unit tests for every reader/
 tests where the format allows it, golden-file tests for whole conversions, and never commit copyrighted
 MOD files — generate test modules in code or use files with a clear free license.
 
-**Coverage requirement (enforced by you, the agent — not by GitHub):** every pull request must keep line
-coverage of the `Mod2Xgm` assembly at **≥ 80 %** and must not lower it by **more than 10 points** versus `main`.
+**Coverage requirement:** every pull request must keep line coverage of the `Mod2Xgm` assembly at **≥ 80 %**
+and must not lower it by **more than 10 points** versus `main`. CI's `Code coverage` job **fails below 80 %**;
+the 10-point drop is checked by you, the agent.
 
 1. Before opening or updating a PR, measure coverage locally (command in [`docs/testing.md`](docs/testing.md#code-coverage))
    on your branch, and on `main` when your change could lower it.
 2. If it's below 80 % or dropped more than 10 points, add tests — or make the code testable — before opening the PR.
 3. State the number in the PR description, e.g. `Line coverage: 93.4 % (main: 95.0 %)`.
-4. Check the `Line coverage` notice from the CI `Code coverage` job matches; if it fails the requirement, fix it in
-   the same PR.
+4. Check the CI `Code coverage` job: it fails below 80 % and its `Line coverage` annotation should match your
+   number. A red coverage job is fixed in the same PR with tests.
 5. Never exclude code from coverage (attributes, runsettings filters, `[ExcludeFromCodeCoverage]`) to meet the number.
 
 ## Documentation rules

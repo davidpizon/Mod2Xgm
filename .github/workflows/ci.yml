@@ -37,10 +37,42 @@ jobs:
       - name: Test
         run: dotnet test --no-build -c Release
 
+  aot:
+    name: AOT publish (${{ matrix.rid }})
+    # Native AOT publish runs the trim/AOT analyzers on the whole app and its dependencies; any IL2xxx/IL3xxx
+    # warning fails the build. Also smoke-runs the native binary.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, rid: win-x64 }
+          - { os: ubuntu-latest, rid: linux-x64 }
+          - { os: macos-latest, rid: osx-arm64 }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Install Native AOT prerequisites (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
+      - name: Publish (Native AOT)
+        run: dotnet publish src/Mod2Xgm.csproj -c Release -r ${{ matrix.rid }} -o artifacts/publish/${{ matrix.rid }}
+      - name: Smoke test
+        shell: bash
+        run: |
+          bin="artifacts/publish/${{ matrix.rid }}/Mod2Xgm"
+          [ -f "$bin.exe" ] && bin="$bin.exe"
+          "$bin"
+
   coverage:
     name: Code coverage
     runs-on: ubuntu-latest
-    # Reports coverage only; the 80 % requirement is enforced by agents (AGENTS.md), not by GitHub.
+    # Fails when line coverage of Mod2Xgm is below MIN_LINE_COVERAGE. The "no drop > 10 points vs main"
+    # part of the requirement is checked by agents (AGENTS.md).
+    env:
+      MIN_LINE_COVERAGE: 80
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-dotnet@v4
@@ -62,8 +94,9 @@ jobs:
           [ -f test-output.log ] || exit 0
           tail -n 60 test-output.log | sed -e 's/%/%25/g' -e 's/\r//' | awk 'BEGIN{ORS="%0A"} {print}' > tail.txt
           echo "::error title=dotnet test output (last 60 lines)::$(cat tail.txt)"
-      - name: Report line coverage
-        # Writes the line coverage to the job summary and as a notice annotation (readable via the API).
+      - name: Check line coverage
+        # Writes the line coverage to the job summary and as an annotation (readable via the API);
+        # fails the job below MIN_LINE_COVERAGE.
         shell: bash
         run: |
           report=$(find artifacts/coverage -name coverage.cobertura.xml | head -n 1)
@@ -71,9 +104,14 @@ jobs:
           cp "$report" coverage.cobertura.xml
           rate=$(grep -o 'line-rate="[0-9.]*"' coverage.cobertura.xml | head -n 1 | cut -d'"' -f2)
           pct=$(awk "BEGIN { printf \"%.1f\", $rate * 100 }")
-          echo "Line coverage (Mod2Xgm): ${pct}%" >> "$GITHUB_STEP_SUMMARY"
-          echo "::notice title=Line coverage::${pct}% of Mod2Xgm lines covered (requirement: >= 80%, see AGENTS.md)"
+          echo "Line coverage (Mod2Xgm): ${pct}% (required: ${MIN_LINE_COVERAGE}%)" >> "$GITHUB_STEP_SUMMARY"
+          if awk "BEGIN { exit !($pct < $MIN_LINE_COVERAGE) }"; then
+            echo "::error title=Line coverage::${pct}% of Mod2Xgm lines covered; at least ${MIN_LINE_COVERAGE}% is required (AGENTS.md)"
+            exit 1
+          fi
+          echo "::notice title=Line coverage::${pct}% of Mod2Xgm lines covered (required: ${MIN_LINE_COVERAGE}%)"
       - name: Keep report as artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: coverage-cobertura
