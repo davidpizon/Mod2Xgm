@@ -18,10 +18,10 @@ internal sealed class ModBuilder
     public string Tag { get; set; } = "M.K.";
 
     /// <summary>Writes the 15-sample Soundtracker layout: 15 sample headers and no tag (<see cref="Tag"/> is ignored).</summary>
-    public bool Soundtracker { get; set; }
+    public bool Soundtracker { get; init; }
 
     /// <summary>Bytes appended after the sample data.</summary>
-    public byte[] TrailingBytes { get; set; } = [];
+    public byte[] TrailingBytes { get; init; } = [];
     public int RestartPosition { get; set; } = 127;
 
     /// <summary>Overrides the stored song length (default: number of orders).</summary>

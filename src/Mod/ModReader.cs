@@ -20,8 +20,8 @@ internal static class ModReader
 
     // docs/formats/mod.md#sample-header: volumes run 0–64; trackers cap samples at 64 KB although the header
     // could store up to 128 KB.
-    public const int MaxVolume = 64;
-    public const int MaxSampleBytes = 65536;
+    private const int MaxVolume = 64;
+    private const int MaxSampleBytes = 65536;
 
     // docs/formats/mod.md#pitch: the lowest and highest periods any finetune produces (B-3 at +7, C-1 at −8).
     private const int MinPeriod = 108;
@@ -216,7 +216,7 @@ internal static class ModReader
 
         return new ModModule
         {
-            Title = Name(data[..TitleLength]),
+            Title = Text(data[..TitleLength]),
             Format = layout.Format,
             Tag = tag,
             ChannelCount = Channels,
@@ -275,7 +275,7 @@ internal static class ModReader
         ReadOnlySpan<byte> header = data.Slice(offset, SampleHeaderSize);
         return new SampleHeader(
             number,
-            Name(header[..SampleNameLength]),
+            Text(header[..SampleNameLength]),
             HasUnprintable(header[..SampleNameLength]),
             BinaryPrimitives.ReadUInt16BigEndian(header[22..]) * 2,
             header[24],
@@ -474,7 +474,7 @@ internal static class ModReader
         new(ExitCode.InvalidInput, $"Not a valid MOD file: {reason} (byte offset {offset}).");
 
     /// <summary>Latin-1 text up to the first NUL, trailing spaces removed (leading spaces are meaningful).</summary>
-    private static string Name(ReadOnlySpan<byte> bytes)
+    private static string Text(ReadOnlySpan<byte> bytes)
     {
         int nul = bytes.IndexOf((byte)0);
         return Latin1(nul < 0 ? bytes : bytes[..nul]).TrimEnd(' ');

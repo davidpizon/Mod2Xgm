@@ -37,7 +37,8 @@ public sealed class SoundtrackerTests
             .WithCell(1, row: 3, channel: 1, sample: 15, period: 428, effect: 0xC, parameter: 0x20)
             .Build();
 
-        (ModModule module, ConversionNotes notes) = Read(bytes);
+        (ModModule module, _) = Read(bytes);
+        int[] expectedOrders = [0, 1, 0];
 
         Assert.Equal(ModFormat.Soundtracker15, module.Format);
         Assert.Equal(string.Empty, module.Tag);
@@ -48,7 +49,7 @@ public sealed class SoundtrackerTests
         Assert.Equal(40, module.Samples[0].Volume);
         Assert.Equal(64, module.Samples[0].Length);
         Assert.Equal("  by Karsten", module.Samples[14].Name);
-        Assert.Equal(new[] { 0, 1, 0 }, module.Orders);
+        Assert.Equal(expectedOrders, module.Orders);
         Assert.Equal(120, module.RestartPosition);
         Assert.Equal(2, module.Patterns.Count);
         Assert.Equal(new ModCell(15, 428, 0xC, 0x20), module.Patterns[1][3, 1]);
@@ -272,10 +273,8 @@ public sealed class SoundtrackerTests
     }
 
     [Fact]
-    public void SoundtrackerProblemAcceptsAReadableFile()
-    {
+    public void SoundtrackerProblemAcceptsAReadableFile() =>
         Assert.Null(ModReader.SoundtrackerProblem(Soundtracker().WithSample(1, "s", 64).Build()));
-    }
 
     [Fact]
     public void PatternCountUsesTheLayoutsPatternOffset()
@@ -292,8 +291,6 @@ public sealed class SoundtrackerTests
     }
 
     [Fact]
-    public void TheBuilderRefusesSamplesBeyondFifteenInTheSoundtrackerLayout()
-    {
+    public void TheBuilderRefusesSamplesBeyondFifteenInTheSoundtrackerLayout() =>
         Assert.Throws<InvalidOperationException>(() => Soundtracker().WithSample(16, "s", 64).Build());
-    }
 }
