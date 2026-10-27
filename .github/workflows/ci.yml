@@ -40,9 +40,7 @@ jobs:
   coverage:
     name: Code coverage
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      code-quality: write   # required by actions/upload-code-coverage
+    # Reports coverage only; the 80 % requirement is enforced by agents (AGENTS.md), not by GitHub.
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-dotnet@v4
@@ -64,22 +62,17 @@ jobs:
           [ -f test-output.log ] || exit 0
           tail -n 60 test-output.log | sed -e 's/%/%25/g' -e 's/\r//' | awk 'BEGIN{ORS="%0A"} {print}' > tail.txt
           echo "::error title=dotnet test output (last 60 lines)::$(cat tail.txt)"
-      - name: Locate Cobertura report
+      - name: Report line coverage
+        # Writes the line coverage to the job summary and as a notice annotation (readable via the API).
         shell: bash
         run: |
           report=$(find artifacts/coverage -name coverage.cobertura.xml | head -n 1)
           if [ -z "$report" ]; then echo "::error::No coverage.cobertura.xml produced"; exit 1; fi
           cp "$report" coverage.cobertura.xml
           rate=$(grep -o 'line-rate="[0-9.]*"' coverage.cobertura.xml | head -n 1 | cut -d'"' -f2)
-          echo "Line coverage: $(awk "BEGIN { printf \"%.1f\", $rate * 100 }")%" >> "$GITHUB_STEP_SUMMARY"
-      - name: Upload coverage to GitHub Code Quality
-        # Forks can't get code-quality:write; their PRs only keep the artifact.
-        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-        uses: actions/upload-code-coverage@v1
-        with:
-          file: coverage.cobertura.xml
-          language: "C#"
-          label: code-coverage/coverlet
+          pct=$(awk "BEGIN { printf \"%.1f\", $rate * 100 }")
+          echo "Line coverage (Mod2Xgm): ${pct}%" >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice title=Line coverage::${pct}% of Mod2Xgm lines covered (requirement: >= 80%, see AGENTS.md)"
       - name: Keep report as artifact
         uses: actions/upload-artifact@v4
         with:

@@ -193,9 +193,16 @@ See [`docs/testing.md`](docs/testing.md). In short: unit tests for every reader/
 tests where the format allows it, golden-file tests for whole conversions, and never commit copyrighted
 MOD files — generate test modules in code or use files with a clear free license.
 
-**Coverage gate:** a ruleset on `main` requires **≥ 80 % line coverage** and **≤ 10-point drop** per pull request
-(CI uploads Cobertura via `actions/upload-code-coverage`). Every PR adds the tests that keep it there; never
-exclude code from coverage to pass.
+**Coverage requirement (enforced by you, the agent — not by GitHub):** every pull request must keep line
+coverage of the `Mod2Xgm` assembly at **≥ 80 %** and must not lower it by **more than 10 points** versus `main`.
+
+1. Before opening or updating a PR, measure coverage locally (command in [`docs/testing.md`](docs/testing.md#code-coverage))
+   on your branch, and on `main` when your change could lower it.
+2. If it's below 80 % or dropped more than 10 points, add tests — or make the code testable — before opening the PR.
+3. State the number in the PR description, e.g. `Line coverage: 93.4 % (main: 95.0 %)`.
+4. Check the `Line coverage` notice from the CI `Code coverage` job matches; if it fails the requirement, fix it in
+   the same PR.
+5. Never exclude code from coverage (attributes, runsettings filters, `[ExcludeFromCodeCoverage]`) to meet the number.
 
 ## Documentation rules
 
