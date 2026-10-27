@@ -2,6 +2,13 @@
 
 Newest first. Each entry: date, decision, options considered, reason.
 
+## 2026-10-27 — MOD reader (T2.1, T2.2)
+- `ModModule` is a faithful image of the file (no interpretation); sample lengths and loops in bytes.
+- Pattern count: choose between "all 128 order entries" and "played orders" by which matches the file size.
+- Truncated sample data and bad loops are repaired and reported as conversion notes; structural damage is exit 3.
+- Inputs over 64 MB are rejected as not a MOD; unreadable files exit 2.
+- 15-sample Soundtracker files are still rejected until T2.3.
+
 ## 2026-10-27 — Logging setup (T1.3)
 - A `LoggingLevelSwitch` controls the console logger; `--verbose` raises it to Debug.
 - `ConversionNotes` logs each note at Warning immediately and keeps the rendered text (string values unquoted)

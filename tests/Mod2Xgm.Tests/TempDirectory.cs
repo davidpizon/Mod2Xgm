@@ -11,11 +11,11 @@ internal sealed class TempDirectory : IDisposable
 
     public string Path { get; }
 
-    /// <summary>Creates a file with some bytes and returns its full path.</summary>
-    public string CreateFile(string name)
+    /// <summary>Creates a file containing a minimal valid MOD (or <paramref name="bytes"/>) and returns its full path.</summary>
+    public string CreateFile(string name, byte[]? bytes = null)
     {
         string path = System.IO.Path.Combine(Path, name);
-        File.WriteAllBytes(path, [0x4D, 0x2E, 0x4B, 0x2E]);
+        File.WriteAllBytes(path, bytes ?? Mod.ModBuilder.Minimal());
         return path;
     }
 

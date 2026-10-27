@@ -1,14 +1,17 @@
 using Mod2Xgm.Cli;
+using Mod2Xgm.Mod;
 using Serilog;
 
 namespace Mod2Xgm;
 
 /// <summary>
-/// Runs one conversion. For now it checks the input and output paths; the pipeline stages (read, map, write)
-/// are added by later plan tasks.
+/// Runs one conversion: checks the paths, reads the MOD, and (in later plan tasks) maps and writes the output.
 /// </summary>
 internal static class ConversionCommand
 {
+    /// <summary>Largest input accepted. Real MODs are a few MB at most; anything bigger isn't a MOD.</summary>
+    public const long MaxInputBytes = 64L * 1024 * 1024;
+
     public static ExitCode Execute(ConversionOptions options) => Execute(options, Log.Logger);
 
     public static ExitCode Execute(ConversionOptions options, ILogger logger)
@@ -25,8 +28,16 @@ internal static class ConversionCommand
         }
 
         ConversionNotes notes = new(logger);
+        ModModule module = ModReader.Read(ReadInput(input), notes);
+        logger.Debug(
+            "Read {Format} MOD ({Tag}): {Channels} channels, {Patterns} patterns, {SongLength} orders",
+            module.Format,
+            module.Tag,
+            module.ChannelCount,
+            module.Patterns.Count,
+            module.SongLength);
 
-        // Pipeline stages (read, map, write) are added by later plan tasks; they report lossy decisions to notes.
+        // Later stages (report, model, map, write) are added by later plan tasks; they report lossy decisions to notes.
 
         logger.Information(
             "{Input} -> {Output} ({NoteCount} conversion notes)",
@@ -48,6 +59,26 @@ internal static class ConversionCommand
         if (options.IgnoreSamples.Count > 0)
         {
             logger.Debug("Ignoring samples {IgnoredSamples}", string.Join(",", options.IgnoreSamples.Order()));
+        }
+    }
+
+    private static byte[] ReadInput(string input)
+    {
+        try
+        {
+            long length = new FileInfo(input).Length;
+            if (length > MaxInputBytes)
+            {
+                throw new ConversionException(
+                    ExitCode.InvalidInput,
+                    $"Not a valid MOD file: {length} bytes is larger than any MOD ({MaxInputBytes} bytes maximum): {input}");
+            }
+
+            return File.ReadAllBytes(input);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            throw new ConversionException(ExitCode.InputNotFound, $"Input file can't be read: {input} ({ex.Message})", ex);
         }
     }
 
