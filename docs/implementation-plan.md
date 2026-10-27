@@ -56,8 +56,8 @@
 ### M2 — MOD reader and console report
 | Task | Work | Acceptance |
 |---|---|---|
-| T2.1 (PR_REF) | `ModBuilder` test helper (both variants) | Used by reader tests |
-| T2.2 (PR_REF) | `ModReader`: tags, 31-sample layout, patterns, sample data; reject 6/8-ch (exit 3) | Field tests; corrupt files → exit 3 with offset |
+| T2.1 (PR #15) | `ModBuilder` test helper (both variants) | Used by reader tests |
+| T2.2 (PR #15) | `ModReader`: tags, 31-sample layout, patterns, sample data; reject 6/8-ch (exit 3) | Field tests; corrupt files → exit 3 with offset |
 | T2.3 | 15-sample detection heuristics, loop-in-bytes quirk | Heuristic tests incl. false positives |
 | T2.4 | Usage scan: trigger counts, used/unused/empty | Tests |
 | T2.5 | `ModReport` sections 1–2, wired into the **conversion command itself** right after reading | Golden text tests |
