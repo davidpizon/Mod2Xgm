@@ -2,6 +2,11 @@
 
 Newest first. Each entry: date, decision, options considered, reason.
 
+## 2026-10-27 — XML documentation comments required
+- David's rule: every class (record, struct, interface, enum) and every public method in `src/` and `tests/` has an
+  XML doc comment, including internal types and test methods. Recorded in AGENTS.md (Code conventions).
+- Not compiler-enforced yet: `CS1591` only covers publicly visible members, and the app's types are internal.
+
 ## 2026-10-27 — 15-sample Soundtracker detection (T2.3)
 - Untagged files are read as 15-sample Soundtracker modules with **relaxed** checks (David's choice): reject only
   what can't be read (header under 600 bytes, song length outside 1–128, a played order ≥ 128, patterns cut off),
