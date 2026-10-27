@@ -104,7 +104,16 @@ reflection- or serialization-adjacent, also run the AOT `publish`.
 
 CI (`.github/workflows/ci.yml`) runs on every pull request and push to `main`: build and test on Windows,
 Linux and macOS; **Native AOT publish + smoke run** of the binary on `win-x64`, `linux-x64`, `osx-arm64`; and
-code coverage. Releases (`.github/workflows/release.yml`) are built when David pushes a `v*` tag
+code coverage. **Qodana** (`.github/workflows/code_quality.yml`, config in `qodana.yaml`) runs JetBrains' .NET
+inspections on every PR and push to `main` and uploads the findings to GitHub code scanning, next to CodeQL; review
+new Qodana findings on your PR like any other review comment. The **nightly audit**
+(`.github/workflows/nightly-audit.yml`, script `.github/scripts/nightly_audit.py`) runs the same Qodana scan plus
+`dotnet list package --vulnerable` every day and files one GitHub issue per finding, labelled `audit:smell` or
+`audit:vulnerability` plus `severity:<level>`. Code-scanning alerts can't be read through the API from an agent
+session; these issues can, so read them with `gh issue list --label audit:smell` (or `audit:vulnerability`). Fix a
+finding in a normal PR and close its issue when it merges; never edit the fingerprint comment at the top of the issue.
+The workflow never opens PRs or pushes. After changing the script, run `python3 .github/scripts/nightly_audit.py --self-test`
+(CI runs it too). Releases (`.github/workflows/release.yml`) are built when David pushes a `v*` tag
 (e.g. `v0.1.0`; a hyphenated tag like `v0.1.0-rc.1` is marked pre-release); agents never create tags.
 
 ## Every warning is an error

@@ -1,0 +1,17 @@
+# Qodana configuration for .github/workflows/code_quality.yml (https://www.jetbrains.com/help/qodana/qodana-yaml.html)
+version: "1.0"
+
+# Qodana Community for .NET (free; QODANA_TOKEN optional, used for Qodana Cloud when the secret exists).
+linter: jetbrains/qodana-cdnet:2026.2
+
+profile:
+  name: qodana.recommended
+
+dotnet:
+  solution: Mod2Xgm.slnx
+
+# Documentation and reference specs aren't code.
+exclude:
+  - name: All
+    paths:
+      - docs

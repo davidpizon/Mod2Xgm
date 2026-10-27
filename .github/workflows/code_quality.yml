@@ -1,0 +1,171 @@
+name: Qodana
+on:
+    workflow_dispatch:
+    pull_request:
+    push:
+        branches:
+            - main
+
+# A newer push to the same pull request supersedes the scan already running - and any of its scans
+# still queued - for it. Runs on main each get their own group (keyed by run id) so none can ever
+# supersede another: every one refreshes the code-scanning baseline that pull request results diff
+# against, and GitHub only cancels or drops a run in favor of another one in the *same* group.
+concurrency:
+    group: qodana-${{ github.event.pull_request.number || github.run_id }}
+    cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+    qodana:
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read  # write is only needed for the action's push-fixes mode, which is not enabled
+            pull-requests: write
+            checks: write
+            security-events: write  # required to upload the SARIF report to GitHub code scanning
+        steps:
+            - uses: actions/checkout@v7
+              with:
+                  ref: ${{ github.event.pull_request.head.sha }}  # to check out the actual pull request commit, not the merge commit
+                  fetch-depth: 0  # a full history is required for pull request analysis
+            - name: 'Qodana Scan'
+              uses: JetBrains/qodana-action@v2026.2.2
+              with:
+                  # Scan the whole solution in Docker (the Qodana Community for .NET linter, configured in
+                  # qodana.yaml). Once main has findings worth tracking, add a baseline so pull requests
+                  # report only what they introduce: run this workflow on main, download qodana.sarif.json
+                  # from the `qodana-report` artifact, commit it as .qodana/qodana.sarif.json, and change
+                  # args to: '--within-docker true --baseline .qodana/qodana.sarif.json'
+                  # (pr-mode alone doesn't scope the result: the .NET linter always analyzes the whole
+                  # solution, so every PR would report the repository-wide total).
+                  args: '--within-docker true'
+                  # The action's own check-run annotations are published before the path normalization
+                  # below and anchor to nothing; code scanning shows the same findings inline on the PR,
+                  # correctly anchored. The PR summary comment is unaffected.
+                  use-annotations: false
+                  # Keep the raw report (qodana.sarif.json, logs) as the `qodana-report` artifact: findings
+                  # can be inspected without re-running, and it is the source for the baseline above.
+                  upload-result: true
+              env:
+                  QODANA_TOKEN: ${{ secrets.QODANA_TOKEN }}
+            # The .NET linter reports paths relative to the analyzed solution (or as container paths under
+            # /data/project). GitHub accepts such paths and creates alerts, but alerts whose path isn't a
+            # file in this repository anchor to nothing and never appear inline on the PR. Rewrite every
+            # path to a repository-relative one that exists, and fail if any can't be resolved.
+            - name: 'Normalize SARIF paths'
+              if: ${{ always() }}
+              run: |
+                  set -euo pipefail
+                  python3 - "${{ runner.temp }}/qodana/results/qodana.sarif.json" "${{ github.workspace }}" <<'PY'
+                  import json
+                  import os
+                  import sys
+                  import urllib.parse
+
+                  sarif_path = sys.argv[1]
+                  workspace = sys.argv[2].replace(os.sep, "/").rstrip("/")
+
+                  # Covers the same linter emitting a container path instead - the project is
+                  # bind-mounted at /data/project under `--within-docker true` - and the native-mode
+                  # workspace path, so this keeps holding if the scan mode ever changes.
+                  ROOTS = (
+                      "file:///data/project/",
+                      "/data/project/",
+                      "file://" + workspace + "/",
+                      workspace + "/",
+                  )
+
+                  # Tried in order against the real checkout; the first that names an existing file
+                  # wins. "" first, so a path that is already repository-relative is left as it is.
+                  PREFIXES = ("", "src/")
+
+                  rewritten = 0
+                  unresolved = {}
+                  resolved_cache = {}
+
+
+                  def strip_root(uri):
+                      for root in ROOTS:
+                          if uri.startswith(root):
+                              return uri[len(root):]
+                      return uri
+
+
+                  def resolve(uri):
+                      """Map a SARIF uri onto a path that exists in the checkout, or None."""
+                      if uri in resolved_cache:
+                          return resolved_cache[uri]
+
+                      candidate = strip_root(uri)
+                      # Qodana percent-encodes spaces and other reserved characters in the uri.
+                      decoded = urllib.parse.unquote(candidate)
+
+                      result = None
+                      for prefix in PREFIXES:
+                          probe = prefix + decoded
+                          full = os.path.join(workspace, probe)
+                          # isdir as well as isfile: the report also carries a base-directory uri for
+                          # the analyzed root (`file:///data/project/src/`), which names a real
+                          # directory and no file. Rejecting it would fail the build over a uri that
+                          # is not a finding at all.
+                          if os.path.isfile(full) or (probe.endswith("/") and os.path.isdir(full)):
+                              result = probe
+                              break
+
+                      resolved_cache[uri] = result
+                      return result
+
+
+                  def walk(node):
+                      """Rewrite every project-local `uri` in the document.
+
+                      Any dict carrying a string `uri` is a SARIF artifactLocation (or an artifact's
+                      `location`); tool and rule metadata URIs are `https://` and never resolve to a
+                      file in the checkout, so they are left alone.
+                      """
+                      global rewritten
+                      if isinstance(node, dict):
+                          uri = node.get("uri")
+                          if isinstance(uri, str) and not uri.startswith(("http://", "https://")):
+                              resolved = resolve(uri)
+                              if resolved is None:
+                                  unresolved[uri] = unresolved.get(uri, 0) + 1
+                              elif resolved != uri:
+                                  node["uri"] = resolved
+                                  # A relative `uri` with no `uriBaseId` resolves against the
+                                  # repository root, which is exactly what the path now is. A stale
+                                  # base id would send GitHub looking for a base this file never
+                                  # defines in `originalUriBaseIds`.
+                                  node.pop("uriBaseId", None)
+                                  rewritten += 1
+                          for value in node.values():
+                              walk(value)
+                      elif isinstance(node, list):
+                          for item in node:
+                              walk(item)
+
+
+                  with open(sarif_path, encoding="utf-8") as handle:
+                      sarif = json.load(handle)
+
+                  walk(sarif)
+
+                  # Fail loudly rather than upload findings that point at nothing. Silence is what let
+                  # the original defect survive for so long: GitHub reported "Successfully uploaded
+                  # results" and created an alert for every finding, none of them anchored to a file.
+                  if unresolved:
+                      print("::error::{0} SARIF path(s) do not name a file in the checkout; "
+                            "their alerts would not anchor to any code.".format(len(unresolved)))
+                      for uri in sorted(unresolved)[:10]:
+                          print("::error::  " + uri)
+                      sys.exit(1)
+
+                  with open(sarif_path, "w", encoding="utf-8") as handle:
+                      json.dump(sarif, handle)
+
+                  print("Rewrote {0} SARIF path(s); all now name files in the checkout.".format(rewritten))
+                  PY
+            - name: 'Upload SARIF to GitHub code scanning'
+              uses: github/codeql-action/upload-sarif@v4
+              if: ${{ always() }}  # publish findings even when the scan trips its quality gate
+              with:
+                  sarif_file: ${{ runner.temp }}/qodana/results/qodana.sarif.json
