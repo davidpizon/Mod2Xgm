@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  build-test:
+    name: Build and test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Restore
+        run: dotnet restore
+      - name: Build (warnings are errors)
+        run: dotnet build --no-restore -c Release
+      - name: Test
+        run: dotnet test --no-build -c Release
+
+  coverage:
+    name: Code coverage
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      code-quality: write   # required by actions/upload-code-coverage
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Test with coverage
+        run: >
+          dotnet test -c Release
+          --collect:"XPlat Code Coverage"
+          --settings tests/coverage.runsettings
+          --results-directory artifacts/coverage
+      - name: Locate Cobertura report
+        shell: bash
+        run: |
+          report=$(find artifacts/coverage -name coverage.cobertura.xml | head -n 1)
+          if [ -z "$report" ]; then echo "::error::No coverage.cobertura.xml produced"; exit 1; fi
+          cp "$report" coverage.cobertura.xml
+          rate=$(grep -o 'line-rate="[0-9.]*"' coverage.cobertura.xml | head -n 1 | cut -d'"' -f2)
+          echo "Line coverage: $(awk "BEGIN { printf \"%.1f\", $rate * 100 }")%" >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload coverage to GitHub Code Quality
+        # Forks can't get code-quality:write; their PRs only keep the artifact.
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        uses: actions/upload-code-coverage@v1
+        with:
+          file: coverage.cobertura.xml
+          language: "C#"
+          label: code-coverage/coverlet
+      - name: Keep report as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-cobertura
+          path: coverage.cobertura.xml

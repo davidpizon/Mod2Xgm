@@ -193,6 +193,10 @@ See [`docs/testing.md`](docs/testing.md). In short: unit tests for every reader/
 tests where the format allows it, golden-file tests for whole conversions, and never commit copyrighted
 MOD files — generate test modules in code or use files with a clear free license.
 
+**Coverage gate:** a ruleset on `main` requires **≥ 80 % line coverage** and **≤ 10-point drop** per pull request
+(CI uploads Cobertura via `actions/upload-code-coverage`). Every PR adds the tests that keep it there; never
+exclude code from coverage to pass.
+
 ## Documentation rules
 
 - If you change behavior, CLI flags, or a format detail, update the matching file in `docs/` **in the same

@@ -14,6 +14,22 @@ Test projects live in **`tests/`**, one folder each (see [`tests/README.md`](../
 5. **CLI tests** — argument parsing (incl. `--ignore-samples` lists, ranges, hex), output naming, exit
    codes, no overwrite without `--force`, console report content (metadata, empty-slot names, statuses).
 
+## Code coverage
+
+`main` has a GitHub ruleset that requires **≥ 80 % line coverage** and **no more than a 10-point drop** versus
+`main` on every pull request. Coverage comes from **coverlet.collector** (Cobertura XML) and is uploaded to
+GitHub Code Quality by the `Code coverage` job in `.github/workflows/ci.yml` (`actions/upload-code-coverage@v1`,
+needs `code-quality: write`). It runs on pushes to `main` (baseline) and on pull requests.
+
+Measure locally:
+
+```
+dotnet test --collect:"XPlat Code Coverage" --settings tests/coverage.runsettings --results-directory artifacts/coverage
+```
+
+Only the `Mod2Xgm` assembly is measured. Don't exclude code from coverage to pass the gate — write the test,
+or make the code testable (e.g. `Program.Run` takes the work as a delegate so the error path is covered).
+
 ## Accuracy harness (drives design decisions)
 
 The goal is the most accurate **sounding** output, so it is measured, not guessed:

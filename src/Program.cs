@@ -6,9 +6,33 @@ namespace Mod2Xgm;
 
 internal static class Program
 {
-    private static int Main(string[] args)
+    internal static int Main(string[] args) => Run(args, ConvertMod);
+
+    /// <summary>
+    /// Sets up logging, runs <paramref name="body"/>, and turns an unexpected exception into
+    /// <see cref="ExitCode.InternalError"/>. Separated from <see cref="Main"/> so the error path is testable.
+    /// </summary>
+    internal static int Run(string[] args, Func<string[], ExitCode> body)
     {
-        Log.Logger = new LoggerConfiguration()
+        Log.Logger = CreateLogger();
+
+        try
+        {
+            return (int)body(args);
+        }
+        catch (Exception ex)
+        {
+            Log.Fatal(ex, "Unexpected error");
+            return (int)ExitCode.InternalError;
+        }
+        finally
+        {
+            Log.CloseAndFlush();
+        }
+    }
+
+    internal static Serilog.ILogger CreateLogger() =>
+        new LoggerConfiguration()
             .MinimumLevel.Information()
             .WriteTo.Console(
                 outputTemplate: "{Level:u3} {Message:lj}{NewLine}{Exception}",
@@ -16,19 +40,10 @@ internal static class Program
                 standardErrorFromLevel: LogEventLevel.Warning)
             .CreateLogger();
 
-        try
-        {
-            Log.Information("Mod2Xgm: {ArgumentCount} argument(s)", args.Length);
-            return 0;
-        }
-        catch (Exception ex)
-        {
-            Log.Fatal(ex, "Unexpected error");
-            return 5;
-        }
-        finally
-        {
-            Log.CloseAndFlush();
-        }
+    // Placeholder until the conversion pipeline exists (plan M1+).
+    private static ExitCode ConvertMod(string[] args)
+    {
+        Log.Information("Mod2Xgm: {ArgumentCount} argument(s)", args.Length);
+        return ExitCode.Success;
     }
 }
