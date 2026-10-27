@@ -7,7 +7,8 @@ Newest first. Each entry: date, decision, options considered, reason.
   coverage isn't available for this repository).
 - Instead, **agents enforce it**: line coverage of `Mod2Xgm` ≥ 80 % and no drop > 10 points vs `main`, measured
   locally and stated in each PR description (AGENTS.md § Testing expectations).
-- CI's `Code coverage` job only reports the number (job summary, `Line coverage` notice, artifact).
+- CI's `Code coverage` job reports the number (job summary, `Line coverage` annotation, artifact) and **fails
+  below 80 %** (added the same day: "Require 80% code coverage"). The 10-point drop stays an agent check.
 
 ## 2026-10-27 — Project renamed Mod2Xgm
 - Project, solution (`src/Mod2Xgm.slnx`), project file (`src/Mod2Xgm.csproj`), namespace and command name
