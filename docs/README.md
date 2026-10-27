@@ -5,6 +5,7 @@
 | [implementation-plan.md](implementation-plan.md) | **Build order:** milestones M0–M12, tasks, acceptance criteria, risks |
 | [architecture.md](architecture.md) | Conversion pipeline, layers, data model, project layout |
 | [cli.md](cli.md) | Command-line contract: arguments, output naming, exit codes |
+| [references/fm-matching.md](references/fm-matching.md) | Research on FM matching synthesis (Horner GA 1993, Sound2Synth 2022, DDX7 2022) and the fitting design it leads to |
 | [multi-pass.md](multi-pass.md) | Multi-pass optimizer: FM/PSG/PCM candidates, allocation, in-app render & refine |
 | [sample-capacity.md](sample-capacity.md) | Capacity limits per target, capacity warning, sample consolidation, ignoring samples |
 | [channel-mapping.md](channel-mapping.md) | Mapping options and the decision (simple mapper → multi-pass optimizer) |

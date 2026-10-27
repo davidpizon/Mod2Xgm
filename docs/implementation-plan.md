@@ -92,7 +92,7 @@
 | Task | Work | Acceptance |
 |---|---|---|
 | T6.1 | Corpus of 10–20 freely licensed MODs; `tests/data/LICENSES.md` | Licenses recorded |
-| T6.2 | `src/Scoring` (pure C#): STFT, multi-resolution log-mel distance, onset error, alignment | Unit tests on synthetic signals |
+| T6.2 | `src/Scoring` (pure C#): STFT, multi-resolution log-mel distance, MFCC distance (compared on the corpus; see [references/fm-matching.md](references/fm-matching.md)), onset error, alignment | Unit tests on synthetic signals |
 | T6.3 | `tools/Mod2Xgm.Harness`: openmpt123 reference renders; ingest DefleMask WAV exports and emulator captures; CSV + markdown report | Stable scores on reruns |
 | T6.4 | Baseline for the simple mapper | Recorded in decisions.md |
 
@@ -109,7 +109,7 @@
 | Task | Work | Acceptance |
 |---|---|---|
 | T8.1 | Sample analysis: percussive/tonal, pitch stability, envelope, spectral envelope per pitch region | Tests |
-| T8.2 | FM patch library + fitting (CMA-ES / Nelder-Mead, deterministic seed, per pitch region) | Fitted patches beat library patches on per-instrument error |
+| T8.2 | FM patch library + fitting per [references/fm-matching.md](references/fm-matching.md): per-algorithm structure search (GA or pruned exhaustive over MULT/DT), then local search over levels and envelopes on the integer grid; deterministic seed; per pitch region | Fitted patches beat library patches on per-instrument error |
 | T8.3 | PSG candidates (tone / noise) | Tests |
 | T8.4 | PCM variant candidates with costs | Tests |
 | T8.5 | Locked-pair detection; combined candidates: CH3 special dual voice (DMF/XGM2), pre-mixed PCM | Tests; CH3 never offered for XGM v1 |
