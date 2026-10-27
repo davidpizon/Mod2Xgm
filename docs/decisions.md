@@ -2,6 +2,11 @@
 
 Newest first. Each entry: date, decision, options considered, reason.
 
+## 2026-10-27 — Weekly Dependabot scan
+- `.github/dependabot.yml`: weekly (Mondays 06:00 Pacific) version updates for NuGet (central
+  `Directory.Packages.props`) and GitHub Actions; test tooling, Serilog and actions grouped into single PRs.
+- Security alerts and security updates are repository settings (Settings → Code security), enabled by David.
+
 ## 2026-10-27 — MOD reader (T2.1, T2.2)
 - `ModModule` is a faithful image of the file (no interpretation); sample lengths and loops in bytes.
 - Pattern count: choose between "all 128 order entries" and "played orders" by which matches the file size.
