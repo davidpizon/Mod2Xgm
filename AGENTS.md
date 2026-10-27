@@ -44,7 +44,8 @@ Required behavior on every run (see [`docs/cli.md`](docs/cli.md#console-report) 
 2. Log a **capacity warning** if the samples exceed what XGM/XGM2 (or DMF) can hold.
 3. By default **consolidate** to fit — dedupe, trim, merge, and even swap a track's sound mid-song — logging
    each change as a conversion note. `--no-consolidate` fails (exit 6) instead.
-4. Honor `--ignore-samples <list>` to leave chosen samples out.
+4. Honor `--ignore-samples <list>` to leave chosen samples out, and `--require-fm` / `--require-pcm <list>` to force a
+   sample's rendering (hard constraints; a sample in both, or ignored and required, is a usage error).
 5. With `--format xgm2`, write `.xgm2` and print exactly `NOTE: SGDK expects XGM2 files to use the .XGM file extension.` (see [`docs/cli.md`](docs/cli.md)).
 
 Mapping: a **simple mapper** for the first DMF release, then the **multi-pass optimizer**

@@ -51,6 +51,10 @@ decides by error and cost, not by a fixed "FM first" rule.
 
 ## Constraints the allocator enforces
 
+**User constraints first:** samples in `--require-fm` only ever get FM candidates; samples in `--require-pcm` only
+PCM candidates. The allocator never trades them away. See
+[sample-capacity.md](sample-capacity.md#required-fm-and-pcm-samples) for overflow handling.
+
 | Resource | DMF | XGM | XGM2 |
 |---|---|---|---|
 | FM channels | 6 (5 if DAC used) | **5** (driver owns FM6/DAC) | 5 (FM6 only if DAC off via `$FD` — verify) |
