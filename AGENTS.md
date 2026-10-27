@@ -56,12 +56,17 @@ libraries for these.
 ## Repository layout
 
 ```
-/AGENTS.md              this file
-/docs/                  design and format documentation (start at docs/README.md)
-/src/Mod2Xgm.csproj     the console app (.NET 10, Native AOT)
-/src/Mod2Xgm.slnx       solution (new XML .slnx format)
-/src/Program.cs         entry point
-/.vs/, /src/.vs/        Visual Studio state — never edit or commit
+/AGENTS.md                  this file
+/Mod2Xgm.slnx               solution (XML .slnx format) — src/ and tests/ projects
+/Directory.Build.props      settings shared by every project (net10.0, nullable, warnings-as-errors, analyzers)
+/Directory.Packages.props   central package versions — PackageReference items carry no Version
+/.gitattributes             line-ending normalization (LF in the repo)
+/docs/                      design and format documentation (start at docs/README.md)
+/src/Mod2Xgm.csproj         the console app (Native AOT)
+/src/Program.cs             entry point
+/tests/                     test projects, one folder each (see tests/README.md)
+/tests/Mod2Xgm.Tests/       xUnit v3 tests for the app
+/.vs/                       Visual Studio state — never edit or commit (git-ignored)
 ```
 
 Planned source layout (proposed — see [`docs/architecture.md`](docs/architecture.md)):
@@ -85,10 +90,10 @@ tests/Mod2Xgm.Tests/
 Requires the **.NET 10 SDK**. All commands run from the repo root.
 
 ```bash
-dotnet build src/Mod2Xgm.csproj
+dotnet build                                                # whole solution (Mod2Xgm.slnx)
+dotnet test                                                 # all test projects under tests/
 dotnet run --project src/Mod2Xgm.csproj -- path/to/song.mod
 dotnet publish src/Mod2Xgm.csproj -c Release -r win-x64     # Native AOT single exe
-dotnet test                                                 # once tests/ exists
 ```
 
 After a change, at minimum: `dotnet build` and `dotnet test` must pass. If you touched anything
@@ -96,16 +101,26 @@ reflection- or serialization-adjacent, also run the AOT `publish`.
 
 ## Every warning is an error
 
-The project sets `TreatWarningsAsErrors`, `MSBuildTreatWarningsAsErrors`, `IsAotCompatible` (trim/AOT
-analyzers at build time, IL2xxx / IL3xxx), `AnalysisLevel=latest` and `EnforceCodeStyleInBuild`. Any
+`Directory.Build.props` sets `TreatWarningsAsErrors`, `MSBuildTreatWarningsAsErrors`, `AnalysisLevel=latest`
+and `EnforceCodeStyleInBuild` for **every** project; the app additionally sets `IsAotCompatible` (trim/AOT
+analyzers at build time, IL2xxx / IL3xxx). Any
 compiler, analyzer, trim/AOT, NuGet or MSBuild warning fails the build.
 
 - Fix the cause. Do **not** add `<NoWarn>`, `#pragma warning disable`, `[SuppressMessage]`,
   `[UnconditionalSuppressMessage]`, or lower a rule's severity in `.editorconfig` without the user's
   explicit approval — and then only for a single, narrowly scoped site with a comment explaining why.
 - Never turn `TreatWarningsAsErrors` off, locally or in CI.
-- Any new project (e.g. `tests/Mod2Xgm.Tests`) gets the same settings — put them in a shared
-  `Directory.Build.props` when the second project is added.
+- New projects inherit these automatically from `Directory.Build.props`; don't override them in a project file.
+- Package versions go in `Directory.Packages.props` only.
+
+## Git workflow
+
+- **Never push to `main`.** Every change goes on a branch and into a **pull request**; David reviews and merges.
+- Branch names: `feat/…`, `fix/…`, `docs/…`, `chore/…`, `test/…`. For plan work, include the task id:
+  `feat/t2-2-mod-reader`.
+- One plan task (`T#.#`) per PR; put the task id in the PR title ("T2.2: MOD reader").
+- Keep `main` buildable: a PR merges only with green CI (once CI exists, T0.4).
+- Line endings are normalized by `.gitattributes`; don't commit line-ending-only changes.
 
 ## SGDK compliance
 

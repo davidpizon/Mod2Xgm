@@ -1,6 +1,7 @@
 # Testing
 
-Project: `tests/Mod2Xgm.Tests` (**xUnit v3**), referenced from the root `Mod2Xgm.slnx`. Run with `dotnet test`.
+Test projects live in **`tests/`**, one folder each (see [`tests/README.md`](../tests/README.md)). The main one is
+`tests/Mod2Xgm.Tests` (**xUnit v3**), referenced from the root `Mod2Xgm.slnx`. Run with `dotnet test`.
 
 ## Layers
 1. **Reader unit tests** — build MOD bytes in code (a small `ModBuilder` test helper) and assert
