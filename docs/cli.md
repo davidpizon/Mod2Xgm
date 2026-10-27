@@ -116,7 +116,7 @@ INF  03  "  by Jester"                 0  —                 0    0      0  emp
 INF  07  "vocal"                   21044  —                48   -2     12  ignored
 ```
 
-Lengths in bytes; Fine = finetune −8…+7; Notes = trigger count; Status = used / unused / empty / ignored.
+Lengths in bytes; Fine = finetune −8…+7; Notes = how many notes start the sample ([usage scan](sample-capacity.md#usage-scan-srcmodsampleusagecs-plan-t24)); Status = used / unused / empty / ignored.
 
 **3. Output instruments** — after mapping/consolidation, what the target will contain:
 
