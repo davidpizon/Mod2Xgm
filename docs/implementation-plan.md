@@ -40,16 +40,16 @@
 | Task | Work | Acceptance |
 |---|---|---|
 | T0.1 ✅ | `git init`, `.gitignore` (`.vs/`, `bin/`, `obj/`, `artifacts/`, `*.user`), first commit; create `github.com/davidpizon/Mod2Xgm` (private unless told otherwise) | Repo pushed |
-| T0.2 (partly, PR #1; `.editorconfig` and `THIRD-PARTY-NOTICES.md` still to do) | Move `Mod2Xgm.slnx` to repo root; `Directory.Build.props` (warnings-as-errors/AOT/analysis settings moved out of the csproj); `Directory.Packages.props`; `.editorconfig`; `THIRD-PARTY-NOTICES.md` | `dotnet build` from root; settings apply to all projects |
-| T0.3 (PR #1) | `tests/` folder for test projects; `tests/Mod2Xgm.Tests` (xUnit v3); smoke test | `dotnet test` from root passes |
+| T0.2 ✅ (PR #1, PR #8) | Move `Mod2Xgm.slnx` to repo root; `Directory.Build.props` (warnings-as-errors/AOT/analysis settings moved out of the csproj); `Directory.Packages.props`; `.editorconfig`; `THIRD-PARTY-NOTICES.md` | `dotnet build` from root; settings apply to all projects |
+| T0.3 ✅ (PR #1) | `tests/` folder for test projects; `tests/Mod2Xgm.Tests` (xUnit v3); smoke test | `dotnet test` from root passes |
 | T0.4 ✅ (PR #4, PR #6, PR #9) | GitHub Actions matrix (windows/ubuntu/macos): restore, build, test; on tag: AOT publish `win-x64`, `linux-x64`, `osx-arm64`, upload artifacts | Green CI; artifacts on a test tag |
-| T0.5 | Update AGENTS.md commands for the new layout | Docs match reality |
+| T0.5 ✅ (PR #1, PR #4) | Update AGENTS.md commands for the new layout | Docs match reality |
 
 ### M1 — CLI and logging skeleton
 | Task | Work | Acceptance |
 |---|---|---|
 | T1.1 (PR #10) | System.CommandLine with every option in [cli.md](cli.md) → immutable `ConversionOptions` | Parser tests for every option (`--ignore-samples 3,7,12-14,0x1F`, `128K`/`1M`, `90s`/`5m`, quality, seed, reserve-sfx bounds per format) |
-| T1.2 | Exit codes 0–6; output naming; no overwrite without `--force` | CLI tests per exit code |
+| T1.2 (PR #12) | Exit codes 0–6; output naming; no overwrite without `--force` | CLI tests per exit code |
 | T1.3 | Serilog from options (`--verbose` → Debug); `ConversionNotes` → `Warning` | Captured-log tests |
 | T1.4 | AOT publish check with System.CommandLine + Serilog | Clean on all OSes |
 

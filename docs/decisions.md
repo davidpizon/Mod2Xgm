@@ -2,6 +2,10 @@
 
 Newest first. Each entry: date, decision, options considered, reason.
 
+## 2026-10-27 — Exit codes and output checks (T1.2)
+- Expected failures throw `ConversionException` carrying the exit code; `Program.Run` prints the message only.
+- The output path never equals the input (exit 4 even with `--force`); output directories aren't created.
+
 ## 2026-10-27 — CLI parsing (T1.1)
 - **System.CommandLine 2.0.13** added (MIT). Options are declared as text and converted/validated in
   `OptionsBinder`, which collects all errors; parse and validation errors exit 1.
