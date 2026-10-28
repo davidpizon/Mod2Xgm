@@ -97,7 +97,7 @@ internal static class ModToSong
             notes.Add("{Count} samples have a finetune; Ultimate Soundtracker had none, so it's ignored", fineTuned);
         }
 
-        int skipped = module.Samples.Count(s => s.Loops && s.LoopStart > 0);
+        int skipped = module.Samples.Count(s => s is { Loops: true, LoopStart: > 0 });
         if (skipped > 0)
         {
             notes.Add("{Count} looping samples start at their loop start; Ultimate Soundtracker skipped the sound before it", skipped);
@@ -124,7 +124,7 @@ internal static class ModToSong
             tally.Count(issue.ToString(), location);
         }
 
-        if (module.Format == ModFormat.Soundtracker15 && module.Player == ModPlayer.ProTracker2 && cell.Effect is 0x1 or 0x2 && cell.EffectParameter != 0)
+        if (module is { Format: ModFormat.Soundtracker15, Player: ModPlayer.ProTracker2 } && cell is { Effect: 0x1 or 0x2, EffectParameter: not 0 })
         {
             tally.Count(Tally.SoundtrackerSlides, location);
         }

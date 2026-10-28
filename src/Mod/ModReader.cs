@@ -433,7 +433,7 @@ internal static class ModReader
     /// <summary>Ultimate Soundtracker rules: the stored loop start is always in bytes (docs/formats/mod.md#players).</summary>
     private static int SoundtrackerLoopStart(SampleHeader header, ref int byteLoops)
     {
-        if (header.LoopLength > 2 && header.LoopStartWords > 0)
+        if (header is { LoopLength: > 2, LoopStartWords: > 0 })
         {
             byteLoops++;
         }
