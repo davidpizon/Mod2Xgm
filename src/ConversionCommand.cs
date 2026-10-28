@@ -12,8 +12,10 @@ internal static class ConversionCommand
     /// <summary>Largest input accepted. Real MODs are a few MB at most; anything bigger isn't a MOD.</summary>
     public const long MaxInputBytes = 64L * 1024 * 1024;
 
+    /// <summary>Runs one conversion, logging to the global Serilog logger.</summary>
     public static ExitCode Execute(ConversionOptions options) => Execute(options, Log.Logger);
 
+    /// <summary>Runs one conversion, logging to <paramref name="logger"/>; expected failures throw <see cref="ConversionException"/>.</summary>
     public static ExitCode Execute(ConversionOptions options, ILogger logger)
     {
         LogOptions(options, logger);
@@ -29,6 +31,9 @@ internal static class ConversionCommand
 
         ConversionNotes notes = new(logger);
         ModModule module = ModReader.Read(ReadInput(input), notes);
+
+        // Report sections 1–2 come right after reading, before anything that can fail later (docs/cli.md#console-report).
+        ModReport.LogMetadata(logger, module, Path.GetFileName(input));
         logger.Debug(
             "Read {Format} MOD ({Tag}): {Channels} channels, {Patterns} patterns, {SongLength} orders",
             module.Format,
@@ -43,8 +48,10 @@ internal static class ConversionCommand
             usage.RowsPlayed,
             usage.Samples.Count(s => s.Status == SampleStatus.Used),
             usage.LoopsBack);
+        ModReport.LogSamples(logger, module, usage, options.IgnoreSamples);
+        CheckSampleNumbers(options, module);
 
-        // Later stages (report, model, map, write) are added by later plan tasks; they report lossy decisions to notes.
+        // Later stages (model, map, report section 3, write) are added by later plan tasks; they report lossy decisions to notes.
 
         logger.Information(
             "{Input} -> {Output} ({NoteCount} conversion notes)",
@@ -73,6 +80,31 @@ internal static class ConversionCommand
         if (samples.Count > 0)
         {
             logger.Debug(messageTemplate, string.Join(",", samples.Order()));
+        }
+    }
+
+    /// <summary>
+    /// Sample lists are checked against 1–31 when parsed; this rejects numbers the module doesn't have (16–31 in a
+    /// 15-sample file). Runs after the report, so the table shows which slots exist. Every problem is reported at once.
+    /// </summary>
+    private static void CheckSampleNumbers(ConversionOptions options, ModModule module)
+    {
+        List<string> problems = [];
+        AddUnknown(problems, "--ignore-samples", options.IgnoreSamples, module.Samples.Count);
+        AddUnknown(problems, "--require-fm", options.RequireFm, module.Samples.Count);
+        AddUnknown(problems, "--require-pcm", options.RequirePcm, module.Samples.Count);
+        if (problems.Count > 0)
+        {
+            throw new ConversionException(ExitCode.UsageError, string.Join(Environment.NewLine, problems));
+        }
+    }
+
+    private static void AddUnknown(List<string> problems, string option, IReadOnlySet<int> samples, int sampleCount)
+    {
+        int[] unknown = [.. samples.Where(s => s > sampleCount).Order()];
+        if (unknown.Length > 0)
+        {
+            problems.Add(FormattableString.Invariant($"{option} {string.Join(",", unknown)}: this module has samples 1-{sampleCount} only."));
         }
     }
 

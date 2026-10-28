@@ -10,7 +10,9 @@ Test projects live in **`tests/`**, one folder each (see [`tests/README.md`](../
 3. **Writer unit tests** — exact bytes for headers, tables, alignment, endianness; DMF decompresses
    with `ZLibStream` and re-parses with a test-only DMF reader.
 4. **Golden-file tests** — whole conversions of generated MODs compared to checked-in expected outputs
-   under `tests/golden/`. Updating goldens is a deliberate act (`UPDATE_GOLDEN=1 dotnet test`).
+   under `tests/golden/`. Updating goldens is a deliberate act (`UPDATE_GOLDEN=1 dotnet test`). Tests compare
+   through `tests/Mod2Xgm.Tests/Golden.cs`, which finds the folder from the repo root and ignores CR/LF
+   differences (Windows checkouts get CRLF). First goldens: console report sections 1–2 (`tests/golden/report/`).
 5. **CLI tests** — argument parsing (incl. `--ignore-samples` lists, ranges, hex), output naming, exit
    codes, no overwrite without `--force`, console report content (metadata, empty-slot names, statuses).
 

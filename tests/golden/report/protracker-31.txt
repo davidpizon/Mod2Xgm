@@ -1,0 +1,38 @@
+INF File        : song.mod (21802 bytes)
+INF Title       : "space {debris}"
+INF Format      : ProTracker M.K. — 4 channels, 31 sample slots
+INF Song length : 2 orders, restart position 127
+INF Patterns    : 2
+INF Tempo       : speed 4, 140 BPM (initial)
+INF  #   Name                     Length  Loop start+len  Vol  Fine  Notes  Status
+INF  01  "bassdrum"                 4532  —                64     0      3  used
+INF  02  "snare 2"                  3870  —                48    -2      2  used
+INF  03  "  by Jester"                 0  —                 0     0      0  empty
+INF  04  "strings"                  8000  2000+6000        64     0      1  used
+INF  05  "never played"              100  —                64     0      0  unused
+INF  06  ""                            0  —                 0     0      0  empty
+INF  07  "vocal"                    2104  —                64     7      1  ignored
+INF  08  "bad·name"                   64  —                64     0      0  unused
+INF  09  ""                            0  —                 0     0      0  empty
+INF  10  ""                            0  —                 0     0      0  empty
+INF  11  ""                            0  —                 0     0      0  empty
+INF  12  ""                            0  —                 0     0      0  empty
+INF  13  ""                            0  —                 0     0      0  empty
+INF  14  ""                            0  —                 0     0      0  empty
+INF  15  ""                            0  —                 0     0      0  empty
+INF  16  ""                            0  —                 0     0      0  empty
+INF  17  ""                            0  —                 0     0      0  empty
+INF  18  ""                            0  —                 0     0      0  empty
+INF  19  ""                            0  —                 0     0      0  empty
+INF  20  ""                            0  —                 0     0      0  empty
+INF  21  ""                            0  —                 0     0      0  empty
+INF  22  ""                            0  —                 0     0      0  empty
+INF  23  ""                            0  —                 0     0      0  empty
+INF  24  ""                            0  —                 0     0      0  empty
+INF  25  ""                            0  —                 0     0      0  empty
+INF  26  ""                            0  —                 0     0      0  empty
+INF  27  ""                            0  —                 0     0      0  empty
+INF  28  ""                            0  —                 0     0      0  empty
+INF  29  ""                            0  —                 0     0      0  empty
+INF  30  ""                            0  —                 0     0      0  empty
+INF  31  ""                            0  —                 0     0      0  empty

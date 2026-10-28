@@ -1,0 +1,22 @@
+INF File        : song.mod (2824 bytes)
+INF Title       : "old song"
+INF Format      : Soundtracker (no tag) — 4 channels, 15 sample slots
+INF Song length : 1 order, restart position 120 (Ultimate Soundtracker reads this byte as the tempo)
+INF Patterns    : 1
+INF Tempo       : speed 6, 125 BPM (initial)
+INF  #   Name                     Length  Loop start+len  Vol  Fine  Notes  Status
+INF  01  "piano"                    1000  —                64     0      1  used
+INF  02  ""                            0  —                 0     0      0  empty
+INF  03  ""                            0  —                 0     0      0  empty
+INF  04  ""                            0  —                 0     0      0  empty
+INF  05  ""                            0  —                 0     0      0  empty
+INF  06  ""                            0  —                 0     0      0  empty
+INF  07  ""                            0  —                 0     0      0  empty
+INF  08  ""                            0  —                 0     0      0  empty
+INF  09  ""                            0  —                 0     0      0  empty
+INF  10  ""                            0  —                 0     0      0  empty
+INF  11  ""                            0  —                 0     0      0  empty
+INF  12  ""                            0  —                 0     0      0  empty
+INF  13  ""                            0  —                 0     0      0  empty
+INF  14  ""                            0  —                 0     0      0  empty
+INF  15  "last slot"                 200  —                64     0      0  unused
