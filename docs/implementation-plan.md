@@ -70,7 +70,7 @@
 | T3.3 (PR #30) | `ModToSong` (notes, instruments, samples) and all ProTracker effects decoded, ProTracker 2 rules (`ModPlayer`) | Per-effect tests |
 | T3.3a (PR #31) | `--player protracker\|ust`: the reader, usage scan, report, decoder and `ModToSong` follow one player's rules; default `ust` for 15-sample files, `protracker` otherwise; every run says which player it emulates | Tests per rule and per default |
 | T3.3b (later) | `--player openmpt`: OpenMPT's MOD rules, including its per-file guesses (8xx/E8x panning, 7-bit panning, random waves, NoiseTracker `Dxx`; vblank timing with the tick player). Reference: [OpenMPT wiki](https://wiki.openmpt.org/Main_Page) and its BSD-licensed source | Tests per rule |
-| T3.4 | Order traversal (`Bxx`, `Dxx`, `E6x`, `EEx`, `Fxx`), loop point, **tick player** (a port of pt2-clone's ProTracker 2 replayer on the raw cells; output: the full picture of every channel on every tick, `Playback`); source tick rate from `--input-region` (50/60 Hz at BPM 125, [cli.md](cli.md#regions)) | Hand-worked test songs now (lengths, loop points, every effect's tick behavior); duration vs openmpt123 ± 1 tick on the corpus joins the harness (T6.3) |
+| T3.4 (PR #32) | Order traversal (`Bxx`, `Dxx`, `E6x`, `EEx`, `Fxx`), loop point, **tick player** (a port of pt2-clone's ProTracker 2 replayer on the raw cells; output: the full picture of every channel on every tick, `Playback`); source tick rate from `--input-region` (50/60 Hz at BPM 125, [cli.md](cli.md#regions)) | Hand-worked test songs now (lengths, loop points, every effect's tick behavior); duration vs openmpt123 ± 1 tick on the corpus joins the harness (T6.3) |
 
 ### M4 — Close the DMF spec gaps
 | Task | Work | Acceptance |
