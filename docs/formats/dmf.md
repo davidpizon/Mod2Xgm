@@ -224,11 +224,11 @@ FM1 is 440 Hz. So to make the PSG sound pitch *p*, the writer stores the note wi
 (A-4 at 440 Hz → `A-2` on SN1). The PSG's lowest tone is about 109 Hz (period 1023), so lower notes need FM — the
 mapper's call.
 
-**Open — other DMF players** (David, 2026-10-28): test whether Furnace (or another DMF player) plays these PSG notes
-the same way. Furnace's DMF loader adds no PSG octave shift for file version 14 and later, so it may play them two
-octaves lower than DefleMask. If players disagree, our DMFs sound right in only one of them; DefleMask stays the
-reference (it is what exports the VGM for SGDK), but a conversion note or docs line may be needed. Test with
-`tests/golden/dmf-probes/psg-note.dmf`.
+**Furnace agrees** (checked 2026-10-28, David's question): Furnace 0.6.8.3 (`furnace.exe -vgmout`, `-output`) plays
+`psg-note.dmf` the same way — SN1 `A-4` is period 64, 1748 Hz — so this is how DMF files are pitched, not a DefleMask
+bug. Its exports of the other four probes match DefleMask's too: FM 440 / 523 Hz with TL 0 on register +8, DAC
+440 / 440 / 660 Hz at 32 / 32 / 8 kHz streams, custom Hz key-ons at 0, 1, 2, 3 s, and the ext. CH3 chord. (Its VGMs
+are version 1.71 and run one 50 Hz frame longer.)
 
 ## What DefleMask shows
 
