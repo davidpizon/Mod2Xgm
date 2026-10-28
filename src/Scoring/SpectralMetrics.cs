@@ -23,7 +23,7 @@ internal readonly record struct MelResolution(int FftSize, int HopSize, int MelB
 internal static class SpectralMetrics
 {
     /// <summary>Number of cepstral coefficients compared by <see cref="MfccDistance"/> (c1…c13; c0 is loudness).</summary>
-    public const int MfccCount = 13;
+    private const int MfccCount = 13;
 
     /// <summary>Mel bands the MFCCs are computed from.</summary>
     private const int MfccBands = 40;

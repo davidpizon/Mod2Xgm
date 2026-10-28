@@ -47,10 +47,10 @@ internal sealed class MelAnalyzer
     }
 
     /// <summary>Frame length in samples.</summary>
-    public int FftSize { get; }
+    private int FftSize { get; }
 
     /// <summary>Number of mel bands in each frame.</summary>
-    public int MelBands { get; }
+    private int MelBands { get; }
 
     /// <summary>Samples between the starts of two frames.</summary>
     public int HopSize => _hop;

@@ -22,6 +22,9 @@ public sealed class SongScorerTests
         Assert.Equal(0, report.MelDistanceDb);
         Assert.Equal(0, report.MfccDistance);
         Assert.Equal(1, report.OnsetF1);
+        Assert.Equal(1, report.OnsetPrecision);
+        Assert.Equal(1, report.OnsetRecall);
+        Assert.Equal(0, report.OnsetTimingErrorSeconds);
         Assert.Equal(0, report.LagSeconds);
         Assert.Equal(0, report.LengthDifferenceSeconds);
         Assert.Equal(0, report.Combined);
@@ -42,6 +45,9 @@ public sealed class SongScorerTests
         Assert.Equal(0, unaligned.LagSeconds);
         Assert.True(unaligned.Combined > aligned.Combined + 3);
         Assert.Equal(0, unaligned.OnsetF1);
+        Assert.Equal(0, unaligned.OnsetPrecision);
+        Assert.Equal(0, unaligned.OnsetRecall);
+        Assert.Null(unaligned.OnsetTimingErrorSeconds);
     }
 
     /// <summary>A rendering of a different sound is scored worse than a close one, on the combined number.</summary>

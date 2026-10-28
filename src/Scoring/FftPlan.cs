@@ -45,7 +45,7 @@ internal sealed class FftPlan
     }
 
     /// <summary>Number of points.</summary>
-    public int Size { get; }
+    private int Size { get; }
 
     /// <summary>The forward transform (e<sup>−iωt</sup>), in place: <paramref name="real"/> and <paramref name="imag"/> hold the input, then the spectrum.</summary>
     /// <param name="real">Real parts, <see cref="Size"/> long.</param>
