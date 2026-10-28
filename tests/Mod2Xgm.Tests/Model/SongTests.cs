@@ -17,8 +17,17 @@ public sealed class SongTests
         Assert.Equal(expectedOrders, song.Orders);
         Assert.Equal(1, song.LoopOrder);
         Assert.Equal(2, song.Patterns.Count);
-        Assert.Equal("kick", song.Instruments[0].Name);
+        Assert.Equal("test song", song.Title);
+        Assert.Equal(new Timing(6, 125), song.Timing);
+        Assert.Equal(6, song.Timing.Speed);
         Assert.Equal(-1, song.Channels[0].Pan);
+
+        Instrument kick = song.Instruments[0];
+        Assert.Equal(("kick", 0, 1.0, -12.5), (kick.Name, kick.Sample, kick.DefaultVolume, kick.FineTuneCents));
+        Assert.Equal("kick", song.Samples[0].Name);
+        float[] expectedData = [0.5f, -0.5f];
+        Assert.Equal(expectedData, song.Samples[0].Data);
+        Assert.Equal(0.75, song.Patterns[0].Rows[0].Cells[0].Volume);
     }
 
     /// <summary>An order naming a pattern the song doesn't have is a bug in the reader.</summary>
@@ -101,7 +110,7 @@ public sealed class SongTests
     }
 
     private static Pattern OnePattern() =>
-        new([new Row([Cell.Empty with { Note = new NotePitch(24, 0, 8287.14), Instrument = 0 }, Cell.Empty, Cell.Empty, Cell.Empty])]);
+        new([new Row([Cell.Empty with { Note = new NotePitch(24, 0, 8287.14), Instrument = 0, Volume = 0.75 }, Cell.Empty, Cell.Empty, Cell.Empty])]);
 
     private static Song Build(
         int[]? orders = null,
@@ -114,7 +123,7 @@ public sealed class SongTests
             orders ?? [0, 1, 0],
             loopOrder,
             patterns ?? [OnePattern(), OnePattern()],
-            instruments ?? [new Instrument("kick", 0, 1, 0), new Instrument(string.Empty, 1, 0, 0)],
+            instruments ?? [new Instrument("kick", 0, 1, -12.5), new Instrument(string.Empty, 1, 0, 0)],
             [new Sample("kick", [0.5f, -0.5f], null), new Sample(string.Empty, [], null)],
             new Timing(6, 125));
 }

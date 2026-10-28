@@ -65,7 +65,7 @@ internal sealed class Song
             Require(Orders[i] >= 0 && Orders[i] < Patterns.Count, $"Order {i} plays pattern {Orders[i]}, but the song has {Patterns.Count} patterns.");
         }
 
-        if (LoopOrder is int loop)
+        if (LoopOrder is { } loop)
         {
             Require(loop >= 0 && loop < Orders.Count, $"Loop order {loop} is outside the {Orders.Count} orders.");
         }
