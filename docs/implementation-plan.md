@@ -77,7 +77,7 @@
 |---|---|---|
 | T4.1 (PR #33) | DefleMask manual + Furnace loader → resolve every **Verify** in [formats/dmf.md](formats/dmf.md), incl. ext. CH3 (0x42) channel layout | No v1 Verify items left |
 | T4.2 (PR #34) | Test-only `DmfReader` (`tests/Mod2Xgm.Tests/Dmf`): file versions 24–27, both Genesis systems, strict checks; `DmfBuilder` makes test files in code | Every field and rejection tested on built files and one spelled out byte by byte from the spec; the round trip of writer output is T5.2's test |
-| T4.3 (PR #35) | Probe DMFs (FM note, DAC sample, PSG note, custom Hz, ext. CH3), built by `DmfProbes` and kept current by tests, in `tests/golden/dmf-probes/` with a listening checklist; DefleMask "Save As" copies are read back and must hold the same song | David confirms in DefleMask **and** each survives VGM export → rescomp `XGM2` (results in the probes' README and docs/formats/dmf.md) |
+| T4.3 (PR #35) | Probe DMFs (FM note, DAC sample, PSG note, custom Hz, ext. CH3), built by `DmfProbes` and kept current by tests, in `tests/golden/dmf-probes/` with a listening checklist; DefleMask "Save As" copies are read back and must hold the same song | David confirms in DefleMask **and** each survives VGM export → rescomp `XGM2` — **done 2026-10-28**, all five pass ([results](../tests/golden/dmf-probes/README.md#results)); found PSG notes sound two octaves up |
 
 ### M5 — DMF writer + simple mapper (first playable release)
 | Task | Work | Acceptance |

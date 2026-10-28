@@ -39,7 +39,10 @@ internal static class DmfProbes
             .WithCell(0, 0, 6, note: 12, octave: 4, volume: FmVolume, instrument: 0)
             .WithCell(0, 0, 12, note: Off);
 
-    /// <summary>PSG1 plays a square A-4; then PSG4 plays white noise (<c>2001</c>: fixed rate, white).</summary>
+    /// <summary>
+    /// PSG1 (DefleMask's SN1) plays a square <c>A-4</c>, which DefleMask sounds at A-6 (its PSG notes are two octaves
+    /// above their name, docs/formats/dmf.md); then PSG4 plays white noise (<c>2001</c>: fixed rate, white).
+    /// </summary>
     private static DmfBuilder PsgNote() =>
         Song("PSG note", rows: 16)
             .WithStdInstrument("full volume", new DmfStdInstrument(new DmfMacro([PsgVolume], -1), Empty(), 0, Empty(), Empty()))
