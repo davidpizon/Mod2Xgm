@@ -94,7 +94,7 @@
 | Task | Work | Acceptance |
 |---|---|---|
 | T6.1 | Corpus of 10–20 freely licensed MODs; `tests/data/LICENSES.md` | Licenses recorded |
-| T6.2 | `src/Scoring` (pure C#): STFT, multi-resolution log-mel distance, MFCC distance (compared on the corpus; see [references/fm-matching.md](references/fm-matching.md)), onset error, alignment | Unit tests on synthetic signals |
+| T6.2 ✅ | `src/Scoring` (pure C#, [ADR 0042](adr/0042-scoring-metrics.md)): STFT, multi-resolution log-mel distance, MFCC distance (compared on the corpus; see [references/fm-matching.md](references/fm-matching.md)), onset error, alignment, `SongScorer` | Unit tests on synthetic signals |
 | T6.3 | `tools/Mod2Xgm.Harness`: openmpt123 reference renders; ingest DefleMask WAV exports and emulator captures; CSV + markdown report; tick-player durations vs openmpt123 ± 1 tick (moved from T3.4) | Stable scores on reruns |
 | T6.4 | Baseline for the simple mapper | Recorded in an ADR ([adr/](adr/README.md)) |
 
