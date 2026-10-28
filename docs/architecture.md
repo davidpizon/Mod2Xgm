@@ -7,7 +7,7 @@
     │  ModReader            (src/Mod)       big-endian parse + validation
     ▼
  ModModule                                  faithful image of the file
-    │  ModToSong            (src/Model)     effects decoded, timing resolved
+    │  ModToSong            (src/Mod)       notes, instruments, samples, effects decoded (T3.3)
     ▼
  Song (IR)                                  format-neutral: orders, rows, notes, instruments, samples
     │  IChannelMapper       (src/Mapping)   SimpleMapper, then multi-pass Optimizer — see multi-pass.md
@@ -34,9 +34,11 @@ reads files except `ModReader`'s caller, and no layer writes files except the CL
 order list, patterns and sample data. Rejects malformed or unsupported files with
 `ModFormatException(offset, reason)`. Does no interpretation.
 
-**ModToSong** — Turns raw cells into musical events: period → note + fine pitch, effect decoding,
-resolves `Fxx` speed/BPM changes into a tick timeline, handles pattern break / position jump
-(`Dxx`/`Bxx`) and detects the loop point.
+**ModToSong** (`src/Mod`, plan T3.3) — Builds the `Song` from a `ModModule`: periods become pitches
+(`AmigaPitch`, with the `--input-region` clock), sample slots become instruments and samples, and each cell's effect
+command is decoded by `ModEffects` under a player's rules (`ModPlayer`, ProTracker 2 for now). It lives in `src/Mod`
+because the model may not reference MOD types. Following the song through time — `Fxx` speed/BPM changes, pattern
+break / position jump (`Dxx`/`Bxx`), effect memory and the loop point — is the **tick player** (T3.4).
 
 **Song (IR)** (`src/Model`, plan T3.1) — Holds what any output needs, in format-neutral units, with 0-based numbering:
 

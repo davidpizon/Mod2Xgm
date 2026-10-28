@@ -153,4 +153,43 @@ Default speed 6 (ticks/row), BPM 125. Tick rate = `BPM × 2 / 5` Hz (50 Hz at 12
 
 Amiga channels 1 and 4 are left, 2 and 3 are right (hard stereo).
 
+### Decoding (T3.3)
+
+Code: `src/Mod/ModEffects.cs` (one cell's command → song-model effects) and `src/Mod/ModToSong.cs` (the whole song).
+**ProTracker 2 decides** wherever players disagree (David). The rules are a setting (`ModPlayer`) so another
+player's rules can be added with a command-line option when a song needs them; there is no option yet.
+
+| Command | Decoded as | Zero parameter |
+|---|---|---|
+| `0xy` | `Arpeggio(x, y)` semitones | `000` = no effect |
+| `1xx` / `2xx` | `PitchSlide(+xx / −xx)` periods, every tick after the first | no effect (no memory) |
+| `3xx` | `TonePortamento(xx)` periods per tick | memory |
+| `4xy` | `Vibrato(x / 64 cycles per tick, 255 × y / 128 periods peak)` | each half: memory |
+| `5xy` / `6xy` | tone portamento / vibrato with memory + volume slide as `Axy` | only the first part |
+| `7xy` | `Tremolo(x / 64, 255 × y / 64 / 64 of full volume peak)` | each half: memory |
+| `8xx` | ignored by ProTracker 2: `UnsupportedEffect` + conversion note | |
+| `9xx` | `SampleOffset(xx × 256)` frames | memory |
+| `Axy` | `VolumeSlide(+x / 64)` if x > 0, else `(−y / 64)`; every tick after the first | no effect |
+| `Bxx` | `PositionJump(xx)` | |
+| `Cxx` | the cell's `Volume` = min(xx, 64) / 64; above 64 → conversion note | |
+| `Dxx` | `PatternBreak(x × 10 + y)`; a digit above 9 → note; a row above 63 → row 0 + note | |
+| `E0x` | `SetLowPassFilter`: E00 on, E01 off (bit 0) | |
+| `E1x` / `E2x` | `PitchSlide(±x)` periods, once at the row start | no effect |
+| `E3x` | `SetGlissando(x ≠ 0)` | |
+| `E4x` / `E7x` | wave x & 3: 0 sine, 1 ramp down, 2 **and 3** square (ProTracker 2 plays "random" as square); x & 4 set = don't restart on new notes | |
+| `E5x` | `SetFineTune(signed x × 12.5)` cents | |
+| `E6x` | `PatternLoopStart` (E60) / `PatternLoop(x)` | |
+| `E8x` | unused by ProTracker 2: `UnsupportedEffect` + conversion note | |
+| `E9x` | `Retrigger(x)` ticks | no effect |
+| `EAx` / `EBx` | `VolumeSlide(±x / 64)`, once at the row start | no effect |
+| `ECx` | `NoteCut(x)`; EC0 cuts at once | |
+| `EDx` | `NoteDelay(x)` | no effect (ProTracker plays the note normally) |
+| `EEx` | `PatternDelay(x)` rows | no effect |
+| `EFx` | `InvertLoop(x)`; EF0 stops it | |
+| `Fxx` | `StopSong` (F00), `SetSpeed(xx)` below 0x20, else `SetTempo(xx)` | |
+
+**15-sample files** use the same meanings. Effects 1 and 2 are read as slides (later Soundtrackers, ProTracker) with
+a conversion note, since Ultimate Soundtracker used them for arpeggio and pitch bend; an Ultimate Soundtracker rule
+set can be added to `ModPlayer` later. A cell naming a sample above the module's count names no sample (note).
+
 Reference: ProTracker module format description (`MOD` / "Noisetracker/Soundtracker/Protracker Module Format", various authors); verify edge cases against a reference player such as OpenMPT or libxmp.
