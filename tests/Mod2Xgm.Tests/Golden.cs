@@ -25,17 +25,5 @@ internal static class Golden
     // Git checks text files out with CRLF on Windows (.gitattributes text=auto), and Serilog writes Environment.NewLine.
     private static string Normalize(string text) => text.Replace("\r\n", "\n", StringComparison.Ordinal);
 
-    /// <summary><c>tests/golden/</c>, found by walking up from the test binaries to the folder that holds <c>Mod2Xgm.slnx</c>.</summary>
-    private static string GoldenDirectory()
-    {
-        for (DirectoryInfo? directory = new(AppContext.BaseDirectory); directory is not null; directory = directory.Parent)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "Mod2Xgm.slnx")))
-            {
-                return Path.Combine(directory.FullName, "tests", "golden");
-            }
-        }
-
-        throw new InvalidOperationException($"Mod2Xgm.slnx not found above {AppContext.BaseDirectory}.");
-    }
+    private static string GoldenDirectory() => Path.Combine(RepoPaths.Root, "tests", "golden");
 }

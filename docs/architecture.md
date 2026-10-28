@@ -38,19 +38,34 @@ order list, patterns and sample data. Rejects malformed or unsupported files wit
 resolves `Fxx` speed/BPM changes into a tick timeline, handles pattern break / position jump
 (`Dxx`/`Bxx`) and detects the loop point.
 
-**Song (IR)** — Holds what any output needs:
+**Song (IR)** (`src/Model`, plan T3.1) — Holds what any output needs, in format-neutral units, with 0-based numbering:
 
-- `Orders` (list of pattern indices) and loop position
-- `Patterns` → `Rows` → per-channel `Cell { Note?, Instrument?, Volume?, Effects[] }`
-- `Instruments` → reference to a `Sample` + default volume + finetune
-- `Samples` → normalized PCM (`float[]` or `short[]`), source rate, loop start/length
-- `Timing` → initial speed/BPM, region (PAL/NTSC)
+- `Title`; `Channels` → starting pan, −1 left … +1 right (Amiga MODs: −1, +1, +1, −1)
+- `Orders` (pattern indices) and `LoopOrder` (where the song continues after its end, or none)
+- `Patterns` → `Rows` → one `Cell { Note?, Instrument?, Volume?, Effects }` per channel
+- `Note` = `NotePitch(Semitone, Cents, PlaybackRateHz)`: the musical pitch (semitone from C-0 plus unrounded cents)
+  **and** the exact rate the sample is played at, both computed from the same source value (MOD: period + Amiga
+  clock, T3.2), so writers can place notes and renderers can match the source exactly
+- `Volume` 0–1 (MOD `Cxx`: xx / 64); `Effects` → one named record per kind (`Arpeggio`, `PitchSlide`,
+  `TonePortamento`, `Vibrato`, `VolumeSlide`, `PositionJump`, `PatternBreak`, `SetSpeed`, `SetTempo`, … every
+  ProTracker effect, plus `UnsupportedEffect` for commands with no agreed meaning). Pitch slides and vibrato name
+  their scale (`AmigaPeriod` or `Cents`), because Amiga-style players slide the period, not the pitch. A `null`
+  parameter means effect memory, resolved by the tick player (T3.4). One source command may become several
+  effects (MOD `5xy` = tone portamento + volume slide).
+- `Instruments` → `Sample` index + default volume (0–1) + finetune in cents
+- `Samples` → name, mono `float[]` −1…+1 (8-bit input converts exactly), forward loop (start, length in frames)
+- `Timing` → initial speed and BPM (tick rate = BPM × 2 / 5 Hz). The Genesis region is an output option, not part of
+  the song.
+
+The constructors of `Song` and `Sample` check that every reference points inside the song (orders → patterns,
+loop order, one cell per channel, instruments → samples, loops inside sample data). Nothing in `src/Model` may use
+`Mod2Xgm.Mod`; `tests/Mod2Xgm.Tests/Model/ModelBoundaryTests.cs` enforces it.
 
 **IChannelMapper** — Decides which Genesis channel plays each MOD channel/instrument, and how (DAC sample,
 FM patch, PSG). Several implementations can exist; selected by CLI flag. See
 [channel-mapping.md](channel-mapping.md).
 
-**ModReport** (`src/Cli`) — called **unconditionally** by the conversion command: prints the metadata and
+**ModReport** (`src/Mod`) — called **unconditionally** by the conversion command: prints the metadata and
 full sample table from `ModModule` right after reading (before any later stage can fail), and the output instrument table after budgeting. See
 [cli.md](cli.md#console-report).
 
