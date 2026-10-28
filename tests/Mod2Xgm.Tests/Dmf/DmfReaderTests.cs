@@ -28,17 +28,20 @@ public sealed class DmfReaderTests
     [Fact]
     public void HandSpelledFileFromTheSpec()
     {
-        List<byte> bytes = [.. ".DelekDefleMask."u8];
-        bytes.AddRange([24, 0x02]); // version, system
-        bytes.AddRange([1, (byte)'A', 0]); // name "A", author ""
-        bytes.AddRange([4, 16]); // highlights
-        bytes.AddRange([0, 6, 3, 1, 1, (byte)'1', (byte)'2', (byte)'5']); // time base, tick times, NTSC, custom Hz "125"
-        bytes.AddRange([1, 0, 0, 0, 1]); // 1 row per pattern, 1 matrix row
-        bytes.AddRange([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]); // one pattern index per channel
-        bytes.AddRange([1, 1, (byte)'p', 0]); // 1 instrument "p", STD
-        bytes.AddRange([2, 15, 0, 0, 0, 7, 0, 0, 0, 0xFF]); // volume macro 15, 7, no loop
-        bytes.AddRange([0, 1, 0, 0]); // empty arpeggio macro, fixed mode, empty duty and wavetable macros
-        bytes.Add(0); // no wavetables
+        List<byte> bytes =
+        [
+            .. ".DelekDefleMask."u8,
+            24, 0x02, // version, system
+            1, (byte)'A', 0, // name "A", author ""
+            4, 16, // highlights
+            0, 6, 3, 1, 1, (byte)'1', (byte)'2', (byte)'5', // time base, tick times, NTSC, custom Hz "125"
+            1, 0, 0, 0, 1, // 1 row per pattern, 1 matrix row
+            0, 1, 2, 3, 4, 5, 6, 7, 8, 9, // one pattern index per channel
+            1, 1, (byte)'p', 0, // 1 instrument "p", STD
+            2, 15, 0, 0, 0, 7, 0, 0, 0, 0xFF, // volume macro 15, 7, no loop
+            0, 1, 0, 0, // empty arpeggio macro, fixed mode, empty duty and wavetable macros
+            0, // no wavetables
+        ];
         for (int channel = 0; channel < 10; channel++)
         {
             bytes.Add(1); // 1 effect column
