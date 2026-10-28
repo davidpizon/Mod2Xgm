@@ -353,5 +353,7 @@ Newest first. Each entry: date, decision, options considered, reason.
 
 ## Open
 - Channel mapping strategy and DMF DAC collision policy.
+- Do other DMF players (Furnace, …) play PSG notes two octaves up like DefleMask? Test with the `psg-note` probe
+  (docs/formats/dmf.md#psg-notes-sound-two-octaves-up).
 - XGM v1 driver behavior not covered by the spec: CH3 special via `$27` (timer bits), music PCM priority.
 - CLI default for `--mapping`.
