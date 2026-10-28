@@ -33,7 +33,7 @@ internal static class AmigaPitch
     /// The period that is exactly C-2 at 0 cents: finetune 0 on a PAL Amiga, playing at <see cref="PalClockHz"/> / 428.
     /// Every other pitch is measured from it, so an NTSC clock reads 15.9 cents sharp.
     /// </summary>
-    public const int ReferencePeriod = 428;
+    private const int ReferencePeriod = 428;
 
     /// <summary>Semitone of <see cref="ReferencePeriod"/> (C-2).</summary>
     private const int ReferenceSemitone = 24;
