@@ -10,7 +10,8 @@ on 2026-10-27. Older revisions: `DMF_SPECS_0x11.txt`, `_0x12`, `_0x15` on the sa
 This page summarizes the spec for the **Genesis** case and fills in what the spec leaves unsaid (plan T4.1). Each
 gap is closed from one of these, named in brackets where it's used:
 
-- **[Furnace]** — Furnace's DMF loader and saver, read as a reference only (GPL, no code copied; see
+- **[Furnace]** — [Furnace](https://github.com/tildearrow/furnace) (tildearrow/furnace: a multi-system chiptune
+  tracker compatible with DefleMask modules). Its DMF loader and saver are read as a reference only (GPL, no code copied; see
   [THIRD-PARTY-NOTICES.md](../../THIRD-PARTY-NOTICES.md)), commit `bcba71d`: `src/engine/fileOps/dmf.cpp`, plus
   `engine.cpp` (rates, notes), `legacySample.cpp` (DAC sample selection), `playback.cpp` (jumps, speeds, panning),
   `sysDef.cpp` (channel layout) and `platform/genesis.cpp`, `genesisext.cpp`, `fmshared*.h` (operators, detune,
