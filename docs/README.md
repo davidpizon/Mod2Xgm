@@ -16,7 +16,7 @@
 | [formats/xgm.txt](formats/xgm.txt) | Official SGDK XGM v1.01 spec, verbatim copy |
 | [genesis-audio.md](genesis-audio.md) | YM2612 / SN76489 facts the converter relies on |
 | [testing.md](testing.md) | Test strategy and test data rules |
-| [decisions.md](decisions.md) | Decision log |
+| [adr/](adr/README.md) | Architecture Decision Records: every decision, one file each, plus open questions ([decisions.md](decisions.md) points there) |
 
 ## Goal
 
