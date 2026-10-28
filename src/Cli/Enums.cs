@@ -8,7 +8,10 @@ internal enum OutputFormat
     Xgm2,
 }
 
-/// <summary>Genesis region the music is timed for (<c>--region</c>).</summary>
+/// <summary>
+/// A machine's region (<c>--input-region</c>: the Amiga the MOD was made on; <c>--output-region</c>: the Genesis that
+/// plays the result). PAL and NTSC machines run at different clocks and frame rates.
+/// </summary>
 internal enum Region
 {
     Pal,

@@ -102,12 +102,33 @@ Sample number 0 = no new instrument. Period 0 = no new note.
 
 ## Pitch
 
-`freq_Hz = AmigaClock / (2 × period)`, PAL clock 7 093 789.2 Hz, NTSC 7 159 090.5 Hz.
-Standard ProTracker periods cover C-1…B-3 (856…113). Map period → nearest note + cents, and apply finetune.
+Code: `src/Model/AmigaPitch.cs` (plan T3.2).
+
+**Playback rate.** Paula plays a sample at `rate_Hz = PaulaClock / period`. PaulaClock is the Amiga crystal ÷ 8:
+PAL 28 375 160 / 8 = **3 546 895 Hz**, NTSC 28 636 360 / 8 = **3 579 545 Hz** (often quoted as the CPU clock ÷ 2:
+7 093 789.2 / 2 and 7 159 090.5 / 2, within 0.2 ppm). The clock comes from `--input-region` (default PAL,
+[cli.md](../cli.md#regions)); NTSC plays every period 15.9 cents higher.
+
+**Note + cents.** Period 428 on the PAL clock is exactly **C-2** at 0 cents (semitone 24, counting from C-0 as
+trackers name octaves; C-1 = 856, C-3 = 214). Any other period and clock is measured from it:
+`semitones = 24 + 12 × log2((clock / PALclock) × 428 / period)`, rounded to the nearest semitone, with the rest kept
+as unrounded cents (−50 to just under +50). Periods between table entries keep their exact pitch.
+
+**Finetune** (signed, −8…+7 eighths of a semitone; `Instrument.FineTuneCents` = finetune × 12.5) is applied the way
+ProTracker 2's `setPeriod` does it, not by formula: ProTracker has **16 period tables** (C-1…B-3, 36 notes each,
+rounded by hand, up to 8.75 cents off perfect tuning). The first finetune-0 entry that is **not above** the written
+period picks the note, and the finetune's table gives the period played. So a period between entries snaps to the
+higher note, even at finetune 0; 428 at finetune +1 plays 425, at −8 plays 453. Periods below 113 (B-3 at finetune 0)
+make ProTracker 2 read its tables' zero padding (period 0); Mod2Xgm keeps the written period instead and adds a
+conversion note. Pattern cells keep the note **as written** (finetune 0); the tick player (T3.4) applies the playing
+instrument's finetune, since a cell often doesn't name its instrument. Tables: ProTracker 2.3 data via pt2-clone
+(BSD-3-Clause, [THIRD-PARTY-NOTICES.md](../../THIRD-PARTY-NOTICES.md)).
 
 ## Timing
 
-Default speed 6 (ticks/row), BPM 125. Tick rate = `BPM × 2 / 5` Hz (50 Hz at 125).
+Default speed 6 (ticks/row), BPM 125. Tick rate = `BPM × 2 / 5` Hz (50 Hz at 125) on a PAL Amiga. With
+`--input-region ntsc` the song is treated as made on an NTSC Amiga, whose screen-timed ticks run at 60 Hz: tick rate
+= `BPM × 2 / 5 × 6 / 5` (60 Hz at 125). See [cli.md](../cli.md#regions).
 `Fxx`: xx < 0x20 → speed, else BPM (some old players treat all as speed — emit a conversion note on ambiguity).
 
 ## Effects (ProTracker)

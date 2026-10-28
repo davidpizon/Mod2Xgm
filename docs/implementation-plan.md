@@ -66,9 +66,9 @@
 | Task | Work | Acceptance |
 |---|---|---|
 | T3.1 (PR #28) | IR types (`src/Model`) | No MOD types leak |
-| T3.2 | Period → note + cents, finetune, PAL/NTSC clock | Table tests |
+| T3.2 (PR #29) | Period → note + cents, finetune (ProTracker tables), PAL/NTSC clock; `--input-region` / `--output-region` replace `--region` | Table tests |
 | T3.3 | All ProTracker effects decoded | Per-effect tests |
-| T3.4 | Order traversal (`Bxx`, `Dxx`, `E6x`, `EEx`, `Fxx`), loop point, **tick player** (tick-by-tick IR events, shared by renderers and XGM writers) | Duration vs openmpt123 ± 1 tick on the corpus |
+| T3.4 | Order traversal (`Bxx`, `Dxx`, `E6x`, `EEx`, `Fxx`), loop point, **tick player** (tick-by-tick IR events, shared by renderers and XGM writers); source tick rate from `--input-region` (50/60 Hz at BPM 125, [cli.md](cli.md#regions)) | Duration vs openmpt123 ± 1 tick on the corpus |
 
 ### M4 — Close the DMF spec gaps
 | Task | Work | Acceptance |
