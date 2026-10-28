@@ -80,6 +80,12 @@ instrument and volume the channel carried in), ten columns per row (FM1–5, FM6
 samples the notes use, and per-row song-wide effects (`Flow`). `SampleTraits` (brightness, noise) and `FmPatchLibrary`
 (five placeholder patches) are its stand-ins until scoring (M6) and fitting (M8).
 
+**Scoring** (`src/Scoring`, plan T6.2, [ADR 0042](adr/0042-scoring-metrics.md)) — pure C#: says how close a rendering sounds to the
+original. `AudioSignal` (mono audio) → `Alignment` (constant lag from the note-start curves) → `SpectralMetrics`
+(multi-resolution log-mel distance, MFCC distance on `MelAnalyzer`/`FftPlan`) and `OnsetMetrics` (note-start precision,
+recall, timing) → `SongScorer.Compare` → `ScoreReport` with a combined number to minimize. Used by the accuracy harness
+(T6.3) and the optimizer's candidate tournament (M9); it logs each step at Debug.
+
 **ModReport** (`src/Mod`) — called **unconditionally** by the conversion command: prints the metadata and
 full sample table from `ModModule` right after reading (before any later stage can fail), and the output instrument table after budgeting. See
 [cli.md](cli.md#console-report).

@@ -69,6 +69,10 @@ The goal is the most accurate **sounding** output, so it is measured, not guesse
    of an SGDK test ROM for `.xgm` / `.xgm2`.
 3. Align and compare with objective metrics — multi-resolution log-mel spectral distance and onset/timing
    error — plus a short A/B listening check.
+   `src/Scoring` (`SongScorer.Compare`) does the comparing: it lines the two renderings up, then reports the log-mel
+   distance in dB (0 = identical, 6 = 6 dB off everywhere), the MFCC (timbre) distance, note-start precision/recall/F1
+   and timing error, and a combined number (lower is closer; provisional until T6.4). Limits: mono only, one constant
+   lag, both renderings at the same sample rate. Metric choices: [ADR 0042](adr/0042-scoring-metrics.md).
 4. Keep a small corpus of freely licensed MODs with scores per strategy; a change to mapping or consolidation
    must not lower the corpus score without a recorded reason in an ADR ([adr/](adr/README.md)).
 
