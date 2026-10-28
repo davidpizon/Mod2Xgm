@@ -108,7 +108,9 @@ jobs:
           report=$(find artifacts/coverage -name coverage.cobertura.xml | head -n 1)
           if [ -z "$report" ]; then echo "::error::No coverage.cobertura.xml produced"; exit 1; fi
           cp "$report" coverage.cobertura.xml
-          rate=$(grep -o 'line-rate="[0-9.]*"' coverage.cobertura.xml | head -n 1 | cut -d'"' -f2)
+          # -m 1: the first match is the root element's overall rate. Without it, grep writes every class's rate into
+          # the pipe, and once that outgrows the pipe buffer, head's early exit makes grep fail (exit 2) under pipefail.
+          rate=$(grep -m 1 -o 'line-rate="[0-9.]*"' coverage.cobertura.xml | head -n 1 | cut -d'"' -f2)
           pct=$(awk "BEGIN { printf \"%.1f\", $rate * 100 }")
           echo "Line coverage (Mod2Xgm): ${pct}% (required: ${MIN_LINE_COVERAGE}%)" >> "$GITHUB_STEP_SUMMARY"
           if awk "BEGIN { exit !($pct < $MIN_LINE_COVERAGE) }"; then

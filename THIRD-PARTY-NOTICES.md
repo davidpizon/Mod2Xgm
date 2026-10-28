@@ -14,7 +14,7 @@ Versions are pinned in [`Directory.Packages.props`](Directory.Packages.props).
 | Serilog.Sinks.Console | Apache-2.0 | https://github.com/serilog/serilog-sinks-console |
 | System.CommandLine | MIT | https://github.com/dotnet/command-line-api |
 | .NET runtime and libraries (Native AOT, .NET 10) | MIT | https://github.com/dotnet/runtime |
-| ProTracker 2.3 period tables, from pt2-clone `src/pt2_tables.c` (data only, in `src/Model/AmigaPitch.cs`) | BSD-3-Clause, notice below | https://github.com/8bitbubsy/pt2-clone |
+| pt2-clone: ProTracker 2.3 period tables (`src/pt2_tables.c`, in `src/Model/AmigaPitch.cs`) and replayer, ported to C# (`src/pt2_replayer.c` → `src/Mod/ModTickPlayer.cs`) | BSD-3-Clause, notice below | https://github.com/8bitbubsy/pt2-clone |
 
 Planned (add the entry when the code lands):
 
@@ -49,7 +49,8 @@ only as a reference for Ultimate Soundtracker's rules (`--player ust`): no code 
 
 ## pt2-clone (BSD-3-Clause)
 
-The period tables in `src/Model/AmigaPitch.cs` come from pt2-clone:
+The period tables in `src/Model/AmigaPitch.cs` come from pt2-clone, and `src/Mod/ModTickPlayer.cs` is a C# port of
+its replayer (`src/pt2_replayer.c`, commit 554bf79):
 
 ```
 BSD 3-Clause License

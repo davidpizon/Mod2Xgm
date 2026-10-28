@@ -24,6 +24,9 @@ internal sealed record ConversionOptions
     /// <summary>Paula clock that turns MOD periods into pitch, from <see cref="InputRegion"/> (docs/formats/mod.md#pitch).</summary>
     public double AmigaClockHz => InputRegion == Region.Ntsc ? AmigaPitch.NtscClockHz : AmigaPitch.PalClockHz;
 
+    /// <summary>The source Amiga's tick rate relative to PAL, from <see cref="InputRegion"/>: 6/5 on NTSC (60 ticks/s at 125 BPM; docs/cli.md#regions).</summary>
+    public double AmigaTickRateScale => InputRegion == Region.Ntsc ? 6.0 / 5.0 : 1.0;
+
     /// <summary>Whose rules to read the MOD by (<c>--player</c>), or <c>null</c> for the default for the file's format.</summary>
     public ModPlayer? Player { get; init; }
 
