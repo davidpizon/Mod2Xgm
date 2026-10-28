@@ -2,6 +2,7 @@ using System.Buffers.Binary;
 using System.Globalization;
 using System.IO.Compression;
 using System.Text;
+using Mod2Xgm.Dmf;
 
 namespace Mod2Xgm.Tests.Dmf;
 

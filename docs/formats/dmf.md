@@ -26,7 +26,7 @@ DefleMask's "Save As" (it saves version 27), play as designed in DefleMask's own
 rescomp `XGM2`. `DmfProbeVgmTests` checks the VGM chip writes, so the rules on this page marked [Furnace] or
 [Manual] are now also [Probe] for operator order, the C rule, rate codes, DAC note → sample, custom Hz and the
 ext. CH3 layout. The probes also found one rule nobody documented: [PSG notes](#psg-notes-sound-two-octaves-up). The test-only `DmfReader` (`tests/Mod2Xgm.Tests/Dmf/`, plan T4.2) follows this page and rejects anything it
-doesn't allow.
+doesn't allow. `DmfWriter` (`src/Dmf/`, plan T5.2, [ADR 0039](../adr/0039-dmf-writer.md)) writes version 24 as this page describes and refuses a song that breaks these limits; its tests read the output back with that reader.
 
 ## Container
 
