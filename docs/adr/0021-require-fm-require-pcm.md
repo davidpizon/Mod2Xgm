@@ -1,6 +1,6 @@
 # ADR 0021: --require-fm / --require-pcm
 
-- **Status:** Accepted
+- **Status:** Superseded by [ADR 0041](0041-require-dac-require-psg.md)
 - **Date:** 2026-10-27
 
 ## Context

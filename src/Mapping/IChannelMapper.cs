@@ -14,12 +14,13 @@ internal interface IChannelMapper
 
 /// <summary>What the user can pin or forbid for mapping; sample numbers are 0-based, like <see cref="Song.Samples"/>.</summary>
 /// <param name="RequireFm">Samples that must be played by FM (<c>--require-fm</c>).</param>
-/// <param name="RequirePcm">Samples that must be played on the DAC (<c>--require-pcm</c>).</param>
+/// <param name="RequireDac">Samples that must be played on the DAC (<c>--require-dac</c>).</param>
+/// <param name="RequirePsg">Samples that must be played by the PSG (<c>--require-psg</c>).</param>
 /// <param name="UseDac">False when the DAC must not be used (<c>--no-dac</c>).</param>
-internal sealed record MappingOptions(IReadOnlySet<int> RequireFm, IReadOnlySet<int> RequirePcm, bool UseDac = true)
+internal sealed record MappingOptions(IReadOnlySet<int> RequireFm, IReadOnlySet<int> RequireDac, IReadOnlySet<int> RequirePsg, bool UseDac = true)
 {
     /// <summary>No requirements; the DAC may be used.</summary>
-    public static MappingOptions Default { get; } = new(new HashSet<int>(), new HashSet<int>());
+    public static MappingOptions Default { get; } = new(new HashSet<int>(), new HashSet<int>(), new HashSet<int>());
 
     /// <summary>The options a conversion was asked for, with the command line's 1-based sample numbers made 0-based.</summary>
     public static MappingOptions From(Cli.ConversionOptions options)
@@ -27,7 +28,8 @@ internal sealed record MappingOptions(IReadOnlySet<int> RequireFm, IReadOnlySet<
         ArgumentNullException.ThrowIfNull(options);
         return new MappingOptions(
             new HashSet<int>(options.RequireFm.Select(n => n - 1)),
-            new HashSet<int>(options.RequirePcm.Select(n => n - 1)),
+            new HashSet<int>(options.RequireDac.Select(n => n - 1)),
+            new HashSet<int>(options.RequirePsg.Select(n => n - 1)),
             !options.NoDac);
     }
 }

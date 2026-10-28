@@ -161,7 +161,8 @@ public sealed class ConversionCommandTests
             InputPath = temp.CreateFile("song.mod"),
             IgnoreSamples = new HashSet<int> { 7, 3 },
             RequireFm = new HashSet<int> { 9 },
-            RequirePcm = new HashSet<int> { 2, 1 },
+            RequireDac = new HashSet<int> { 2, 1 },
+            RequirePsg = new HashSet<int> { 5 },
         };
 
         ConversionCommand.Execute(options, sink.CreateLogger());
@@ -170,7 +171,8 @@ public sealed class ConversionCommandTests
         Assert.Contains(debug, m => m.Contains("PCM budget 131072 bytes", StringComparison.Ordinal));
         Assert.Contains(debug, m => m.Contains("Ignoring samples \"3,7\"", StringComparison.Ordinal));
         Assert.Contains(debug, m => m.Contains("Samples required as FM \"9\"", StringComparison.Ordinal));
-        Assert.Contains(debug, m => m.Contains("Samples required as PCM \"1,2\"", StringComparison.Ordinal));
+        Assert.Contains(debug, m => m.Contains("Samples required as DAC \"1,2\"", StringComparison.Ordinal));
+        Assert.Contains(debug, m => m.Contains("Samples required as PSG \"5\"", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -290,7 +292,8 @@ public sealed class ConversionCommandTests
             InputPath = temp.CreateFile("song.mod", soundtracker),
             IgnoreSamples = new HashSet<int> { 3, 20, 16 },
             RequireFm = new HashSet<int> { 31 },
-            RequirePcm = new HashSet<int> { 15 },
+            RequireDac = new HashSet<int> { 15 },
+            RequirePsg = new HashSet<int> { 31 },
         };
 
         ConversionException error = Assert.Throws<ConversionException>(() => ConversionCommand.Execute(options, sink.CreateLogger()));
@@ -298,7 +301,8 @@ public sealed class ConversionCommandTests
         Assert.Equal(ExitCode.UsageError, error.Code);
         Assert.Contains("--ignore-samples 16,20: this module has samples 1-15 only.", error.Message, StringComparison.Ordinal);
         Assert.Contains("--require-fm 31: this module has samples 1-15 only.", error.Message, StringComparison.Ordinal);
-        Assert.DoesNotContain("--require-pcm", error.Message, StringComparison.Ordinal);
+        Assert.Contains("--require-psg 31: this module has samples 1-15 only.", error.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("--require-dac", error.Message, StringComparison.Ordinal);
         Assert.Contains(sink.Messages(LogEventLevel.Information), m => m.StartsWith(" 15  ", StringComparison.Ordinal));
     }
 }

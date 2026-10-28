@@ -11,12 +11,12 @@ namespace Mod2Xgm.Mapping;
 /// <item>A sample that loops is a sustained tone: <b>FM</b>, with a built-in patch picked by brightness.</item>
 /// <item>A sample that plays once is a recording the synthesizer can't copy: the <b>DAC</b> (unless <c>--no-dac</c>, when
 /// it is the PSG <b>noise</b> channel if it is noise and FM otherwise).</item>
-/// <item><c>--require-fm</c> and <c>--require-pcm</c> override this per sample.</item>
+/// <item><c>--require-fm</c> and <c>--require-dac</c> override this per sample.</item>
 /// </list>
 /// MOD channel <i>n</i> plays its FM notes on FM<i>n</i>; the DAC (FM6) and the PSG noise channel are shared by all MOD
 /// channels. When notes of two MOD channels start on the same row and want the same shared channel, the louder note
 /// keeps it (the lower channel wins a tie) and the other moves to the noise channel (if it is noise) or to FM; a
-/// <c>--require-pcm</c> note that loses is dropped, never moved (ADR 0021). Playing both together as one mixed sample
+/// <c>--require-dac</c> note that loses is dropped, never moved (ADR 0021). Playing both together as one mixed sample
 /// is a different candidate for the optimizer (plan T8.5), not done here.
 /// </summary>
 internal sealed class SimpleMapper : IChannelMapper
@@ -30,9 +30,9 @@ internal sealed class SimpleMapper : IChannelMapper
         ArgumentNullException.ThrowIfNull(song);
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(notes);
-        if (options is { UseDac: false, RequirePcm.Count: > 0 })
+        if (options is { UseDac: false, RequireDac.Count: > 0 })
         {
-            throw new ArgumentException("--no-dac and --require-pcm can't both be given.", nameof(options));
+            throw new ArgumentException("--no-dac and --require-dac can't both be given.", nameof(options));
         }
 
         Run run = new(song, options, notes);
@@ -48,7 +48,7 @@ internal sealed class SimpleMapper : IChannelMapper
     }
 
     /// <summary>How an instrument's notes are played, and the FM patch to use when they can't be played that way.</summary>
-    private sealed record Route(Primary Primary, FmPatch Fallback, bool NoiseLike, bool RequirePcm, Why? Reason = null);
+    private sealed record Route(Primary Primary, FmPatch Fallback, bool NoiseLike, bool Required, Why? Reason = null);
 
     /// <summary>The conversion note that explains a lossy routing choice, said once, when the instrument is first played.</summary>
     private sealed record Why(string Template, object[] Values);
@@ -96,6 +96,7 @@ internal sealed class SimpleMapper : IChannelMapper
         private int _dacToFm;
         private int _dacDropped;
         private int _noiseToFm;
+        private int _noiseDropped;
 
         public Run(Song song, MappingOptions options, ConversionNotes notes)
         {
@@ -134,16 +135,21 @@ internal sealed class SimpleMapper : IChannelMapper
 
             SampleTraits traits = SampleTraits.Analyze(sample);
             FmPatch patch = sample.Loop is null ? FmPatchLibrary.ForOneShot(traits.Brightness) : FmPatchLibrary.ForSustained(traits.Brightness);
-            bool requirePcm = _options.RequirePcm.Contains(instrument.Sample);
+            bool requireDac = _options.RequireDac.Contains(instrument.Sample);
 
             if (_options.RequireFm.Contains(instrument.Sample))
             {
                 return new Route(Primary.Fm, patch, traits.NoiseLike, false, new Why("Sample {Sample}: required as FM (--require-fm), so it is played by the {Patch} FM patch", [label, patch.Name]));
             }
 
-            if (requirePcm)
+            if (requireDac)
             {
                 return new Route(Primary.Dac, patch, traits.NoiseLike, true);
+            }
+
+            if (_options.RequirePsg.Contains(instrument.Sample))
+            {
+                return new Route(Primary.Noise, patch, traits.NoiseLike, true, new Why("Sample {Sample}: required as PSG (--require-psg), so it is played by the PSG noise channel", [label]));
             }
 
             if (sample.Loop is not null)
@@ -271,7 +277,7 @@ internal sealed class SimpleMapper : IChannelMapper
                 foreach (Candidate loser in dac.Where(d => d != winner))
                 {
                     Route route = _routes[loser.Instrument];
-                    if (route.RequirePcm)
+                    if (route.Required)
                     {
                         _dacDropped++;
                     }
@@ -294,8 +300,15 @@ internal sealed class SimpleMapper : IChannelMapper
                 PlaceOnNoise(winner, planned);
                 foreach (Candidate loser in noise.Where(n => n != winner))
                 {
-                    _noiseToFm++;
-                    fm.Add(loser);
+                    if (_routes[loser.Instrument].Required)
+                    {
+                        _noiseDropped++;
+                    }
+                    else
+                    {
+                        _noiseToFm++;
+                        fm.Add(loser);
+                    }
                 }
             }
 
@@ -378,17 +391,18 @@ internal sealed class SimpleMapper : IChannelMapper
             Tally("{Count} notes are on MOD channels above {Mapped}, which have no FM channel; left out", _extraChannel, MappedChannels);
             Tally("{Count} drum notes started on the same row as a louder one and could not use the DAC; played by the PSG noise channel instead", _dacToNoise);
             Tally("{Count} drum notes started on the same row as a louder one and could not use the DAC; played by FM instead", _dacToFm);
-            Tally("{Count} --require-pcm notes started on the same row as a louder one and could not use the DAC; left out (the DAC plays one sample at a time)", _dacDropped);
+            Tally("{Count} --require-dac notes started on the same row as a louder one and could not use the DAC; left out (the DAC plays one sample at a time)", _dacDropped);
+            Tally("{Count} --require-psg notes started on the same row as a louder one and could not use the PSG noise channel; left out (it plays one sound at a time)", _noiseDropped);
             Tally("{Count} noise notes started on the same row as a louder one and could not use the PSG noise channel; played by FM instead", _noiseToFm);
 
-            foreach (int sample in _options.RequireFm.Concat(_options.RequirePcm).Order())
+            foreach (int sample in _options.RequireFm.Concat(_options.RequireDac).Concat(_options.RequirePsg).Order())
             {
                 if (sample >= 0 && sample < _song.Samples.Count && !_played.Contains(sample))
                 {
                     _notes.Add(
                         "Sample {Sample}: required as {Kind}, but it is empty or never played; the requirement has no effect",
                         Label(sample, _song.Samples[sample].Name),
-                        _options.RequireFm.Contains(sample) ? "FM" : "PCM");
+                        _options.RequireFm.Contains(sample) ? "FM" : _options.RequireDac.Contains(sample) ? "DAC" : "PSG");
                 }
             }
         }
