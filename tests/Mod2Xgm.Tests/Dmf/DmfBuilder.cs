@@ -108,7 +108,7 @@ internal sealed class DmfBuilder
         Write(stream, fm.Algorithm, fm.Feedback, fm.Fms, fm.Ams);
         foreach (DmfOperator op in fm.Operators)
         {
-            Write(stream, op.Am, op.Ar, op.Dr, op.Mult, op.Rr, op.Sl, op.Tl, op.Dt2, op.Rs, op.Dt, op.D2r, op.SsgMode);
+            Write(stream, op.Am, op.Ar, op.Dr, op.Mult, op.Rr, op.Sl, op.Tl, op.Dt2, op.Rs, op.Dt, op.D2R, op.SsgMode);
         }
 
         _instruments.Add(stream.ToArray());

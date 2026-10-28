@@ -130,9 +130,9 @@ internal sealed record DmfFmInstrument(int Algorithm, int Feedback, int Fms, int
 /// <param name="Dt2">Detune 2 (unused on the YM2612).</param>
 /// <param name="Rs">Rate scaling.</param>
 /// <param name="Dt">Detune, 0–7 with 3 = none.</param>
-/// <param name="D2r">Second decay rate.</param>
+/// <param name="D2R">Second decay rate.</param>
 /// <param name="SsgMode">SSG-EG: bit 3 enables, bits 0–2 are the mode.</param>
-internal sealed record DmfOperator(int Am, int Ar, int Dr, int Mult, int Rr, int Sl, int Tl, int Dt2, int Rs, int Dt, int D2r, int SsgMode);
+internal sealed record DmfOperator(int Am, int Ar, int Dr, int Mult, int Rr, int Sl, int Tl, int Dt2, int Rs, int Dt, int D2R, int SsgMode);
 
 /// <summary>A STD instrument's macros (docs/formats/dmf.md#6-instruments).</summary>
 /// <param name="Volume">Volume macro.</param>

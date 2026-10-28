@@ -28,8 +28,7 @@ public sealed class DmfReaderTests
     [Fact]
     public void HandSpelledFileFromTheSpec()
     {
-        List<byte> bytes = [];
-        bytes.AddRange(".DelekDefleMask."u8.ToArray());
+        List<byte> bytes = [.. ".DelekDefleMask."u8];
         bytes.AddRange([24, 0x02]); // version, system
         bytes.AddRange([1, (byte)'A', 0]); // name "A", author ""
         bytes.AddRange([4, 16]); // highlights
@@ -64,7 +63,7 @@ public sealed class DmfReaderTests
         Assert.Equal("p", instrument.Name);
         Assert.Null(instrument.Fm);
         DmfStdInstrument std = Assert.IsType<DmfStdInstrument>(instrument.Std);
-        Assert.Equal(new[] { 15, 7 }, std.Volume.Values);
+        Assert.Equal([15, 7], std.Volume.Values);
         Assert.Equal(-1, std.Volume.Loop);
         Assert.Empty(std.Arpeggio.Values);
         Assert.Equal(1, std.ArpeggioMode);
@@ -74,13 +73,13 @@ public sealed class DmfReaderTests
 
         DmfCell first = file.Channels[0].Patterns[0][0];
         Assert.Equal((12, 3, 0x40, 0), (first.Note, first.Octave, first.Volume, first.Instrument));
-        Assert.Equal(new[] { new DmfEffect(0x17, 1) }, first.Effects);
+        Assert.Equal([new DmfEffect(0x17, 1)], first.Effects);
         Assert.False(first.IsEmpty);
         Assert.All(file.Channels.Skip(1), c => Assert.True(c.Patterns[0][0].IsEmpty));
 
         DmfSample sample = Assert.Single(file.Samples);
         Assert.Equal(("s", 5, 5, 50, 16, 32000), (sample.Name, sample.RateCode, sample.Pitch, sample.Amp, sample.Bits, sample.RateHz));
-        Assert.Equal(new[] { short.MaxValue, short.MinValue }, sample.Data);
+        Assert.Equal([short.MaxValue, short.MinValue], sample.Data);
         Assert.Null(sample.CutStart);
         Assert.Null(sample.CutEnd);
         Assert.Equal(0, file.TrailingBytes);
@@ -148,13 +147,13 @@ public sealed class DmfReaderTests
             .WithCell(0, 1, 0, note: 1, octave: 4, instrument: -1));
 
         Assert.Equal(3, file.MatrixRows);
-        Assert.Equal(new[] { 0, 1, 0x7F }, file.Channels[1].Orders);
-        Assert.Equal(new[] { 0, 1, 2 }, file.Channels[0].Orders);
+        Assert.Equal([0, 1, 0x7F], file.Channels[1].Orders);
+        Assert.Equal([0, 1, 2], file.Channels[0].Orders);
         Assert.Equal(4, file.Channels[3].EffectColumns);
         Assert.Equal(3, file.Channels[3].Patterns.Count);
         DmfCell off = file.Channels[3].Patterns[2][1];
         Assert.Equal(100, off.Note);
-        Assert.Equal(new[] { new DmfEffect(0x0B, 0), DmfEffect.Empty, new DmfEffect(0x0D, 0x10), new DmfEffect(0xFF, 0xFF) }, off.Effects);
+        Assert.Equal([new DmfEffect(0x0B, 0), DmfEffect.Empty, new DmfEffect(0x0D, 0x10), new DmfEffect(0xFF, 0xFF)], off.Effects);
         Assert.True(off.Effects[1].IsEmpty);
         Assert.False(off.Effects[0].IsEmpty);
         Assert.Equal((1, 4), (file.Channels[0].Patterns[1][0].Note, file.Channels[0].Patterns[1][0].Octave));
@@ -172,10 +171,10 @@ public sealed class DmfReaderTests
         Assert.Null(instrument.Std);
         DmfFmInstrument fm = Assert.IsType<DmfFmInstrument>(instrument.Fm);
         Assert.Equal((1, 2, 3, 4), (fm.Algorithm, fm.Feedback, fm.Fms, fm.Ams));
-        Assert.Equal(new[] { DmfBuilder.Operator(5), DmfBuilder.Operator(17), DmfBuilder.Operator(29), DmfBuilder.Operator(41) }, fm.Operators);
+        Assert.Equal([DmfBuilder.Operator(5), DmfBuilder.Operator(17), DmfBuilder.Operator(29), DmfBuilder.Operator(41)], fm.Operators);
         DmfOperator last = fm.Operators[3];
         Assert.Equal((41, 42, 43, 44, 45, 46), (last.Am, last.Ar, last.Dr, last.Mult, last.Rr, last.Sl));
-        Assert.Equal((47, 48, 49, 50, 51, 52), (last.Tl, last.Dt2, last.Rs, last.Dt, last.D2r, last.SsgMode));
+        Assert.Equal((47, 48, 49, 50, 51, 52), (last.Tl, last.Dt2, last.Rs, last.Dt, last.D2R, last.SsgMode));
         Assert.Equal(0, file.Channels[0].Patterns[0][0].Instrument);
     }
 
@@ -187,17 +186,17 @@ public sealed class DmfReaderTests
         DmfFile file = Read(new DmfBuilder().WithStdInstrument("noise", std).WithStdInstrument("next", VolumeOnly(9)));
 
         DmfStdInstrument read = Assert.IsType<DmfStdInstrument>(file.Instruments[0].Std);
-        Assert.Equal(new[] { 15, 12, 8 }, read.Volume.Values);
+        Assert.Equal([15, 12, 8], read.Volume.Values);
         Assert.Equal(1, read.Volume.Loop);
-        Assert.Equal(new[] { 12, 0, -12 }, read.Arpeggio.Values);
+        Assert.Equal([12, 0, -12], read.Arpeggio.Values);
         Assert.Equal(-1, read.Arpeggio.Loop);
         Assert.Equal(0, read.ArpeggioMode);
-        Assert.Equal(new[] { 1, 3 }, read.DutyNoise.Values);
+        Assert.Equal([1, 3], read.DutyNoise.Values);
         Assert.Equal(0, read.DutyNoise.Loop);
         Assert.Empty(read.Wavetable.Values);
         Assert.Equal(-1, read.Wavetable.Loop);
         Assert.Equal("next", file.Instruments[1].Name);
-        Assert.Equal(new[] { 9 }, Assert.IsType<DmfStdInstrument>(file.Instruments[1].Std).Volume.Values);
+        Assert.Equal([9], Assert.IsType<DmfStdInstrument>(file.Instruments[1].Std).Volume.Values);
     }
 
     /// <summary>Wavetables (unused on Genesis, but part of the layout) are read as 4-byte values.</summary>
@@ -207,7 +206,7 @@ public sealed class DmfReaderTests
         DmfFile file = Read(new DmfBuilder().WithWavetable(0, 15, -1).WithWavetable());
 
         Assert.Equal(2, file.Wavetables.Count);
-        Assert.Equal(new[] { 0, 15, -1 }, file.Wavetables[0]);
+        Assert.Equal([0, 15, -1], file.Wavetables[0]);
         Assert.Empty(file.Wavetables[1]);
     }
 
@@ -242,14 +241,14 @@ public sealed class DmfReaderTests
         Assert.Equal(version, file.Version);
         if (version >= 25)
         {
-            Assert.Equal(new[] { "", "chorus" }, file.Channels[4].PatternNames);
+            Assert.Equal(["", "chorus"], file.Channels[4].PatternNames);
         }
         else
         {
             Assert.Null(file.Channels[4].PatternNames);
         }
 
-        Assert.Equal(new[] { 0, 9 }, file.Channels[4].Orders);
+        Assert.Equal([0, 9], file.Channels[4].Orders);
         Assert.Equal(7, file.Channels[4].Patterns[1][3].Note);
     }
 
@@ -263,7 +262,7 @@ public sealed class DmfReaderTests
 
         DmfSample sample = Assert.Single(file.Samples);
         Assert.Equal((cutStart, cutEnd), (sample.CutStart, sample.CutEnd));
-        Assert.Equal(new short[] { 10, 20, 30, 40 }, sample.Data);
+        Assert.Equal([10, 20, 30, 40], sample.Data);
     }
 
     /// <summary>Several samples, 8-bit ones included (their 2-byte values hold 0–255), and an empty one.</summary>
@@ -276,7 +275,7 @@ public sealed class DmfReaderTests
 
         Assert.Equal(2, file.Samples.Count);
         Assert.Equal(("eight", 0, 10, 100, 8, 4000), (file.Samples[0].Name, file.Samples[0].RateCode, file.Samples[0].Pitch, file.Samples[0].Amp, file.Samples[0].Bits, file.Samples[0].RateHz));
-        Assert.Equal(new short[] { 0, 128, 255 }, file.Samples[0].Data);
+        Assert.Equal([0, 128, 255], file.Samples[0].Data);
         Assert.Equal(("empty", 22050), (file.Samples[1].Name, file.Samples[1].RateHz));
         Assert.Empty(file.Samples[1].Data);
     }
