@@ -28,9 +28,9 @@ because of how the Genesis targets play PCM:
 
 | Limit | DMF | XGM | XGM2 |
 |---|---|---|---|
-| Sample slots | 255 (1-byte count) | **63** (per `xgm.txt`) | **122** (124-entry SID table − entry #0 − end-marker entry; mml2vgm says 123 — **verify**) |
+| Sample slots | 255 (1-byte count); **144** reachable as DAC notes (12 banks × 12) | **63** (per `xgm.txt`) | **122** (124-entry SID table − entry #0 − end-marker entry; mml2vgm says 123 — **verify**) |
 | Simultaneous PCM | 1 | 4 − reserved SFX | 3 − reserved SFX |
-| Pitch per sample | via DAC note/rate (**verify**) | fixed ~14 kHz | fixed 13.3 kHz / 6.65 kHz |
+| Pitch per sample | fixed: one rate per sample; the note picks one of 144 samples ([formats/dmf.md](formats/dmf.md#dac-samples-on-fm6)) | fixed ~14 kHz | fixed 13.3 kHz / 6.65 kHz |
 | Byte budget | — | default **128 KB**, `--max-pcm-bytes` | same |
 
 Limits live as named constants in one place (`src/Xgm/XgmLimits.cs`, `src/Dmf/DmfLimits.cs`).

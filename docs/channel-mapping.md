@@ -17,7 +17,7 @@ A 4-channel MOD plays **4 PCM samples at once** at arbitrary pitch and volume. T
 
 | Target | Hardware PCM | Notes |
 |---|---|---|
-| DMF (DefleMask, Genesis) | **1** sample at a time on FM6/DAC | pitch via sample rate/note; FM1–5 + PSG free |
+| DMF (DefleMask, Genesis) | **1** sample at a time on FM6/DAC | fixed pitch per sample (the note picks the sample, [formats/dmf.md](formats/dmf.md#dac-samples-on-fm6)); FM1–5 + PSG free |
 | XGM | **4** mixed PCM channels (~14 kHz, fixed pitch) | FM1–5 + PSG free |
 | XGM2 | **3** mixed PCM channels (13.3 / 6.65 kHz, fixed pitch) | FM1–5 + PSG free |
 

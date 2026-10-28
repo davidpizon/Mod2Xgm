@@ -75,7 +75,7 @@
 ### M4 — Close the DMF spec gaps
 | Task | Work | Acceptance |
 |---|---|---|
-| T4.1 | DefleMask manual + Furnace loader → resolve every **Verify** in [formats/dmf.md](formats/dmf.md), incl. ext. CH3 (0x42) channel layout | No v1 Verify items left |
+| T4.1 (PR #33) | DefleMask manual + Furnace loader → resolve every **Verify** in [formats/dmf.md](formats/dmf.md), incl. ext. CH3 (0x42) channel layout | No v1 Verify items left |
 | T4.2 | Test-only `DmfReader` | Round-trips writer output |
 | T4.3 | Probe DMFs (FM note, DAC sample, PSG note, custom Hz, ext. CH3) | David confirms in DefleMask **and** each survives VGM export → rescomp `XGM2` |
 
