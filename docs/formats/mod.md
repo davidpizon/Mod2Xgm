@@ -156,8 +156,8 @@ Amiga channels 1 and 4 are left, 2 and 3 are right (hard stereo).
 ### Decoding (T3.3)
 
 Code: `src/Mod/ModEffects.cs` (one cell's command → song-model effects) and `src/Mod/ModToSong.cs` (the whole song).
-**ProTracker 2 decides** wherever players disagree (David). The rules are a setting (`ModPlayer`) so another
-player's rules can be added with a command-line option when a song needs them; there is no option yet.
+The table gives **ProTracker 2** meanings, used for 31-sample files unless `--player` says otherwise; Ultimate
+Soundtracker's are under [Players](#players).
 
 | Command | Decoded as | Zero parameter |
 |---|---|---|
@@ -188,8 +188,30 @@ player's rules can be added with a command-line option when a song needs them; t
 | `EFx` | `InvertLoop(x)`; EF0 stops it | |
 | `Fxx` | `StopSong` (F00), `SetSpeed(xx)` below 0x20, else `SetTempo(xx)` | |
 
-**15-sample files** use the same meanings. Effects 1 and 2 are read as slides (later Soundtrackers, ProTracker) with
-a conversion note, since Ultimate Soundtracker used them for arpeggio and pitch bend; an Ultimate Soundtracker rule
-set can be added to `ModPlayer` later. A cell naming a sample above the module's count names no sample (note).
+A 15-sample file read with `--player protracker` reads effects 1 and 2 as slides (later Soundtrackers, ProTracker),
+with a conversion note, since Ultimate Soundtracker used them for arpeggio and pitch bend. A cell naming a sample
+above the module's count names no sample (note).
+
+## Players
+
+Players disagree about the same bytes, so the file is read **by one player's rules** from the reader onward
+(`src/Mod/ModPlayer.cs`, plan T3.3a): `--player protracker|ust` ([cli.md](../cli.md#players)), defaulting to
+**Ultimate Soundtracker for 15-sample files** and **ProTracker 2 for 31-sample files** (David). Every run prints which
+player it emulates. Ultimate Soundtracker's rules follow OpenMPT's Soundtracker loader (`soundlib/Load_stk.cpp`,
+BSD-3-Clause; read, not copied):
+
+| | ProTracker 2 | Ultimate Soundtracker |
+|---|---|---|
+| Loop start | words (15-sample files: bytes when only bytes fit, see [Sample header](#sample-header)) | always **bytes**; a looped sample starts at its loop start (the sound before it is skipped, as OpenMPT plays it) |
+| Byte 471 | restart position (T3.4) | **tempo**: 0 and 0x78 → 125 BPM, else 709 379 × 125 / 50 / ((240 − b) × 122) BPM; 240+ → 125 with a note |
+| Finetune | used | ignored (note) |
+| `0xy` | arpeggio | arpeggio from 03 up, else nothing |
+| `1xy` | slide up | **arpeggio** |
+| `2xy` | slide down | **pitch bend**: y up, or else x down |
+| `3xx`–`Fxx` | as above | **don't exist**: ignored, with one conversion note (including `Cxx`, so no volume changes) |
+
+The sample-usage scan (report section 2) follows the same rules, so under Ultimate Soundtracker `Bxx`/`Dxx`/`E6x`/`F00`
+don't steer it and `3xx` notes count. OpenMPT's own MOD rules (its guesses about panning, 7-bit panning, random
+waves, NoiseTracker `Dxx` and vblank timing) are a later plan task (T3.3b).
 
 Reference: ProTracker module format description (`MOD` / "Noisetracker/Soundtracker/Protracker Module Format", various authors); verify edge cases against a reference player such as OpenMPT or libxmp.

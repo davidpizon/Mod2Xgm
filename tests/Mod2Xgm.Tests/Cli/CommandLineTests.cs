@@ -1,4 +1,5 @@
 using Mod2Xgm.Cli;
+using Mod2Xgm.Mod;
 
 namespace Mod2Xgm.Tests.Cli;
 
@@ -35,6 +36,7 @@ public sealed class CommandLineTests
         Assert.Null(options.OutputPath);
         Assert.Equal(Region.Pal, options.InputRegion);
         Assert.Equal(Region.Pal, options.OutputRegion);
+        Assert.Null(options.Player);
         Assert.Null(options.Mapping);
         Assert.Empty(options.IgnoreSamples);
         Assert.False(options.NoConsolidate);
@@ -58,6 +60,7 @@ public sealed class CommandLineTests
             "--output", "out/level1.xgm2",
             "--input-region", "ntsc",
             "--output-region", "ntsc",
+            "--player", "ust",
             "--mapping", "simple",
             "--ignore-samples", "3,7",
             "--ignore-samples", "12-14,0x1F",
@@ -78,6 +81,7 @@ public sealed class CommandLineTests
         Assert.Equal("out/level1.xgm2", options.OutputPath);
         Assert.Equal(Region.Ntsc, options.InputRegion);
         Assert.Equal(Region.Ntsc, options.OutputRegion);
+        Assert.Equal(ModPlayer.UltimateSoundtracker, options.Player);
         Assert.Equal("simple", options.Mapping);
         int[] ignored = [3, 7, 12, 13, 14, 31];
         Assert.Equal(ignored, options.IgnoreSamples.Order());
@@ -135,6 +139,13 @@ public sealed class CommandLineTests
         Assert.Equal(expectedClockHz, options.AmigaClockHz);
     }
 
+    /// <summary><c>--player</c> takes protracker or ust; without it the player is chosen by the file's format.</summary>
+    [Theory]
+    [InlineData("protracker", nameof(ModPlayer.ProTracker2))]
+    [InlineData("ust", nameof(ModPlayer.UltimateSoundtracker))]
+    public void PlayerValues(string text, string expected) =>
+        Assert.Equal(Enum.Parse<ModPlayer>(expected), Run("song.mod", "--player", text).Options?.Player);
+
     [Fact]
     public void MissingInputIsAUsageError()
     {
@@ -148,6 +159,7 @@ public sealed class CommandLineTests
     [InlineData("song.mod", "--input-region", "japan")]
     [InlineData("song.mod", "--output-region", "japan")]
     [InlineData("song.mod", "--region", "pal")]
+    [InlineData("song.mod", "--player", "openmpt")]
     [InlineData("song.mod", "--quality", "ultra")]
     [InlineData("song.mod", "--seed", "abc")]
     [InlineData("song.mod", "--unknown")]

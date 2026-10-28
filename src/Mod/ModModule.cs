@@ -41,6 +41,9 @@ internal sealed record ModModule
     /// <summary>File size in bytes.</summary>
     public required long FileSize { get; init; }
 
+    /// <summary>Whose rules the file was read by (<c>--player</c>, or the default for its format); later stages follow the same rules.</summary>
+    public required ModPlayer Player { get; init; }
+
     /// <summary>The played orders: the first <see cref="SongLength"/> entries of <see cref="OrderTable"/>.</summary>
     public IEnumerable<int> Orders => OrderTable.Take(SongLength);
 }

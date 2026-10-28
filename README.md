@@ -84,6 +84,7 @@ mod2xgm song.mod --format xgm2 --info
 | `--reserve-sfx-channels <n>` | Keep `n` sample channels free for your game's sound effects |
 | `--input-region pal\|ntsc` | Which Amiga the MOD was made on; tunes the notes (default `pal`) |
 | `--output-region pal\|ntsc` | Which Genesis the music is made for (default `pal`) |
+| `--player protracker\|ust` | Whose rules to read the MOD by (default: `ust` for 15-sample files, `protracker` otherwise) |
 | `--info` | Show the report only; don't write a file |
 | `--force` | Overwrite an existing output file |
 | `-v, --verbose` | Print extra detail |

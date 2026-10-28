@@ -63,6 +63,23 @@ public sealed class SampleUsageTests
         Assert.Equal(2, Plays(usage, 2));
     }
 
+    /// <summary>
+    /// Under Ultimate Soundtracker rules (the 15-sample default) effects 3–F don't exist: a 3xx note starts a sound and
+    /// F00 doesn't stop the song.
+    /// </summary>
+    [Fact]
+    public void UltimateSoundtrackerIgnoresEffectsAboveTwo()
+    {
+        (SampleUsage usage, _) = Scan(new ModBuilder { Soundtracker = true, RestartPosition = 120 }
+            .WithSample(1, "kick", 64)
+            .WithCell(0, row: 0, channel: 0, sample: 1, period: Note)
+            .WithCell(0, row: 1, channel: 0, sample: 1, period: 381, effect: 0x3, parameter: 0x10)
+            .WithCell(0, row: 2, channel: 1, sample: 0, period: 0, effect: 0xF, parameter: 0x00)
+            .WithCell(0, row: 3, channel: 0, sample: 1, period: Note));
+
+        Assert.Equal(3, Plays(usage, 1));
+    }
+
     /// <summary>Tone portamento slides the playing sound and starts nothing.</summary>
     [Theory]
     [InlineData(0x3)]

@@ -1,4 +1,5 @@
 using Mod2Xgm.Cli;
+using Mod2Xgm.Mod;
 using Mod2Xgm.Tests.Mod;
 using Serilog.Events;
 
@@ -109,6 +110,34 @@ public sealed class ConversionCommandTests
         ConversionCommand.Execute(new() { InputPath = temp.CreateFile("song.mod") }, sink.CreateLogger());
 
         Assert.Contains(sink.Messages(LogEventLevel.Information), m => m.Contains("(0 conversion notes)", StringComparison.Ordinal));
+    }
+
+    /// <summary>Every run says whose rules it emulates and why: the file's default, or the --player choice.</summary>
+    [Theory]
+    [InlineData(false, null, "Emulating ProTracker 2 (the default for 31-sample files; --player ust changes it)")]
+    [InlineData(true, null, "Emulating Ultimate Soundtracker (the default for 15-sample files; --player protracker changes it)")]
+    [InlineData(true, "protracker", "Emulating ProTracker 2 (chosen with --player)")]
+    [InlineData(false, "ust", "Emulating Ultimate Soundtracker (chosen with --player)")]
+    public void ThePlayerIsAnnounced(bool soundtracker, string? player, string expected)
+    {
+        using TempDirectory temp = new();
+        CollectingSink sink = new();
+        byte[] bytes = new ModBuilder { Soundtracker = soundtracker, RestartPosition = soundtracker ? 120 : 127 }.WithSample(1, "kick", 64).Build();
+        ConversionOptions options = new()
+        {
+            InputPath = temp.CreateFile("song.mod", bytes),
+            InfoOnly = true,
+            Player = player switch
+            {
+                "protracker" => ModPlayer.ProTracker2,
+                "ust" => ModPlayer.UltimateSoundtracker,
+                _ => null,
+            },
+        };
+
+        ConversionCommand.Execute(options, sink.CreateLogger());
+
+        Assert.Contains(expected, sink.Messages(LogEventLevel.Information));
     }
 
     [Fact]

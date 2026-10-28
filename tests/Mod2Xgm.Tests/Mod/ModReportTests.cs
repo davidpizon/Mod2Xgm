@@ -111,6 +111,20 @@ public sealed class ModReportTests
         Assert.Equal("\"  {x} a·b \"", ModReport.Quoted("  {x} a\u0001b "));
 
     /// <summary>Renders sections 1–2 exactly as the console prints them (level prefix included).</summary>
+    /// <summary>Under Ultimate Soundtracker rules (the 15-sample default) the tempo line comes from byte 471; ProTracker rules ignore it.</summary>
+    [Fact]
+    public void SoundtrackerTempoComesFromByte471()
+    {
+        byte[] bytes = new ModBuilder { Soundtracker = true, RestartPosition = 100 }.WithSample(1, "kick", 64).Build();
+
+        InitialTempo soundtracker = ModReport.FindInitialTempo(Read(bytes));
+        InitialTempo proTracker = ModReport.FindInitialTempo(ModReader.Read(bytes, new ConversionNotes(Logger.None), ModPlayer.ProTracker2));
+
+        Assert.Equal(6, soundtracker.Speed);
+        Assert.Equal(103.8318, soundtracker.Bpm, 1e-4);
+        Assert.Equal(new InitialTempo(6, 125), proTracker);
+    }
+
     private static string Render(byte[] bytes, IReadOnlySet<int> ignored)
     {
         ConversionNotes notes = new(Logger.None);

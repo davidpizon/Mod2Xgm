@@ -1,3 +1,4 @@
+using Mod2Xgm.Mod;
 using Mod2Xgm.Model;
 
 namespace Mod2Xgm.Cli;
@@ -22,6 +23,9 @@ internal sealed record ConversionOptions
 
     /// <summary>Paula clock that turns MOD periods into pitch, from <see cref="InputRegion"/> (docs/formats/mod.md#pitch).</summary>
     public double AmigaClockHz => InputRegion == Region.Ntsc ? AmigaPitch.NtscClockHz : AmigaPitch.PalClockHz;
+
+    /// <summary>Whose rules to read the MOD by (<c>--player</c>), or <c>null</c> for the default for the file's format.</summary>
+    public ModPlayer? Player { get; init; }
 
     public string? Mapping { get; init; }
 
