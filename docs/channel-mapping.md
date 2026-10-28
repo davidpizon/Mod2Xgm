@@ -5,6 +5,12 @@
 > optimizer** ([multi-pass.md](multi-pass.md)), which chooses FM / PSG / PCM per instrument and per section
 > by measured accuracy. Both sit behind `IChannelMapper`. The options below are kept as background.
 
+**Implemented (plan T5.3, [ADR 0040](adr/0040-simple-mapper.md)):** the simple mapper decides per instrument: a sample
+that loops goes to FM (one of five built-in patches, by brightness), a sample that plays once goes to the DAC, notes
+from any MOD channel; a clash on the DAC is won by the louder note and the loser moves to the PSG noise channel (if
+noise) or FM. `--no-dac` keeps everything off the DAC. Mixing clashing drums into one sample is left to the optimizer
+as a separate candidate.
+
 ## Decision criterion
 
 The project goal is the **most accurate *sounding*** result (see [README.md](README.md#goal)). Strategies are

@@ -74,6 +74,12 @@ loop order, one cell per channel, instruments → samples, loops inside sample d
 FM patch, PSG). Several implementations can exist; selected by CLI flag. See
 [channel-mapping.md](channel-mapping.md).
 
+**SimpleMapper / GenesisPlan** (`src/Mapping`, plan T5.3, [ADR 0040](adr/0040-simple-mapper.md)) — the first
+`IChannelMapper`. Its output, `GenesisPlan`, has one pattern **per order** (what a note sounds like depends on the
+instrument and volume the channel carried in), ten columns per row (FM1–5, FM6/DAC, PSG1–4), the FM patches and DAC
+samples the notes use, and per-row song-wide effects (`Flow`). `SampleTraits` (brightness, noise) and `FmPatchLibrary`
+(five placeholder patches) are its stand-ins until scoring (M6) and fitting (M8).
+
 **ModReport** (`src/Mod`) — called **unconditionally** by the conversion command: prints the metadata and
 full sample table from `ModModule` right after reading (before any later stage can fail), and the output instrument table after budgeting. See
 [cli.md](cli.md#console-report).

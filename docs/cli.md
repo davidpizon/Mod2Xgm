@@ -20,6 +20,7 @@ mod2xgm <input.mod> [options]
 | `--ignore-samples <list>` | none | MOD sample numbers to leave out, 1-based, comma-separated, ranges allowed: `3,7,12-14`. Hex accepted with `0x` (trackers show hex: `0x1F` = 31). Repeatable. Unknown/empty numbers → exit 1. |
 | `--require-fm <list>` | none | MOD samples that **must** be played by FM (never digitized PCM). Same list syntax as `--ignore-samples`. See [sample-capacity.md](sample-capacity.md#required-fm-and-pcm-samples). |
 | `--require-pcm <list>` | none | MOD samples that **must** stay digitized PCM (never replaced by FM or PSG). Same list syntax. |
+| `--no-dac` | off | Don't use the DAC (digitized PCM): every sample is played by FM or the PSG, drums included. The DAC is the one place the Genesis plays recordings; by default the mapper puts one-shot samples there. Can't be combined with `--require-pcm` (exit 1). See [ADR 0040](adr/0040-simple-mapper.md). |
 | `--no-consolidate` | off | Don't consolidate samples; if the song doesn't fit the target, print the capacity report and exit 6. |
 | `--max-pcm-bytes <n>` | 128K | PCM byte budget per song for XGM/XGM2 (suffixes `K`, `M`). Over budget → capacity warning + consolidation. |
 | `--quality <fast\|normal\|best>` | `normal` | `fast`: simple mapper, no fitting. `normal`: multi-pass with a 5-minute budget. `best`: run until no improvement. See [multi-pass.md](multi-pass.md). |
@@ -48,6 +49,7 @@ Parsed by System.CommandLine; values are converted and checked by `src/Cli/Optio
 - **Conflicts (exit 1, every conflict reported):** a sample may not appear in both `--require-fm` and
   `--require-pcm` ("a sample can be FM or PCM, not both"), nor in `--ignore-samples` and either `--require-*`
   list ("an ignored sample isn't converted at all").
+- `--no-dac` and `--require-pcm` together are a usage error (exit 1): "--no-dac keeps every sample off the DAC".
 - `--max-pcm-bytes`: positive integer, optional `K` (×1024) or `M` (×1024²) suffix, case-insensitive.
 - `--time-budget`: positive integer with optional `s`, `m` or `h` (plain number = seconds).
 - `--reserve-sfx-channels`: `0`–`4` for `xgm`, `0`–`3` for `xgm2`; must be `0` for `dmf` (one DAC channel, nothing to reserve).

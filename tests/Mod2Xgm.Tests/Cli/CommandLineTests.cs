@@ -41,6 +41,7 @@ public sealed class CommandLineTests
         Assert.Equal(ResamplingMode.Smooth, options.Resampler);
         Assert.Null(options.Mapping);
         Assert.Empty(options.IgnoreSamples);
+        Assert.False(options.NoDac);
         Assert.False(options.NoConsolidate);
         Assert.Equal(128L * 1024, options.MaxPcmBytes);
         Assert.Equal(Quality.Normal, options.Quality);
@@ -67,6 +68,7 @@ public sealed class CommandLineTests
             "--mapping", "simple",
             "--ignore-samples", "3,7",
             "--ignore-samples", "12-14,0x1F",
+            "--no-dac",
             "--no-consolidate",
             "--max-pcm-bytes", "1M",
             "--quality", "best",
@@ -89,6 +91,7 @@ public sealed class CommandLineTests
         Assert.Equal("simple", options.Mapping);
         int[] ignored = [3, 7, 12, 13, 14, 31];
         Assert.Equal(ignored, options.IgnoreSamples.Order());
+        Assert.True(options.NoDac);
         Assert.True(options.NoConsolidate);
         Assert.Equal(1024L * 1024, options.MaxPcmBytes);
         Assert.Equal(Quality.Best, options.Quality);
@@ -293,6 +296,20 @@ public sealed class CommandLineTests
         Outcome result = Run("song.mod", "--require-fm", "3", "--require-pcm", "3");
 
         Assert.Contains("both list sample 3;", result.Error, StringComparison.Ordinal);
+    }
+
+    /// <summary><c>--no-dac</c> can be combined with <c>--require-fm</c>, but not with <c>--require-pcm</c>: that sample would have nowhere to play.</summary>
+    [Fact]
+    public void NoDacConflictsWithRequirePcmOnly()
+    {
+        Assert.True(Assert.IsType<ConversionOptions>(Run("song.mod", "--no-dac", "--require-fm", "2").Options).NoDac);
+
+        Outcome one = Run("song.mod", "--no-dac", "--require-pcm", "3");
+        Outcome two = Run("song.mod", "--no-dac", "--require-pcm", "3,1");
+
+        Assert.Equal(ExitCode.UsageError, one.Code);
+        Assert.Contains("--no-dac and --require-pcm both given (sample 3);", one.Error, StringComparison.Ordinal);
+        Assert.Contains("(samples 1, 3);", two.Error, StringComparison.Ordinal);
     }
 
     [Theory]

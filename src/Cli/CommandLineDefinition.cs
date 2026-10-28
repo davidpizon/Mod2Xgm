@@ -67,6 +67,11 @@ internal sealed class CommandLineDefinition
         Description = "MOD samples that must stay digitized PCM (never replaced by FM or PSG), e.g. 1,2. Repeatable.",
     };
 
+    public Option<bool> NoDac { get; } = new("--no-dac")
+    {
+        Description = "Don't use the DAC (digitized PCM): every sample is played by FM or the PSG.",
+    };
+
     public Option<bool> NoConsolidate { get; } = new("--no-consolidate")
     {
         Description = "Don't consolidate samples; fail (exit 6) if the song doesn't fit.",
@@ -138,6 +143,7 @@ internal sealed class CommandLineDefinition
             IgnoreSamples,
             RequireFm,
             RequirePcm,
+            NoDac,
             NoConsolidate,
             MaxPcmBytes,
             Quality,
