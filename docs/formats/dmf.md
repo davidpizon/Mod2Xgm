@@ -19,8 +19,12 @@ gap is closed from one of these, named in brackets where it's used:
 - **[Manual]** — DefleMask's effect list ("DefleMask Tracker Effects Commands", Battle of the Bits lyceum,
   https://battleofthebits.com/lyceum/View/DefleMask+Tracker+Effects+Commands).
 
-The probe files (plan T4.3) confirm these in DefleMask and through VGM export → rescomp; anything they disprove is
-fixed here. The test-only `DmfReader` (`tests/Mod2Xgm.Tests/Dmf/`, plan T4.2) follows this page and rejects anything it
+**Confirmed in DefleMask** (plan T4.3, 2026-10-28): the probe files in
+[`tests/golden/dmf-probes/`](../../tests/golden/dmf-probes/README.md) open in DefleMask, read back unchanged after
+DefleMask's "Save As" (it saves version 27), play as designed in DefleMask's own VGM and WAV exports, and pass
+rescomp `XGM2`. `DmfProbeVgmTests` checks the VGM chip writes, so the rules on this page marked [Furnace] or
+[Manual] are now also [Probe] for operator order, the C rule, rate codes, DAC note → sample, custom Hz and the
+ext. CH3 layout. The probes also found one rule nobody documented: [PSG notes](#psg-notes-sound-two-octaves-up). The test-only `DmfReader` (`tests/Mod2Xgm.Tests/Dmf/`, plan T4.2) follows this page and rejects anything it
 doesn't allow.
 
 ## Container
@@ -137,6 +141,7 @@ Notes:
 - C is 12, not 0, and belongs to the octave **below**: **C of octave *n* is stored as note 12, octave *n−1***
   [Furnace: a note's pitch is note + 12 × octave, so note 12 of octave *n−1* = C of octave *n*]. C#–B of octave
   *n* are notes 1–11 with octave *n*.
+- **PSG notes sound two octaves above their name** — see [below](#psg-notes-sound-two-octaves-up).
 - Because pattern data is written once per matrix row, give each matrix row of a channel its **own**
   pattern index (0, 1, 2, …) — simplest and avoids ambiguity when MOD orders repeat a pattern. Duplicate
   data is the cost; it compresses well.
@@ -210,6 +215,26 @@ so a MOD that stops (`F00`) gets a conversion note.
   [../sample-capacity.md](../sample-capacity.md)).
 - `17xx` and `EBxx` work only on FM6 (ext. CH3: the 9th channel, FM6). Bank changes stay in effect until the next
   `EBxx`.
+
+## PSG notes sound two octaves up
+
+[Probe: `psg-note`] DefleMask shows the PSG channels as **SN1–SN4**. A note on them plays **two octaves higher** than
+the same note on an FM channel: `A-4` on SN1 is SN76489 period 64 at 3 579 545 Hz, **1748 Hz (A-6)**, while `A-4` on
+FM1 is 440 Hz. So to make the PSG sound pitch *p*, the writer stores the note with its octave **lowered by 2**
+(A-4 at 440 Hz → `A-2` on SN1). The PSG's lowest tone is about 109 Hz (period 1023), so lower notes need FM — the
+mapper's call.
+
+## What DefleMask shows
+
+[Probe] Useful when reading DMF files in DefleMask's editor:
+
+- FM operators are listed as OP1–OP4 in **Yamaha order**: file operator 2 (register +8) shows as **OP2**.
+- DT shows as −3…+3: file value 3 shows as `DT 0`.
+- "Base Time" shows time base + 1 (file 0 → `01`).
+- With custom Hz on, neither NTSC nor PAL is selected; the rate shows next to "hz".
+
+DefleMask's VGM export uses NTSC chip clocks (YM2612 7 670 454 Hz, SN76489 3 579 545 Hz) even for PAL songs, and
+sets the VGM rate field to the tick rate (50 or the custom Hz); the F-numbers it writes are right for that clock.
 
 ## Genesis rules for the writer
 
