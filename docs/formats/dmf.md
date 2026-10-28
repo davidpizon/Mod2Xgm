@@ -10,7 +10,8 @@ on 2026-10-27. Older revisions: `DMF_SPECS_0x11.txt`, `_0x12`, `_0x15` on the sa
 This page summarizes the spec for the **Genesis** case and fills in what the spec leaves unsaid (plan T4.1). Each
 gap is closed from one of these, named in brackets where it's used:
 
-- **[Furnace]** — Furnace's DMF loader and saver, read as a reference only (GPL, no code copied; see
+- **[Furnace]** — [Furnace](https://github.com/tildearrow/furnace) (tildearrow/furnace: a multi-system chiptune
+  tracker compatible with DefleMask modules). Its DMF loader and saver are read as a reference only (GPL, no code copied; see
   [THIRD-PARTY-NOTICES.md](../../THIRD-PARTY-NOTICES.md)), commit `bcba71d`: `src/engine/fileOps/dmf.cpp`, plus
   `engine.cpp` (rates, notes), `legacySample.cpp` (DAC sample selection), `playback.cpp` (jumps, speeds, panning),
   `sysDef.cpp` (channel layout) and `platform/genesis.cpp`, `genesisext.cpp`, `fmshared*.h` (operators, detune,
@@ -223,6 +224,12 @@ the same note on an FM channel: `A-4` on SN1 is SN76489 period 64 at 3 579 545 H
 FM1 is 440 Hz. So to make the PSG sound pitch *p*, the writer stores the note with its octave **lowered by 2**
 (A-4 at 440 Hz → `A-2` on SN1). The PSG's lowest tone is about 109 Hz (period 1023), so lower notes need FM — the
 mapper's call.
+
+**Furnace agrees** (checked 2026-10-28, David's question): Furnace 0.6.8.3 (`furnace.exe -vgmout`, `-output`) plays
+`psg-note.dmf` the same way — SN1 `A-4` is period 64, 1748 Hz — so this is how DMF files are pitched, not a DefleMask
+bug. Its exports of the other four probes match DefleMask's too: FM 440 / 523 Hz with TL 0 on register +8, DAC
+440 / 440 / 660 Hz at 32 / 32 / 8 kHz streams, custom Hz key-ons at 0, 1, 2, 3 s, and the ext. CH3 chord. (Its VGMs
+are version 1.71 and run one 50 Hz frame longer.)
 
 ## What DefleMask shows
 

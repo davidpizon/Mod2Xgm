@@ -17,6 +17,9 @@ Newest first. Each entry: date, decision, options considered, reason.
   David ran the checklist; Claude re-ran it with computer use and got byte-identical files.
 - **New rule found: DefleMask's PSG notes sound two octaves above their name** (SN1 `A-4` = 1748 Hz). The DMF writer
   lowers PSG octaves by 2 (docs/formats/dmf.md#psg-notes-sound-two-octaves-up).
+- **Furnace plays the PSG octave the same way** (David asked to check): Furnace 0.6.8.3's VGM and WAV exports of all
+  five probes match DefleMask's, SN1 `A-4` = 1748 Hz included. So the rule is how DMF is pitched, and a DMF we write
+  sounds the same in both.
 
 ## 2026-10-28 — Test-only DMF reader (T4.2)
 - **Tested now on hand-made files** (David, over waiting for the writer or using a DefleMask-saved file): a
