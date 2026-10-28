@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Mod2Xgm.Audio;
 using Mod2Xgm.Mod;
 
 namespace Mod2Xgm.Cli;
@@ -72,6 +73,7 @@ internal static class OptionsBinder
             InputRegion = inputRegion,
             OutputRegion = outputRegion,
             Player = ParsePlayer(parseResult.GetValue(definition.Player)),
+            Resampler = parseResult.GetValue(definition.Resampler) == "amiga" ? ResamplingMode.Amiga : ResamplingMode.Smooth,
             Mapping = parseResult.GetValue(definition.Mapping),
             IgnoreSamples = ignoreSamples,
             RequireFm = requireFm,

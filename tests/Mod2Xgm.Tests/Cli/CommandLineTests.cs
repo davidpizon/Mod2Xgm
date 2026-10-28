@@ -1,3 +1,4 @@
+using Mod2Xgm.Audio;
 using Mod2Xgm.Cli;
 using Mod2Xgm.Mod;
 
@@ -37,6 +38,7 @@ public sealed class CommandLineTests
         Assert.Equal(Region.Pal, options.InputRegion);
         Assert.Equal(Region.Pal, options.OutputRegion);
         Assert.Null(options.Player);
+        Assert.Equal(ResamplingMode.Smooth, options.Resampler);
         Assert.Null(options.Mapping);
         Assert.Empty(options.IgnoreSamples);
         Assert.False(options.NoConsolidate);
@@ -61,6 +63,7 @@ public sealed class CommandLineTests
             "--input-region", "ntsc",
             "--output-region", "ntsc",
             "--player", "ust",
+            "--resampler", "amiga",
             "--mapping", "simple",
             "--ignore-samples", "3,7",
             "--ignore-samples", "12-14,0x1F",
@@ -82,6 +85,7 @@ public sealed class CommandLineTests
         Assert.Equal(Region.Ntsc, options.InputRegion);
         Assert.Equal(Region.Ntsc, options.OutputRegion);
         Assert.Equal(ModPlayer.UltimateSoundtracker, options.Player);
+        Assert.Equal(ResamplingMode.Amiga, options.Resampler);
         Assert.Equal("simple", options.Mapping);
         int[] ignored = [3, 7, 12, 13, 14, 31];
         Assert.Equal(ignored, options.IgnoreSamples.Order());
@@ -147,6 +151,13 @@ public sealed class CommandLineTests
     public void PlayerValues(string text, string expected) =>
         Assert.Equal(Enum.Parse<ModPlayer>(expected), Run("song.mod", "--player", text).Options?.Player);
 
+    /// <summary><c>--resampler</c> takes smooth or amiga.</summary>
+    [Theory]
+    [InlineData("smooth", nameof(ResamplingMode.Smooth))]
+    [InlineData("amiga", nameof(ResamplingMode.Amiga))]
+    public void ResamplerValues(string text, string expected) =>
+        Assert.Equal(Enum.Parse<ResamplingMode>(expected), Run("song.mod", "--resampler", text).Options?.Resampler);
+
     [Fact]
     public void MissingInputIsAUsageError()
     {
@@ -161,6 +172,7 @@ public sealed class CommandLineTests
     [InlineData("song.mod", "--output-region", "japan")]
     [InlineData("song.mod", "--region", "pal")]
     [InlineData("song.mod", "--player", "openmpt")]
+    [InlineData("song.mod", "--resampler", "linear")]
     [InlineData("song.mod", "--quality", "ultra")]
     [InlineData("song.mod", "--seed", "abc")]
     [InlineData("song.mod", "--unknown")]

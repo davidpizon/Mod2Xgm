@@ -82,7 +82,7 @@
 ### M5 — DMF writer + simple mapper (first playable release)
 | Task | Work | Acceptance |
 |---|---|---|
-| T5.1 | `SampleProcessor`: high-quality resampling, bit depth, loops, trim | Unit + spectral tests |
+| T5.1 | `SampleProcessor`: high-quality resampling (NWaves; `--resampler smooth\|amiga`), bit depth, loops, trim ([ADR 0038](adr/0038-sample-processor.md)) | Unit + spectral tests |
 | T5.2 | `DmfWriter` (all sections, zlib, one pattern per matrix row per channel) | Byte-exact + round trip through `DmfReader` |
 | T5.3 | `SimpleMapper`: busiest percussive channel → DAC; others → FM from a built-in patch library; noise → PSG; honors `--require-fm` / `--require-pcm` | Tests incl. required samples; conversion notes |
 | T5.4 | Timing: tick times, custom Hz, mid-song `Fxx` | Duration within 1 % of openmpt123 |

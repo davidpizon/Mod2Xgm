@@ -41,6 +41,12 @@ internal sealed class CommandLineDefinition
         Description = "Whose rules to read the MOD by: protracker (ProTracker 2) or ust (Ultimate Soundtracker). Default: ust for 15-sample files, protracker otherwise.",
     }.AcceptOnlyFromAmong("protracker", "ust");
 
+    public Option<string> Resampler { get; } = new Option<string>("--resampler")
+    {
+        Description = "How samples are played at a new rate: smooth (like OpenMPT) or amiga (Paula's steps, with their fizzy overtones).",
+        DefaultValueFactory = _ => "smooth",
+    }.AcceptOnlyFromAmong("smooth", "amiga");
+
     public Option<string?> Mapping { get; } = new("--mapping")
     {
         Description = "Channel-mapping strategy (see docs/channel-mapping.md).",
@@ -127,6 +133,7 @@ internal sealed class CommandLineDefinition
             InputRegion,
             OutputRegion,
             Player,
+            Resampler,
             Mapping,
             IgnoreSamples,
             RequireFm,

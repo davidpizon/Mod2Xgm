@@ -79,7 +79,7 @@ src/Cli/            argument parsing, exit codes
 src/Mod/            MOD reader -> ModModule
 src/Model/          format-neutral song model (IR)
 src/Mapping/        IR -> Genesis channel plan (strategy interface) + SampleBudgeter (capacity/consolidation)
-src/Audio/          resampling, bit-depth conversion, loop handling
+src/Audio/          SampleProcessor: resampling (NWaves), bit-depth conversion, loop handling
 src/Render/         in-app MOD renderer + YM2612 (ymfm port) / SN76489 / PCM driver models (pure C#)
 src/Scoring/        spectral + onset metrics, shared with tools/Mod2Xgm.Harness
 src/Optimizer/      multi-pass candidates, allocation, refinement
@@ -174,7 +174,8 @@ compiler, analyzer, trim/AOT, NuGet or MSBuild warning fails the build.
      library, not statically linked. GPL needs David's approval. Record the license in an ADR (`docs/adr/`).
    - Pin the version in `Directory.Packages.props`, record the addition in an ADR (`docs/adr/`), and add it to
      `THIRD-PARTY-NOTICES.md`.
-   Approved so far: **Serilog**, **Serilog.Sinks.Console**, **System.CommandLine**; test-only **xUnit v3**.
+   Approved so far: **Serilog**, **Serilog.Sinks.Console**, **System.CommandLine**, **NWaves** (resampling, ADR 0038);
+   test-only **xUnit v3**.
    The BCL still covers the basics: `ZLibStream` (DMF is zlib-compressed), `BinaryPrimitives` (endianness), `Span<T>`.
 3. **Local-only.** The tool never touches the network.
 4. **Never modify the input file.** Output goes next to the input unless `--output` is given. Do not

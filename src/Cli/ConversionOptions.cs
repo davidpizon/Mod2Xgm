@@ -1,3 +1,4 @@
+using Mod2Xgm.Audio;
 using Mod2Xgm.Mod;
 using Mod2Xgm.Model;
 
@@ -29,6 +30,9 @@ internal sealed record ConversionOptions
 
     /// <summary>Whose rules to read the MOD by (<c>--player</c>), or <c>null</c> for the default for the file's format.</summary>
     public ModPlayer? Player { get; init; }
+
+    /// <summary>How samples are played at a new rate (<c>--resampler</c>): smooth (default) or Amiga steps.</summary>
+    public ResamplingMode Resampler { get; init; } = ResamplingMode.Smooth;
 
     public string? Mapping { get; init; }
 
