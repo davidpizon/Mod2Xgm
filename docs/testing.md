@@ -70,7 +70,7 @@ The goal is the most accurate **sounding** output, so it is measured, not guesse
 3. Align and compare with objective metrics — multi-resolution log-mel spectral distance and onset/timing
    error — plus a short A/B listening check.
 4. Keep a small corpus of freely licensed MODs with scores per strategy; a change to mapping or consolidation
-   must not lower the corpus score without a recorded reason in [decisions.md](decisions.md).
+   must not lower the corpus score without a recorded reason in an ADR ([adr/](adr/README.md)).
 
 Unit tests for the capacity logic: build a song in code that needs more slots / voices / bytes than the
 target allows and assert the capacity warning, the consolidation steps taken, and exit 6 with `--no-consolidate`.

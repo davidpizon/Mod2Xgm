@@ -174,7 +174,7 @@ internal static class AmigaPitch
         }
 
         // Below B-3 at finetune 0 (113). ProTracker 2 reads its tables' zero padding here and plays period 0; that
-        // can't be rendered, so the period is kept as written (decisions.md, T3.2) and the caller adds a conversion note.
+        // can't be rendered, so the period is kept as written (docs/adr/0030-amiga-pitch-regions-finetune.md, T3.2) and the caller adds a conversion note.
         return new FineTunedPeriod(period, null);
     }
 

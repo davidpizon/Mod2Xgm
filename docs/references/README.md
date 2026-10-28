@@ -17,7 +17,7 @@ relevant summaries before working on FM fitting, scoring or the optimizer (plan 
 - Every summary states its **access status**: whether the full text was read, and which claims are unverified.
   Mark unverified details *(unverified)*, and remove the mark only after checking the source.
 - When a paper changes a design decision, update the design doc it affects and log it in
-  [../decisions.md](../decisions.md).
+  an ADR ([../adr/](../adr/README.md)).
 
 ## Adding a summary
 

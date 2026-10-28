@@ -32,7 +32,7 @@ Early scaffold. `src/Program.cs` only sets up Serilog. The design lives in
 [`docs/`](docs/README.md); read it before writing code. Items marked **(proposed)** or **open** in the docs
 are not settled yet. **Work from [`docs/implementation-plan.md`](docs/implementation-plan.md)**: one task
 (`T#.#`) per PR, in milestone order, meeting its acceptance criteria. Do not silently pick an answer; raise it or record it in
-[`docs/decisions.md`](docs/decisions.md).
+an ADR in [`docs/adr/`](docs/adr/README.md).
 
 Required behavior on every run (see [`docs/cli.md`](docs/cli.md#console-report) and
 [`docs/sample-capacity.md`](docs/sample-capacity.md)):
@@ -171,8 +171,8 @@ compiler, analyzer, trim/AOT, NuGet or MSBuild warning fails the build.
      available (or buildable in CI) for all three, preferably statically linked into the AOT binary
      (`DirectPInvoke` + `NativeLibrary` items) so the tool stays a single file.
    - License: permissive (MIT, BSD, zlib, Apache-2.0) is fine. LGPL only as a separately loaded native
-     library, not statically linked. GPL needs David's approval. Record the license in `docs/decisions.md`.
-   - Pin the version in `Directory.Packages.props`, log the addition in `docs/decisions.md`, and add it to
+     library, not statically linked. GPL needs David's approval. Record the license in an ADR (`docs/adr/`).
+   - Pin the version in `Directory.Packages.props`, record the addition in an ADR (`docs/adr/`), and add it to
      `THIRD-PARTY-NOTICES.md`.
    Approved so far: **Serilog**, **Serilog.Sinks.Console**, **System.CommandLine**; test-only **xUnit v3**.
    The BCL still covers the basics: `ZLibStream` (DMF is zlib-compressed), `BinaryPrimitives` (endianness), `Span<T>`.
@@ -255,8 +255,10 @@ table. Add a summary in the same format when a new paper informs the design. Nev
 
 - If you change behavior, CLI flags, or a format detail, update the matching file in `docs/` **in the same
   change**.
-- Record design decisions (especially channel mapping) in [`docs/decisions.md`](docs/decisions.md) with
-  date, options, and the reason.
+- Record every design decision (especially channel mapping) as an **ADR** in [`docs/adr/`](docs/adr/README.md): copy
+  `docs/adr/template.md` to the next number, fill in context, decision, options considered and consequences, and add
+  it to the index in the same PR. To change a decision, write a new ADR that supersedes the old one and
+  updates only the old one's Status line. `docs/decisions.md` now just points to the index.
 - Format docs carry a **"Verify"** marker on anything not yet checked against the primary spec. Remove
   the marker only after checking against the spec or a real file opened in DefleMask / played via SGDK.
 

@@ -71,7 +71,7 @@ With `--info` no file is written, so the output checks are skipped.
 ## Regions
 
 Two different machines, each PAL or NTSC, set independently (both default `pal`; the old `--region` was removed,
-see [decisions.md](decisions.md)):
+see [ADR 0030](adr/0030-amiga-pitch-regions-finetune.md)):
 
 - **`--input-region`** — the **Amiga** the MOD was made on. It sets how the song **really sounded**: its pitch
   (Paula clock PAL 3 546 895 Hz / NTSC 3 579 545 Hz, see [formats/mod.md](formats/mod.md#pitch); `ntsc` is about
@@ -81,7 +81,7 @@ see [decisions.md](decisions.md)):
   ([genesis-audio.md](genesis-audio.md)).
 
 The output always sounds like the song did on its original Amiga, at that Amiga's pitch and speed (David,
-[decisions.md](decisions.md)). The tick player (T3.4) times every tick at the source rate; the writers fit the ticks
+[ADR 0030](adr/0030-amiga-pitch-regions-finetune.md)). The tick player (T3.4) times every tick at the source rate; the writers fit the ticks
 onto the target's frames. When the regions match, one MOD tick is one Genesis frame; when they don't, the
 converter spreads the ticks onto the frames so the speed stays the same:
 
