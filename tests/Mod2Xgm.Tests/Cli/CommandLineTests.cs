@@ -260,15 +260,16 @@ public sealed class CommandLineTests
         Assert.Equal(ExitCode.Success, CommandLineDefinition.Invoke(["song.mod"], _ => ExitCode.Success));
 
     [Fact]
-    public void RequiredFmAndPcmListsAreBound()
+    public void RequiredFmDacAndPsgListsAreBound()
     {
-        Outcome result = Run("song.mod", "--require-fm", "4,9-11", "--require-pcm", "1", "--require-pcm", "0x02");
+        Outcome result = Run("song.mod", "--require-fm", "4,9-11", "--require-dac", "1", "--require-dac", "0x02", "--require-psg", "5-6");
 
         ConversionOptions options = Assert.IsType<ConversionOptions>(result.Options);
         int[] fm = [4, 9, 10, 11];
-        int[] pcm = [1, 2];
+        int[] dac = [1, 2];
         Assert.Equal(fm, options.RequireFm.Order());
-        Assert.Equal(pcm, options.RequirePcm.Order());
+        Assert.Equal(dac, options.RequireDac.Order());
+        Assert.Equal([5, 6], options.RequirePsg.Order());
     }
 
     [Fact]
@@ -277,44 +278,59 @@ public sealed class CommandLineTests
         ConversionOptions options = Assert.IsType<ConversionOptions>(Run("song.mod").Options);
 
         Assert.Empty(options.RequireFm);
-        Assert.Empty(options.RequirePcm);
+        Assert.Empty(options.RequireDac);
+        Assert.Empty(options.RequirePsg);
     }
 
     [Fact]
-    public void ASampleCannotBeBothFmAndPcm()
+    public void ASampleCannotBeBothFmAndDac()
     {
-        Outcome result = Run("song.mod", "--require-fm", "3,5-7", "--require-pcm", "6,1,3");
+        Outcome result = Run("song.mod", "--require-fm", "3,5-7", "--require-dac", "6,1,3");
 
         Assert.Equal(ExitCode.UsageError, result.Code);
         Assert.Null(result.Options);
-        Assert.Contains("--require-fm and --require-pcm both list samples 3, 6; a sample can be FM or PCM, not both.", result.Error, StringComparison.Ordinal);
+        Assert.Contains("--require-fm and --require-dac both list samples 3, 6; a sample can be played by FM or the DAC, not both.", result.Error, StringComparison.Ordinal);
     }
 
     [Fact]
     public void ASingleConflictUsesTheSingularWord()
     {
-        Outcome result = Run("song.mod", "--require-fm", "3", "--require-pcm", "3");
+        Outcome result = Run("song.mod", "--require-fm", "3", "--require-dac", "3");
 
         Assert.Contains("both list sample 3;", result.Error, StringComparison.Ordinal);
     }
 
-    /// <summary><c>--no-dac</c> can be combined with <c>--require-fm</c>, but not with <c>--require-pcm</c>: that sample would have nowhere to play.</summary>
+    /// <summary>A sample can't be required in two lists at once; every pair is checked.</summary>
+    [Theory]
+    [InlineData("--require-fm", "--require-psg", "a sample can be played by FM or the PSG, not both.")]
+    [InlineData("--require-dac", "--require-psg", "a sample can be played by the DAC or the PSG, not both.")]
+    public void ASampleCannotBeRequiredByTwoVoices(string first, string second, string reason)
+    {
+        Outcome result = Run("song.mod", first, "4", second, "4");
+
+        Assert.Equal(ExitCode.UsageError, result.Code);
+        Assert.Contains($"{first} and {second} both list sample 4; {reason}", result.Error, StringComparison.Ordinal);
+    }
+
+    /// <summary><c>--no-dac</c> can be combined with <c>--require-fm</c>, but not with <c>--require-dac</c>: that sample would have nowhere to play.</summary>
     [Fact]
-    public void NoDacConflictsWithRequirePcmOnly()
+    public void NoDacConflictsWithRequireDacOnly()
     {
         Assert.True(Assert.IsType<ConversionOptions>(Run("song.mod", "--no-dac", "--require-fm", "2").Options).NoDac);
+        Assert.True(Assert.IsType<ConversionOptions>(Run("song.mod", "--no-dac", "--require-psg", "2").Options).NoDac);
 
-        Outcome one = Run("song.mod", "--no-dac", "--require-pcm", "3");
-        Outcome two = Run("song.mod", "--no-dac", "--require-pcm", "3,1");
+        Outcome one = Run("song.mod", "--no-dac", "--require-dac", "3");
+        Outcome two = Run("song.mod", "--no-dac", "--require-dac", "3,1");
 
         Assert.Equal(ExitCode.UsageError, one.Code);
-        Assert.Contains("--no-dac and --require-pcm both given (sample 3);", one.Error, StringComparison.Ordinal);
+        Assert.Contains("--no-dac and --require-dac both given (sample 3);", one.Error, StringComparison.Ordinal);
         Assert.Contains("(samples 1, 3);", two.Error, StringComparison.Ordinal);
     }
 
     [Theory]
     [InlineData("--require-fm")]
-    [InlineData("--require-pcm")]
+    [InlineData("--require-dac")]
+    [InlineData("--require-psg")]
     public void AnIgnoredSampleCannotBeRequired(string requireOption)
     {
         Outcome result = Run("song.mod", "--ignore-samples", "8", requireOption, "8");
@@ -325,7 +341,8 @@ public sealed class CommandLineTests
 
     [Theory]
     [InlineData("--require-fm")]
-    [InlineData("--require-pcm")]
+    [InlineData("--require-dac")]
+    [InlineData("--require-psg")]
     public void InvalidRequiredListsAreUsageErrors(string option)
     {
         Outcome result = Run("song.mod", option, "40");

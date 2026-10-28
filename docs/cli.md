@@ -18,9 +18,10 @@ mod2xgm <input.mod> [options]
 | `--resampler <smooth\|amiga>` | `smooth` | How samples are played at the target's rates: `smooth` (the smooth sound between the points, as OpenMPT plays it) or `amiga` (Paula's steps, with their fizzy overtones). Both are band-limited, so neither aliases. See [ADR 0038](adr/0038-sample-processor.md). |
 | `--mapping <name>` | TBD | Channel-mapping strategy (see [channel-mapping.md](channel-mapping.md)). |
 | `--ignore-samples <list>` | none | MOD sample numbers to leave out, 1-based, comma-separated, ranges allowed: `3,7,12-14`. Hex accepted with `0x` (trackers show hex: `0x1F` = 31). Repeatable. Unknown/empty numbers → exit 1. |
-| `--require-fm <list>` | none | MOD samples that **must** be played by FM (never digitized PCM). Same list syntax as `--ignore-samples`. See [sample-capacity.md](sample-capacity.md#required-fm-and-pcm-samples). |
-| `--require-pcm <list>` | none | MOD samples that **must** stay digitized PCM (never replaced by FM or PSG). Same list syntax. |
-| `--no-dac` | off | Don't use the DAC (digitized PCM): every sample is played by FM or the PSG, drums included. The DAC is the one place the Genesis plays recordings; by default the mapper puts one-shot samples there. Can't be combined with `--require-pcm` (exit 1). See [ADR 0040](adr/0040-simple-mapper.md). |
+| `--require-fm <list>` | none | MOD samples that **must** be played by FM (never the DAC or PSG). Same list syntax as `--ignore-samples`. See [sample-capacity.md](sample-capacity.md#required-fm-dac-and-psg-samples). |
+| `--require-dac <list>` | none | MOD samples that **must** be played on the DAC as digitized PCM (never replaced by FM or PSG). Same list syntax. Renamed from `--require-pcm` ([ADR 0041](adr/0041-require-dac-require-psg.md)). |
+| `--require-psg <list>` | none | MOD samples that **must** be played by the PSG (never FM or the DAC). The simple mapper uses the PSG noise channel. Same list syntax. See [ADR 0041](adr/0041-require-dac-require-psg.md). |
+| `--no-dac` | off | Don't use the DAC (digitized PCM): every sample is played by FM or the PSG, drums included. The DAC is the one place the Genesis plays recordings; by default the mapper puts one-shot samples there. Can't be combined with `--require-dac` (exit 1). See [ADR 0040](adr/0040-simple-mapper.md). |
 | `--no-consolidate` | off | Don't consolidate samples; if the song doesn't fit the target, print the capacity report and exit 6. |
 | `--max-pcm-bytes <n>` | 128K | PCM byte budget per song for XGM/XGM2 (suffixes `K`, `M`). Over budget → capacity warning + consolidation. |
 | `--quality <fast\|normal\|best>` | `normal` | `fast`: simple mapper, no fitting. `normal`: multi-pass with a 5-minute budget. `best`: run until no improvement. See [multi-pass.md](multi-pass.md). |
@@ -44,12 +45,13 @@ Parsed by System.CommandLine; values are converted and checked by `src/Cli/Optio
   to add more. Numbers above the module's actual sample count (e.g. 16+ in a 15-sample MOD) are rejected after
   the MOD is read and report sections 1–2 are printed (exit 1, every option at fault named:
   `--ignore-samples 16,20: this module has samples 1-15 only.`).
-- `--require-fm`, `--require-pcm`: same syntax and range as `--ignore-samples`, repeatable, and checked against the
+- `--require-fm`, `--require-dac`, `--require-psg`: same syntax and range as `--ignore-samples`, repeatable, and checked against the
   module's sample count the same way.
-- **Conflicts (exit 1, every conflict reported):** a sample may not appear in both `--require-fm` and
-  `--require-pcm` ("a sample can be FM or PCM, not both"), nor in `--ignore-samples` and either `--require-*`
+- **Conflicts (exit 1, every conflict reported):** a sample may not appear in two of `--require-fm`,
+  `--require-dac` and `--require-psg` ("a sample can be played by FM or the DAC, not both", and likewise for FM/PSG and
+  DAC/PSG), nor in `--ignore-samples` and any `--require-*`
   list ("an ignored sample isn't converted at all").
-- `--no-dac` and `--require-pcm` together are a usage error (exit 1): "--no-dac keeps every sample off the DAC".
+- `--no-dac` and `--require-dac` together are a usage error (exit 1): "--no-dac keeps every sample off the DAC".
 - `--max-pcm-bytes`: positive integer, optional `K` (×1024) or `M` (×1024²) suffix, case-insensitive.
 - `--time-budget`: positive integer with optional `s`, `m` or `h` (plain number = seconds).
 - `--reserve-sfx-channels`: `0`–`4` for `xgm`, `0`–`3` for `xgm2`; must be `0` for `dmf` (one DAC channel, nothing to reserve).
@@ -120,7 +122,7 @@ Emulating ProTracker 2 (chosen with --player)
 | 3 | Input is not a valid or supported MOD |
 | 4 | Output exists and `--force` not given, or output not writable |
 | 5 | Conversion failed (internal error) |
-| 6 | Song doesn't fit the target: `--no-consolidate` was given, or the `--require-pcm` samples alone exceed the PCM slots/bytes |
+| 6 | Song doesn't fit the target: `--no-consolidate` was given, or the `--require-dac` samples alone exceed the PCM slots/bytes |
 
 ## Console report
 

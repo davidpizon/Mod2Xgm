@@ -51,9 +51,9 @@ decides by error and cost, not by a fixed "FM first" rule.
 
 ## Constraints the allocator enforces
 
-**User constraints first:** samples in `--require-fm` only ever get FM candidates; samples in `--require-pcm` only
-PCM candidates. The allocator never trades them away. See
-[sample-capacity.md](sample-capacity.md#required-fm-and-pcm-samples) for overflow handling.
+**User constraints first:** samples in `--require-fm` only ever get FM candidates; samples in `--require-dac` only
+PCM candidates; samples in `--require-psg` only PSG candidates. The allocator never trades them away. See
+[sample-capacity.md](sample-capacity.md#required-fm-dac-and-psg-samples) for overflow handling.
 
 | Resource | DMF | XGM | XGM2 |
 |---|---|---|---|
