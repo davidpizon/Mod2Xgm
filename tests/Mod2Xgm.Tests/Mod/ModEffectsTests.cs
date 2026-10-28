@@ -144,7 +144,7 @@ public sealed class ModEffectsTests
 
         Assert.Empty(decoded.Effects);
         Assert.Equal(volume, decoded.Volume);
-        Assert.Equal(above64 ? (EffectIssue?)EffectIssue.VolumeAbove64 : null, decoded.Issue);
+        Assert.Equal(above64 ? EffectIssue.VolumeAbove64 : null, decoded.Issue);
     }
 
     /// <summary><c>Dxx</c> reads its row in decimal; ProTracker's x × 10 + y also applies to digits above 9.</summary>

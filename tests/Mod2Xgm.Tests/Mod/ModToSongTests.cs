@@ -66,8 +66,8 @@ public sealed class ModToSongTests
         (Song song, _) = Convert(new ModBuilder().WithSample(1, "edge", 4, data: i => i switch
         {
             0 => sbyte.MinValue,
-            1 => (sbyte)-1,
-            2 => (sbyte)0,
+            1 => -1,
+            2 => 0,
             _ => sbyte.MaxValue,
         }));
 
