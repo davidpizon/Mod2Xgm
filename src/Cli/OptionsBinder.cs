@@ -29,16 +29,20 @@ internal static class OptionsBinder
 
         HashSet<int> ignoreSamples = SampleList(parseResult.GetValue(definition.IgnoreSamples), "--ignore-samples", errors);
         HashSet<int> requireFm = SampleList(parseResult.GetValue(definition.RequireFm), "--require-fm", errors);
-        HashSet<int> requirePcm = SampleList(parseResult.GetValue(definition.RequirePcm), "--require-pcm", errors);
-        AddConflict(requireFm, "--require-fm", requirePcm, "--require-pcm", "a sample can be FM or PCM, not both", errors);
+        HashSet<int> requireDac = SampleList(parseResult.GetValue(definition.RequireDac), "--require-dac", errors);
+        HashSet<int> requirePsg = SampleList(parseResult.GetValue(definition.RequirePsg), "--require-psg", errors);
+        AddConflict(requireFm, "--require-fm", requireDac, "--require-dac", "a sample can be played by FM or the DAC, not both", errors);
+        AddConflict(requireFm, "--require-fm", requirePsg, "--require-psg", "a sample can be played by FM or the PSG, not both", errors);
+        AddConflict(requireDac, "--require-dac", requirePsg, "--require-psg", "a sample can be played by the DAC or the PSG, not both", errors);
         bool noDac = parseResult.GetValue(definition.NoDac);
-        if (noDac && requirePcm.Count > 0)
+        if (noDac && requireDac.Count > 0)
         {
-            errors.Add($"--no-dac and --require-pcm both given (sample{(requirePcm.Count == 1 ? string.Empty : "s")} {string.Join(", ", requirePcm.Order())}); --no-dac keeps every sample off the DAC.");
+            errors.Add($"--no-dac and --require-dac both given (sample{(requireDac.Count == 1 ? string.Empty : "s")} {string.Join(", ", requireDac.Order())}); --no-dac keeps every sample off the DAC.");
         }
 
         AddConflict(ignoreSamples, "--ignore-samples", requireFm, "--require-fm", "an ignored sample isn't converted at all", errors);
-        AddConflict(ignoreSamples, "--ignore-samples", requirePcm, "--require-pcm", "an ignored sample isn't converted at all", errors);
+        AddConflict(ignoreSamples, "--ignore-samples", requireDac, "--require-dac", "an ignored sample isn't converted at all", errors);
+        AddConflict(ignoreSamples, "--ignore-samples", requirePsg, "--require-psg", "an ignored sample isn't converted at all", errors);
 
         long maxPcmBytes = ConversionDefaults.MaxPcmBytes;
         if (parseResult.GetValue(definition.MaxPcmBytes) is { } sizeText
@@ -83,7 +87,8 @@ internal static class OptionsBinder
             Mapping = parseResult.GetValue(definition.Mapping),
             IgnoreSamples = ignoreSamples,
             RequireFm = requireFm,
-            RequirePcm = requirePcm,
+            RequireDac = requireDac,
+            RequirePsg = requirePsg,
             NoDac = noDac,
             NoConsolidate = parseResult.GetValue(definition.NoConsolidate),
             MaxPcmBytes = maxPcmBytes,

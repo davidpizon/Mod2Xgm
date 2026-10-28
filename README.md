@@ -78,7 +78,8 @@ mod2xgm song.mod --format xgm2 --info
 | `-o, --output <path>` | Where to write the file (default: next to the MOD) |
 | `--ignore-samples 3,7,12-14` | Leave these samples out (numbers start at 1; `0x1F` style also works) |
 | `--require-fm 4,9-11` | These samples must be played by FM synthesis |
-| `--require-pcm 1,2` | These samples must stay recorded sound (PCM) |
+| `--require-dac 1,2` | These samples must be played as recorded sound (the DAC) |
+| `--require-psg 5,6` | These samples must be played by the PSG (the noise channel) |
 | `--quality fast\|normal\|best` | How hard to try to match the original sound (default `normal`, up to about 5 minutes) |
 | `--max-pcm-bytes 128K` | Space allowed for recorded sounds in XGM/XGM2 (default 128K) |
 | `--reserve-sfx-channels <n>` | Keep `n` sample channels free for your game's sound effects |
@@ -102,7 +103,7 @@ The full list and every detail are in [`docs/cli.md`](docs/cli.md).
 | 3 | Not a valid or supported MOD (4-channel ProTracker and 15-sample Soundtracker are supported) |
 | 4 | Output file exists (use `--force`) or can't be written |
 | 5 | Unexpected error |
-| 6 | The song doesn't fit: `--no-consolidate` was given, or the `--require-pcm` samples alone are too big |
+| 6 | The song doesn't fit: `--no-consolidate` was given, or the `--require-dac` samples alone are too big |
 
 ## For developers
 

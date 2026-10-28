@@ -34,7 +34,7 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0018](0018-exit-codes-and-output-checks.md) | Exit codes and output checks (T1.2) | 2026-10-27 | Accepted |
 | [0019](0019-logging-setup.md) | Logging setup (T1.3) | 2026-10-27 | Accepted |
 | [0020](0020-mod-reader.md) | MOD reader (T2.1, T2.2) | 2026-10-27 | Accepted; the 15-sample rejection is superseded by [ADR 0025](0025-fifteen-sample-soundtracker-detection.md) |
-| [0021](0021-require-fm-require-pcm.md) | --require-fm / --require-pcm | 2026-10-27 | Accepted |
+| [0021](0021-require-fm-require-pcm.md) | --require-fm / --require-pcm | 2026-10-27 | Superseded by [ADR 0041](0041-require-dac-require-psg.md) |
 | [0022](0022-weekly-dependabot-scan.md) | Weekly Dependabot scan | 2026-10-27 | Accepted |
 | [0023](0023-qodana-code-scanning.md) | Qodana code scanning | 2026-10-27 | Accepted; the baseline plan continues in [ADR 0024](0024-nightly-audit.md) |
 | [0024](0024-nightly-audit.md) | Nightly audit files issues for Qodana and NuGet findings | 2026-10-27 | Accepted |
@@ -54,6 +54,7 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0038](0038-sample-processor.md) | Sample processor and `--resampler` (T5.1) | 2026-10-28 | Accepted |
 | [0039](0039-dmf-writer.md) | DMF writer and its song model (T5.2) | 2026-10-28 | Accepted |
 | [0040](0040-simple-mapper.md) | Simple mapper, `--no-dac` and the Genesis plan (T5.3) | 2026-10-28 | Accepted |
+| [0041](0041-require-dac-require-psg.md) | `--require-pcm` becomes `--require-dac`; add `--require-psg` | 2026-10-28 | Accepted; supersedes [ADR 0021](0021-require-fm-require-pcm.md) |
 | [0042](0042-scoring-metrics.md) | Scoring metrics (T6.2) | 2026-10-28 | Accepted |
 
 ## Open questions

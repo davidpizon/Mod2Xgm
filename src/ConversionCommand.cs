@@ -91,7 +91,8 @@ internal static class ConversionCommand
             !options.NoCache);
         LogSampleList(logger, "Ignoring samples {Samples}", options.IgnoreSamples);
         LogSampleList(logger, "Samples required as FM {Samples}", options.RequireFm);
-        LogSampleList(logger, "Samples required as PCM {Samples}", options.RequirePcm);
+        LogSampleList(logger, "Samples required as DAC {Samples}", options.RequireDac);
+        LogSampleList(logger, "Samples required as PSG {Samples}", options.RequirePsg);
     }
 
     private static void LogSampleList(ILogger logger, string messageTemplate, IReadOnlySet<int> samples)
@@ -111,7 +112,8 @@ internal static class ConversionCommand
         List<string> problems = [];
         AddUnknown(problems, "--ignore-samples", options.IgnoreSamples, module.Samples.Count);
         AddUnknown(problems, "--require-fm", options.RequireFm, module.Samples.Count);
-        AddUnknown(problems, "--require-pcm", options.RequirePcm, module.Samples.Count);
+        AddUnknown(problems, "--require-dac", options.RequireDac, module.Samples.Count);
+        AddUnknown(problems, "--require-psg", options.RequirePsg, module.Samples.Count);
         if (problems.Count > 0)
         {
             throw new ConversionException(ExitCode.UsageError, string.Join(Environment.NewLine, problems));

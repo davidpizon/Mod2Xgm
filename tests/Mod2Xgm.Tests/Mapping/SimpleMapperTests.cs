@@ -6,7 +6,7 @@ namespace Mod2Xgm.Tests.Mapping;
 
 /// <summary>
 /// Tests for <see cref="SimpleMapper"/> (plan T5.3): where each kind of sample is played, how shared channels are
-/// settled, what <c>--require-fm</c>, <c>--require-pcm</c> and <c>--no-dac</c> change, and the conversion notes.
+/// settled, what <c>--require-fm</c>, <c>--require-dac</c>, <c>--require-psg</c> and <c>--no-dac</c> change, and the conversion notes.
 /// </summary>
 public sealed class SimpleMapperTests
 {
@@ -58,8 +58,8 @@ public sealed class SimpleMapperTests
     private static PlanCell CellAt(GenesisPlan plan, GenesisChannel channel, int order = 0, int row = 0) =>
         plan.Patterns[order][row].Cells[(int)channel];
 
-    private static MappingOptions Options(int[]? requireFm = null, int[]? requirePcm = null, bool useDac = true) =>
-        new(new HashSet<int>(requireFm ?? []), new HashSet<int>(requirePcm ?? []), useDac);
+    private static MappingOptions Options(int[]? requireFm = null, int[]? requireDac = null, int[]? requirePsg = null, bool useDac = true) =>
+        new(new HashSet<int>(requireFm ?? []), new HashSet<int>(requireDac ?? []), new HashSet<int>(requirePsg ?? []), useDac);
 
     /// <summary>The plan's columns follow DMF channel order, which the mapper relies on when it turns a MOD channel number into a column.</summary>
     [Fact]
@@ -174,17 +174,17 @@ public sealed class SimpleMapperTests
         Assert.Contains(notes, n => n.Contains("played by the PSG noise channel instead", StringComparison.Ordinal));
     }
 
-    /// <summary>A <c>--require-pcm</c> note that loses the DAC is dropped, never moved to FM or PSG.</summary>
+    /// <summary>A <c>--require-dac</c> note that loses the DAC is dropped, never moved to FM or PSG.</summary>
     [Fact]
-    public void ALosingRequiredPcmNoteIsDropped()
+    public void ALosingRequiredDacNoteIsDropped()
     {
         (GenesisPlan plan, List<string> notes) = Map(
             Build([[RowOf(Play(Kick, volume: 0.9), Play(Tom, 40, volume: 0.3))]]),
-            Options(requirePcm: [Tom]));
+            Options(requireDac: [Tom]));
 
         Assert.Equal(PlanCell.Empty, CellAt(plan, GenesisChannel.Fm2));
         Assert.Empty(plan.FmPatches);
-        Assert.Contains(notes, n => n.StartsWith("1 --require-pcm notes", StringComparison.Ordinal));
+        Assert.Contains(notes, n => n.StartsWith("1 --require-dac notes", StringComparison.Ordinal));
     }
 
     /// <summary><c>--no-dac</c>: a tonal one-shot is an FM Pluck, a noise one-shot is the PSG noise channel.</summary>
@@ -229,30 +229,59 @@ public sealed class SimpleMapperTests
         Assert.Contains(notes, n => n.Contains("required as FM (--require-fm)", StringComparison.Ordinal));
     }
 
-    /// <summary><c>--require-pcm</c> sends even a looped sample to the DAC.</summary>
+    /// <summary><c>--require-dac</c> sends even a looped sample to the DAC.</summary>
     [Fact]
-    public void RequiredPcmBeatsTheLoopRule()
+    public void RequiredDacBeatsTheLoopRule()
     {
-        (GenesisPlan plan, List<string> notes) = Map(Build([[RowOf(Play(Organ))]]), Options(requirePcm: [Organ]));
+        (GenesisPlan plan, List<string> notes) = Map(Build([[RowOf(Play(Organ))]]), Options(requireDac: [Organ]));
 
         Assert.Equal(VoiceKind.Dac, CellAt(plan, GenesisChannel.Fm6).Voice?.Kind);
         Assert.Empty(plan.FmPatches);
         Assert.Empty(notes);
     }
 
-    /// <summary><c>--no-dac</c> and <c>--require-pcm</c> contradict each other.</summary>
+    /// <summary><c>--require-psg</c> sends a tonal one-shot and a looped sample to the PSG noise channel, with the DAC and FM both free.</summary>
     [Fact]
-    public void NoDacWithRequiredPcmIsRefused() =>
-        Assert.Throws<ArgumentException>(() => Map(Build([[RowOf()]]), Options(requirePcm: [Kick], useDac: false)));
+    public void RequiredPsgBeatsTheDacAndTheLoopRule()
+    {
+        (GenesisPlan plan, List<string> notes) = Map(
+            Build([[RowOf(Play(Kick), Play(Organ))]]),
+            Options(requirePsg: [Kick, Organ]));
+
+        Assert.Equal(VoiceKind.PsgNoise, CellAt(plan, GenesisChannel.Psg4).Voice?.Kind);
+        Assert.Equal(PlanCell.Empty, CellAt(plan, GenesisChannel.Fm6));
+        Assert.Empty(plan.DacSamples);
+        Assert.Empty(plan.FmPatches);
+        Assert.Contains(notes, n => n.Contains("required as PSG (--require-psg)", StringComparison.Ordinal));
+    }
+
+    /// <summary>A <c>--require-psg</c> note that loses the noise channel is dropped, never moved to FM; an ordinary noise note would move.</summary>
+    [Fact]
+    public void ALosingRequiredPsgNoteIsDropped()
+    {
+        (GenesisPlan plan, List<string> notes) = Map(
+            Build([[RowOf(Play(Hat, volume: 0.9), Play(Kick, volume: 0.3))]]),
+            Options(requirePsg: [Kick], useDac: false));
+
+        Assert.Equal(PlanCell.Empty, CellAt(plan, GenesisChannel.Fm2));
+        Assert.Empty(plan.FmPatches);
+        Assert.Contains(notes, n => n.StartsWith("1 --require-psg notes", StringComparison.Ordinal));
+    }
+
+    /// <summary><c>--no-dac</c> and <c>--require-dac</c> contradict each other.</summary>
+    [Fact]
+    public void NoDacWithRequiredDacIsRefused() =>
+        Assert.Throws<ArgumentException>(() => Map(Build([[RowOf()]]), Options(requireDac: [Kick], useDac: false)));
 
     /// <summary>A required sample that is empty or never played gets a note saying the requirement has no effect.</summary>
     [Fact]
     public void RequirementsOnUnplayedSamplesAreNoted()
     {
-        (_, List<string> notes) = Map(Build([[RowOf(Play(Organ))]]), Options(requireFm: [Empty], requirePcm: [Tom]));
+        (_, List<string> notes) = Map(Build([[RowOf(Play(Organ))]]), Options(requireFm: [Empty], requireDac: [Tom], requirePsg: [Hat]));
 
         Assert.Contains(notes, n => n.Contains("Sample 5 \"empty\": required as FM, but it is empty or never played", StringComparison.Ordinal));
-        Assert.Contains(notes, n => n.Contains("Sample 3 \"tom\": required as PCM", StringComparison.Ordinal));
+        Assert.Contains(notes, n => n.Contains("Sample 3 \"tom\": required as DAC", StringComparison.Ordinal));
+        Assert.Contains(notes, n => n.Contains("Sample 4 \"hat\": required as PSG, but it is empty or never played", StringComparison.Ordinal));
     }
 
     /// <summary>When a MOD channel moves from an FM note to a drum, its FM channel is told to stop.</summary>
@@ -378,16 +407,18 @@ public sealed class SimpleMapperTests
         {
             InputPath = "x.mod",
             RequireFm = new HashSet<int> { 1, 3 },
-            RequirePcm = new HashSet<int> { 2 },
+            RequireDac = new HashSet<int> { 2 },
+            RequirePsg = new HashSet<int> { 4 },
             NoDac = false,
         };
 
         MappingOptions options = MappingOptions.From(cli);
 
         Assert.Equal([0, 2], options.RequireFm.Order());
-        Assert.Equal([1], options.RequirePcm);
+        Assert.Equal([1], options.RequireDac);
+        Assert.Equal([3], options.RequirePsg);
         Assert.True(options.UseDac);
-        Assert.False(MappingOptions.From(cli with { RequirePcm = new HashSet<int>(), NoDac = true }).UseDac);
+        Assert.False(MappingOptions.From(cli with { RequireDac = new HashSet<int>(), NoDac = true }).UseDac);
         Assert.Empty(MappingOptions.Default.RequireFm);
     }
 }

@@ -42,8 +42,11 @@ internal sealed record ConversionOptions
     /// <summary>MOD sample numbers (1-based) that must be played by FM, never as PCM (<c>--require-fm</c>).</summary>
     public IReadOnlySet<int> RequireFm { get; init; } = new HashSet<int>();
 
-    /// <summary>MOD sample numbers (1-based) that must stay PCM, never FM or PSG (<c>--require-pcm</c>).</summary>
-    public IReadOnlySet<int> RequirePcm { get; init; } = new HashSet<int>();
+    /// <summary>MOD sample numbers (1-based) that must stay PCM, never FM or PSG (<c>--require-dac</c>).</summary>
+    public IReadOnlySet<int> RequireDac { get; init; } = new HashSet<int>();
+
+    /// <summary>MOD sample numbers (1-based) that must be played by the PSG, never FM or the DAC (<c>--require-psg</c>).</summary>
+    public IReadOnlySet<int> RequirePsg { get; init; } = new HashSet<int>();
 
     /// <summary>True when the DAC must not be used (<c>--no-dac</c>): every sample is played by FM or the PSG.</summary>
     public bool NoDac { get; init; }

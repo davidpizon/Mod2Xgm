@@ -115,14 +115,14 @@ most noticeable) and for notes on downbeats. The lowest-scoring items are substi
 Turns steps 4–9 off. If the song still doesn't fit after steps 0–3, the converter prints the capacity
 report and exits with code **6**.
 
-## Required FM and PCM samples
+## Required FM, DAC and PSG samples
 
-The user can pin a sample's rendering. Both lists are hard constraints for the mapper and the optimizer.
+The user can pin a sample's rendering. All three lists are hard constraints for the mapper and the optimizer.
 
 **`--require-fm <list>`**: the sample is always played by an **FM** channel (a fitted or library patch). It never
 uses PCM, so it costs no PCM slots, voices or bytes, and it's never moved to PSG.
 
-**`--require-pcm <list>`**: the sample is always **digitized PCM**. It is never replaced by FM or PSG: consolidation
+**`--require-dac <list>`**: the sample is always **digitized PCM**. It is never replaced by FM or PSG: consolidation
 steps 7 (mid-song swap) and 8 (move to FM/PSG) skip it, and step 6 (merge near-duplicates) doesn't replace its data
 with another sample's. PCM-preserving steps still apply: unused data, dedupe, trim, pitch quantize, half rate.
 - **Too many at once:** when more required-PCM notes overlap than there are PCM voices (DMF has only one), the least
@@ -131,8 +131,14 @@ with another sample's. PCM-preserving steps still apply: unused data, dedupe, tr
   the PCM-preserving steps, the conversion fails with **exit 6**. The capacity report names the required samples and
   what they need. Raise `--max-pcm-bytes` or require fewer samples.
 
+**`--require-psg <list>`**: the sample is always played by the **PSG**, so it costs no PCM slots, voices or bytes and
+is never replaced by FM or the DAC. The PSG's squares and noise can't copy a recording, so this is a rendering
+choice, not a faithful one. The simple mapper uses the PSG **noise** channel (the three tone channels are left to the
+optimizer); when two required-PSG or noise notes start on the same row, the louder keeps the channel and a required
+loser is dropped with a conversion note, never moved to FM.
+
 **Rules:**
-- A sample can't be in both lists, or in a list and `--ignore-samples`. The command line rejects that (exit 1).
+- A sample can't be in two of the lists, or in a list and `--ignore-samples`. The command line rejects that (exit 1).
 - A required sample that is an empty slot, or never played, gets a conversion note and the requirement is ignored.
 - Numbers above the module's sample count are rejected after the MOD is read, as for `--ignore-samples`.
 

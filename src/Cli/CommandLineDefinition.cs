@@ -62,9 +62,14 @@ internal sealed class CommandLineDefinition
         Description = "MOD samples that must be played by FM (never as digitized PCM), e.g. 4,9-11. Repeatable.",
     };
 
-    public Option<string[]> RequirePcm { get; } = new("--require-pcm")
+    public Option<string[]> RequireDac { get; } = new("--require-dac")
     {
-        Description = "MOD samples that must stay digitized PCM (never replaced by FM or PSG), e.g. 1,2. Repeatable.",
+        Description = "MOD samples that must be played on the DAC as digitized PCM (never replaced by FM or PSG), e.g. 1,2. Repeatable.",
+    };
+
+    public Option<string[]> RequirePsg { get; } = new("--require-psg")
+    {
+        Description = "MOD samples that must be played by the PSG (never by FM or the DAC), e.g. 5,6. Repeatable.",
     };
 
     public Option<bool> NoDac { get; } = new("--no-dac")
@@ -142,7 +147,8 @@ internal sealed class CommandLineDefinition
             Mapping,
             IgnoreSamples,
             RequireFm,
-            RequirePcm,
+            RequireDac,
+            RequirePsg,
             NoDac,
             NoConsolidate,
             MaxPcmBytes,

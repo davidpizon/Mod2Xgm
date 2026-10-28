@@ -84,7 +84,7 @@
 |---|---|---|
 | T5.1 ✅ (PR #38) | `SampleProcessor`: high-quality resampling (NWaves; `--resampler smooth\|amiga`), bit depth, loops, trim ([ADR 0038](adr/0038-sample-processor.md)) | Unit + spectral tests |
 | T5.2 ✅ (PR #39) | `DmfWriter` (all sections, zlib, one pattern per matrix row per channel; [ADR 0039](adr/0039-dmf-writer.md)) | Byte-exact + round trip through `DmfReader` |
-| T5.3 ✅ | `SimpleMapper` → `GenesisPlan` ([ADR 0040](adr/0040-simple-mapper.md)): one-shot samples → DAC (notes from any channel, louder wins a clash), looped → FM from a built-in patch library, noise → PSG; honors `--require-fm` / `--require-pcm`; adds `--no-dac` | Tests incl. required samples; conversion notes |
+| T5.3 ✅ | `SimpleMapper` → `GenesisPlan` ([ADR 0040](adr/0040-simple-mapper.md)): one-shot samples → DAC (notes from any channel, louder wins a clash), looped → FM from a built-in patch library, noise → PSG; honors `--require-fm` / `--require-dac` / `--require-psg` ([ADR 0041](adr/0041-require-dac-require-psg.md)); adds `--no-dac` | Tests incl. required samples; conversion notes |
 | T5.4 | Timing: tick times, custom Hz, mid-song `Fxx` | Duration within 1 % of openmpt123 |
 | T5.5 | Effect translation MOD → DMF | Per-effect tests |
 | T5.6 | `--ignore-samples`; report section 3; `--quality fast` path | Every conversion logs metadata + full sample table (all formats, with/without `--info`, also when failing after read) |
@@ -122,7 +122,7 @@
 |---|---|---|
 | T9.1 | Target limits model (FM/CH3/PSG/PCM voices/slots/bytes, `--reserve-sfx-channels`, `--max-pcm-bytes`) | Tests per target |
 | T9.2 | Capacity check + warning; `--no-consolidate` → exit 6 | Tests |
-| T9.3 | Importance scoring; greedy allocation per section; `--require-fm` / `--require-pcm` as hard constraints | Always produces a valid plan; required samples never change type; exit 6 when required PCM can't fit |
+| T9.3 | Importance scoring; greedy allocation per section; `--require-fm` / `--require-dac` / `--require-psg` as hard constraints | Always produces a valid plan; required samples never change type; exit 6 when required PCM can't fit |
 | T9.4 | Consolidation moves (dedupe, trim, pitch quantize, half rate, merge, mid-song swap, voice stealing) as allocator moves | Tests; never a wrong pitch |
 | T9.5 | Render & refine loop (worst-section re-fit / re-allocate), `--quality` / `--time-budget` / `--seed` | Deterministic; improves corpus score vs greedy |
 | T9.6 | Optimizer vs simple mapper on DMF; switch default if better | Decision logged; **0.2.0** |
