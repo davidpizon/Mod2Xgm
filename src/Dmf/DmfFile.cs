@@ -1,8 +1,8 @@
-namespace Mod2Xgm.Tests.Dmf;
+namespace Mod2Xgm.Dmf;
 
 /// <summary>
-/// A Genesis DMF file as stored (docs/formats/dmf.md), read by the test-only <see cref="DmfReader"/> (plan T4.2) so
-/// tests can check what the DMF writer (plan T5.2) wrote, field by field. Values are kept as the file stores them:
+/// A Genesis DMF file as stored (docs/formats/dmf.md), read by the test-only <c>DmfReader</c> (plan T4.2) so
+/// tests can check what <see cref="DmfWriter"/> (plan T5.2) wrote, field by field. Values are kept as the file stores them:
 /// −1 for empty pattern fields, operators in file order, sample data as 16-bit values.
 /// </summary>
 /// <param name="Version">File version: 24 (what the writer makes) to 27 (newer DefleMask saves).</param>
