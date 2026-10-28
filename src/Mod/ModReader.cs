@@ -45,14 +45,20 @@ internal static class ModReader
     internal static readonly Layout ProTracker = new(ModFormat.ProTracker31, SampleCount: 31, SongLengthOffset: 950, PatternOffset: 1084);
     internal static readonly Layout Soundtracker = new(ModFormat.Soundtracker15, SampleCount: 15, SongLengthOffset: 470, PatternOffset: 600);
 
-    public static ModModule Read(ReadOnlySpan<byte> data, ConversionNotes notes)
+    /// <summary>Reads a MOD file.</summary>
+    /// <param name="data">The whole file.</param>
+    /// <param name="notes">Collects conversion notes.</param>
+    /// <param name="player">Whose rules to read it by (<c>--player</c>), or <c>null</c> for the default for its format
+    /// (<see cref="ModPlayers.DefaultFor"/>).</param>
+    /// <exception cref="ConversionException">The file can't be read as a supported MOD (exit 3).</exception>
+    public static ModModule Read(ReadOnlySpan<byte> data, ConversionNotes notes, ModPlayer? player = null)
     {
         string? tag = data.Length >= TagOffset + 4 ? Latin1(data.Slice(TagOffset, 4)) : null;
         if (tag is not null)
         {
             if (Array.IndexOf(FourChannelTags, tag) >= 0)
             {
-                return ReadModule(data, ProTracker, tag, notes);
+                return ReadModule(data, ProTracker, tag, player ?? ModPlayers.DefaultFor(ProTracker.Format), notes);
             }
 
             if (UnsupportedTagMessage(tag) is { } unsupported)
@@ -78,7 +84,7 @@ internal static class ModReader
             "No ProTracker tag at byte offset {Offset} (found '{Found}'); reading the file as a 15-sample Soundtracker module",
             TagOffset,
             Printable(tag ?? string.Empty));
-        return ReadModule(data, Soundtracker, string.Empty, notes);
+        return ReadModule(data, Soundtracker, string.Empty, player ?? ModPlayers.DefaultFor(Soundtracker.Format), notes);
     }
 
     /// <summary>The reason <paramref name="data"/> can't be read as a 15-sample module, or null if it can.</summary>
@@ -113,7 +119,7 @@ internal static class ModReader
             : null;
     }
 
-    private static ModModule ReadModule(ReadOnlySpan<byte> data, Layout layout, string tag, ConversionNotes notes)
+    private static ModModule ReadModule(ReadOnlySpan<byte> data, Layout layout, string tag, ModPlayer player, ConversionNotes notes)
     {
         int songLength = data[layout.SongLengthOffset];
         if (songLength is < 1 or > MaxOrders)
@@ -162,6 +168,7 @@ internal static class ModReader
         List<ModSample> samples = [];
         int offset = sampleDataOffset;
         int ambiguousLoops = 0;
+        int byteLoops = 0;
         foreach (SampleHeader header in headers)
         {
             int available = Math.Clamp(data.Length - offset, 0, header.Length);
@@ -179,7 +186,9 @@ internal static class ModReader
             data.Slice(offset, available).CopyTo(System.Runtime.InteropServices.MemoryMarshal.AsBytes(pcm.AsSpan()));
             offset += available;
 
-            int loopStart = LoopStart(header, layout, notes, ref ambiguousLoops);
+            int loopStart = player == ModPlayer.UltimateSoundtracker
+                ? SoundtrackerLoopStart(header, ref byteLoops)
+                : LoopStart(header, layout, notes, ref ambiguousLoops);
             (loopStart, int loopLength) = ClampLoop(header.Number, header.Name, loopStart, header.LoopLength, available, notes);
             samples.Add(new ModSample
             {
@@ -191,6 +200,13 @@ internal static class ModReader
                 LoopLength = loopLength,
                 Data = pcm,
             });
+        }
+
+        if (byteLoops > 0)
+        {
+            notes.Add(
+                "{Count} looping samples: loop starts read in bytes, as Ultimate Soundtracker stored them",
+                byteLoops);
         }
 
         if (ambiguousLoops > 0)
@@ -209,7 +225,9 @@ internal static class ModReader
         if (layout.Format == ModFormat.Soundtracker15)
         {
             notes.Add(
-                "Byte {Offset} holds {Value}: Ultimate Soundtracker reads it as the tempo, later Soundtrackers as the restart position; kept as stored and interpreted during playback",
+                player == ModPlayer.UltimateSoundtracker
+                    ? "Byte {Offset} holds {Value}: Ultimate Soundtracker reads it as the tempo, and so does this conversion (later Soundtrackers and ProTracker read it as the restart position)"
+                    : "Byte {Offset} holds {Value}: Ultimate Soundtracker reads it as the tempo, later Soundtrackers as the restart position; read as the restart position (ProTracker rules)",
                 layout.SongLengthOffset + 1,
                 restart);
         }
@@ -226,6 +244,7 @@ internal static class ModReader
             OrderTable = orderTable,
             Patterns = patterns,
             FileSize = data.Length,
+            Player = player,
         };
     }
 
@@ -409,6 +428,17 @@ internal static class ModReader
         }
 
         return asWords;
+    }
+
+    /// <summary>Ultimate Soundtracker rules: the stored loop start is always in bytes (docs/formats/mod.md#players).</summary>
+    private static int SoundtrackerLoopStart(SampleHeader header, ref int byteLoops)
+    {
+        if (header.LoopLength > 2 && header.LoopStartWords > 0)
+        {
+            byteLoops++;
+        }
+
+        return header.LoopStartWords;
     }
 
     private static ModPattern ReadPattern(ReadOnlySpan<byte> bytes)

@@ -36,6 +36,11 @@ internal sealed class CommandLineDefinition
         DefaultValueFactory = _ => "pal",
     }.AcceptOnlyFromAmong("pal", "ntsc");
 
+    public Option<string?> Player { get; } = new Option<string?>("--player")
+    {
+        Description = "Whose rules to read the MOD by: protracker (ProTracker 2) or ust (Ultimate Soundtracker). Default: ust for 15-sample files, protracker otherwise.",
+    }.AcceptOnlyFromAmong("protracker", "ust");
+
     public Option<string?> Mapping { get; } = new("--mapping")
     {
         Description = "Channel-mapping strategy (see docs/channel-mapping.md).",
@@ -121,6 +126,7 @@ internal sealed class CommandLineDefinition
             Output,
             InputRegion,
             OutputRegion,
+            Player,
             Mapping,
             IgnoreSamples,
             RequireFm,

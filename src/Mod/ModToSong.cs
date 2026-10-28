@@ -7,8 +7,11 @@ namespace Mod2Xgm.Mod;
 /// <summary>
 /// Builds the format-neutral <see cref="Song"/> from a <see cref="ModModule"/> (plan T3.3, docs/architecture.md#layers):
 /// notes as pitches (<see cref="AmigaPitch"/>), instruments, samples, and every cell's effect decoded by
-/// <see cref="ModEffects"/>. Order traversal, the loop point and timing changes are the tick player's job (plan T3.4),
-/// so the song starts at speed 6 / 125 BPM and <see cref="Song.LoopOrder"/> stays <c>null</c> here.
+/// <see cref="ModEffects"/>, all under the rules of the player the file was read with (<see cref="ModModule.Player"/>,
+/// plan T3.3a). Order traversal, the loop point and timing changes are the tick player's job (plan T3.4), so the song
+/// starts at speed 6 and the player's tempo, and <see cref="Song.LoopOrder"/> stays <c>null</c> here.
+/// <para>Ultimate Soundtracker rules also mean: no finetune, the tempo from byte 471, and looped samples that start at
+/// their loop start (it skipped the sound before it, as OpenMPT plays it).</para>
 /// <para>Everything decoding changes or ignores becomes a conversion note: one per kind, with the count and the first
 /// place it happens.</para>
 /// </summary>
@@ -17,8 +20,8 @@ internal static class ModToSong
     /// <summary>Ticks per row when a MOD starts (docs/formats/mod.md#timing).</summary>
     private const int DefaultSpeed = 6;
 
-    /// <summary>Tempo when a MOD starts (docs/formats/mod.md#timing).</summary>
-    private const int DefaultBpm = 125;
+    /// <summary>Tempo when a ProTracker MOD starts (docs/formats/mod.md#timing).</summary>
+    private const double DefaultBpm = 125;
 
     /// <summary>Amiga hardware stereo: channels 1 and 4 hard left, 2 and 3 hard right (docs/formats/mod.md#effects-protracker).</summary>
     private static readonly double[] AmigaPans = [-1, 1, 1, -1];
@@ -26,15 +29,15 @@ internal static class ModToSong
     /// <summary>Converts <paramref name="module"/>.</summary>
     /// <param name="module">The MOD as read.</param>
     /// <param name="amigaClockHz">Paula clock that turns periods into pitch (<c>--input-region</c>).</param>
-    /// <param name="player">Whose rules decide what effects mean.</param>
     /// <param name="notes">Collects conversion notes.</param>
-    public static Song Convert(ModModule module, double amigaClockHz, ModPlayer player, ConversionNotes notes)
+    public static Song Convert(ModModule module, double amigaClockHz, ConversionNotes notes)
     {
         ArgumentNullException.ThrowIfNull(module);
         ArgumentNullException.ThrowIfNull(notes);
 
-        Sample[] samples = [.. module.Samples.Select(ToSample)];
-        Instrument[] instruments = [.. module.Samples.Select(ToInstrument)];
+        bool soundtracker = module.Player == ModPlayer.UltimateSoundtracker;
+        Sample[] samples = [.. module.Samples.Select(s => ToSample(s, soundtracker))];
+        Instrument[] instruments = [.. module.Samples.Select((s, i) => ToInstrument(s, i, soundtracker))];
         Channel[] channels = [.. Enumerable.Range(0, module.ChannelCount).Select(c => new Channel(AmigaPans[c % AmigaPans.Length]))];
 
         Tally tally = new();
@@ -47,7 +50,7 @@ internal static class ModToSong
                 Cell[] cells = new Cell[module.ChannelCount];
                 for (int channel = 0; channel < cells.Length; channel++)
                 {
-                    cells[channel] = ToCell(module, module.Patterns[p][row, channel], amigaClockHz, player, tally, Location(p, row, channel));
+                    cells[channel] = ToCell(module, module.Patterns[p][row, channel], amigaClockHz, tally, Location(p, row, channel));
                 }
 
                 rows[row] = new Row(cells);
@@ -57,10 +60,51 @@ internal static class ModToSong
         }
 
         AddNotes(tally, module, notes);
-        return new Song(module.Title, channels, [.. module.Orders], null, patterns, instruments, samples, new Timing(DefaultSpeed, DefaultBpm));
+        if (soundtracker)
+        {
+            AddSoundtrackerNotes(module, notes);
+        }
+
+        return new Song(module.Title, channels, [.. module.Orders], null, patterns, instruments, samples, new Timing(DefaultSpeed, StartingBpm(module, notes)));
     }
 
-    private static Cell ToCell(ModModule module, ModCell cell, double amigaClockHz, ModPlayer player, Tally tally, string location)
+    /// <summary>
+    /// ProTracker starts at 125 BPM (Fxx changes it during the song); Ultimate Soundtracker takes its tempo from byte 471
+    /// (docs/formats/mod.md#players).
+    /// </summary>
+    private static double StartingBpm(ModModule module, ConversionNotes notes)
+    {
+        if (module.Player != ModPlayer.UltimateSoundtracker)
+        {
+            return DefaultBpm;
+        }
+
+        if (ModPlayers.UltimateSoundtrackerBpm(module.RestartPosition) is { } bpm)
+        {
+            return bpm;
+        }
+
+        notes.Add("Byte 471 holds {Value}, which Ultimate Soundtracker can't use as a tempo; playing at {Bpm} BPM", module.RestartPosition, DefaultBpm);
+        return DefaultBpm;
+    }
+
+    /// <summary>Notes for the Ultimate Soundtracker rules that change what the file says: finetunes and sound before loop starts.</summary>
+    private static void AddSoundtrackerNotes(ModModule module, ConversionNotes notes)
+    {
+        int fineTuned = module.Samples.Count(s => s.FineTune != 0);
+        if (fineTuned > 0)
+        {
+            notes.Add("{Count} samples have a finetune; Ultimate Soundtracker had none, so it's ignored", fineTuned);
+        }
+
+        int skipped = module.Samples.Count(s => s.Loops && s.LoopStart > 0);
+        if (skipped > 0)
+        {
+            notes.Add("{Count} looping samples start at their loop start; Ultimate Soundtracker skipped the sound before it", skipped);
+        }
+    }
+
+    private static Cell ToCell(ModModule module, ModCell cell, double amigaClockHz, Tally tally, string location)
     {
         NotePitch? note = cell.Period == 0 ? null : AmigaPitch.FromPeriod(cell.Period, amigaClockHz);
 
@@ -74,13 +118,13 @@ internal static class ModToSong
             instrument = cell.Sample - 1;
         }
 
-        DecodedEffect decoded = ModEffects.Decode(cell.Effect, cell.EffectParameter, player);
+        DecodedEffect decoded = ModEffects.Decode(cell.Effect, cell.EffectParameter, module.Player);
         if (decoded.Issue is { } issue)
         {
             tally.Count(issue.ToString(), location);
         }
 
-        if (module.Format == ModFormat.Soundtracker15 && cell.Effect is 0x1 or 0x2 && cell.EffectParameter != 0)
+        if (module.Format == ModFormat.Soundtracker15 && module.Player == ModPlayer.ProTracker2 && cell.Effect is 0x1 or 0x2 && cell.EffectParameter != 0)
         {
             tally.Count(Tally.SoundtrackerSlides, location);
         }
@@ -90,16 +134,21 @@ internal static class ModToSong
             : new Cell(note, instrument, decoded.Volume, decoded.Effects);
     }
 
-    private static Sample ToSample(ModSample sample)
+    /// <summary>
+    /// 8-bit signed sound converts exactly to −1…+1 (docs/architecture.md#layers). Under Ultimate Soundtracker rules a
+    /// looping sample starts at its loop start.
+    /// </summary>
+    private static Sample ToSample(ModSample sample, bool soundtracker)
     {
-        // 8-bit signed sound converts exactly to −1…+1 (docs/architecture.md#layers).
-        float[] data = [.. sample.Data.Select(b => b / 128f)];
-        SampleLoop? loop = sample.Loops ? new SampleLoop(sample.LoopStart, sample.LoopLength) : null;
+        int skip = soundtracker && sample.Loops ? sample.LoopStart : 0;
+        float[] data = [.. sample.Data.Skip(skip).Select(b => b / 128f)];
+        SampleLoop? loop = sample.Loops ? new SampleLoop(sample.LoopStart - skip, sample.LoopLength) : null;
         return new Sample(sample.Name, data, loop);
     }
 
-    private static Instrument ToInstrument(ModSample sample, int index) =>
-        new(sample.Name, index, Math.Min(sample.Volume, 64) / 64.0, sample.FineTune * AmigaPitch.CentsPerFineTune);
+    /// <summary>Default volume capped at 64, as players do; Ultimate Soundtracker had no finetune.</summary>
+    private static Instrument ToInstrument(ModSample sample, int index, bool soundtracker) =>
+        new(sample.Name, index, Math.Min(sample.Volume, 64) / 64.0, soundtracker ? 0 : sample.FineTune * AmigaPitch.CentsPerFineTune);
 
     private static void AddNotes(Tally tally, ModModule module, ConversionNotes notes)
     {
@@ -127,6 +176,9 @@ internal static class ModToSong
                     break;
                 case nameof(EffectIssue.BreakRowAbove63):
                     notes.Add("{Count} pattern breaks (Dxx) name a row above 63 (first at {Location}); they break to row 0, as ProTracker does", count, first);
+                    break;
+                case nameof(EffectIssue.NotInUltimateSoundtracker):
+                    notes.Add("{Count} cells use effects 3–F, which Ultimate Soundtracker doesn't have (first at {Location}); ignored, as it would", count, first);
                     break;
                 case nameof(EffectIssue.UnusedExtended):
                     notes.Add("{Count} cells use E8x, which ProTracker 2 leaves unused (first at {Location}); kept as an unsupported effect", count, first);

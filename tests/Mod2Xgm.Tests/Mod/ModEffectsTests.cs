@@ -303,6 +303,62 @@ public sealed class ModEffectsTests
         Assert.Empty(Effects(0x000));
     }
 
+    /// <summary>Decodes <paramref name="command"/> with Ultimate Soundtracker rules.</summary>
+    private static DecodedEffect DecodeSoundtracker(int command) => ModEffects.Decode(command >> 8, command & 0xFF, ModPlayer.UltimateSoundtracker);
+
+    /// <summary>Ultimate Soundtracker: 1xy is arpeggio, and 0xy too from 03 up (smaller values do nothing).</summary>
+    [Fact]
+    public void SoundtrackerArpeggios()
+    {
+        Effect[] arpeggio = [new Arpeggio(3, 7)];
+        Assert.Equal(arpeggio, DecodeSoundtracker(0x137).Effects);
+        Assert.Equal(arpeggio, DecodeSoundtracker(0x037).Effects);
+        Assert.Empty(DecodeSoundtracker(0x002).Effects);
+        Assert.Empty(DecodeSoundtracker(0x100).Effects);
+    }
+
+    /// <summary>Ultimate Soundtracker 2xy bends the pitch: y up, or else x down; 200 does nothing.</summary>
+    [Fact]
+    public void SoundtrackerPitchBend()
+    {
+        Effect[] up = [new PitchSlide(2, Period, EveryTick)];
+        Effect[] down = [new PitchSlide(-5, Period, EveryTick)];
+        Assert.Equal(up, DecodeSoundtracker(0x252).Effects);
+        Assert.Equal(down, DecodeSoundtracker(0x250).Effects);
+        Assert.Empty(DecodeSoundtracker(0x200).Effects);
+        Assert.Null(DecodeSoundtracker(0x252).Issue);
+    }
+
+    /// <summary>Ultimate Soundtracker has no commands 3–F: each decodes to nothing (not even Cxx's volume) with an issue.</summary>
+    [Theory]
+    [InlineData(0x300)]
+    [InlineData(0xA04)]
+    [InlineData(0xC20)]
+    [InlineData(0xD00)]
+    [InlineData(0xF06)]
+    public void SoundtrackerIgnoresOtherCommands(int command)
+    {
+        DecodedEffect decoded = DecodeSoundtracker(command);
+
+        Assert.Empty(decoded.Effects);
+        Assert.Null(decoded.Volume);
+        Assert.Equal(EffectIssue.NotInUltimateSoundtracker, decoded.Issue);
+    }
+
+    /// <summary>15-sample files default to Ultimate Soundtracker, others to ProTracker 2; names and the tempo byte formula.</summary>
+    [Fact]
+    public void PlayerDefaultsNamesAndTempo()
+    {
+        Assert.Equal(ModPlayer.UltimateSoundtracker, ModPlayers.DefaultFor(ModFormat.Soundtracker15));
+        Assert.Equal(ModPlayer.ProTracker2, ModPlayers.DefaultFor(ModFormat.ProTracker31));
+        Assert.Equal("Ultimate Soundtracker", ModPlayers.DisplayName(ModPlayer.UltimateSoundtracker));
+        Assert.Equal("ProTracker 2", ModPlayers.DisplayName(ModPlayer.ProTracker2));
+        Assert.Equal(125.0, ModPlayers.UltimateSoundtrackerBpm(0x78));
+        Assert.Equal(125.0, ModPlayers.UltimateSoundtrackerBpm(0));
+        Assert.Equal(709_379.0 * 125 / 50 / (140 * 122), ModPlayers.UltimateSoundtrackerBpm(100));
+        Assert.Null(ModPlayers.UltimateSoundtrackerBpm(240));
+    }
+
     /// <summary>Effect numbers, parameters and player rules outside their ranges are caller bugs and throw.</summary>
     [Fact]
     public void OutOfRangeArgumentsThrow()

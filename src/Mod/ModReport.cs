@@ -5,8 +5,8 @@ namespace Mod2Xgm.Mod;
 
 /// <summary>The song's speed and tempo when it starts playing.</summary>
 /// <param name="Speed">Ticks per row.</param>
-/// <param name="Bpm">Beats per minute (the tick rate is BPM × 2 / 5 Hz).</param>
-internal readonly record struct InitialTempo(int Speed, int Bpm);
+/// <param name="Bpm">Beats per minute (the tick rate is BPM × 2 / 5 Hz); fractional for Ultimate Soundtracker's tempo byte.</param>
+internal readonly record struct InitialTempo(int Speed, double Bpm);
 
 /// <summary>
 /// Console report sections 1 (MOD metadata) and 2 (the full sample table), printed on every conversion right after
@@ -45,7 +45,7 @@ internal static class ModReport
             Invariant($"Format      : {FormatName(module)} — {module.ChannelCount} channels, {module.Samples.Count} sample slots"),
             Invariant($"Song length : {module.SongLength} {(module.SongLength == 1 ? "order" : "orders")}, {RestartText(module)}"),
             Invariant($"Patterns    : {module.Patterns.Count}"),
-            Invariant($"Tempo       : speed {tempo.Speed}, {tempo.Bpm} BPM (initial)"),
+            Invariant($"Tempo       : speed {tempo.Speed}, {tempo.Bpm:0.##} BPM (initial)"),
         ];
     }
 
@@ -73,11 +73,17 @@ internal static class ModReport
     /// <summary>
     /// The speed and BPM set by <c>Fxx</c> on the first row the song plays, or <see cref="DefaultTempo"/> where that row
     /// sets none. Channels are read left to right, so the rightmost command of each kind wins, as in ProTracker.
-    /// Later changes are the song model's job (plan M3).
+    /// Under Ultimate Soundtracker rules, which have no <c>Fxx</c>, the speed is 6 and the BPM comes from byte 471
+    /// (<see cref="ModPlayers.UltimateSoundtrackerBpm"/>). Later changes are the song model's job (plan M3).
     /// </summary>
     public static InitialTempo FindInitialTempo(ModModule module)
     {
         InitialTempo tempo = DefaultTempo;
+        if (module.Player == ModPlayer.UltimateSoundtracker)
+        {
+            return tempo with { Bpm = ModPlayers.UltimateSoundtrackerBpm(module.RestartPosition) ?? DefaultTempo.Bpm };
+        }
+
         int firstPattern = module.OrderTable[0];
         if (firstPattern >= module.Patterns.Count)
         {

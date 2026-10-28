@@ -52,6 +52,9 @@ internal static class SampleUsageScanner
     private const int PatternLoop = 0x6; // E6x
     private const int NoteDelay = 0xD;   // EDx
 
+    /// <summary>Ultimate Soundtracker has only effects 0–2 (docs/formats/mod.md#players).</summary>
+    private const int LastSoundtrackerEffect = 0x2;
+
     private const int DefaultSpeed = 6;
     private const int FirstTempoValue = 0x20; // Fxx at or above this sets BPM, not speed
     private const int TimesThroughLoop = 2;   // once through, plus one more time around a jump back
@@ -121,7 +124,7 @@ internal static class SampleUsageScanner
             // Fxx takes effect on the row it's on, so read the row's speed before deciding about delayed notes.
             for (int channel = 0; channel < channels; channel++)
             {
-                ModCell cell = cells[row, channel];
+                ModCell cell = AsPlayed(cells[row, channel], module.Player);
                 if (cell is { Effect: SetSpeed, EffectParameter: > 0 and < FirstTempoValue })
                 {
                     speed = cell.EffectParameter;
@@ -130,7 +133,7 @@ internal static class SampleUsageScanner
 
             for (int channel = 0; channel < channels; channel++)
             {
-                ModCell cell = cells[row, channel];
+                ModCell cell = AsPlayed(cells[row, channel], module.Player);
                 if (cell.Sample > 0 && cell.Sample <= sampleCount)
                 {
                     current[channel] = cell.Sample;
@@ -340,4 +343,11 @@ internal static class SampleUsageScanner
         private static string Location(int order, int row, int channel) =>
             string.Create(CultureInfo.InvariantCulture, $"order {order} row {row} channel {channel + 1}");
     }
+
+    /// <summary>
+    /// The cell as <paramref name="player"/> plays it: Ultimate Soundtracker ignores effects 3–F, so they can't jump,
+    /// break, loop, slide or change the speed.
+    /// </summary>
+    private static ModCell AsPlayed(ModCell cell, ModPlayer player) =>
+        player == ModPlayer.UltimateSoundtracker && cell.Effect > LastSoundtrackerEffect ? cell with { Effect = 0, EffectParameter = 0 } : cell;
 }

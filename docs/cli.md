@@ -14,6 +14,7 @@ mod2xgm <input.mod> [options]
 | `-o, --output <path>` | next to input | Output file path. |
 | `--input-region <pal\|ntsc>` | `pal` | Region of the Amiga the MOD was made on: sets the clock that turns periods into pitch. See [Regions](#regions). |
 | `--output-region <pal\|ntsc>` | `pal` | Region of the Genesis the output is made for: its clocks and frame rate. See [Regions](#regions). |
+| `--player <protracker\|ust>` | by file | Whose rules to read and play the MOD by: `protracker` (ProTracker 2) or `ust` (Ultimate Soundtracker). Default: `ust` for 15-sample files, `protracker` otherwise. See [Players](#players). |
 | `--mapping <name>` | TBD | Channel-mapping strategy (see [channel-mapping.md](channel-mapping.md)). |
 | `--ignore-samples <list>` | none | MOD sample numbers to leave out, 1-based, comma-separated, ranges allowed: `3,7,12-14`. Hex accepted with `0x` (trackers show hex: `0x1F` = 31). Repeatable. Unknown/empty numbers → exit 1. |
 | `--require-fm <list>` | none | MOD samples that **must** be played by FM (never digitized PCM). Same list syntax as `--ignore-samples`. See [sample-capacity.md](sample-capacity.md#required-fm-and-pcm-samples). |
@@ -36,7 +37,7 @@ mod2xgm <input.mod> [options]
 Parsed by System.CommandLine; values are converted and checked by `src/Cli/OptionsBinder.cs`, which reports
 **every** problem at once and exits **1**.
 
-- `--format`, `--input-region`, `--output-region`, `--quality`: exactly the lowercase values listed (help shows them).
+- `--format`, `--input-region`, `--output-region`, `--player`, `--quality`: exactly the lowercase values listed (help shows them).
 - `--ignore-samples`: comma-separated numbers and ranges, decimal or `0x` hex, each **1–31**; repeat the option
   to add more. Numbers above the module's actual sample count (e.g. 16+ in a 15-sample MOD) are rejected after
   the MOD is read and report sections 1–2 are printed (exit 1, every option at fault named:
@@ -92,6 +93,18 @@ converter spreads the ticks onto the frames so the speed stays the same:
 
 Pitch never depends on `--output-region`: the converter picks the Genesis notes that reproduce the source pitch with
 the target console's clocks.
+
+## Players
+
+Trackers read the same MOD bytes differently, so `--player` picks whose rules the converter follows, from reading the
+file to playing it ([formats/mod.md](formats/mod.md#players)): `protracker` (ProTracker 2) or `ust` (Ultimate
+Soundtracker). Without it, 15-sample files use `ust` and 31-sample files `protracker` (David). Every run prints the
+choice right after report section 1, for example:
+
+```
+Emulating Ultimate Soundtracker (the default for 15-sample files; --player protracker changes it)
+Emulating ProTracker 2 (chosen with --player)
+```
 
 ## Exit codes
 

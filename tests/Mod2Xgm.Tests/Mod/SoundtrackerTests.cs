@@ -9,10 +9,11 @@ public sealed class SoundtrackerTests
 {
     private const string Detected = "reading the file as a 15-sample Soundtracker module";
 
-    private static (ModModule Module, ConversionNotes Notes) Read(byte[] bytes)
+    /// <summary>Reads <paramref name="bytes"/> with <paramref name="player"/>'s rules (default: the file's own default).</summary>
+    private static (ModModule Module, ConversionNotes Notes) Read(byte[] bytes, ModPlayer? player = null)
     {
         ConversionNotes notes = new(Logger.None);
-        return (ModReader.Read(bytes, notes), notes);
+        return (ModReader.Read(bytes, notes, player), notes);
     }
 
     private static ConversionException Rejects(byte[] bytes)
@@ -149,12 +150,12 @@ public sealed class SoundtrackerTests
     }
 
     [Fact]
-    public void LoopStartStoredInBytesIsDetected()
+    public void UnderProTrackerRulesALoopStartStoredInBytesIsDetected()
     {
         // 100-byte sample, loop start 80, length 20: as words (160) the loop can't fit; as bytes it ends exactly at 100.
         (ModModule module, ConversionNotes notes) = Read(Soundtracker()
             .WithSample(1, "pad", 100, loopStartWords: 80, loopLength: 20)
-            .Build());
+            .Build(), ModPlayer.ProTracker2);
 
         Assert.Equal(80, module.Samples[0].LoopStart);
         Assert.Equal(20, module.Samples[0].LoopLength);
@@ -173,13 +174,13 @@ public sealed class SoundtrackerTests
     }
 
     [Fact]
-    public void LoopsThatFitEitherWayAreReadAsWordsAndCounted()
+    public void UnderProTrackerRulesLoopsThatFitEitherWayAreReadAsWordsAndCounted()
     {
         (ModModule module, ConversionNotes notes) = Read(Soundtracker()
             .WithSample(1, "a", 100, loopStartWords: 10, loopLength: 20)
             .WithSample(2, "b", 100, loopStartWords: 0, loopLength: 20)
             .WithSample(3, "c", 100, loopStartWords: 20, loopLength: 40)
-            .Build());
+            .Build(), ModPlayer.ProTracker2);
 
         Assert.Equal(20, module.Samples[0].LoopStart);
         Assert.Equal(40, module.Samples[2].LoopStart);
@@ -187,11 +188,11 @@ public sealed class SoundtrackerTests
     }
 
     [Fact]
-    public void LoopsThatFitNeitherWayAreRemoved()
+    public void UnderProTrackerRulesLoopsThatFitNeitherWayAreRemoved()
     {
         (ModModule module, ConversionNotes notes) = Read(Soundtracker()
             .WithSample(1, "pad", 100, loopStartWords: 90, loopLength: 20)
-            .Build());
+            .Build(), ModPlayer.ProTracker2);
 
         Assert.False(module.Samples[0].Loops);
         HasNote(notes, "loop starts past the sample end");
@@ -288,6 +289,43 @@ public sealed class SoundtrackerTests
         Assert.Equal(600, ModReader.Soundtracker.PatternOffset);
         Assert.Equal(472, ModReader.Soundtracker.OrderTableOffset);
         Assert.Equal(1084, ModReader.ProTracker.PatternOffset);
+    }
+
+    /// <summary>15-sample files default to Ultimate Soundtracker rules: every loop start is in bytes, with one note.</summary>
+    [Fact]
+    public void UltimateSoundtrackerLoopStartsAreAlwaysInBytes()
+    {
+        (ModModule module, ConversionNotes notes) = Read(Soundtracker()
+            .WithSample(1, "a", 100, loopStartWords: 10, loopLength: 20)
+            .WithSample(2, "b", 100, loopStartWords: 80, loopLength: 20)
+            .WithSample(3, "c", 100, loopStartWords: 0, loopLength: 20)
+            .Build());
+
+        Assert.Equal(ModPlayer.UltimateSoundtracker, module.Player);
+        Assert.Equal(10, module.Samples[0].LoopStart);
+        Assert.Equal(80, module.Samples[1].LoopStart);
+        Assert.Equal(20, module.Samples[1].LoopLength);
+        Assert.Equal(0, module.Samples[2].LoopStart);
+        HasNote(notes, "2 looping samples: loop starts read in bytes, as Ultimate Soundtracker stored them");
+        Assert.DoesNotContain(notes.Messages, m => m.Contains("fits whether", StringComparison.Ordinal));
+    }
+
+    /// <summary>The player is the file's default unless one is chosen, and the byte-471 note says how it's read.</summary>
+    [Fact]
+    public void ThePlayerDefaultsByFormatAndCanBeChosen()
+    {
+        byte[] soundtracker = Soundtracker().WithSample(1, "kick", 64).Build();
+
+        Assert.Equal(ModPlayer.ProTracker2, Read(new ModBuilder().WithSample(1, "kick", 64).Build()).Module.Player);
+        Assert.Equal(ModPlayer.UltimateSoundtracker, Read(new ModBuilder().WithSample(1, "kick", 64).Build(), ModPlayer.UltimateSoundtracker).Module.Player);
+
+        (ModModule ust, ConversionNotes ustNotes) = Read(soundtracker);
+        Assert.Equal(ModPlayer.UltimateSoundtracker, ust.Player);
+        HasNote(ustNotes, "and so does this conversion");
+
+        (ModModule pt, ConversionNotes ptNotes) = Read(soundtracker, ModPlayer.ProTracker2);
+        Assert.Equal(ModPlayer.ProTracker2, pt.Player);
+        HasNote(ptNotes, "read as the restart position (ProTracker rules)");
     }
 
     [Fact]

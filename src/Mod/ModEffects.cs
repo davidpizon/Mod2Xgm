@@ -4,17 +4,6 @@ using Mod2Xgm.Model;
 
 namespace Mod2Xgm.Mod;
 
-/// <summary>
-/// Whose behavior decides what a MOD effect means when players disagree (David, 2026-10-27). ProTracker 2 is the
-/// default and, for now, the only choice; a command-line option is added when a real song needs another one (for
-/// example Ultimate Soundtracker's effects 1 and 2, or OpenMPT's MOD rules).
-/// </summary>
-internal enum ModPlayer
-{
-    /// <summary>ProTracker 2.3, as pt2-clone reproduces it (docs/formats/mod.md#effects-protracker).</summary>
-    ProTracker2,
-}
-
 /// <summary>Something decoding changed or ignored in one cell, reported by <see cref="ModToSong"/> as a conversion note.</summary>
 internal enum EffectIssue
 {
@@ -32,6 +21,9 @@ internal enum EffectIssue
 
     /// <summary><c>E8x</c>, which ProTracker 2 leaves unused.</summary>
     UnusedExtended,
+
+    /// <summary>A command Ultimate Soundtracker doesn't have (3–F), ignored as it would.</summary>
+    NotInUltimateSoundtracker,
 }
 
 /// <summary>What one cell's effect command means.</summary>
@@ -41,12 +33,14 @@ internal enum EffectIssue
 internal readonly record struct DecodedEffect(IReadOnlyList<Effect> Effects, double? Volume, EffectIssue? Issue);
 
 /// <summary>
-/// Turns a MOD cell's effect command (a number 0–F and a parameter byte) into song-model effects (plan T3.3,
-/// docs/formats/mod.md#effects-protracker). Decoding is per cell: what happens over time (effect memory, slides,
-/// waveforms, flow) is the tick player's job (plan T3.4).
+/// Turns a MOD cell's effect command (a number 0–F and a parameter byte) into song-model effects under a player's
+/// rules (plans T3.3 and T3.3a, docs/formats/mod.md#effects-protracker). Decoding is per cell: what happens over time
+/// (effect memory, slides, waveforms, flow) is the tick player's job (plan T3.4).
 /// <para>ProTracker 2 rules: a zero parameter means "repeat the last value" only for <c>3xx</c>, <c>4xy</c> (each
 /// half), <c>7xy</c> (each half) and <c>9xx</c>; for every other command it means a step of 0, so the command does
 /// nothing and decodes to no effect.</para>
+/// <para>Ultimate Soundtracker rules: only arpeggio (<c>1xy</c>, and <c>0xy</c> from 03 up) and pitch bend
+/// (<c>2xy</c>: y up, or else x down) exist; every other command is ignored.</para>
 /// </summary>
 internal static class ModEffects
 {
@@ -70,6 +64,9 @@ internal static class ModEffects
 
     /// <summary>MOD volumes run 0–64.</summary>
     private const int MaxVolume = 64;
+
+    /// <summary>Ultimate Soundtracker ignores <c>0xy</c> below this (OpenMPT: jackdance.mod uses 0xy arpeggios, smaller values aren't).</summary>
+    private const int FirstSoundtrackerArpeggio = 0x03;
 
     /// <summary>Speeds below this are ticks per row; from it up, <c>Fxx</c> sets the BPM.</summary>
     private const int FirstTempo = 0x20;
@@ -102,13 +99,33 @@ internal static class ModEffects
         ArgumentOutOfRangeException.ThrowIfGreaterThan(effect, 0xF);
         ArgumentOutOfRangeException.ThrowIfNegative(parameter);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(parameter, 0xFF);
-        if (player != ModPlayer.ProTracker2)
-        {
-            throw new ArgumentOutOfRangeException(nameof(player), player, "Unknown MOD player rules.");
-        }
-
         int x = parameter >> 4;
         int y = parameter & 0xF;
+        return player switch
+        {
+            ModPlayer.ProTracker2 => DecodeProTracker(effect, parameter, x, y),
+            ModPlayer.UltimateSoundtracker => DecodeUltimateSoundtracker(effect, parameter, x, y),
+            _ => throw new ArgumentOutOfRangeException(nameof(player), player, "Unknown MOD player rules."),
+        };
+    }
+
+    /// <summary>Ultimate Soundtracker: arpeggio and pitch bend; any other command is ignored.</summary>
+    private static DecodedEffect DecodeUltimateSoundtracker(int effect, int parameter, int x, int y) => effect switch
+    {
+        ArpeggioCommand => parameter < FirstSoundtrackerArpeggio ? Nothing : Only(new Arpeggio(x, y)),
+        SlideUpCommand => parameter == 0 ? Nothing : Only(new Arpeggio(x, y)),
+        SlideDownCommand => (x, y) switch
+        {
+            (_, > 0) => Only(new PitchSlide(y, PitchScale.AmigaPeriod, SlideTiming.EveryTickAfterFirst)),
+            (> 0, 0) => Only(new PitchSlide(-x, PitchScale.AmigaPeriod, SlideTiming.EveryTickAfterFirst)),
+            _ => Nothing,
+        },
+        _ => new DecodedEffect([], null, EffectIssue.NotInUltimateSoundtracker),
+    };
+
+    /// <summary>ProTracker 2: all sixteen commands.</summary>
+    private static DecodedEffect DecodeProTracker(int effect, int parameter, int x, int y)
+    {
         return effect switch
         {
             ArpeggioCommand => parameter == 0 ? Nothing : Only(new Arpeggio(x, y)),

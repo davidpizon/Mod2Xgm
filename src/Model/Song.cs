@@ -105,8 +105,8 @@ internal sealed record Channel(double Pan);
 
 /// <summary>Speed and tempo when the song starts; changes during the song are <see cref="SetSpeed"/> and <see cref="SetTempo"/> effects.</summary>
 /// <param name="Speed">Ticks per row.</param>
-/// <param name="Bpm">Tracker tempo; the tick rate is <see cref="TickRateHz"/>.</param>
-internal sealed record Timing(int Speed, int Bpm)
+/// <param name="Bpm">Tracker tempo; the tick rate is <see cref="TickRateHz"/>. Not always whole: Ultimate Soundtracker's tempo byte gives e.g. 121.13.</param>
+internal sealed record Timing(int Speed, double Bpm)
 {
     /// <summary>Ticks per second: BPM × 2 / 5 (50 Hz at 125 BPM), the rule MOD, S3M, XM and IT share.</summary>
     public double TickRateHz => Bpm * 2.0 / 5.0;

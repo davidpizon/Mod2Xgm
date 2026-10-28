@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Mod2Xgm.Mod;
 
 namespace Mod2Xgm.Cli;
 
@@ -70,6 +71,7 @@ internal static class OptionsBinder
             OutputPath = parseResult.GetValue(definition.Output),
             InputRegion = inputRegion,
             OutputRegion = outputRegion,
+            Player = ParsePlayer(parseResult.GetValue(definition.Player)),
             Mapping = parseResult.GetValue(definition.Mapping),
             IgnoreSamples = ignoreSamples,
             RequireFm = requireFm,
@@ -152,6 +154,13 @@ internal static class OptionsBinder
     };
 
     private static Region ParseRegion(string? text) => text == "ntsc" ? Region.Ntsc : Region.Pal;
+
+    private static ModPlayer? ParsePlayer(string? text) => text switch
+    {
+        "protracker" => ModPlayer.ProTracker2,
+        "ust" => ModPlayer.UltimateSoundtracker,
+        _ => null,
+    };
 
     private static Quality ParseQuality(string? text) => text switch
     {

@@ -30,10 +30,11 @@ internal static class ConversionCommand
         }
 
         ConversionNotes notes = new(logger);
-        ModModule module = ModReader.Read(ReadInput(input), notes);
+        ModModule module = ModReader.Read(ReadInput(input), notes, options.Player);
 
         // Report sections 1–2 come right after reading, before anything that can fail later (docs/cli.md#console-report).
         ModReport.LogMetadata(logger, module, Path.GetFileName(input));
+        LogPlayer(options, module, logger);
         logger.Debug(
             "Read {Format} MOD ({Tag}): {Channels} channels, {Patterns} patterns, {SongLength} orders",
             module.Format,
@@ -59,6 +60,17 @@ internal static class ConversionCommand
             options.InfoOnly ? "(--info: no file written)" : output,
             notes.Count);
         return ExitCode.Success;
+    }
+
+    /// <summary>Says whose rules the file is read and played by, and why (David, 2026-10-27; docs/cli.md#players).</summary>
+    private static void LogPlayer(ConversionOptions options, ModModule module, ILogger logger)
+    {
+        string reason = options.Player is not null
+            ? "chosen with --player"
+            : module.Format == ModFormat.Soundtracker15
+                ? "the default for 15-sample files; --player protracker changes it"
+                : "the default for 31-sample files; --player ust changes it";
+        logger.Information("Emulating {Player:l} ({Reason:l})", ModPlayers.DisplayName(module.Player), reason);
     }
 
     private static void LogOptions(ConversionOptions options, ILogger logger)

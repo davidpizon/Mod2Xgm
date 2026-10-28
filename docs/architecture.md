@@ -36,7 +36,8 @@ order list, patterns and sample data. Rejects malformed or unsupported files wit
 
 **ModToSong** (`src/Mod`, plan T3.3) — Builds the `Song` from a `ModModule`: periods become pitches
 (`AmigaPitch`, with the `--input-region` clock), sample slots become instruments and samples, and each cell's effect
-command is decoded by `ModEffects` under a player's rules (`ModPlayer`, ProTracker 2 for now). It lives in `src/Mod`
+command is decoded by `ModEffects`, all under the rules of the player the file was read with (`ModModule.Player`:
+`--player`, or ProTracker 2 / Ultimate Soundtracker by format; formats/mod.md#players). It lives in `src/Mod`
 because the model may not reference MOD types. Following the song through time — `Fxx` speed/BPM changes, pattern
 break / position jump (`Dxx`/`Bxx`), effect memory and the loop point — is the **tick player** (T3.4).
 
