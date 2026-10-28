@@ -31,6 +31,12 @@ internal static class OptionsBinder
         HashSet<int> requireFm = SampleList(parseResult.GetValue(definition.RequireFm), "--require-fm", errors);
         HashSet<int> requirePcm = SampleList(parseResult.GetValue(definition.RequirePcm), "--require-pcm", errors);
         AddConflict(requireFm, "--require-fm", requirePcm, "--require-pcm", "a sample can be FM or PCM, not both", errors);
+        bool noDac = parseResult.GetValue(definition.NoDac);
+        if (noDac && requirePcm.Count > 0)
+        {
+            errors.Add($"--no-dac and --require-pcm both given (sample{(requirePcm.Count == 1 ? string.Empty : "s")} {string.Join(", ", requirePcm.Order())}); --no-dac keeps every sample off the DAC.");
+        }
+
         AddConflict(ignoreSamples, "--ignore-samples", requireFm, "--require-fm", "an ignored sample isn't converted at all", errors);
         AddConflict(ignoreSamples, "--ignore-samples", requirePcm, "--require-pcm", "an ignored sample isn't converted at all", errors);
 
@@ -78,6 +84,7 @@ internal static class OptionsBinder
             IgnoreSamples = ignoreSamples,
             RequireFm = requireFm,
             RequirePcm = requirePcm,
+            NoDac = noDac,
             NoConsolidate = parseResult.GetValue(definition.NoConsolidate),
             MaxPcmBytes = maxPcmBytes,
             Quality = quality,

@@ -53,6 +53,7 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0037](0037-decisions-are-adrs.md) | Decisions are recorded as ADRs | 2026-10-28 | Accepted |
 | [0038](0038-sample-processor.md) | Sample processor and `--resampler` (T5.1) | 2026-10-28 | Accepted |
 | [0039](0039-dmf-writer.md) | DMF writer and its song model (T5.2) | 2026-10-28 | Accepted |
+| [0040](0040-simple-mapper.md) | Simple mapper, `--no-dac` and the Genesis plan (T5.3) | 2026-10-28 | Accepted |
 
 ## Open questions
 

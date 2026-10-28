@@ -83,8 +83,8 @@
 | Task | Work | Acceptance |
 |---|---|---|
 | T5.1 ✅ (PR #38) | `SampleProcessor`: high-quality resampling (NWaves; `--resampler smooth\|amiga`), bit depth, loops, trim ([ADR 0038](adr/0038-sample-processor.md)) | Unit + spectral tests |
-| T5.2 ✅ | `DmfWriter` (all sections, zlib, one pattern per matrix row per channel; [ADR 0039](adr/0039-dmf-writer.md)) | Byte-exact + round trip through `DmfReader` |
-| T5.3 | `SimpleMapper`: busiest percussive channel → DAC; others → FM from a built-in patch library; noise → PSG; honors `--require-fm` / `--require-pcm` | Tests incl. required samples; conversion notes |
+| T5.2 ✅ (PR #39) | `DmfWriter` (all sections, zlib, one pattern per matrix row per channel; [ADR 0039](adr/0039-dmf-writer.md)) | Byte-exact + round trip through `DmfReader` |
+| T5.3 ✅ | `SimpleMapper` → `GenesisPlan` ([ADR 0040](adr/0040-simple-mapper.md)): one-shot samples → DAC (notes from any channel, louder wins a clash), looped → FM from a built-in patch library, noise → PSG; honors `--require-fm` / `--require-pcm`; adds `--no-dac` | Tests incl. required samples; conversion notes |
 | T5.4 | Timing: tick times, custom Hz, mid-song `Fxx` | Duration within 1 % of openmpt123 |
 | T5.5 | Effect translation MOD → DMF | Per-effect tests |
 | T5.6 | `--ignore-samples`; report section 3; `--quality fast` path | Every conversion logs metadata + full sample table (all formats, with/without `--info`, also when failing after read) |

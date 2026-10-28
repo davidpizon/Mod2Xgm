@@ -45,6 +45,9 @@ internal sealed record ConversionOptions
     /// <summary>MOD sample numbers (1-based) that must stay PCM, never FM or PSG (<c>--require-pcm</c>).</summary>
     public IReadOnlySet<int> RequirePcm { get; init; } = new HashSet<int>();
 
+    /// <summary>True when the DAC must not be used (<c>--no-dac</c>): every sample is played by FM or the PSG.</summary>
+    public bool NoDac { get; init; }
+
     public bool NoConsolidate { get; init; }
     public long MaxPcmBytes { get; init; } = ConversionDefaults.MaxPcmBytes;
     public Quality Quality { get; init; } = Quality.Normal;
