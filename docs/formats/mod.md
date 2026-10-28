@@ -129,6 +129,12 @@ instrument's finetune, since a cell often doesn't name its instrument. Tables: P
 Default speed 6 (ticks/row), BPM 125. Tick rate = `BPM × 2 / 5` Hz (50 Hz at 125) on a PAL Amiga. With
 `--input-region ntsc` the song is treated as made on an NTSC Amiga, whose screen-timed ticks run at 60 Hz: tick rate
 = `BPM × 2 / 5 × 6 / 5` (60 Hz at 125). See [cli.md](../cli.md#regions).
+
+The tick player (`src/Mod/ModTickPlayer.cs`, T3.4) uses ProTracker's exact CIA rate, `709 379 / (1 773 447 / BPM + 1)` Hz
+with the division truncated (49.9985 Hz at 125 BPM), and applies a new BPM one tick late as ProTracker does. Under
+Ultimate Soundtracker rules the rate is `BPM × 2 / 5` from byte 471. A pass through the song ends the way pt2-clone's
+MOD2WAV export decides it: after the tick that would move to a row already played this pass (`E6x` repeats don't
+count) or past the song's end. The row it would move to is the loop point; `F00` ends without a loop.
 `Fxx`: xx < 0x20 → speed, else BPM (some old players treat all as speed — emit a conversion note on ambiguity).
 
 ## Effects (ProTracker)

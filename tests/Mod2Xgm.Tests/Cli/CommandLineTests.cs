@@ -137,6 +137,7 @@ public sealed class CommandLineTests
         Assert.Equal(Enum.Parse<Region>(expectedInput), options.InputRegion);
         Assert.Equal(Enum.Parse<Region>(expectedOutput), options.OutputRegion);
         Assert.Equal(expectedClockHz, options.AmigaClockHz);
+        Assert.Equal(input == "ntsc" ? 1.2 : 1.0, options.AmigaTickRateScale, 1e-12);
     }
 
     /// <summary><c>--player</c> takes protracker or ust; without it the player is chosen by the file's format.</summary>

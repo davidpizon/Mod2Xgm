@@ -81,7 +81,8 @@ see [decisions.md](decisions.md)):
   ([genesis-audio.md](genesis-audio.md)).
 
 The output always sounds like the song did on its original Amiga, at that Amiga's pitch and speed (David,
-[decisions.md](decisions.md)). When the regions match, one MOD tick is one Genesis frame; when they don't, the
+[decisions.md](decisions.md)). The tick player (T3.4) times every tick at the source rate; the writers fit the ticks
+onto the target's frames. When the regions match, one MOD tick is one Genesis frame; when they don't, the
 converter spreads the ticks onto the frames so the speed stays the same:
 
 | `--input-region` | `--output-region` | Ticks/s at BPM 125 | Frames/s | Ticks per frame |

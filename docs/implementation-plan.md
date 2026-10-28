@@ -70,7 +70,7 @@
 | T3.3 (PR #30) | `ModToSong` (notes, instruments, samples) and all ProTracker effects decoded, ProTracker 2 rules (`ModPlayer`) | Per-effect tests |
 | T3.3a (PR #31) | `--player protracker\|ust`: the reader, usage scan, report, decoder and `ModToSong` follow one player's rules; default `ust` for 15-sample files, `protracker` otherwise; every run says which player it emulates | Tests per rule and per default |
 | T3.3b (later) | `--player openmpt`: OpenMPT's MOD rules, including its per-file guesses (8xx/E8x panning, 7-bit panning, random waves, NoiseTracker `Dxx`; vblank timing with the tick player). Reference: [OpenMPT wiki](https://wiki.openmpt.org/Main_Page) and its BSD-licensed source | Tests per rule |
-| T3.4 | Order traversal (`Bxx`, `Dxx`, `E6x`, `EEx`, `Fxx`), loop point, **tick player** (tick-by-tick IR events, shared by renderers and XGM writers); source tick rate from `--input-region` (50/60 Hz at BPM 125, [cli.md](cli.md#regions)) | Duration vs openmpt123 ± 1 tick on the corpus |
+| T3.4 | Order traversal (`Bxx`, `Dxx`, `E6x`, `EEx`, `Fxx`), loop point, **tick player** (a port of pt2-clone's ProTracker 2 replayer on the raw cells; output: the full picture of every channel on every tick, `Playback`); source tick rate from `--input-region` (50/60 Hz at BPM 125, [cli.md](cli.md#regions)) | Hand-worked test songs now (lengths, loop points, every effect's tick behavior); duration vs openmpt123 ± 1 tick on the corpus joins the harness (T6.3) |
 
 ### M4 — Close the DMF spec gaps
 | Task | Work | Acceptance |
@@ -95,7 +95,7 @@
 |---|---|---|
 | T6.1 | Corpus of 10–20 freely licensed MODs; `tests/data/LICENSES.md` | Licenses recorded |
 | T6.2 | `src/Scoring` (pure C#): STFT, multi-resolution log-mel distance, MFCC distance (compared on the corpus; see [references/fm-matching.md](references/fm-matching.md)), onset error, alignment | Unit tests on synthetic signals |
-| T6.3 | `tools/Mod2Xgm.Harness`: openmpt123 reference renders; ingest DefleMask WAV exports and emulator captures; CSV + markdown report | Stable scores on reruns |
+| T6.3 | `tools/Mod2Xgm.Harness`: openmpt123 reference renders; ingest DefleMask WAV exports and emulator captures; CSV + markdown report; tick-player durations vs openmpt123 ± 1 tick (moved from T3.4) | Stable scores on reruns |
 | T6.4 | Baseline for the simple mapper | Recorded in decisions.md |
 
 ### M7 — In-app rendering (pure C#)

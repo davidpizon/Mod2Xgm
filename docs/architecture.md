@@ -41,6 +41,12 @@ command is decoded by `ModEffects`, all under the rules of the player the file w
 because the model may not reference MOD types. Following the song through time — `Fxx` speed/BPM changes, pattern
 break / position jump (`Dxx`/`Bxx`), effect memory and the loop point — is the **tick player** (T3.4).
 
+**ModTickPlayer** (`src/Mod`, plan T3.4) — Plays the MOD tick by tick: a C# port of ProTracker 2.3's replayer as
+pt2-clone reproduces it, reading the raw cells so every quirk carries over (David). Its output is the format-neutral
+**`Playback`** (`src/Model/Playback.cs`): one pass through the song, every tick with its time, position and LED-filter
+state, and every channel's pitch, volume, pan and the sample parts Paula plays (the part that starts, the part that
+repeats); plus the loop point. The MOD renderer (T7.1) and the XGM writers read it; the DMF writer reads the `Song`.
+
 **Song (IR)** (`src/Model`, plan T3.1) — Holds what any output needs, in format-neutral units, with 0-based numbering:
 
 - `Title`; `Channels` → starting pan, −1 left … +1 right (Amiga MODs: −1, +1, +1, −1)
