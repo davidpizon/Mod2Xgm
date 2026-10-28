@@ -15,6 +15,7 @@ mod2xgm <input.mod> [options]
 | `--input-region <pal\|ntsc>` | `pal` | Region of the Amiga the MOD was made on: sets the clock that turns periods into pitch. See [Regions](#regions). |
 | `--output-region <pal\|ntsc>` | `pal` | Region of the Genesis the output is made for: its clocks and frame rate. See [Regions](#regions). |
 | `--player <protracker\|ust>` | by file | Whose rules to read and play the MOD by: `protracker` (ProTracker 2) or `ust` (Ultimate Soundtracker). Default: `ust` for 15-sample files, `protracker` otherwise. See [Players](#players). |
+| `--resampler <smooth\|amiga>` | `smooth` | How samples are played at the target's rates: `smooth` (the smooth sound between the points, as OpenMPT plays it) or `amiga` (Paula's steps, with their fizzy overtones). Both are band-limited, so neither aliases. See [ADR 0038](adr/0038-sample-processor.md). |
 | `--mapping <name>` | TBD | Channel-mapping strategy (see [channel-mapping.md](channel-mapping.md)). |
 | `--ignore-samples <list>` | none | MOD sample numbers to leave out, 1-based, comma-separated, ranges allowed: `3,7,12-14`. Hex accepted with `0x` (trackers show hex: `0x1F` = 31). Repeatable. Unknown/empty numbers → exit 1. |
 | `--require-fm <list>` | none | MOD samples that **must** be played by FM (never digitized PCM). Same list syntax as `--ignore-samples`. See [sample-capacity.md](sample-capacity.md#required-fm-and-pcm-samples). |
@@ -37,7 +38,7 @@ mod2xgm <input.mod> [options]
 Parsed by System.CommandLine; values are converted and checked by `src/Cli/OptionsBinder.cs`, which reports
 **every** problem at once and exits **1**.
 
-- `--format`, `--input-region`, `--output-region`, `--player`, `--quality`: exactly the lowercase values listed (help shows them).
+- `--format`, `--input-region`, `--output-region`, `--player`, `--resampler`, `--quality`: exactly the lowercase values listed (help shows them).
 - `--ignore-samples`: comma-separated numbers and ranges, decimal or `0x` hex, each **1–31**; repeat the option
   to add more. Numbers above the module's actual sample count (e.g. 16+ in a 15-sample MOD) are rejected after
   the MOD is read and report sections 1–2 are printed (exit 1, every option at fault named:

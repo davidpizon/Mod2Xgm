@@ -82,8 +82,11 @@ full sample table from `ModModule` right after reading (before any later stage c
 logs the capacity warning, and runs the consolidation steps (dedupe, trim, pitch quantize, merge, mid-song
 substitution, voice stealing). Applies `--ignore-samples` before anything else.
 
-**SampleProcessor** — Converts sample data to what the target accepts (rates, bit depth, signedness,
-max length), applies MOD volume where the target cannot, unrolls or trims loops.
+**SampleProcessor** (`src/Audio`, plan T5.1) — Converts sample data to what the target accepts: resamples (`smooth`
+windowed sinc via NWaves, or `amiga` Paula steps; `--resampler`), unrolls a loop to a length, cuts data past a loop
+end, trims trailing silence, applies MOD volume where the target cannot, and converts to 16-bit or 8-bit signed PCM,
+clipping with a conversion note. A toolbox: the mapper picks rates, lengths and volumes
+([ADR 0038](adr/0038-sample-processor.md)).
 
 **Writers** — Serialize the plan. The DMF writer emits pattern data that DefleMask plays; XGM writers emit
 a per-frame register-write stream (they need a small "player" that runs the song tick by tick to produce
