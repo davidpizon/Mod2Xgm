@@ -11,6 +11,9 @@ Test projects live in **`tests/`**, one folder each (see [`tests/README.md`](../
    with `ZLibStream` and re-parses with the test-only `DmfReader` (`tests/Mod2Xgm.Tests/Dmf/`, plan T4.2). It reads
    file versions 24–27 (so DefleMask-saved probe files open too) and is strict: any value DMF or DefleMask doesn't
    allow throws, naming the field and byte offset. `DmfBuilder` builds DMF bytes in code for its own tests.
+   The DMF probe files (plan T4.3, `tests/golden/dmf-probes/`) are goldens too: built by `DmfProbes`, compared
+   decompressed (zlib output can differ by platform), each with a `.txt` description; DefleMask's "Save As" copies in
+   `deflemask/` must describe the same song (`DmfDescription`).
 4. **Golden-file tests** — whole conversions of generated MODs compared to checked-in expected outputs
    under `tests/golden/`. Updating goldens is a deliberate act (`UPDATE_GOLDEN=1 dotnet test`). Tests compare
    through `tests/Mod2Xgm.Tests/Golden.cs`, which finds the folder from the repo root and ignores CR/LF

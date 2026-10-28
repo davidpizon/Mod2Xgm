@@ -2,6 +2,17 @@
 
 Newest first. Each entry: date, decision, options considered, reason.
 
+## 2026-10-28 — DMF probe files (T4.3)
+- **Checked both ways** (David): David opens our probes in DefleMask and listens, and his "Save As" copies are read
+  back by `DmfReader` and must hold the same song (same description, ignoring file version, pattern names, sample
+  cut points, trailing bytes and unused custom Hz bytes).
+- **Built by a test** (David, over a one-time script): `DmfProbes` makes them, `DmfProbeTests` keeps the checked-in
+  files current (compared decompressed, since zlib output can differ by platform; `UPDATE_GOLDEN=1` rewrites them).
+- Each probe is built so a wrong guess is clearly audible: the FM probe's only sounding operator is file operator 2
+  under algorithm 4 (silent if file order isn't register order), the DAC probe repeats a sample two octaves up
+  (must sound the same) and uses two rate codes, the custom Hz probe beeps once a second.
+- The rescomp step uses a checked-in `probes.res` (one `XGM2` per exported VGM).
+
 ## 2026-10-28 — Test-only DMF reader (T4.2)
 - **Tested now on hand-made files** (David, over waiting for the writer or using a DefleMask-saved file): a
   `DmfBuilder` test helper builds DMF bytes in code, and one test spells a file out byte by byte from the spec so the

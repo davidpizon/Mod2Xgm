@@ -1,0 +1,22 @@
+system Genesis, 10 channels
+name "Mod2Xgm probe: FM note", author "Mod2Xgm", highlights 4/16
+time base 0, tick times 6/6, PAL, custom Hz off
+1 matrix rows of 16 rows
+instrument 0 "sine (file op 2)" FM: ALG 4 FB 0 FMS 0 AMS 0
+  DmfOperator { Am = 0, Ar = 31, Dr = 0, Mult = 1, Rr = 8, Sl = 0, Tl = 127, Dt2 = 0, Rs = 0, Dt = 3, D2R = 0, SsgMode = 0 }
+  DmfOperator { Am = 0, Ar = 31, Dr = 0, Mult = 1, Rr = 8, Sl = 0, Tl = 127, Dt2 = 0, Rs = 0, Dt = 3, D2R = 0, SsgMode = 0 }
+  DmfOperator { Am = 0, Ar = 31, Dr = 0, Mult = 1, Rr = 8, Sl = 0, Tl = 0, Dt2 = 0, Rs = 0, Dt = 3, D2R = 0, SsgMode = 0 }
+  DmfOperator { Am = 0, Ar = 31, Dr = 0, Mult = 1, Rr = 8, Sl = 0, Tl = 127, Dt2 = 0, Rs = 0, Dt = 3, D2R = 0, SsgMode = 0 }
+channel 1: orders [0], effect columns 1
+  0:00 note 9 octave 4 volume 127 instrument 0 effects [0811]
+  0:06 note 12 octave 4 volume 127 instrument 0 effects []
+  0:12 note 100 octave 0 volume -1 instrument -1 effects []
+channel 2: orders [0], effect columns 1
+channel 3: orders [0], effect columns 1
+channel 4: orders [0], effect columns 1
+channel 5: orders [0], effect columns 1
+channel 6: orders [0], effect columns 1
+channel 7: orders [0], effect columns 1
+channel 8: orders [0], effect columns 1
+channel 9: orders [0], effect columns 1
+channel 10: orders [0], effect columns 1

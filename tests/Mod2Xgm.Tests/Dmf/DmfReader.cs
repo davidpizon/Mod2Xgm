@@ -41,7 +41,7 @@ internal static class DmfReader
     }
 
     /// <summary>Undoes the zlib compression around a DMF file.</summary>
-    private static byte[] Decompress(byte[] file)
+    public static byte[] Decompress(byte[] file)
     {
         ArgumentNullException.ThrowIfNull(file);
         try
