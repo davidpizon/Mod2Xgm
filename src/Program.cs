@@ -11,6 +11,9 @@ internal static class Program
     /// <summary>Minimum log level; raised to Debug by <c>--verbose</c>.</summary>
     internal static LoggingLevelSwitch LevelSwitch { get; } = new(); // starts at Information
 
+    /// <summary>Console line format (docs/cli.md#console-output); golden tests render the report with it.</summary>
+    internal const string ConsoleOutputTemplate = "{Level:u3} {Message:lj}{NewLine}{Exception}";
+
     internal static int Main(string[] args) => Run(args, static a => CommandLineDefinition.Invoke(a, ConvertMod));
 
     /// <summary>
@@ -47,7 +50,7 @@ internal static class Program
         new LoggerConfiguration()
             .MinimumLevel.ControlledBy(levelSwitch)
             .WriteTo.Console(
-                outputTemplate: "{Level:u3} {Message:lj}{NewLine}{Exception}",
+                outputTemplate: ConsoleOutputTemplate,
                 formatProvider: CultureInfo.InvariantCulture,
                 standardErrorFromLevel: LogEventLevel.Warning)
             .CreateLogger();

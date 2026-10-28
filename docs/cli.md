@@ -38,8 +38,10 @@ Parsed by System.CommandLine; values are converted and checked by `src/Cli/Optio
 - `--format`, `--region`, `--quality`: exactly the lowercase values listed (help shows them).
 - `--ignore-samples`: comma-separated numbers and ranges, decimal or `0x` hex, each **1–31**; repeat the option
   to add more. Numbers above the module's actual sample count (e.g. 16+ in a 15-sample MOD) are rejected after
-  the MOD is read.
-- `--require-fm`, `--require-pcm`: same syntax and range as `--ignore-samples`, repeatable.
+  the MOD is read and report sections 1–2 are printed (exit 1, every option at fault named:
+  `--ignore-samples 16,20: this module has samples 1-15 only.`).
+- `--require-fm`, `--require-pcm`: same syntax and range as `--ignore-samples`, repeatable, and checked against the
+  module's sample count the same way.
 - **Conflicts (exit 1, every conflict reported):** a sample may not appear in both `--require-fm` and
   `--require-pcm` ("a sample can be FM or PCM, not both"), nor in `--ignore-samples` and either `--require-*`
   list ("an ignored sample isn't converted at all").
@@ -91,18 +93,29 @@ table. This is mandatory: no option suppresses it, and it is printed for every o
    appear even if conversion later fails.
 2. Section 3 is printed after mapping/consolidation, before the output file is written.
 
-Logged at `Information` level:
+Logged at `Information` level, one log event per line (`src/Mod/ModReport.cs`, plan T2.5). Numbers are printed
+without digit grouping. The examples below are real output; the full files are the golden tests in
+`tests/golden/report/`.
 
 **1. MOD metadata** — everything the file embeds:
 
 ```
-INF File        : song.mod (182 344 bytes)
-INF Title       : "space debris"
+INF File        : song.mod (21802 bytes)
+INF Title       : "space {debris}"
 INF Format      : ProTracker M.K. — 4 channels, 31 sample slots
-INF Song length : 42 orders, restart position 0
-INF Patterns    : 28
-INF Tempo       : speed 6, 125 BPM (initial)
+INF Song length : 2 orders, restart position 127
+INF Patterns    : 2
+INF Tempo       : speed 4, 140 BPM (initial)
 ```
+
+- **Format** names the tracker from the tag: `M.K.`/`M!K!` ProTracker, `FLT4` StarTrekker, `4CHN` FastTracker;
+  a file without a tag is `Soundtracker (no tag) — 4 channels, 15 sample slots`.
+- **Restart position** is the byte as stored (ProTracker writes 127). In a 15-sample file the same byte may be
+  Ultimate Soundtracker's tempo, so the line says so: `restart position 120 (Ultimate Soundtracker reads this byte
+  as the tempo)`. Which reading applies is decided by the song model (plan M3).
+- **Tempo** comes from the `Fxx` commands on the first row the song plays (row 0 of the first order's pattern),
+  read left to right so the rightmost speed and BPM win; ProTracker's defaults (speed 6, 125 BPM) fill in what
+  that row doesn't set. Later changes are the song model's job (plan M3).
 
 **2. Samples / instruments** — in a MOD the sample *is* the instrument. List **all** slots, including empty
 ones: composers often hide credits and messages in the names of empty samples, so those names are part of
@@ -110,26 +123,35 @@ the metadata.
 
 ```
 INF  #   Name                     Length  Loop start+len  Vol  Fine  Notes  Status
-INF  01  "bassdrum"                 4532  —                64    0     96  used
-INF  02  "snare 2"                  3870  —                64    0     64  used
-INF  03  "  by Jester"                 0  —                 0    0      0  empty
-INF  07  "vocal"                   21044  —                48   -2     12  ignored
+INF  01  "bassdrum"                 4532  —                64     0      3  used
+INF  02  "snare 2"                  3870  —                48    -2      2  used
+INF  03  "  by Jester"                 0  —                 0     0      0  empty
+INF  04  "strings"                  8000  2000+6000        64     0      1  used
+INF  05  "never played"              100  —                64     0      0  unused
+INF  06  ""                            0  —                 0     0      0  empty
+INF  07  "vocal"                    2104  —                64     7      1  ignored
+INF  08  "bad·name"                   64  —                64     0      0  unused
 ```
 
-Lengths in bytes; Fine = finetune −8…+7; Notes = how many notes start the sample ([usage scan](sample-capacity.md#usage-scan-srcmodsampleusagecs-plan-t24)); Status = used / unused / empty / ignored.
+Lengths and loop points in bytes; Vol as stored; Fine = finetune −8…+7; Notes = how many notes start the sample
+([usage scan](sample-capacity.md#usage-scan-srcmodsampleusagecs-plan-t24)); Status = used / unused / empty, or
+**ignored** for a sample named in `--ignore-samples` (its Notes still show how often the song plays it).
+Section 1 is printed as soon as the MOD is read; section 2 right after the usage scan, which supplies the Notes.
 
 **3. Output instruments** — after mapping/consolidation, what the target will contain:
 
 ```
 INF Output (XGM2): 5 FM instruments, 41 PCM slots / 122, 118 KB / 128 KB PCM
-INF  PCM 01  ← 01 "bassdrum"     13300 Hz  4 532 B
-INF  PCM 02  ← 05 "bass" C-2     13300 Hz  2 210 B
+INF  PCM 01  ← 01 "bassdrum"     13300 Hz  4532 B
+INF  PCM 02  ← 05 "bass" C-2     13300 Hz  2210 B
 INF  FM  01  ← 06 "strings" (approximation)
 ```
 
 DMF output lists the DMF instrument names that will be written (named after the MOD samples).
 
-Non-printable characters in names are shown as `·`; names are printed in quotes so spaces are visible.
+Non-printable characters in names (and the title) are shown as `·`; names are printed in quotes so spaces are
+visible. A name is printed exactly as stored, braces included: each report line is logged as a property value, never
+as part of the message template.
 
 ## Console output
 

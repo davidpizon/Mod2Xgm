@@ -1,4 +1,5 @@
 using Mod2Xgm.Cli;
+using Mod2Xgm.Tests.Mod;
 using Serilog.Events;
 
 namespace Mod2Xgm.Tests;
@@ -211,5 +212,64 @@ public sealed class ConversionCommandTests
         ConversionCommand.Execute(new() { InputPath = temp.CreateFile("song.mod") }, sink.CreateLogger());
 
         Assert.Contains(sink.Messages(LogEventLevel.Debug), m => m.Contains("Read ProTracker31 MOD", StringComparison.Ordinal));
+    }
+
+    /// <summary>Report sections 1–2 are printed on every conversion, with or without <c>--info</c>, before the summary.</summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void EveryConversionPrintsTheReport(bool infoOnly)
+    {
+        using TempDirectory temp = new();
+        CollectingSink sink = new();
+
+        ConversionCommand.Execute(new() { InputPath = temp.CreateFile("song.mod"), InfoOnly = infoOnly }, sink.CreateLogger());
+
+        List<string> info = [.. sink.Messages(LogEventLevel.Information)];
+        int title = info.IndexOf("Title       : \"test song\"");
+        int kick = info.FindIndex(m => m.StartsWith(" 01  \"kick\"", StringComparison.Ordinal));
+        int summary = info.FindIndex(m => m.Contains("conversion notes)", StringComparison.Ordinal));
+        Assert.True(title >= 0 && title < kick && kick < summary, string.Join("\n", info));
+        Assert.EndsWith("used", info[kick], StringComparison.Ordinal);
+        Assert.Equal(1 + 31, info.Count(m => m.StartsWith(' ') && m.Length > 4 && (char.IsDigit(m[1]) || m[1] == '#')));
+    }
+
+    /// <summary>An ignored sample shows "ignored" in the table.</summary>
+    [Fact]
+    public void IgnoredSamplesAreMarked()
+    {
+        using TempDirectory temp = new();
+        CollectingSink sink = new();
+
+        ConversionCommand.Execute(new() { InputPath = temp.CreateFile("song.mod"), IgnoreSamples = new HashSet<int> { 1 } }, sink.CreateLogger());
+
+        Assert.Contains(sink.Messages(LogEventLevel.Information), m => m.StartsWith(" 01  \"kick\"", StringComparison.Ordinal) && m.EndsWith("ignored", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// Sample numbers the module doesn't have (16–31 in a 15-sample file) are a usage error naming every option at fault,
+    /// and the report is printed first so the table shows which slots exist.
+    /// </summary>
+    [Fact]
+    public void SampleNumbersBeyondTheModuleAreUsageErrors()
+    {
+        using TempDirectory temp = new();
+        CollectingSink sink = new();
+        byte[] soundtracker = new ModBuilder { Soundtracker = true }.WithSample(1, "kick", 64).WithCell(0, row: 0, channel: 0, sample: 1, period: 428).Build();
+        ConversionOptions options = new()
+        {
+            InputPath = temp.CreateFile("song.mod", soundtracker),
+            IgnoreSamples = new HashSet<int> { 3, 20, 16 },
+            RequireFm = new HashSet<int> { 31 },
+            RequirePcm = new HashSet<int> { 15 },
+        };
+
+        ConversionException error = Assert.Throws<ConversionException>(() => ConversionCommand.Execute(options, sink.CreateLogger()));
+
+        Assert.Equal(ExitCode.UsageError, error.Code);
+        Assert.Contains("--ignore-samples 16,20: this module has samples 1-15 only.", error.Message, StringComparison.Ordinal);
+        Assert.Contains("--require-fm 31: this module has samples 1-15 only.", error.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("--require-pcm", error.Message, StringComparison.Ordinal);
+        Assert.Contains(sink.Messages(LogEventLevel.Information), m => m.StartsWith(" 15  ", StringComparison.Ordinal));
     }
 }
