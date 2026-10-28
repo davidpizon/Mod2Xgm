@@ -20,7 +20,8 @@ gap is closed from one of these, named in brackets where it's used:
   https://battleofthebits.com/lyceum/View/DefleMask+Tracker+Effects+Commands).
 
 The probe files (plan T4.3) confirm these in DefleMask and through VGM export → rescomp; anything they disprove is
-fixed here.
+fixed here. The test-only `DmfReader` (`tests/Mod2Xgm.Tests/Dmf/`, plan T4.2) follows this page and rejects anything it
+doesn't allow.
 
 ## Container
 
