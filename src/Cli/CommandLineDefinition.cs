@@ -24,9 +24,15 @@ internal sealed class CommandLineDefinition
         Description = "Output file path (default: next to the input, extension from --format).",
     };
 
-    public Option<string> Region { get; } = new Option<string>("--region")
+    public Option<string> InputRegion { get; } = new Option<string>("--input-region")
     {
-        Description = "Genesis region to time the music for.",
+        Description = "Region of the Amiga the MOD was made on; sets the clock that turns periods into pitch.",
+        DefaultValueFactory = _ => "pal",
+    }.AcceptOnlyFromAmong("pal", "ntsc");
+
+    public Option<string> OutputRegion { get; } = new Option<string>("--output-region")
+    {
+        Description = "Region of the Genesis the output is made for.",
         DefaultValueFactory = _ => "pal",
     }.AcceptOnlyFromAmong("pal", "ntsc");
 
@@ -113,7 +119,8 @@ internal sealed class CommandLineDefinition
             Input,
             Format,
             Output,
-            Region,
+            InputRegion,
+            OutputRegion,
             Mapping,
             IgnoreSamples,
             RequireFm,

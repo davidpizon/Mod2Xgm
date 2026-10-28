@@ -12,7 +12,8 @@ mod2xgm <input.mod> [options]
 | `<input.mod>` | required | Path to the MOD file. |
 | `-f, --format <dmf\|xgm\|xgm2>` | `dmf` | Output format: `dmf` → `.dmf`, `xgm` → `.xgm`, `xgm2` → `.xgm2`. |
 | `-o, --output <path>` | next to input | Output file path. |
-| `--region <pal\|ntsc>` | `pal` for MOD timing, see below | Target refresh/clock region. |
+| `--input-region <pal\|ntsc>` | `pal` | Region of the Amiga the MOD was made on: sets the clock that turns periods into pitch. See [Regions](#regions). |
+| `--output-region <pal\|ntsc>` | `pal` | Region of the Genesis the output is made for: its clocks and frame rate. See [Regions](#regions). |
 | `--mapping <name>` | TBD | Channel-mapping strategy (see [channel-mapping.md](channel-mapping.md)). |
 | `--ignore-samples <list>` | none | MOD sample numbers to leave out, 1-based, comma-separated, ranges allowed: `3,7,12-14`. Hex accepted with `0x` (trackers show hex: `0x1F` = 31). Repeatable. Unknown/empty numbers → exit 1. |
 | `--require-fm <list>` | none | MOD samples that **must** be played by FM (never digitized PCM). Same list syntax as `--ignore-samples`. See [sample-capacity.md](sample-capacity.md#required-fm-and-pcm-samples). |
@@ -35,7 +36,7 @@ mod2xgm <input.mod> [options]
 Parsed by System.CommandLine; values are converted and checked by `src/Cli/OptionsBinder.cs`, which reports
 **every** problem at once and exits **1**.
 
-- `--format`, `--region`, `--quality`: exactly the lowercase values listed (help shows them).
+- `--format`, `--input-region`, `--output-region`, `--quality`: exactly the lowercase values listed (help shows them).
 - `--ignore-samples`: comma-separated numbers and ranges, decimal or `0x` hex, each **1–31**; repeat the option
   to add more. Numbers above the module's actual sample count (e.g. 16+ in a 15-sample MOD) are rejected after
   the MOD is read and report sections 1–2 are printed (exit 1, every option at fault named:
@@ -66,10 +67,19 @@ Checks before converting (`src/ConversionCommand.cs`):
 
 With `--info` no file is written, so the output checks are skipped.
 
-## Region
+## Regions
 
-MOD timing is defined against a 50 Hz (PAL Amiga) tick at BPM 125. Default is `pal`; with `ntsc` the
-converter must rescale timing so tempo stays the same (see [genesis-audio.md](genesis-audio.md)).
+Two different machines, each PAL or NTSC, set independently (both default `pal`; the old `--region` was removed,
+see [decisions.md](decisions.md)):
+
+- **`--input-region`** — the **Amiga** the MOD was made on. It sets the Paula clock that turns periods into pitch
+  (PAL 3 546 895 Hz, NTSC 3 579 545 Hz, see [formats/mod.md](formats/mod.md#pitch)): `ntsc` plays every note about
+  **15.9 cents higher**. Most MODs come from PAL Amigas, and openmpt123 (the accuracy reference) assumes PAL. Whether
+  it also changes tempo (vblank-timed songs run at 60 Hz on an NTSC Amiga) is decided with the tick player (T3.4).
+- **`--output-region`** — the **Genesis** that plays the result: its YM2612/PSG clocks and 50 or 60 Hz frame rate
+  ([genesis-audio.md](genesis-audio.md)). It changes only how the output is encoded, not how the song sounds: MOD
+  timing is defined against a 50 Hz tick at BPM 125, and with `ntsc` the converter spreads ticks onto 60 Hz frames
+  so the tempo stays the same.
 
 ## Exit codes
 

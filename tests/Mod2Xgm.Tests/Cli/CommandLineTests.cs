@@ -33,7 +33,8 @@ public sealed class CommandLineTests
         Assert.Equal("song.mod", options.InputPath);
         Assert.Equal(OutputFormat.Dmf, options.Format);
         Assert.Null(options.OutputPath);
-        Assert.Equal(Region.Pal, options.Region);
+        Assert.Equal(Region.Pal, options.InputRegion);
+        Assert.Equal(Region.Pal, options.OutputRegion);
         Assert.Null(options.Mapping);
         Assert.Empty(options.IgnoreSamples);
         Assert.False(options.NoConsolidate);
@@ -55,7 +56,8 @@ public sealed class CommandLineTests
             "song.mod",
             "--format", "xgm2",
             "--output", "out/level1.xgm2",
-            "--region", "ntsc",
+            "--input-region", "ntsc",
+            "--output-region", "ntsc",
             "--mapping", "simple",
             "--ignore-samples", "3,7",
             "--ignore-samples", "12-14,0x1F",
@@ -74,7 +76,8 @@ public sealed class CommandLineTests
         ConversionOptions options = Assert.IsType<ConversionOptions>(result.Options);
         Assert.Equal(OutputFormat.Xgm2, options.Format);
         Assert.Equal("out/level1.xgm2", options.OutputPath);
-        Assert.Equal(Region.Ntsc, options.Region);
+        Assert.Equal(Region.Ntsc, options.InputRegion);
+        Assert.Equal(Region.Ntsc, options.OutputRegion);
         Assert.Equal("simple", options.Mapping);
         int[] ignored = [3, 7, 12, 13, 14, 31];
         Assert.Equal(ignored, options.IgnoreSamples.Order());
@@ -118,6 +121,20 @@ public sealed class CommandLineTests
     public void FormatValues(string text, string expected) =>
         Assert.Equal(Enum.Parse<OutputFormat>(expected), Run("song.mod", "--format", text).Options?.Format);
 
+    /// <summary>The two regions are set independently, and the input region picks the Amiga clock.</summary>
+    [Theory]
+    [InlineData("pal", "ntsc", nameof(Region.Pal), nameof(Region.Ntsc), 3_546_895.0)]
+    [InlineData("ntsc", "pal", nameof(Region.Ntsc), nameof(Region.Pal), 3_579_545.0)]
+    public void RegionValues(string input, string output, string expectedInput, string expectedOutput, double expectedClockHz)
+    {
+        ConversionOptions options = Assert.IsType<ConversionOptions>(
+            Run("song.mod", "--input-region", input, "--output-region", output).Options);
+
+        Assert.Equal(Enum.Parse<Region>(expectedInput), options.InputRegion);
+        Assert.Equal(Enum.Parse<Region>(expectedOutput), options.OutputRegion);
+        Assert.Equal(expectedClockHz, options.AmigaClockHz);
+    }
+
     [Fact]
     public void MissingInputIsAUsageError()
     {
@@ -128,7 +145,9 @@ public sealed class CommandLineTests
 
     [Theory]
     [InlineData("song.mod", "--format", "wav")]
-    [InlineData("song.mod", "--region", "japan")]
+    [InlineData("song.mod", "--input-region", "japan")]
+    [InlineData("song.mod", "--output-region", "japan")]
+    [InlineData("song.mod", "--region", "pal")]
     [InlineData("song.mod", "--quality", "ultra")]
     [InlineData("song.mod", "--seed", "abc")]
     [InlineData("song.mod", "--unknown")]

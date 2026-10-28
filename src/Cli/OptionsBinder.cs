@@ -21,7 +21,8 @@ internal static class OptionsBinder
         }
 
         OutputFormat format = ParseFormat(parseResult.GetValue(definition.Format));
-        Region region = parseResult.GetValue(definition.Region) == "ntsc" ? Region.Ntsc : Region.Pal;
+        Region inputRegion = ParseRegion(parseResult.GetValue(definition.InputRegion));
+        Region outputRegion = ParseRegion(parseResult.GetValue(definition.OutputRegion));
         Quality quality = ParseQuality(parseResult.GetValue(definition.Quality));
 
         HashSet<int> ignoreSamples = SampleList(parseResult.GetValue(definition.IgnoreSamples), "--ignore-samples", errors);
@@ -67,7 +68,8 @@ internal static class OptionsBinder
             InputPath = input,
             Format = format,
             OutputPath = parseResult.GetValue(definition.Output),
-            Region = region,
+            InputRegion = inputRegion,
+            OutputRegion = outputRegion,
             Mapping = parseResult.GetValue(definition.Mapping),
             IgnoreSamples = ignoreSamples,
             RequireFm = requireFm,
@@ -148,6 +150,8 @@ internal static class OptionsBinder
         "xgm2" => OutputFormat.Xgm2,
         _ => OutputFormat.Dmf,
     };
+
+    private static Region ParseRegion(string? text) => text == "ntsc" ? Region.Ntsc : Region.Pal;
 
     private static Quality ParseQuality(string? text) => text switch
     {

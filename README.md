@@ -82,7 +82,8 @@ mod2xgm song.mod --format xgm2 --info
 | `--quality fast\|normal\|best` | How hard to try to match the original sound (default `normal`, up to about 5 minutes) |
 | `--max-pcm-bytes 128K` | Space allowed for recorded sounds in XGM/XGM2 (default 128K) |
 | `--reserve-sfx-channels <n>` | Keep `n` sample channels free for your game's sound effects |
-| `--region pal\|ntsc` | Genesis region to time the music for |
+| `--input-region pal\|ntsc` | Which Amiga the MOD was made on; tunes the notes (default `pal`) |
+| `--output-region pal\|ntsc` | Which Genesis the music is made for (default `pal`) |
 | `--info` | Show the report only; don't write a file |
 | `--force` | Overwrite an existing output file |
 | `-v, --verbose` | Print extra detail |

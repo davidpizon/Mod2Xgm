@@ -63,7 +63,14 @@ internal static class ConversionCommand
 
     private static void LogOptions(ConversionOptions options, ILogger logger)
     {
-        logger.Debug("Format {Format}, region {Region}, quality {Quality}, seed {Seed}", options.Format, options.Region, options.Quality, options.Seed);
+        logger.Debug(
+            "Format {Format}, input region {InputRegion} (Amiga clock {AmigaClockHz} Hz), output region {OutputRegion}, quality {Quality}, seed {Seed}",
+            options.Format,
+            options.InputRegion,
+            options.AmigaClockHz,
+            options.OutputRegion,
+            options.Quality,
+            options.Seed);
         logger.Debug(
             "PCM budget {MaxPcmBytes} bytes, reserved SFX channels {ReserveSfx}, consolidate {Consolidate}, cache {Cache}",
             options.MaxPcmBytes,

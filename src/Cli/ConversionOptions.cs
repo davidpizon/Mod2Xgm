@@ -1,3 +1,5 @@
+using Mod2Xgm.Model;
+
 namespace Mod2Xgm.Cli;
 
 /// <summary>
@@ -8,7 +10,16 @@ internal sealed record ConversionOptions
     public required string InputPath { get; init; }
     public OutputFormat Format { get; init; } = OutputFormat.Dmf;
     public string? OutputPath { get; init; }
-    public Region Region { get; init; } = Region.Pal;
+
+    /// <summary>The Amiga the MOD was made on (<c>--input-region</c>); sets <see cref="AmigaClockHz"/>.</summary>
+    public Region InputRegion { get; init; } = Region.Pal;
+
+    /// <summary>The Genesis the output is made for (<c>--output-region</c>): its clocks and frame rate.</summary>
+    public Region OutputRegion { get; init; } = Region.Pal;
+
+    /// <summary>Paula clock that turns MOD periods into pitch, from <see cref="InputRegion"/> (docs/formats/mod.md#pitch).</summary>
+    public double AmigaClockHz => InputRegion == Region.Ntsc ? AmigaPitch.NtscClockHz : AmigaPitch.PalClockHz;
+
     public string? Mapping { get; init; }
 
     /// <summary>MOD sample numbers (1-based) to leave out.</summary>
