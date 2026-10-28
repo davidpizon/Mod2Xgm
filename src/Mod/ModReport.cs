@@ -19,7 +19,7 @@ internal static class ModReport
     private const int FirstTempoValue = 0x20;
 
     /// <summary>ProTracker's speed and BPM before any <c>Fxx</c> (docs/formats/mod.md#effects-protracker).</summary>
-    public static readonly InitialTempo DefaultTempo = new(6, 125);
+    private static readonly InitialTempo DefaultTempo = new(6, 125);
 
     // Widest name: 22 bytes (docs/formats/mod.md#sample-header) plus the two quotes.
     private const int NameColumnWidth = 22 + 2;
@@ -50,7 +50,7 @@ internal static class ModReport
     }
 
     /// <summary>The lines of section 2 (a header, then one line per slot, empty slots included), without the level prefix.</summary>
-    public static IReadOnlyList<string> SampleLines(ModModule module, SampleUsage usage, IReadOnlySet<int> ignoredSamples)
+    private static IReadOnlyList<string> SampleLines(ModModule module, SampleUsage usage, IReadOnlySet<int> ignoredSamples)
     {
         List<string> lines = [SampleRow("#", "Name", "Length", "Loop start+len", "Vol", "Fine", "Notes", "Status")];
         foreach (ModSample sample in module.Samples)

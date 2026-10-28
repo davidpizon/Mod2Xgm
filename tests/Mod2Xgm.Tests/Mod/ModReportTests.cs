@@ -107,10 +107,8 @@ public sealed class ModReportTests
 
     /// <summary>Names keep their spaces and braces (quoted, never read as template holes); control characters show as '·'.</summary>
     [Fact]
-    public void NamesArePrintedAsStored()
-    {
+    public void NamesArePrintedAsStored() =>
         Assert.Equal("\"  {x} a·b \"", ModReport.Quoted("  {x} a\u0001b "));
-    }
 
     /// <summary>Renders sections 1–2 exactly as the console prints them (level prefix included).</summary>
     private static string Render(byte[] bytes, IReadOnlySet<int> ignored)
