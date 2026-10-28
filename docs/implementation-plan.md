@@ -76,14 +76,14 @@
 | Task | Work | Acceptance |
 |---|---|---|
 | T4.1 (PR #33) | DefleMask manual + Furnace loader → resolve every **Verify** in [formats/dmf.md](formats/dmf.md), incl. ext. CH3 (0x42) channel layout | No v1 Verify items left |
-| T4.2 | Test-only `DmfReader` | Round-trips writer output |
+| T4.2 (PR #34) | Test-only `DmfReader` (`tests/Mod2Xgm.Tests/Dmf`): file versions 24–27, both Genesis systems, strict checks; `DmfBuilder` makes test files in code | Every field and rejection tested on built files and one spelled out byte by byte from the spec; the round trip of writer output is T5.2's test |
 | T4.3 | Probe DMFs (FM note, DAC sample, PSG note, custom Hz, ext. CH3) | David confirms in DefleMask **and** each survives VGM export → rescomp `XGM2` |
 
 ### M5 — DMF writer + simple mapper (first playable release)
 | Task | Work | Acceptance |
 |---|---|---|
 | T5.1 | `SampleProcessor`: high-quality resampling, bit depth, loops, trim | Unit + spectral tests |
-| T5.2 | `DmfWriter` (all sections, zlib, one pattern per matrix row per channel) | Byte-exact + round trip |
+| T5.2 | `DmfWriter` (all sections, zlib, one pattern per matrix row per channel) | Byte-exact + round trip through `DmfReader` |
 | T5.3 | `SimpleMapper`: busiest percussive channel → DAC; others → FM from a built-in patch library; noise → PSG; honors `--require-fm` / `--require-pcm` | Tests incl. required samples; conversion notes |
 | T5.4 | Timing: tick times, custom Hz, mid-song `Fxx` | Duration within 1 % of openmpt123 |
 | T5.5 | Effect translation MOD → DMF | Per-effect tests |
