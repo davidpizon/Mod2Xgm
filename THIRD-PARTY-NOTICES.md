@@ -42,7 +42,9 @@ repository's MIT license.
 
 ## Not used as code
 
-Furnace's DMF loader is read only as a format reference (GPL): no code or tables are copied from it.
+Furnace (GPL-2.0, https://github.com/tildearrow/furnace, commit `bcba71d`) is read only as a reference for the DMF
+format and DefleMask's behavior (`src/engine/fileOps/dmf.cpp` and the engine files named in
+[`docs/formats/dmf.md`](docs/formats/dmf.md)): no code or tables are copied from it.
 
 OpenMPT's Soundtracker loader (`soundlib/Load_stk.cpp`, BSD-3-Clause, https://github.com/OpenMPT/openmpt) is read
 only as a reference for Ultimate Soundtracker's rules (`--player ust`): no code is copied from it.
