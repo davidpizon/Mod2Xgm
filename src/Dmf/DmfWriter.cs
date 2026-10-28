@@ -17,10 +17,10 @@ namespace Mod2Xgm.Dmf;
 internal static class DmfWriter
 {
     /// <summary>The 16 bytes every DMF starts with (docs/formats/dmf.md#1-format-flags).</summary>
-    public const string Magic = ".DelekDefleMask.";
+    private const string Magic = ".DelekDefleMask.";
 
     /// <summary>The file version written: DefleMask 1.0, which has no pattern names and no sample cut points.</summary>
-    public const int FileVersion = 24;
+    private const int FileVersion = 24;
 
     /// <summary>Longest name or author: the length is one byte (docs/formats/dmf.md#container).</summary>
     private const int MaxTextLength = 255;
@@ -380,7 +380,7 @@ internal static class DmfWriter
     {
         if (!condition)
         {
-            throw new ArgumentException($"DMF song can't be written: {message}.", "file");
+            throw new ArgumentException($"DMF song can't be written: {message}.");
         }
     }
 
