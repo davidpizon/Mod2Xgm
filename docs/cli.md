@@ -72,14 +72,26 @@ With `--info` no file is written, so the output checks are skipped.
 Two different machines, each PAL or NTSC, set independently (both default `pal`; the old `--region` was removed,
 see [decisions.md](decisions.md)):
 
-- **`--input-region`** — the **Amiga** the MOD was made on. It sets the Paula clock that turns periods into pitch
-  (PAL 3 546 895 Hz, NTSC 3 579 545 Hz, see [formats/mod.md](formats/mod.md#pitch)): `ntsc` plays every note about
-  **15.9 cents higher**. Most MODs come from PAL Amigas, and openmpt123 (the accuracy reference) assumes PAL. Whether
-  it also changes tempo (vblank-timed songs run at 60 Hz on an NTSC Amiga) is decided with the tick player (T3.4).
+- **`--input-region`** — the **Amiga** the MOD was made on. It sets how the song **really sounded**: its pitch
+  (Paula clock PAL 3 546 895 Hz / NTSC 3 579 545 Hz, see [formats/mod.md](formats/mod.md#pitch); `ntsc` is about
+  **15.9 cents higher**) and its speed (the tick rate follows the Amiga's screen: **50 ticks/s on PAL, 60 on NTSC**
+  at BPM 125). Most MODs come from PAL Amigas, and openmpt123 (the accuracy reference) assumes PAL.
 - **`--output-region`** — the **Genesis** that plays the result: its YM2612/PSG clocks and 50 or 60 Hz frame rate
-  ([genesis-audio.md](genesis-audio.md)). It changes only how the output is encoded, not how the song sounds: MOD
-  timing is defined against a 50 Hz tick at BPM 125, and with `ntsc` the converter spreads ticks onto 60 Hz frames
-  so the tempo stays the same.
+  ([genesis-audio.md](genesis-audio.md)).
+
+The output always sounds like the song did on its original Amiga, at that Amiga's pitch and speed (David,
+[decisions.md](decisions.md)). When the regions match, one MOD tick is one Genesis frame; when they don't, the
+converter spreads the ticks onto the frames so the speed stays the same:
+
+| `--input-region` | `--output-region` | Ticks/s at BPM 125 | Frames/s | Ticks per frame |
+|---|---|---|---|---|
+| `pal` | `pal` | 50 | 50 | 1 |
+| `ntsc` | `ntsc` | 60 | 60 | 1 |
+| `pal` | `ntsc` | 50 | 60 | 5 ticks over 6 frames |
+| `ntsc` | `pal` | 60 | 50 | 6 ticks over 5 frames |
+
+Pitch never depends on `--output-region`: the converter picks the Genesis notes that reproduce the source pitch with
+the target console's clocks.
 
 ## Exit codes
 

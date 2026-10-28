@@ -15,9 +15,10 @@
 
 ## Timing
 - Frame rate: NTSC 60 Hz, PAL 50 Hz. XGM/XGM2 advance per frame.
-- MOD base tick = BPM×2/5 Hz → 50 Hz at BPM 125. On PAL with BPM 125 one MOD tick = one frame exactly.
-  On NTSC, or any other BPM, ticks must be spread onto frames (DMF: custom Hz / tick times; XGM:
-  fractional accumulator in the tick player).
+- MOD base tick = BPM×2/5 Hz → 50 Hz at BPM 125 for a PAL-made song, ×6/5 (60 Hz) with `--input-region ntsc`
+  ([cli.md](cli.md#regions)). When the source and output regions match at BPM 125, one MOD tick = one frame
+  exactly. Otherwise, or at any other BPM, ticks are spread onto frames so the source speed is kept (DMF: custom Hz /
+  tick times; XGM: fractional accumulator in the tick player).
 
 ## Pitch conversion
 MOD period → Hz (see [formats/mod.md](formats/mod.md)) → FM block/F-number, PSG period, or PCM rate:

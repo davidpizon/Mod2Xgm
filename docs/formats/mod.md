@@ -126,7 +126,9 @@ instrument's finetune, since a cell often doesn't name its instrument. Tables: P
 
 ## Timing
 
-Default speed 6 (ticks/row), BPM 125. Tick rate = `BPM × 2 / 5` Hz (50 Hz at 125).
+Default speed 6 (ticks/row), BPM 125. Tick rate = `BPM × 2 / 5` Hz (50 Hz at 125) on a PAL Amiga. With
+`--input-region ntsc` the song is treated as made on an NTSC Amiga, whose screen-timed ticks run at 60 Hz: tick rate
+= `BPM × 2 / 5 × 6 / 5` (60 Hz at 125). See [cli.md](../cli.md#regions).
 `Fxx`: xx < 0x20 → speed, else BPM (some old players treat all as speed — emit a conversion note on ambiguity).
 
 ## Effects (ProTracker)

@@ -11,7 +11,10 @@ internal sealed record ConversionOptions
     public OutputFormat Format { get; init; } = OutputFormat.Dmf;
     public string? OutputPath { get; init; }
 
-    /// <summary>The Amiga the MOD was made on (<c>--input-region</c>); sets <see cref="AmigaClockHz"/>.</summary>
+    /// <summary>
+    /// The Amiga the MOD was made on (<c>--input-region</c>): the song's real pitch (<see cref="AmigaClockHz"/>) and
+    /// speed (50 ticks/s on PAL, 60 on NTSC, at BPM 125; docs/cli.md#regions).
+    /// </summary>
     public Region InputRegion { get; init; } = Region.Pal;
 
     /// <summary>The Genesis the output is made for (<c>--output-region</c>): its clocks and frame rate.</summary>
