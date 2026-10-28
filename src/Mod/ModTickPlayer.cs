@@ -18,7 +18,7 @@ namespace Mod2Xgm.Mod;
 internal static class ModTickPlayer
 {
     /// <summary>Stop after this many ticks (over 11 hours at 50 Hz); no real song comes close.</summary>
-    public const int MaxTicks = 2_000_000;
+    private const int MaxTicks = 2_000_000;
 
     /// <summary>Plays <paramref name="module"/> once through.</summary>
     /// <param name="module">The MOD as read; <see cref="ModModule.Player"/> picks the rules.</param>
@@ -35,7 +35,12 @@ internal static class ModTickPlayer
     }
 
     /// <summary>ProTracker's CIA timer: 709 379 Hz, loaded with 1 773 447 / BPM (truncated) and firing on underflow.</summary>
-    internal static double CiaTickHz(int bpm) => 709_379.0 / ((1_773_447 / bpm) + 1);
+    internal static double CiaTickHz(int bpm)
+    {
+        // Integer division on purpose: ProTracker truncates the timer value.
+        int timerValue = 1_773_447 / bpm;
+        return 709_379.0 / (timerValue + 1);
+    }
 
     /// <summary>One run of the replayer; field names follow pt2-clone's so the port can be checked line by line.</summary>
     private sealed class Replayer
@@ -380,7 +385,7 @@ internal static class ModTickPlayer
 
         private void PlayVoice(Voice ch)
         {
-            if (ch.Note == 0 && ch.Cmd == 0)
+            if (ch is { Note: 0, Cmd: 0 })
             {
                 ch.PerReg = (ushort)ch.Period;
             }
@@ -389,7 +394,7 @@ internal static class ModTickPlayer
             ch.Note = (short)cell.Period;
             ch.Cmd = (ushort)((cell.Effect << 8) | cell.EffectParameter);
 
-            if (cell.Sample >= 1 && cell.Sample <= 31)
+            if (cell.Sample is >= 1 and <= 31)
             {
                 SampleView s = cell.Sample <= _samples.Length ? _samples[cell.Sample - 1] : SampleView.Empty;
 
@@ -524,7 +529,6 @@ internal static class ModTickPlayer
                 case 0x5: TonePortNoChange(ch); VolumeSlide(ch); return;
                 case 0x6: Vibrato2(ch); VolumeSlide(ch); return;
                 case 0xE: ECommands(ch); return;
-                default: break;
             }
 
             ch.PerReg = (ushort)ch.Period;
@@ -548,7 +552,6 @@ internal static class ModTickPlayer
                 case 0xD: PatternBreak(ch); return;
                 case 0xE: ECommands(ch); return;
                 case 0xF: SetSpeed(ch); return;
-                default: break;
             }
 
             if (cmd == 0xC)
@@ -857,10 +860,10 @@ internal static class ModTickPlayer
         {
             if ((ch.Cmd & 0xFF) > 0)
             {
-                ch.SampleOffset = (byte)(ch.Cmd & 0xFF);
+                ch.OffsetParam = (byte)(ch.Cmd & 0xFF);
             }
 
-            int newOffset = ch.SampleOffset << 7;
+            int newOffset = ch.OffsetParam << 7;
             if (newOffset < ch.Length)
             {
                 ch.Length = (ushort)(ch.Length - newOffset);
@@ -1086,7 +1089,8 @@ internal static class ModTickPlayer
         }
 
         /// <summary>pt2-clone's <c>moduleChannel_t</c>, plus the Paula registers it writes.</summary>
-        private sealed class Voice
+        /// <param name="index">Channel number (0-based).</param>
+        private sealed class Voice(int index)
         {
             public Pointer Start = Pointer.Null;
             public Pointer LoopStart = Pointer.Null;
@@ -1096,7 +1100,7 @@ internal static class ModTickPlayer
             public sbyte LoopCount;
             public byte WaveControl;
             public byte GlissFunk;
-            public byte SampleOffset;
+            public byte OffsetParam;
             public byte TonePortSpeed;
             public byte VibratoCmd;
             public byte TremoloCmd;
@@ -1118,17 +1122,11 @@ internal static class ModTickPlayer
             public SampleBlock? Started;
             public bool Playing;
 
-            public Voice(int index)
-            {
-                Index = index;
-                DmaBit = (ushort)(1 << index);
-            }
-
             /// <summary>Channel number (0-based).</summary>
-            public int Index { get; }
+            public int Index { get; } = index;
 
             /// <summary>The channel's bit in Paula's DMA control register.</summary>
-            public ushort DmaBit { get; }
+            public ushort DmaBit { get; } = (ushort)(1 << index);
         }
     }
 }

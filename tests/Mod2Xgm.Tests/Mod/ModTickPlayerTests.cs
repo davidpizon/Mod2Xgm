@@ -293,7 +293,8 @@ public sealed class ModTickPlayerTests
     {
         (Playback playback, _) = Play(Song().WithCell(0, row: 0, channel: 0, sample: 1, period: C2, effect: 0x9, parameter: 0x02));
 
-        Assert.Equal(new SampleBlock(0, 512, 512), At(playback, 0).Started);
+        SampleBlock started = Assert.IsType<SampleBlock>(At(playback, 0).Started);
+        Assert.Equal((0, 512, 512), (started.Sample, started.StartFrame, started.Frames));
     }
 
     /// <summary>ECx silences the note on tick x.</summary>
@@ -343,7 +344,7 @@ public sealed class ModTickPlayerTests
 
     /// <summary>E00 turns the LED filter on, E01 off.</summary>
     [Fact]
-    public void FilterFollowsE0x()
+    public void FilterFollowsLedCommands()
     {
         (Playback playback, _) = Play(Song()
             .WithCell(0, row: 1, channel: 0, sample: 0, period: 0, effect: 0xE, parameter: 0x00)
