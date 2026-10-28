@@ -82,10 +82,10 @@ internal sealed record PlanRow(IReadOnlyList<PlanCell> Cells, IReadOnlyList<Effe
 /// <param name="Ar">Attack rate, 0–31.</param>
 /// <param name="Am">Amplitude modulation on.</param>
 /// <param name="Dr">Decay rate, 0–31.</param>
-/// <param name="D2r">Second decay rate, 0–31.</param>
+/// <param name="D2R">Second decay rate, 0–31.</param>
 /// <param name="Sl">Sustain level, 0–15.</param>
 /// <param name="Rr">Release rate, 0–15.</param>
-internal sealed record FmOperator(int Mult, int Detune, int Tl, int Rs, int Ar, bool Am, int Dr, int D2r, int Sl, int Rr);
+internal sealed record FmOperator(int Mult, int Detune, int Tl, int Rs, int Ar, bool Am, int Dr, int D2R, int Sl, int Rr);
 
 /// <summary>An FM patch: one YM2612 channel's sound.</summary>
 /// <param name="Name">Short name.</param>

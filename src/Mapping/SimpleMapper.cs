@@ -30,7 +30,7 @@ internal sealed class SimpleMapper : IChannelMapper
         ArgumentNullException.ThrowIfNull(song);
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(notes);
-        if (!options.UseDac && options.RequirePcm.Count > 0)
+        if (options is { UseDac: false, RequirePcm.Count: > 0 })
         {
             throw new ArgumentException("--no-dac and --require-pcm can't both be given.", nameof(options));
         }
@@ -57,7 +57,11 @@ internal sealed class SimpleMapper : IChannelMapper
     private sealed record Candidate(int Channel, NotePitch Note, int Instrument, double Volume)
     {
         /// <summary>True when this note beats <paramref name="other"/> for a shared channel: louder, or the lower channel on a tie.</summary>
-        public bool Beats(Candidate other) => Volume > other.Volume || (Volume == other.Volume && Channel < other.Channel);
+        public bool Beats(Candidate other)
+        {
+            int order = Volume.CompareTo(other.Volume);
+            return order > 0 || (order == 0 && Channel < other.Channel);
+        }
     }
 
     /// <summary>What a MOD channel last sounded on, to know what to stop and where its effects belong.</summary>
@@ -98,10 +102,10 @@ internal sealed class SimpleMapper : IChannelMapper
             _song = song;
             _options = options;
             _notes = notes;
-            _routes = [.. song.Instruments.Select((instrument, index) => Classify(index, instrument))];
+            _routes = [.. song.Instruments.Select(Classify)];
             _instrument = [.. Enumerable.Repeat(-1, song.Channels.Count)];
             _volume = [.. Enumerable.Repeat(1.0, song.Channels.Count)];
-            _sounding = new Sounding[song.Channels.Count];
+            _sounding = [.. Enumerable.Repeat(Sounding.Nothing, song.Channels.Count)];
         }
 
         public GenesisPlan Execute()
@@ -119,7 +123,7 @@ internal sealed class SimpleMapper : IChannelMapper
         }
 
         /// <summary>Decides how one instrument's notes are played; lossy choices get a note.</summary>
-        private Route Classify(int index, Instrument instrument)
+        private Route Classify(Instrument instrument)
         {
             Sample sample = _song.Samples[instrument.Sample];
             string label = Label(instrument.Sample, sample.Name);

@@ -32,7 +32,7 @@ public sealed class SimpleMapperTests
     {
         float[] tone = [.. Enumerable.Range(0, 1024).Select(i => (float)Math.Sin(2 * Math.PI * i / 64))];
         float[] thump = [.. Enumerable.Range(0, 2000).Select(i => (float)(Math.Sin(2 * Math.PI * i / 128) * Math.Exp(-i / 500.0)))];
-        float[] white = [.. new Random(7).GetItems<float>([-1f, 1f], 2000)];
+        float[] white = [.. new Random(7).GetItems([-1f, 1f], 2000)];
         Sample[] samples =
         [
             new("organ", tone, new SampleLoop(0, 1024)),
@@ -50,7 +50,8 @@ public sealed class SimpleMapperTests
     {
         CollectingSink sink = new();
         ConversionNotes notes = new(sink.CreateLogger());
-        GenesisPlan plan = new SimpleMapper().Map(song, options ?? MappingOptions.Default, notes);
+        IChannelMapper mapper = new SimpleMapper();
+        GenesisPlan plan = mapper.Map(song, options ?? MappingOptions.Default, notes);
         return (plan, [.. notes.Messages]);
     }
 
@@ -59,6 +60,16 @@ public sealed class SimpleMapperTests
 
     private static MappingOptions Options(int[]? requireFm = null, int[]? requirePcm = null, bool useDac = true) =>
         new(new HashSet<int>(requireFm ?? []), new HashSet<int>(requirePcm ?? []), useDac);
+
+    /// <summary>The plan's columns follow DMF channel order, which the mapper relies on when it turns a MOD channel number into a column.</summary>
+    [Fact]
+    public void PlanChannelsFollowDmfOrder() =>
+        Assert.Equal(
+            [
+                GenesisChannel.Fm1, GenesisChannel.Fm2, GenesisChannel.Fm3, GenesisChannel.Fm4, GenesisChannel.Fm5, GenesisChannel.Fm6,
+                GenesisChannel.Psg1, GenesisChannel.Psg2, GenesisChannel.Psg3, GenesisChannel.Psg4,
+            ],
+            Enum.GetValues<GenesisChannel>());
 
     /// <summary>A sample that loops is a sustained tone: it goes to the MOD channel's own FM channel with a library patch.</summary>
     [Fact]

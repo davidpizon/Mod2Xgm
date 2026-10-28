@@ -9,7 +9,7 @@ public sealed class SampleTraitsTests
     private static float[] Sine(int frames, double periodFrames) =>
         [.. Enumerable.Range(0, frames).Select(i => (float)Math.Sin(2 * Math.PI * i / periodFrames))];
 
-    private static float[] Noise(int frames) => [.. new Random(3).GetItems<float>([-1f, 1f], frames)];
+    private static float[] Noise(int frames) => [.. new Random(3).GetItems([-1f, 1f], frames)];
 
     /// <summary>A slow sine is dark and not noise; brightness follows sin(π·f/rate).</summary>
     [Theory]
@@ -110,7 +110,8 @@ public sealed class SampleTraitsTests
                 Assert.InRange(op.Rs, 0, 3);
                 Assert.InRange(op.Ar, 0, 31);
                 Assert.InRange(op.Dr, 0, 31);
-                Assert.InRange(op.D2r, 0, 31);
+                Assert.InRange(op.D2R, 0, 31);
+                Assert.False(op.Am);
                 Assert.InRange(op.Sl, 0, 15);
                 Assert.InRange(op.Rr, 0, 15);
             }
