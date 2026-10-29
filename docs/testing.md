@@ -13,7 +13,10 @@ Test projects live in **`tests/`**, one folder each (see [`tests/README.md`](../
    allow throws, naming the field and byte offset. `DmfBuilder` builds DMF bytes in code for its own tests.
    The DMF probe files (plan T4.3, `tests/golden/dmf-probes/`) are goldens too: built by `DmfProbes`, compared
    decompressed (zlib output can differ by platform), each with a `.txt` description; DefleMask's "Save As" copies in
-   `deflemask/` must describe the same song (`DmfDescription`).
+   `deflemask/` must describe the same song (`DmfDescription`). The effect probes (plan T5.5,
+   `tests/golden/dmf-effect-probes/`) are MODs built by `DmfEffectProbes` and converted by the real pipeline
+   (`DmfConversion`); the MOD, the DMF and a description with the conversion notes are goldens, and the WAV renders
+   (openmpt123, Furnace, DefleMask) are remade by hand as their README says.
 4. **Golden-file tests** — whole conversions of generated MODs compared to checked-in expected outputs
    under `tests/golden/`. Updating goldens is a deliberate act (`UPDATE_GOLDEN=1 dotnet test`). Tests compare
    through `tests/Mod2Xgm.Tests/Golden.cs`, which finds the folder from the repo root and ignores CR/LF

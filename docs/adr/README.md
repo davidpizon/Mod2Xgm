@@ -57,6 +57,7 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0041](0041-require-dac-require-psg.md) | `--require-pcm` becomes `--require-dac`; add `--require-psg` | 2026-10-28 | Accepted; supersedes [ADR 0021](0021-require-fm-require-pcm.md) |
 | [0042](0042-scoring-metrics.md) | Scoring metrics (T6.2) | 2026-10-28 | Accepted |
 | [0043](0043-dmf-timing.md) | DMF timing: tick rate, tick times and speed changes (T5.4) | 2026-10-28 | Accepted |
+| [0044](0044-dmf-effects-and-song-grid.md) | DMF effects and song grid (T5.5) | 2026-10-28 | Accepted |
 
 ## Open questions
 

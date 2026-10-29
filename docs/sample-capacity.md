@@ -15,7 +15,9 @@ because of how the Genesis targets play PCM:
 
 1. **No pitch shifting on XGM/XGM2.** PCM plays at a fixed rate, so every distinct
    *(sample, pitch)* actually played needs its own pre-resampled copy (a **variant**). One melodic sample
-   used over two octaves can need 24 variants on its own.
+   used over two octaves can need 24 variants on its own. **No PCM volume either** (DMF's DAC and SGDK's drivers
+   play a sample as stored), and **no sample offset**: the DMF writer makes a variant per 3 dB of loudness and per
+   start point (`9xx`) a sample is played at ([ADR 0044](adr/0044-dmf-effects-and-song-grid.md)).
 2. **Limited simultaneous PCM voices:** XGM 4, XGM2 3, DMF 1 (FM6 DAC). A 4-channel MOD that plays
    4 samples at once doesn't fit XGM2 or DMF.
 3. **Byte budget.** Variants multiply sample data, and music shares the cartridge with the rest of the game.

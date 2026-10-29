@@ -87,6 +87,26 @@ public sealed class SimpleMapperTests
         Assert.All(Enumerable.Range(0, GenesisPlan.ChannelCount).Where(c => c != (int)GenesisChannel.Fm2), c => Assert.Equal(PlanCell.Empty, plan.Patterns[0][0].Cells[c]));
     }
 
+    /// <summary>
+    /// Every cell says which song channel it came from (writers pan by it) and a note's cell which sample it plays (writers
+    /// measure its pitch); effects-only cells name their channel too, also on the shared DAC.
+    /// </summary>
+    [Fact]
+    public void CellsNameTheirSourceChannelAndSample()
+    {
+        (GenesisPlan plan, _) = Map(Build([[
+            RowOf(Cell.Empty, Play(Organ), Cell.Empty, Play(Kick)),
+            RowOf(Cell.Empty, new Cell(null, null, 0.25, []), Cell.Empty, new Cell(null, null, null, [new Retrigger(3)])),
+        ]]));
+
+        Assert.Equal((1, (int?)Organ), (CellAt(plan, GenesisChannel.Fm2).Source, CellAt(plan, GenesisChannel.Fm2).Sample));
+        Assert.Equal((3, (int?)Kick), (CellAt(plan, GenesisChannel.Fm6).Source, CellAt(plan, GenesisChannel.Fm6).Sample));
+        Assert.Equal(1, CellAt(plan, GenesisChannel.Fm2, row: 1).Source);
+        Assert.Null(CellAt(plan, GenesisChannel.Fm2, row: 1).Sample);
+        Assert.Equal(3, CellAt(plan, GenesisChannel.Fm6, row: 1).Source);
+        Assert.Null(CellAt(plan, GenesisChannel.Fm1).Source);
+    }
+
     /// <summary>The note explaining why a sample is played by FM is said once, when it is first played, and not for unplayed samples.</summary>
     [Fact]
     public void RoutingNotesAreSaidOncePerPlayedInstrument()

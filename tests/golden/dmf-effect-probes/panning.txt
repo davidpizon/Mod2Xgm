@@ -1,0 +1,35 @@
+system Genesis, 10 channels
+name "panning", author "", highlights 4/16
+time base 0, tick times 6/6, PAL, custom Hz off
+1 matrix rows of 64 rows
+instrument 0 "Sine" FM: ALG 7 FB 0 FMS 0 AMS 0
+  DmfOperator { Am = 0, Ar = 31, Dr = 0, Mult = 1, Rr = 8, Sl = 0, Tl = 0, Dt2 = 0, Rs = 0, Dt = 3, D2R = 0, SsgMode = 0 }
+  DmfOperator { Am = 0, Ar = 31, Dr = 0, Mult = 1, Rr = 8, Sl = 0, Tl = 127, Dt2 = 0, Rs = 0, Dt = 3, D2R = 0, SsgMode = 0 }
+  DmfOperator { Am = 0, Ar = 31, Dr = 0, Mult = 1, Rr = 8, Sl = 0, Tl = 127, Dt2 = 0, Rs = 0, Dt = 3, D2R = 0, SsgMode = 0 }
+  DmfOperator { Am = 0, Ar = 31, Dr = 0, Mult = 1, Rr = 8, Sl = 0, Tl = 127, Dt2 = 0, Rs = 0, Dt = 3, D2R = 0, SsgMode = 0 }
+channel 1: orders [0], effect columns 2
+  0:00 note 12 octave 3 volume 127 instrument 0 effects [E56A 0810]
+  0:12 note 0 octave 0 volume 0 instrument -1 effects []
+  0:60 note 100 octave 0 volume -1 instrument -1 effects []
+channel 2: orders [0], effect columns 2
+  0:16 note 4 octave 4 volume 127 instrument 0 effects [E56F 0801]
+  0:28 note 0 octave 0 volume 0 instrument -1 effects []
+  0:56 note 100 octave 0 volume -1 instrument -1 effects []
+channel 3: orders [0], effect columns 2
+  0:32 note 7 octave 4 volume 127 instrument 0 effects [E570 0801]
+  0:44 note 0 octave 0 volume 0 instrument -1 effects []
+channel 4: orders [0], effect columns 2
+  0:48 note 12 octave 4 volume 127 instrument 0 effects [E56A 0810]
+  0:60 note 0 octave 0 volume 0 instrument -1 effects []
+channel 5: orders [0], effect columns 1
+channel 6: orders [0], effect columns 3
+  0:56 note 12 octave 2 volume -1 instrument -1 effects [1701 EB00 0801]
+  0:60 note 12 octave 2 volume -1 instrument -1 effects [0810]
+channel 7: orders [0], effect columns 1
+channel 8: orders [0], effect columns 1
+channel 9: orders [0], effect columns 1
+channel 10: orders [0], effect columns 1
+sample 0 "drum 11025Hz": rate code 2, pitch 5, amp 50, 16 bits, 10642 values, checksum C47BC78A
+conversion notes:
+  Sample 1 "sine lead": it loops, so it is a sustained tone and is played by the Sine FM patch
+  Sample 1 "sine lead": its FM notes are placed at the pitch measured from the sample
