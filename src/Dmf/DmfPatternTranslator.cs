@@ -231,8 +231,6 @@ internal sealed class DmfPatternTranslator
     /// <param name="stopsAt">Effects to stop where a jump lands, learned by the previous pass.</param>
     private sealed class Pass(DmfPatternTranslator translator, IReadOnlyDictionary<(int Order, int Row), HashSet<(int Channel, int Code)>> stopsAt)
     {
-        private readonly DmfPatternTranslator _t = translator;
-        private readonly IReadOnlyDictionary<(int Order, int Row), HashSet<(int Channel, int Code)>> _stopsAt = stopsAt;
         private readonly HashSet<(int Order, int Row)> _destinations = [];
         private readonly Track[] _tracks = [.. Enumerable.Range(0, GenesisPlan.ChannelCount).Select(_ => new Track())];
         private readonly Memory[] _memory = [.. translator._song.Channels.Select(_ => new Memory())];
@@ -255,25 +253,25 @@ internal sealed class DmfPatternTranslator
         public DmfTranslation Run()
         {
             _destinations.Add((0, 0));
-            for (int p = 0; p < _t._orders; p++)
+            for (int p = 0; p < translator._orders; p++)
             {
-                for (int r = 0; r < _t._rows; r++)
+                for (int r = 0; r < translator._rows; r++)
                 {
-                    if (_t.JumpAfter(p, r) is { } target)
+                    if (translator.JumpAfter(p, r) is { } target)
                     {
                         _destinations.Add(target);
                     }
                 }
             }
 
-            for (int p = 0; p < _t._orders; p++)
+            for (int p = 0; p < translator._orders; p++)
             {
                 for (int channel = 0; channel < GenesisPlan.ChannelCount; channel++)
                 {
-                    _cells[channel][p] = new DmfCell[_t._rows];
+                    _cells[channel][p] = new DmfCell[translator._rows];
                 }
 
-                for (int r = 0; r < _t._rows; r++)
+                for (int r = 0; r < translator._rows; r++)
                 {
                     TranslateRow(p, r);
                 }
@@ -285,9 +283,9 @@ internal sealed class DmfPatternTranslator
 
         private void TranslateRow(int order, int row)
         {
-            PlanRow planRow = _t.PlanRowAt(order, row);
+            PlanRow planRow = translator.PlanRowAt(order, row);
             List<Planned> flow = [];
-            if (_t._timing.Changes.Count > order && _t._timing.Changes[order].Count > row && _t._timing.Changes[order][row] is { } change)
+            if (translator._timing.Changes.Count > order && translator._timing.Changes[order].Count > row && translator._timing.Changes[order][row] is { } change)
             {
                 _pair = change;
                 flow.AddRange(PairEffects(change));
@@ -317,7 +315,7 @@ internal sealed class DmfPatternTranslator
                 if (landing)
                 {
                     track.Forget();
-                    if (_stopsAt.TryGetValue((order, row), out HashSet<(int Channel, int Code)>? stops))
+                    if (stopsAt.TryGetValue((order, row), out HashSet<(int Channel, int Code)>? stops))
                     {
                         foreach (int code in stops.Where(s => s.Channel == channel).Select(s => s.Code))
                         {
@@ -343,7 +341,7 @@ internal sealed class DmfPatternTranslator
                 _cells[channel][order][row] = cells[channel] with { Effects = [.. kept.OrderBy(e => e.Order).Select(e => e.Effect)] };
             }
 
-            if (_t.JumpAfter(order, row) is { } target)
+            if (translator.JumpAfter(order, row) is { } target)
             {
                 if (!RunningAtJumps.TryGetValue(target, out HashSet<(int Channel, int Code)>? running))
                 {
@@ -357,16 +355,16 @@ internal sealed class DmfPatternTranslator
                 }
             }
 
-            _seconds += planRow.Flow.OfType<PatternDelay>().Select(d => baseTicks * (1 + d.Rows)).DefaultIfEmpty(baseTicks).First() / (double)_t._timing.Timing.TickRateHz;
+            _seconds += planRow.Flow.OfType<PatternDelay>().Select(d => baseTicks * (1 + d.Rows)).DefaultIfEmpty(baseTicks).First() / (double)translator._timing.Timing.TickRateHz;
         }
 
         /// <summary>Jumps, breaks, stops, pattern delays and the song's end; tick-time changes are already in <paramref name="flow"/>.</summary>
         private void TranslateFlow(int order, int row, PlanRow planRow, List<Planned> flow, int baseTicks)
         {
-            if (order == 0 && row == 0 && _t._timing.TicksPerSourceTick > 1)
+            if (order == 0 && row == 0 && translator._timing.TicksPerSourceTick > 1)
             {
                 // Arpeggio steps once per tick; the DMF ticks faster, so each step lasts that many ticks.
-                flow.Add(new Planned(KeepFirst, new DmfEffect(ArpeggioSpeed, Math.Min(byte.MaxValue, _t._timing.TicksPerSourceTick))));
+                flow.Add(new Planned(KeepFirst, new DmfEffect(ArpeggioSpeed, Math.Min(byte.MaxValue, translator._timing.TicksPerSourceTick))));
             }
 
             if (planRow.Flow.OfType<PatternDelay>().FirstOrDefault() is { } delay)
@@ -390,15 +388,15 @@ internal sealed class DmfPatternTranslator
 
             PositionJump? jump = planRow.Flow.OfType<PositionJump>().FirstOrDefault();
             PatternBreak? patternBreak = planRow.Flow.OfType<PatternBreak>().FirstOrDefault();
-            bool last = order == _t._orders - 1;
+            bool last = order == translator._orders - 1;
             if (planRow.Flow.OfType<StopSong>().Any())
             {
                 Tally("{Count} song stops (F00) became jumps to the loop start: DefleMask always loops");
-                flow.Add(new Planned(KeepFirst, new DmfEffect(JumpToOrder, _t._loopTarget)));
+                flow.Add(new Planned(KeepFirst, new DmfEffect(JumpToOrder, translator._loopTarget)));
             }
             else if (jump is not null)
             {
-                if (jump.Order >= _t._orders)
+                if (jump.Order >= translator._orders)
                 {
                     Tally("{Count} position jumps (Bxx) went past the song's end; they go to order 0, as ProTracker does");
                 }
@@ -408,13 +406,13 @@ internal sealed class DmfPatternTranslator
                     Tally("{Count} jumps to a row of another order (Bxx with Dxx) start that order at row 0: DMF can't do both in one row");
                 }
 
-                flow.Add(new Planned(KeepFirst, new DmfEffect(JumpToOrder, jump.Order < _t._orders ? jump.Order : 0)));
+                flow.Add(new Planned(KeepFirst, new DmfEffect(JumpToOrder, jump.Order < translator._orders ? jump.Order : 0)));
             }
             else if (patternBreak is not null)
             {
                 if (!last)
                 {
-                    flow.Add(new Planned(KeepFirst, new DmfEffect(NextOrder, patternBreak.Row < _t._rows ? patternBreak.Row : 0)));
+                    flow.Add(new Planned(KeepFirst, new DmfEffect(NextOrder, patternBreak.Row < translator._rows ? patternBreak.Row : 0)));
                 }
                 else
                 {
@@ -424,12 +422,12 @@ internal sealed class DmfPatternTranslator
                         Tally("{Count} pattern breaks (Dxx) on the last order to a row other than 0 start the loop at row 0: DefleMask ignores 0Dxx there");
                     }
 
-                    flow.Add(new Planned(KeepFirst, new DmfEffect(JumpToOrder, _t._loopTarget)));
+                    flow.Add(new Planned(KeepFirst, new DmfEffect(JumpToOrder, translator._loopTarget)));
                 }
             }
-            else if (last && row == _t._rows - 1 && _t._loopTarget != 0)
+            else if (last && row == translator._rows - 1 && translator._loopTarget != 0)
             {
-                flow.Add(new Planned(KeepFirst, new DmfEffect(JumpToOrder, _t._loopTarget)));
+                flow.Add(new Planned(KeepFirst, new DmfEffect(JumpToOrder, translator._loopTarget)));
             }
         }
 
@@ -544,11 +542,11 @@ internal sealed class DmfPatternTranslator
             }
 
             CloseDacOn(channel, track);
-            double semitones = _t.HeardSemitones(note, sample, out bool measured);
+            double semitones = translator.HeardSemitones(note, sample, out bool measured);
             _fmSamples.TryAdd(sample, measured);
             if (cell.Effects.OfType<SetFineTune>().FirstOrDefault() is { } fineTune)
             {
-                double instrumentCents = _t._song.Instruments.FirstOrDefault(i => i.Sample == sample)?.FineTuneCents ?? 0;
+                double instrumentCents = translator._song.Instruments.FirstOrDefault(i => i.Sample == sample)?.FineTuneCents ?? 0;
                 semitones += (fineTune.Cents - instrumentCents) / 100;
             }
 
@@ -585,7 +583,7 @@ internal sealed class DmfPatternTranslator
 
             // DefleMask slides from the written note's F-number; E5xx shifts the pitch on top without moving it, so the
             // slide speeds are worked out from the whole note (Furnace: baseFreq versus pitch).
-            double targetPeriod = Math.Clamp(_t._clockHz / note.PlaybackRateHz, MinPeriod, MaxPeriod);
+            double targetPeriod = Math.Clamp(translator._clockHz / note.PlaybackRateHz, MinPeriod, MaxPeriod);
             if (glide)
             {
                 track.TargetPeriod = targetPeriod;
@@ -612,9 +610,9 @@ internal sealed class DmfPatternTranslator
                 track.NoiseMode = WhiteFixedNoise;
             }
 
-            int note = _t.NoiseNote(sample);
+            int note = translator.NoiseNote(sample);
             (draft.Note, draft.Octave) = NoteAndOctave((NoiseOctave * 12) + note);
-            draft.Instrument = _t._noiseInstruments[sample];
+            draft.Instrument = translator._noiseInstruments[sample];
             double volume = cell.Volume ?? track.ModVolume;
             draft.Volume = DmfUnits.PsgVolume(volume);
             track.Kind = VoiceKind.PsgNoise;
@@ -638,7 +636,7 @@ internal sealed class DmfPatternTranslator
 
             double volume = cell.Volume ?? track.ModVolume;
             int steps = volume <= 0 ? int.MaxValue : (int)Math.Round(-20 * Math.Log10(volume) / DacVolumeStepDb, MidpointRounding.AwayFromZero);
-            int length = _t._song.Samples[sample].Length;
+            int length = translator._song.Samples[sample].Length;
             if (offset >= length)
             {
                 Tally("{Count} DAC notes start past their sample's end (9xx); left silent, as ProTracker plays nothing");
@@ -660,7 +658,7 @@ internal sealed class DmfPatternTranslator
                 return;
             }
 
-            if (Math.Abs(Math.Log2(note.PlaybackRateHz / _t._plan.DacSamples[voice.Index].PlaybackRateHz)) * 1200 > DacPitchToleranceCents)
+            if (Math.Abs(Math.Log2(note.PlaybackRateHz / translator._plan.DacSamples[voice.Index].PlaybackRateHz)) * 1200 > DacPitchToleranceCents)
             {
                 Tally("{Count} DAC notes play at their sample's most-used pitch, not their own: the simple mapper gives each DAC sample one pitch (ADR 0040)");
             }
@@ -760,12 +758,12 @@ internal sealed class DmfPatternTranslator
         /// <summary>Restates the pan when the note's MOD channel wants another side (FM channels only; the PSG is mono).</summary>
         private void Pan(int channel, Track track, List<Planned> effects)
         {
-            if (channel > (int)GenesisChannel.Fm6 || track.Source < 0 || track.Source >= _t._song.Channels.Count)
+            if (channel > (int)GenesisChannel.Fm6 || track.Source < 0 || track.Source >= translator._song.Channels.Count)
             {
                 return;
             }
 
-            int code = PanCode(_panOverride[track.Source] ?? _t._song.Channels[track.Source].Pan);
+            int code = PanCode(_panOverride[track.Source] ?? translator._song.Channels[track.Source].Pan);
             if (code != track.Pan)
             {
                 effects.Add(new Planned(KeepFirst, new DmfEffect(Panning, code), effects.Count));
