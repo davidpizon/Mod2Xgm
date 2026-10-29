@@ -42,6 +42,7 @@ internal sealed class SimpleMapper : IChannelMapper
     private enum Primary
     {
         Silent,
+        Ignored,
         Fm,
         Dac,
         Noise,
@@ -85,6 +86,7 @@ internal sealed class SimpleMapper : IChannelMapper
         private readonly Dictionary<int, Dictionary<int, (int Count, double Rate)>> _dacPitches = [];
         private readonly HashSet<int> _played = [];
         private readonly HashSet<int> _explained = [];
+        private readonly SortedDictionary<int, int> _ignored = [];
         private readonly int[] _instrument;
         private readonly double[] _volume;
         private readonly Sounding[] _sounding;
@@ -97,6 +99,10 @@ internal sealed class SimpleMapper : IChannelMapper
         private int _dacDropped;
         private int _noiseToFm;
         private int _noiseDropped;
+
+        // The MOD channel whose note the DAC and the noise channel last started, so silencing a track stops only its own sound.
+        private int _dacSource = -1;
+        private int _noiseSource = -1;
 
         public Run(Song song, MappingOptions options, ConversionNotes notes)
         {
@@ -128,6 +134,11 @@ internal sealed class SimpleMapper : IChannelMapper
         {
             Sample sample = _song.Samples[instrument.Sample];
             string label = Label(instrument.Sample, sample.Name);
+            if (_options.Ignore.Contains(instrument.Sample))
+            {
+                return new Route(Primary.Ignored, FmPatchLibrary.Sine, false, false);
+            }
+
             if (sample.IsEmpty)
             {
                 return new Route(Primary.Silent, FmPatchLibrary.Sine, false, false);
@@ -217,6 +228,12 @@ internal sealed class SimpleMapper : IChannelMapper
                     else if (_routes[_instrument[c]].Primary == Primary.Silent)
                     {
                         _silent++;
+                    }
+                    else if (_routes[_instrument[c]].Primary == Primary.Ignored)
+                    {
+                        int sample = _song.Instruments[_instrument[c]].Sample;
+                        _ignored[sample] = _ignored.GetValueOrDefault(sample) + 1;
+                        Silence(c, planned);
                     }
                     else
                     {
@@ -376,7 +393,37 @@ internal sealed class SimpleMapper : IChannelMapper
             }
 
             _sounding[c] = kind;
+            if (column == GenesisChannel.Fm6 && kind == Sounding.Dac)
+            {
+                _dacSource = c;
+            }
+            else if (column == GenesisChannel.Psg4)
+            {
+                _noiseSource = c;
+            }
+
             planned[(int)column] = new PlanCell(candidate.Note, voice, candidate.Volume, false, [], c, _song.Instruments[candidate.Instrument].Sample);
+        }
+
+        /// <summary>
+        /// Stops what MOD channel <paramref name="c"/> is sounding, for a note of an ignored sample: the track is silent
+        /// until its next note. The DAC and the noise channel are stopped only when this track started their sound.
+        /// </summary>
+        private void Silence(int c, PlanCell[] planned)
+        {
+            GenesisChannel? column = _sounding[c] switch
+            {
+                Sounding.Fm => (GenesisChannel)c,
+                Sounding.Dac when _dacSource == c => GenesisChannel.Fm6,
+                Sounding.Noise when _noiseSource == c => GenesisChannel.Psg4,
+                _ => null,
+            };
+            if (column is { } stop && planned[(int)stop].Note is null)
+            {
+                planned[(int)stop] = planned[(int)stop] with { NoteOff = true, Source = c };
+            }
+
+            _sounding[c] = Sounding.Nothing;
         }
 
         /// <summary>The rate of the pitch the song plays <paramref name="sample"/> at most often (the lowest pitch on a tie).</summary>
@@ -396,6 +443,14 @@ internal sealed class SimpleMapper : IChannelMapper
             Tally("{Count} --require-dac notes started on the same row as a louder one and could not use the DAC; left out (the DAC plays one sample at a time)", _dacDropped);
             Tally("{Count} --require-psg notes started on the same row as a louder one and could not use the PSG noise channel; left out (it plays one sound at a time)", _noiseDropped);
             Tally("{Count} noise notes started on the same row as a louder one and could not use the PSG noise channel; played by FM instead", _noiseToFm);
+
+            foreach ((int sample, int count) in _ignored)
+            {
+                _notes.Add(
+                    "Sample {Sample}: ignored (--ignore-samples), so its {Count} notes are left out and their tracks are silent until the next note",
+                    Label(sample, _song.Samples[sample].Name),
+                    count);
+            }
 
             foreach (int sample in _options.RequireFm.Concat(_options.RequireDac).Concat(_options.RequirePsg).Order())
             {

@@ -87,7 +87,7 @@
 | T5.3 ✅ | `SimpleMapper` → `GenesisPlan` ([ADR 0040](adr/0040-simple-mapper.md)): one-shot samples → DAC (notes from any channel, louder wins a clash), looped → FM from a built-in patch library, noise → PSG; honors `--require-fm` / `--require-dac` / `--require-psg` ([ADR 0041](adr/0041-require-dac-require-psg.md)); adds `--no-dac` | Tests incl. required samples; conversion notes |
 | T5.4 ✅ | Timing: tick times, custom Hz, mid-song `Fxx` (`DmfTimingPlanner`, [ADR 0043](adr/0043-dmf-timing.md)) | Duration within 1 % of openmpt123 — checked against the tick player's durations until the harness (T6.3) adds openmpt123 |
 | T5.5 ✅ | Effect translation MOD → DMF **and the song grid** (`DmfSongBuilder`, [ADR 0044](adr/0044-dmf-effects-and-song-grid.md)): notes at each sample's measured pitch, Amiga stereo, DAC copies per loudness and start point, noise envelopes, jumps with parts as written | Per-effect tests; effect probes rendered by openmpt123, Furnace and DefleMask and compared |
-| T5.6 | Command line writes the DMF (`DmfSongBuilder` → `DmfWriter`); `--ignore-samples`; report section 3; `--quality fast` path | Every conversion logs metadata + full sample table (all formats, with/without `--info`, also when failing after read) |
+| T5.6 ✅ | Command line writes the DMF (`DmfSongBuilder` → `DmfWriter`); `--ignore-samples`; report section 3; `--quality fast` path ([ADR 0045](adr/0045-command-line-writes-dmf.md)) | Every conversion logs metadata + full sample table (all formats, with/without `--info`, also when failing after read) |
 | T5.7 | Corpus opens/plays in DefleMask; SGDK path check (VGM export → rescomp) | David's sign-off; **0.1.0** |
 
 ### M6 — Accuracy harness + shared scoring

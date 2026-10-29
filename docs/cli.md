@@ -10,21 +10,21 @@ mod2xgm <input.mod> [options]
 | Option | Default | Meaning |
 |---|---|---|
 | `<input.mod>` | required | Path to the MOD file. |
-| `-f, --format <dmf\|xgm\|xgm2>` | `dmf` | Output format: `dmf` → `.dmf`, `xgm` → `.xgm`, `xgm2` → `.xgm2`. |
+| `-f, --format <dmf\|xgm\|xgm2>` | `dmf` | Output format: `dmf` → `.dmf`, `xgm` → `.xgm`, `xgm2` → `.xgm2`. **Only `dmf` is written yet**: `xgm`/`xgm2` print report sections 1–2, then exit 1 ([ADR 0045](adr/0045-command-line-writes-dmf.md)). |
 | `-o, --output <path>` | next to input | Output file path. |
 | `--input-region <pal\|ntsc>` | `pal` | Region of the Amiga the MOD was made on: sets the clock that turns periods into pitch. See [Regions](#regions). |
 | `--output-region <pal\|ntsc>` | `pal` | Region of the Genesis the output is made for: its clocks and frame rate. See [Regions](#regions). |
 | `--player <protracker\|ust>` | by file | Whose rules to read and play the MOD by: `protracker` (ProTracker 2) or `ust` (Ultimate Soundtracker). Default: `ust` for 15-sample files, `protracker` otherwise. See [Players](#players). |
 | `--resampler <smooth\|amiga>` | `smooth` | How samples are played at the target's rates: `smooth` (the smooth sound between the points, as OpenMPT plays it) or `amiga` (Paula's steps, with their fizzy overtones). Both are band-limited, so neither aliases. See [ADR 0038](adr/0038-sample-processor.md). |
 | `--mapping <name>` | TBD | Channel-mapping strategy (see [channel-mapping.md](channel-mapping.md)). |
-| `--ignore-samples <list>` | none | MOD sample numbers to leave out, 1-based, comma-separated, ranges allowed: `3,7,12-14`. Hex accepted with `0x` (trackers show hex: `0x1F` = 31). Repeatable. Unknown/empty numbers → exit 1. |
+| `--ignore-samples <list>` | none | MOD sample numbers to leave out, 1-based, comma-separated, ranges allowed: `3,7,12-14`. Hex accepted with `0x` (trackers show hex: `0x1F` = 31). Repeatable. Unknown/empty numbers → exit 1. A note of an ignored sample silences its track until the next note (a conversion note says how many were left out). |
 | `--require-fm <list>` | none | MOD samples that **must** be played by FM (never the DAC or PSG). Same list syntax as `--ignore-samples`. See [sample-capacity.md](sample-capacity.md#required-fm-dac-and-psg-samples). |
 | `--require-dac <list>` | none | MOD samples that **must** be played on the DAC as digitized PCM (never replaced by FM or PSG). Same list syntax. Renamed from `--require-pcm` ([ADR 0041](adr/0041-require-dac-require-psg.md)). |
 | `--require-psg <list>` | none | MOD samples that **must** be played by the PSG (never FM or the DAC). The simple mapper uses the PSG noise channel. Same list syntax. See [ADR 0041](adr/0041-require-dac-require-psg.md). |
 | `--no-dac` | off | Don't use the DAC (digitized PCM): every sample is played by FM or the PSG, drums included. The DAC is the one place the Genesis plays recordings; by default the mapper puts one-shot samples there. Can't be combined with `--require-dac` (exit 1). See [ADR 0040](adr/0040-simple-mapper.md). |
 | `--no-consolidate` | off | Don't consolidate samples; if the song doesn't fit the target, print the capacity report and exit 6. |
 | `--max-pcm-bytes <n>` | 128K | PCM byte budget per song for XGM/XGM2 (suffixes `K`, `M`). Over budget → capacity warning + consolidation. |
-| `--quality <fast\|normal\|best>` | `normal` | `fast`: simple mapper, no fitting. `normal`: multi-pass with a 5-minute budget. `best`: run until no improvement. See [multi-pass.md](multi-pass.md). |
+| `--quality <fast\|normal\|best>` | `normal` | `fast`: simple mapper, no fitting. `normal`: multi-pass with a 5-minute budget. `best`: run until no improvement. See [multi-pass.md](multi-pass.md). Until the optimizer exists (plan M9) every quality uses the simple mapper, and `normal`/`best` print a line saying so. |
 | `--time-budget <duration>` | per quality | Overrides the optimizer time limit (`90s`, `5m`). |
 | `--seed <n>` | 0 | Optimizer seed; same input + options + seed → same output. |
 | `--no-cache` | off | Don't read or write the fitted-patch cache. |
@@ -70,6 +70,7 @@ Checks before converting (`src/ConversionCommand.cs`):
 | Output is the input file (never overwritten, even with `--force`) | 4 |
 | Output is a directory, or its directory doesn't exist (not created) | 4 |
 | Output exists and `--force` not given | 4 |
+| Writing the output fails (I/O error, read-only file) | 4 |
 
 With `--info` no file is written, so the output checks are skipped.
 
@@ -188,7 +189,19 @@ INF  PCM 02  ← 05 "bass" C-2     13300 Hz  2210 B
 INF  FM  01  ← 06 "strings" (approximation)
 ```
 
-DMF output lists the DMF instrument names that will be written (named after the MOD samples).
+DMF output (`src/Dmf/DmfReport.cs`, [ADR 0045](adr/0045-command-line-writes-dmf.md)) lists every DMF instrument and DAC
+sample in file order, each with the MOD samples it came from. An FM instrument is a library patch, shared by every
+sample it stands in for. A DAC sample is one copy of a MOD sample per start point (`9xx`) and per 3 dB of loudness;
+sizes are the bytes the console holds as 8-bit PCM:
+
+```
+INF Output (DMF): 1 FM instrument, 1 PSG noise instrument, 3 DAC samples, 13 KB PCM
+INF  FM  01  ← 01 "lead", 02 "pad" (Sine patch)
+INF  PSG 02  ← 04 "hat" (noise)
+INF  DAC 01  ← 03 "drum"                    11025 Hz  5321 B
+INF  DAC 02  ← 03 "drum"                    11025 Hz  5321 B  -6 dB
+INF  DAC 03  ← 03 "drum"                    11025 Hz  2596 B  from frame 2048
+```
 
 Non-printable characters in names (and the title) are shown as `·`; names are printed in quotes so spaces are
 visible. A name is printed exactly as stored, braces included: each report line is logged as a property value, never
@@ -211,6 +224,7 @@ Logged with Serilog (console sink, invariant culture):
 INF NOTE: SGDK expects XGM2 files to use the .XGM file extension.
 ```
 
-It is an informational message, not a conversion note, and isn't counted in the summary.
+It is an informational message, not a conversion note, and isn't counted in the summary. Until XGM2 is written
+(plan M10) it is printed after report sections 1–2, just before the run stops.
 
 Format: `{Level:u3} {Message:lj}` — e.g. `WRN Effect 7xy (tremolo) on channel 2, row 14 dropped`.

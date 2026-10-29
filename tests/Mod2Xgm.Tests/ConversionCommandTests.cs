@@ -1,10 +1,17 @@
 using Mod2Xgm.Cli;
+using Mod2Xgm.Dmf;
 using Mod2Xgm.Mod;
+using Mod2Xgm.Tests.Dmf;
 using Mod2Xgm.Tests.Mod;
 using Serilog.Events;
 
 namespace Mod2Xgm.Tests;
 
+/// <summary>
+/// Tests for <see cref="ConversionCommand"/>: path checks and exit codes, the report on every run, and the whole DMF
+/// conversion (plan T5.6): the file written, <c>--info</c>, report section 3, formats not written yet, <c>--quality</c>
+/// and <c>--ignore-samples</c>.
+/// </summary>
 public sealed class ConversionCommandTests
 {
     private static ExitCode CodeOf(Action action) => Assert.Throws<ConversionException>(action).Code;
@@ -304,5 +311,148 @@ public sealed class ConversionCommandTests
         Assert.Contains("--require-psg 31: this module has samples 1-15 only.", error.Message, StringComparison.Ordinal);
         Assert.DoesNotContain("--require-dac", error.Message, StringComparison.Ordinal);
         Assert.Contains(sink.Messages(LogEventLevel.Information), m => m.StartsWith(" 15  ", StringComparison.Ordinal));
+    }
+
+    /// <summary>A conversion writes a DMF next to the input that DefleMask can read: the song's title, its DAC sample.</summary>
+    [Fact]
+    public void AConversionWritesTheDmf()
+    {
+        using TempDirectory temp = new();
+
+        Assert.Equal(ExitCode.Success, ConversionCommand.Execute(new() { InputPath = temp.CreateFile("song.mod") }));
+
+        DmfFile file = DmfReader.Read(File.ReadAllBytes(temp.Combine("song.dmf")));
+        Assert.Equal("test song", file.Name);
+        Assert.Equal(DmfSystem.Genesis, file.System);
+        Assert.StartsWith("kick ", Assert.Single(file.Samples).Name, StringComparison.Ordinal);
+    }
+
+    /// <summary><c>--output</c> names the file exactly, and <c>--force</c> replaces what is there.</summary>
+    [Fact]
+    public void ForceReplacesTheOutput()
+    {
+        using TempDirectory temp = new();
+        string output = temp.CreateFile("out.bin", [1, 2, 3]);
+
+        ConversionCommand.Execute(new() { InputPath = temp.CreateFile("song.mod"), OutputPath = output, Force = true });
+
+        Assert.Equal("test song", DmfReader.Read(File.ReadAllBytes(output)).Name);
+    }
+
+    /// <summary><c>--info</c> converts in memory (section 3 and the notes are printed) but writes nothing.</summary>
+    [Fact]
+    public void InfoWritesNoFile()
+    {
+        using TempDirectory temp = new();
+        CollectingSink sink = new();
+
+        ConversionCommand.Execute(new() { InputPath = temp.CreateFile("song.mod"), InfoOnly = true }, sink.CreateLogger());
+
+        Assert.False(File.Exists(temp.Combine("song.dmf")));
+        Assert.Contains(sink.Messages(LogEventLevel.Information), m => m.StartsWith("Output (DMF): ", StringComparison.Ordinal));
+    }
+
+    /// <summary>Section 3 comes after sections 1–2 and before the summary, with or without <c>--info</c>.</summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SectionThreeFollowsTheSampleTable(bool infoOnly)
+    {
+        using TempDirectory temp = new();
+        CollectingSink sink = new();
+
+        ConversionCommand.Execute(new() { InputPath = temp.CreateFile("song.mod"), InfoOnly = infoOnly }, sink.CreateLogger());
+
+        List<string> info = [.. sink.Messages(LogEventLevel.Information)];
+        int lastSample = info.FindIndex(m => m.StartsWith(" 31  ", StringComparison.Ordinal));
+        int output = info.FindIndex(m => m.StartsWith("Output (DMF): ", StringComparison.Ordinal));
+        int dac = info.FindIndex(m => m.StartsWith(" DAC 01  ← 01 \"kick\"", StringComparison.Ordinal));
+        int summary = info.FindIndex(m => m.Contains("conversion notes)", StringComparison.Ordinal));
+        Assert.True(lastSample >= 0 && lastSample < output && output < dac && dac < summary, string.Join("\n", info));
+    }
+
+    /// <summary>
+    /// XGM and XGM2 can't be written yet: the run prints sections 1–2, then stops with a usage error and writes nothing.
+    /// <c>--format xgm2</c> still prints SGDK's extension note, exactly.
+    /// </summary>
+    [Theory]
+    [InlineData(nameof(OutputFormat.Xgm), "xgm")]
+    [InlineData(nameof(OutputFormat.Xgm2), "xgm2")]
+    public void XgmFormatsPrintTheReportThenStop(string format, string extension)
+    {
+        using TempDirectory temp = new();
+        CollectingSink sink = new();
+        ConversionOptions options = new() { InputPath = temp.CreateFile("song.mod"), Format = Enum.Parse<OutputFormat>(format) };
+
+        ConversionException error = Assert.Throws<ConversionException>(() => ConversionCommand.Execute(options, sink.CreateLogger()));
+
+        Assert.Equal(ExitCode.UsageError, error.Code);
+        Assert.Contains($"--format {extension} isn't available yet", error.Message, StringComparison.Ordinal);
+        List<string> info = [.. sink.Messages(LogEventLevel.Information)];
+        Assert.Contains("Title       : \"test song\"", info);
+        Assert.Contains(info, m => m.StartsWith(" 01  \"kick\"", StringComparison.Ordinal));
+        Assert.Equal(options.Format == OutputFormat.Xgm2, info.Contains("NOTE: SGDK expects XGM2 files to use the .XGM file extension."));
+        Assert.False(File.Exists(temp.Combine("song." + extension)));
+    }
+
+    /// <summary>Until the optimizer exists, <c>normal</c> and <c>best</c> say they use the simple mapper; <c>fast</c> is the simple mapper.</summary>
+    [Theory]
+    [InlineData(nameof(Quality.Fast), null)]
+    [InlineData(nameof(Quality.Normal), "--quality normal: the optimizer isn't built yet (plan M9), so the simple mapper is used")]
+    [InlineData(nameof(Quality.Best), "--quality best: the optimizer isn't built yet (plan M9), so the simple mapper is used")]
+    public void QualityExplainsTheMapperUsed(string quality, string? expected)
+    {
+        using TempDirectory temp = new();
+        CollectingSink sink = new();
+        ConversionOptions options = new() { InputPath = temp.CreateFile("song.mod"), Quality = Enum.Parse<Quality>(quality), InfoOnly = true };
+
+        ConversionCommand.Execute(options, sink.CreateLogger());
+
+        List<string> info = [.. sink.Messages(LogEventLevel.Information)];
+        if (expected is null)
+        {
+            Assert.DoesNotContain(info, m => m.Contains("optimizer", StringComparison.Ordinal));
+        }
+        else
+        {
+            Assert.Contains(expected, info);
+        }
+    }
+
+    /// <summary>An ignored sample's notes are left out of the DMF, with a conversion note saying how many.</summary>
+    [Fact]
+    public void IgnoredSamplesAreLeftOutOfTheDmf()
+    {
+        using TempDirectory temp = new();
+        CollectingSink sink = new();
+
+        ConversionCommand.Execute(new() { InputPath = temp.CreateFile("song.mod"), IgnoreSamples = new HashSet<int> { 1 } }, sink.CreateLogger());
+
+        Assert.Empty(DmfReader.Read(File.ReadAllBytes(temp.Combine("song.dmf"))).Samples);
+        Assert.Contains(
+            sink.Messages(LogEventLevel.Warning),
+            m => m.Contains("kick", StringComparison.Ordinal) && m.EndsWith(": ignored (--ignore-samples), so its 1 notes are left out and their tracks are silent until the next note", StringComparison.Ordinal));
+    }
+
+    /// <summary>An output that can't be written (here a read-only file, with <c>--force</c>) is exit 4, after the report.</summary>
+    [Fact]
+    public void AnUnwritableOutputIsOutputNotWritable()
+    {
+        using TempDirectory temp = new();
+        string output = temp.CreateFile("song.dmf", [0]);
+        File.SetAttributes(output, FileAttributes.ReadOnly);
+        try
+        {
+            ConversionOptions options = new() { InputPath = temp.CreateFile("song.mod"), Force = true };
+
+            ConversionException error = Assert.Throws<ConversionException>(() => ConversionCommand.Execute(options));
+
+            Assert.Equal(ExitCode.OutputNotWritable, error.Code);
+            Assert.Contains("can't be written", error.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            File.SetAttributes(output, FileAttributes.Normal);
+        }
     }
 }

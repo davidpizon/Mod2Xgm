@@ -429,6 +429,7 @@ public sealed class SimpleMapperTests
             RequireFm = new HashSet<int> { 1, 3 },
             RequireDac = new HashSet<int> { 2 },
             RequirePsg = new HashSet<int> { 4 },
+            IgnoreSamples = new HashSet<int> { 5, 7 },
             NoDac = false,
         };
 
@@ -437,8 +438,59 @@ public sealed class SimpleMapperTests
         Assert.Equal([0, 2], options.RequireFm.Order());
         Assert.Equal([1], options.RequireDac);
         Assert.Equal([3], options.RequirePsg);
+        Assert.Equal([4, 6], options.Ignore.Order());
         Assert.True(options.UseDac);
         Assert.False(MappingOptions.From(cli with { RequireDac = new HashSet<int>(), NoDac = true }).UseDac);
         Assert.Empty(MappingOptions.Default.RequireFm);
+        Assert.Empty(MappingOptions.Default.Ignore);
+    }
+
+    /// <summary>
+    /// A note of an ignored sample is left out and silences its track: the FM note the track was holding gets a note off,
+    /// and the next note plays again. One conversion note per ignored sample says how many notes were dropped.
+    /// </summary>
+    [Fact]
+    public void IgnoredSamplesSilenceTheirTrack()
+    {
+        Song song = Build([[RowOf(Play(Organ)), RowOf(Play(Kick)), RowOf(Play(Kick)), RowOf(Play(Organ, 50))]]);
+
+        (GenesisPlan plan, List<string> notes) = Map(song, MappingOptions.Default with { Ignore = new HashSet<int> { Kick } });
+
+        Assert.True(CellAt(plan, GenesisChannel.Fm1, row: 1).NoteOff);
+        Assert.Null(CellAt(plan, GenesisChannel.Fm1, row: 1).Note);
+        Assert.Equal(PlanCell.Empty, CellAt(plan, GenesisChannel.Fm1, row: 2));
+        Assert.All(plan.Patterns[0], row => Assert.Null(row.Cells[(int)GenesisChannel.Fm6].Note));
+        Assert.Empty(plan.DacSamples);
+        Assert.Equal(50, CellAt(plan, GenesisChannel.Fm1, row: 3).Note?.Semitone);
+        Assert.Contains("Sample 2 \"kick\": ignored (--ignore-samples), so its 2 notes are left out and their tracks are silent until the next note", notes);
+    }
+
+    /// <summary>An ignored note stops the DAC only when its own track started the DAC's sound, never another track's drum.</summary>
+    [Fact]
+    public void IgnoredSamplesStopTheDacOnlyForTheirOwnTrack()
+    {
+        Song song = Build([[
+            RowOf(Play(Kick), Cell.Empty),
+            RowOf(Cell.Empty, Play(Tom)),
+            RowOf(Play(Hat), Cell.Empty),
+            RowOf(Cell.Empty, Play(Hat)),
+        ]]);
+
+        (GenesisPlan plan, _) = Map(song, MappingOptions.Default with { Ignore = new HashSet<int> { Hat } });
+
+        Assert.False(CellAt(plan, GenesisChannel.Fm6, row: 2).NoteOff);
+        Assert.True(CellAt(plan, GenesisChannel.Fm6, row: 3).NoteOff);
+    }
+
+    /// <summary>An ignored note of a track on the PSG noise channel stops the noise.</summary>
+    [Fact]
+    public void IgnoredSamplesStopTheirTracksNoise()
+    {
+        Song song = Build([[RowOf(Cell.Empty, Play(Hat)), RowOf(Cell.Empty, Play(Kick))]]);
+
+        (GenesisPlan plan, _) = Map(song, Options(requirePsg: [Hat]) with { Ignore = new HashSet<int> { Kick } });
+
+        Assert.Equal(VoiceKind.PsgNoise, CellAt(plan, GenesisChannel.Psg4).Voice?.Kind);
+        Assert.True(CellAt(plan, GenesisChannel.Psg4, row: 1).NoteOff);
     }
 }

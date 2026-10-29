@@ -22,6 +22,12 @@ internal sealed record MappingOptions(IReadOnlySet<int> RequireFm, IReadOnlySet<
     /// <summary>No requirements; the DAC may be used.</summary>
     public static MappingOptions Default { get; } = new(new HashSet<int>(), new HashSet<int>(), new HashSet<int>());
 
+    /// <summary>
+    /// Samples left out (<c>--ignore-samples</c>): a note that plays one silences its track until the track's next note,
+    /// as an empty sample does (docs/sample-capacity.md#ignoring-samples).
+    /// </summary>
+    public IReadOnlySet<int> Ignore { get; init; } = new HashSet<int>();
+
     /// <summary>The options a conversion was asked for, with the command line's 1-based sample numbers made 0-based.</summary>
     public static MappingOptions From(Cli.ConversionOptions options)
     {
@@ -30,6 +36,9 @@ internal sealed record MappingOptions(IReadOnlySet<int> RequireFm, IReadOnlySet<
             new HashSet<int>(options.RequireFm.Select(n => n - 1)),
             new HashSet<int>(options.RequireDac.Select(n => n - 1)),
             new HashSet<int>(options.RequirePsg.Select(n => n - 1)),
-            !options.NoDac);
+            !options.NoDac)
+        {
+            Ignore = new HashSet<int>(options.IgnoreSamples.Select(n => n - 1)),
+        };
     }
 }

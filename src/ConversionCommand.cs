@@ -1,11 +1,15 @@
 using Mod2Xgm.Cli;
+using Mod2Xgm.Dmf;
+using Mod2Xgm.Mapping;
 using Mod2Xgm.Mod;
+using Mod2Xgm.Model;
 using Serilog;
 
 namespace Mod2Xgm;
 
 /// <summary>
-/// Runs one conversion: checks the paths, reads the MOD, and (in later plan tasks) maps and writes the output.
+/// Runs one conversion: checks the paths, reads the MOD, prints the report, maps the song with the simple mapper and
+/// writes the DMF (docs/architecture.md). Every stage reports its lossy decisions to the conversion notes.
 /// </summary>
 internal static class ConversionCommand
 {
@@ -51,8 +55,31 @@ internal static class ConversionCommand
             usage.LoopsBack);
         ModReport.LogSamples(logger, module, usage, options.IgnoreSamples);
         CheckSampleNumbers(options, module);
+        CheckFormat(options, logger);
+        LogQuality(options, logger);
 
-        // Later stages (model, map, report section 3, write) are added by later plan tasks; they report lossy decisions to notes.
+        Song song = ModToSong.Convert(module, options.AmigaClockHz, notes);
+        GenesisPlan plan = new SimpleMapper().Map(song, MappingOptions.From(options), notes);
+        logger.Debug(
+            "Mapped {Orders} orders: {FmPatches} FM patches, {DacSamples} DAC samples",
+            plan.Patterns.Count,
+            plan.FmPatches.Count,
+            plan.DacSamples.Count);
+        DmfTimingPlan timing = DmfTimingPlanner.Plan(plan, options.AmigaTickRateScale, options.OutputRegion, notes);
+        logger.Debug(
+            "DMF timing: {TickRateHz} Hz, {TicksPerSourceTick} DMF ticks per MOD tick, length off by {LengthError:P2}",
+            timing.Timing.TickRateHz,
+            timing.TicksPerSourceTick,
+            timing.LengthError);
+        DmfSong dmf = DmfSongBuilder.Build(plan, song, timing, new DmfBuildSettings(options.AmigaClockHz, options.Resampler), notes);
+
+        // Report section 3 comes after mapping, before the file is written (docs/cli.md#console-report).
+        DmfReport.Log(logger, dmf, song);
+        byte[] bytes = DmfWriter.Write(dmf.File, notes);
+        if (!options.InfoOnly)
+        {
+            WriteOutput(output, bytes, options.Force);
+        }
 
         logger.Information(
             "{Input} -> {Output} ({NoteCount} conversion notes)",
@@ -60,6 +87,56 @@ internal static class ConversionCommand
             options.InfoOnly ? "(--info: no file written)" : output,
             notes.Count);
         return ExitCode.Success;
+    }
+
+    /// <summary>
+    /// Only DMF can be written yet (XGM2 is plan M10, XGM M11). Runs after report sections 1–2, so they are printed for
+    /// every format; <c>--format xgm2</c> still prints its extension note (docs/cli.md#console-output, ADR 0045).
+    /// </summary>
+    private static void CheckFormat(ConversionOptions options, ILogger logger)
+    {
+        if (options.Format == OutputFormat.Dmf)
+        {
+            return;
+        }
+
+        if (options.Format == OutputFormat.Xgm2)
+        {
+            logger.Information(Xgm2ExtensionNote);
+        }
+
+        string name = options.Format == OutputFormat.Xgm2 ? "xgm2" : "xgm";
+        throw new ConversionException(
+            ExitCode.UsageError,
+            $"--format {name} isn't available yet: this version writes DMF only (XGM2 comes with plan M10, XGM with M11).");
+    }
+
+    /// <summary>The line every <c>--format xgm2</c> run prints, verbatim (docs/cli.md#console-output).</summary>
+    private const string Xgm2ExtensionNote = "NOTE: SGDK expects XGM2 files to use the .XGM file extension.";
+
+    /// <summary>The optimizer (plan M9) isn't built yet, so every quality uses the simple mapper; a run asking for more says so (ADR 0045).</summary>
+    private static void LogQuality(ConversionOptions options, ILogger logger)
+    {
+        if (options.Quality != Quality.Fast)
+        {
+            logger.Information(
+                "--quality {Quality:l}: the optimizer isn't built yet (plan M9), so the simple mapper is used",
+                options.Quality == Quality.Best ? "best" : "normal");
+        }
+    }
+
+    /// <summary>Writes the file; without <c>--force</c> it is never created over one that appeared since the checks.</summary>
+    private static void WriteOutput(string output, byte[] bytes, bool force)
+    {
+        try
+        {
+            using FileStream stream = new(output, force ? FileMode.Create : FileMode.CreateNew, FileAccess.Write);
+            stream.Write(bytes);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            throw new ConversionException(ExitCode.OutputNotWritable, $"Output file can't be written: {output} ({ex.Message})", ex);
+        }
     }
 
     /// <summary>Says whose rules the file is read and played by, and why (David, 2026-10-27; docs/cli.md#players).</summary>
