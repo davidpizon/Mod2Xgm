@@ -59,6 +59,7 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0043](0043-dmf-timing.md) | DMF timing: tick rate, tick times and speed changes (T5.4) | 2026-10-28 | Accepted |
 | [0044](0044-dmf-effects-and-song-grid.md) | DMF effects and song grid (T5.5) | 2026-10-28 | Accepted |
 | [0045](0045-command-line-writes-dmf.md) | The command line writes the DMF (T5.6) | 2026-10-28 | Accepted |
+| [0046](0046-mod-corpus.md) | The MOD corpus (T6.1) | 2026-10-29 | Accepted |
 
 ## Open questions
 
