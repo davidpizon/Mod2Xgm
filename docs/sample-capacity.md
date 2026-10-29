@@ -53,7 +53,7 @@ Before anything is dropped or merged, the converter counts how often each sample
 - **Loops:** a song that just reaches its end is walked once. If it jumps back to rows it already played, the repeating
   part is walked **one more time**, then the walk stops.
 - **Status:** `used` (holds sound and is played), `unused` (holds sound, never played: dropped by consolidation step 1),
-  `empty` (no sound). `ignored` (from `--ignore-samples`) is added by T5.6.
+  `empty` (no sound). `ignored` (from `--ignore-samples`) is added by the report.
 - **Conversion notes** report everything odd: the song looping back; `F00`; a jump past the end; orders never reached;
   patterns stored but never played; notes delayed past their row; notes before a channel has a sample; an empty sample
   that is played; a sample with sound that is never played.

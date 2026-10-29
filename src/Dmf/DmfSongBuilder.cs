@@ -10,6 +10,23 @@ namespace Mod2Xgm.Dmf;
 /// <param name="Resampler">How DAC samples are resampled (<c>--resampler</c>).</param>
 internal sealed record DmfBuildSettings(double AmigaClockHz, ResamplingMode Resampler);
 
+/// <summary>The built DMF song, and where each of its instruments and samples came from (for report section 3).</summary>
+/// <param name="File">The song, ready for <see cref="DmfWriter"/>.</param>
+/// <param name="Instruments">One per <see cref="DmfFile.Instruments"/>, in the same order.</param>
+/// <param name="Samples">One per <see cref="DmfFile.Samples"/>, in the same order.</param>
+internal sealed record DmfSong(DmfFile File, IReadOnlyList<DmfInstrumentSource> Instruments, IReadOnlyList<DmfSampleSource> Samples);
+
+/// <summary>Where a DMF instrument came from.</summary>
+/// <param name="Kind"><see cref="VoiceKind.Fm"/> for an FM patch, <see cref="VoiceKind.PsgNoise"/> for a noise instrument.</param>
+/// <param name="Samples">The song samples it plays (<see cref="Song.Samples"/>), in number order: every sample an FM patch stands in for, or the noise instrument's one sample.</param>
+internal sealed record DmfInstrumentSource(VoiceKind Kind, IReadOnlyList<int> Samples);
+
+/// <summary>Where a DMF sample came from: one copy of a song sample.</summary>
+/// <param name="Sample">The song sample (<see cref="Song.Samples"/>).</param>
+/// <param name="Offset">First frame played (MOD <c>9xx</c>), in the song sample's frames.</param>
+/// <param name="VolumeDb">How much quieter than the song sample the copy is, in dB (0 or more).</param>
+internal sealed record DmfSampleSource(int Sample, int Offset, double VolumeDb);
+
 /// <summary>
 /// Builds the whole DMF song from a <see cref="GenesisPlan"/> (plan T5.5, docs/adr/0044-dmf-effects-and-song-grid.md):
 /// the FM and noise instruments, one DMF pattern per order on every channel (the parts as the MOD has them), the cells
@@ -58,7 +75,8 @@ internal static class DmfSongBuilder
     /// <param name="timing">Tick rate and tick-time changes (<see cref="DmfTimingPlanner"/>).</param>
     /// <param name="settings">Clock and resampler.</param>
     /// <param name="notes">Collects conversion notes.</param>
-    public static DmfFile Build(GenesisPlan plan, Song song, DmfTimingPlan timing, DmfBuildSettings settings, ConversionNotes notes)
+    /// <returns>The song and where its instruments and samples came from.</returns>
+    public static DmfSong Build(GenesisPlan plan, Song song, DmfTimingPlan timing, DmfBuildSettings settings, ConversionNotes notes)
     {
         ArgumentNullException.ThrowIfNull(plan);
         ArgumentNullException.ThrowIfNull(song);
@@ -102,7 +120,7 @@ internal static class DmfSongBuilder
         }
 
         List<DmfSample> samples = [.. translation.DacVariants.Select((variant, i) => Sample(variant, translation.DacSeconds[i], plan, song, settings, notes))];
-        return new DmfFile(
+        DmfFile file = new(
             FileVersion,
             DmfSystem.Genesis,
             plan.Title,
@@ -116,7 +134,28 @@ internal static class DmfSongBuilder
             [],
             samples,
             0);
+        return new DmfSong(file, InstrumentSources(plan, orders, noiseInstruments), [.. translation.DacVariants.Select(v => SampleSource(v, plan))]);
     }
+
+    /// <summary>For each instrument: the samples each FM patch plays in the orders written, then each noise instrument's sample.</summary>
+    private static List<DmfInstrumentSource> InstrumentSources(GenesisPlan plan, int orders, Dictionary<int, int> noiseInstruments)
+    {
+        SortedSet<int>[] fm = [.. plan.FmPatches.Select(_ => new SortedSet<int>())];
+        foreach (PlanCell cell in plan.Patterns.Take(orders).SelectMany(p => p).SelectMany(r => r.Cells))
+        {
+            if (cell is { Voice: { Kind: VoiceKind.Fm, Index: var patch }, Sample: { } sample })
+            {
+                fm[patch].Add(sample);
+            }
+        }
+
+        List<DmfInstrumentSource> sources = [.. fm.Select(s => new DmfInstrumentSource(VoiceKind.Fm, [.. s]))];
+        sources.AddRange(noiseInstruments.OrderBy(n => n.Value).Select(n => new DmfInstrumentSource(VoiceKind.PsgNoise, [n.Key])));
+        return sources;
+    }
+
+    private static DmfSampleSource SampleSource(DacVariant variant, GenesisPlan plan) =>
+        new(plan.DacSamples[variant.Dac].Sample, variant.Offset, variant.VolumeSteps * DmfPatternTranslator.DacVolumeStepDb);
 
     /// <summary>The rate code a sample playing at <paramref name="rateHz"/> is stored at: the lowest rate that loses nothing, at most 32 kHz.</summary>
     public static int RateCodeFor(double rateHz)
