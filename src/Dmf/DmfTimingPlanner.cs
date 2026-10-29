@@ -86,7 +86,7 @@ internal static class DmfTimingPlanner
             custom ? choice.Hz : null);
 
         TickTimes?[][] changes = Changes(plan, walk, times, start);
-        Report(walk, choice, dominantRate, sourceTickRateScale, notes);
+        Report(walk, choice, dominantRate, notes);
         return new DmfTimingPlan(timing, choice.Factor, changes, choice.LengthError);
     }
 
@@ -188,7 +188,7 @@ internal static class DmfTimingPlanner
     }
 
     /// <summary>Says what the tick rate and tick times cost, when it is worth saying.</summary>
-    private static void Report(Walk walk, Choice choice, double dominantRate, double scale, ConversionNotes notes)
+    private static void Report(Walk walk, Choice choice, double dominantRate, ConversionNotes notes)
     {
         if (Math.Abs(choice.Hz - (choice.Factor * dominantRate)) > 1e-9)
         {
@@ -308,8 +308,6 @@ internal static class DmfTimingPlanner
                             case PositionJump or PatternBreak or PatternLoop or PatternLoopStart:
                                 hasJumps = true;
                                 break;
-                            default:
-                                break;
                         }
                     }
 
@@ -341,5 +339,5 @@ internal sealed record DmfTimingPlan(DmfTiming Timing, int TicksPerSourceTick, I
 internal readonly record struct TickTimes(int First, int Second)
 {
     /// <summary>The two effects that set these tick times, ready for an effect column (<c>09xx</c>, <c>0Fxx</c>).</summary>
-    public DmfEffect[] Effects() => [new DmfEffect(DmfTimingPlanner.SpeedEffect1, First), new DmfEffect(DmfTimingPlanner.SpeedEffect2, Second)];
+    public DmfEffect[] Effects() => [new(DmfTimingPlanner.SpeedEffect1, First), new(DmfTimingPlanner.SpeedEffect2, Second)];
 }

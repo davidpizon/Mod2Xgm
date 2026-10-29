@@ -72,7 +72,7 @@ public sealed class DmfTimingPlannerTests
 
         Assert.Equal((0, 6, 6, false, false, string.Empty, (int?)null), Fields(result.Timing));
         Assert.Equal(1, result.TicksPerSourceTick);
-        Assert.All(result.Changes.SelectMany(c => c), change => Assert.Null(change));
+        Assert.All(result.Changes.SelectMany(c => c), Assert.Null);
         Assert.Empty(notes);
     }
 
@@ -81,7 +81,7 @@ public sealed class DmfTimingPlannerTests
     public void TheTickRateFollowsTheInputRegionAgainstTheOutputRegion()
     {
         (DmfTimingPlan ntscToNtsc, _) = Run(Plan(new Timing(6, 125), 1), 6.0 / 5.0, Region.Ntsc);
-        (DmfTimingPlan ntscToPal, _) = Run(Plan(new Timing(6, 125), 1), 6.0 / 5.0, Region.Pal);
+        (DmfTimingPlan ntscToPal, _) = Run(Plan(new Timing(6, 125), 1), 6.0 / 5.0);
         (DmfTimingPlan palToNtsc, _) = Run(Plan(new Timing(6, 125), 1), 1.0, Region.Ntsc);
 
         Assert.Equal((0, 6, 6, true, false, string.Empty, (int?)null), Fields(ntscToNtsc.Timing));
