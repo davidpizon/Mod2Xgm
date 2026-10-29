@@ -93,4 +93,5 @@ External applications (openmpt123, DefleMask, SGDK, BlastEm, Genesis Plus GX) ar
 ## Test data rules
 - **Do not commit copyrighted MOD files.** Generate modules in code, or use files with an explicit
   free license and record the license next to the file in `tests/data/LICENSES.md`.
-- Keep fixtures small (< 100 KB each).
+- Keep fixtures small (< 100 KB each). The corpus (`tests/data/corpus/`, [ADR 0046](adr/0046-mod-corpus.md)) is the
+  exception: real songs, Public Domain or CC0 only, each listed with its checksum (`CorpusTests` checks it).
