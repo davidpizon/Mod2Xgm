@@ -177,6 +177,7 @@ internal sealed class SimpleMapper : IChannelMapper
             PlanCell[] planned = [.. Enumerable.Repeat(PlanCell.Empty, GenesisPlan.ChannelCount)];
             List<Candidate> candidates = [];
             List<(int Channel, List<Effect> Effects)> pending = [];
+            int?[] source = new int?[GenesisPlan.ChannelCount];
 
             for (int c = 0; c < row.Cells.Count; c++)
             {
@@ -226,7 +227,7 @@ internal sealed class SimpleMapper : IChannelMapper
                 }
                 else if (volumeSet && _sounding[c] == Sounding.Fm)
                 {
-                    planned[c] = planned[c] with { Volume = _volume[c] };
+                    planned[c] = planned[c] with { Volume = _volume[c], Source = c };
                 }
 
                 pending.Add((c, own));
@@ -242,9 +243,10 @@ internal sealed class SimpleMapper : IChannelMapper
                     _ => (GenesisChannel)channel,
                 };
                 effects[(int)target].AddRange(own);
+                source[(int)target] ??= channel;
             }
 
-            PlanCell[] result = [.. planned.Select((cell, i) => effects[i].Count == 0 ? cell : cell with { Effects = effects[i] })];
+            PlanCell[] result = [.. planned.Select((cell, i) => effects[i].Count == 0 ? cell : cell with { Effects = effects[i], Source = cell.Source ?? source[i] })];
             return new PlanRow(result, flow);
         }
 
@@ -369,12 +371,12 @@ internal sealed class SimpleMapper : IChannelMapper
                 };
                 if (previous is { } stop && planned[(int)stop].Note is null)
                 {
-                    planned[(int)stop] = planned[(int)stop] with { NoteOff = true };
+                    planned[(int)stop] = planned[(int)stop] with { NoteOff = true, Source = c };
                 }
             }
 
             _sounding[c] = kind;
-            planned[(int)column] = new PlanCell(candidate.Note, voice, candidate.Volume, false, []);
+            planned[(int)column] = new PlanCell(candidate.Note, voice, candidate.Volume, false, [], c, _song.Instruments[candidate.Instrument].Sample);
         }
 
         /// <summary>The rate of the pitch the song plays <paramref name="sample"/> at most often (the lowest pitch on a tie).</summary>

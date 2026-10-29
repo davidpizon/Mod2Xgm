@@ -188,6 +188,8 @@ in the MOD becomes a conversion note there.
 | `0Cxx` | Retrigger every `xx` ticks | |
 | `0Dxx` | Next order, at row `xx` | **ignored on the last order**; overrides a `0Bxx` on the same row [Furnace: DefleMask jump rule] |
 | `0Fxx` | Speed 2 (tick time 2) | `00` ignored |
+| `E0xx` | Arpeggio speed (ticks per step, whole song) | **Verify**: in Furnace's DMF player, not DefleMask's effect list; written only when the DMF ticks faster than the MOD |
+| `E3xx` | Vibrato shape | 0 sine, 5 ramp down, 6 square, 7 random [Furnace] |
 | `E1xy` / `E2xy` | Note slide up / down | x speed, y semitones |
 | `E5xx` | Channel fine pitch | `80` = none |
 | `EBxx` | DAC sample bank | `00`–`0B` (banks 0–11); higher values do nothing [Manual] — see [DAC](#dac-samples-on-fm6) |
@@ -200,10 +202,39 @@ in the MOD becomes a conversion note there.
 | `19xx` / `1Axx`–`1Dxx` | Attack rate of all operators / of operator 1–4 | 0–`1F` (FM) |
 | `20xy` | PSG noise mode | x = 0: 3 fixed rates, x ≠ 0: rate from PSG3; y = 0: periodic, y ≠ 0: white (PSG4) |
 
-Jump consequences for the writer: MOD `Bxx` + `Dxx` on one row ("order *x*, row *y*") can't be written as one DMF
-row, and a MOD `Dxx` on the last order is dropped by DefleMask. The writer lays out orders so neither is needed
-(plan T5.5). DMF has **no stop effect** — DefleMask always loops (to order 0 unless a `0Bxx` sends it elsewhere),
-so a MOD that stops (`F00`) gets a conversion note.
+How the writer uses them (plan T5.5, [ADR 0044](../adr/0044-dmf-effects-and-song-grid.md)): one DMF pattern per
+order, so jumps keep their targets. MOD `Bxx` + `Dxx` on one row ("order *x*, row *y*") can't be one DMF row: the
+writer keeps the `0Bxx` and starts at row 0, with a note. A MOD `Dxx` on the last order would be dropped by DefleMask,
+so the writer jumps to the loop instead. DMF has **no stop effect** — DefleMask always loops (to order 0 unless a
+`0Bxx` sends it elsewhere) — so a MOD that stops (`F00`) jumps to the loop, with a note. `EEx` (pattern delay) is both
+tick times set to the stretched row, restored on the next row.
+
+## Effect units
+
+[Furnace: `fileOps/dmf.cpp` compatibility flags, `playback.cpp`, `platform/genesis.cpp`, `sms.cpp`; measured from
+DefleMask's and Furnace's WAV exports of the effect probes, `tests/golden/dmf-effect-probes/`] Code: `src/Dmf/DmfUnits.cs`.
+
+| What | DMF | MOD (ProTracker 2) | Writer |
+|---|---|---|---|
+| FM volume | 0–`7F`, lowers the carriers' TL: **0.75 dB a step** (DMF: linear on 127 − TL) | 0–64 linear | `127 + 20·log10(v) / 0.75` |
+| PSG volume | 0–`F`, **2 dB a step** | | `15 + 20·log10(v) / 2` |
+| DAC volume | **none** (Furnace `noOPN2Vol`): the sample plays as stored | | a quieter copy per 3 dB |
+| `01xx`/`02xx`/`03xx` | xx **F-number steps a tick**, every tick incl. the row's first; the F-number halves/doubles at the octave block (C) | periods per tick, ticks 1… only | F-number distance of the row's move (at its halfway pitch) / DMF ticks |
+| `04xy` | x/64 cycle a tick on every tick; depth y = ±y/16 semitone (1/128-semitone units) | x/64 cycle a tick on ticks 1… only; depth in periods | x × (ticks − 1) / ticks; depth converted at the note's period |
+| `07xy` | x/128 cycle a tick; **lowers only**, about **0.65 dB per depth digit** top to bottom (DefleMask export: `074F` swings 9.7 dB) | x/64 a tick, ± around the volume | speed × 2 × (ticks − 1) / ticks; depth = the MOD's swing in dB / 0.65 |
+| `0Axy` | x/4 (up) or y/4 (down) volume steps a tick | linear steps | reaches the MOD's row-end volume; never below 0 (DMF would jump to full) |
+| `E5xx` | pitch offset, 1/128 semitone (`80` = none); doesn't move the slides' base F-number | | the cents of the pitch heard |
+| `0Cxx`/`ECxx`/`EDxx` | ticks | ticks | × DMF ticks per MOD tick |
+
+**DefleMask's own rules** (found by exporting the probes from DefleMask; Furnace doesn't copy them):
+
+- **A running effect written again stacks.** `07xy` written on every row deepens until the note is silent. The writer
+  writes a running effect only when its value changes.
+- **`03xx` on a row without a note freezes the glide.** Portamento is written on the note's row only, with one speed for
+  the whole glide; the following rows write nothing until the stop (`0300`).
+- A note cut (`ECxx`) releases the FM note, so the patch's release tail sounds (the MOD stops dead).
+- DefleMask's WAV export is 5.8 dB quieter than Furnace's for the same song.
+- The YM2612 DAC can't go much below about −44 dB: a drum's quiet tail stays audible longer than in the MOD.
 
 ## DAC samples on FM6
 

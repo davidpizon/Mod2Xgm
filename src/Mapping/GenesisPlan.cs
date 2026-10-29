@@ -63,7 +63,9 @@ internal readonly record struct PlanVoice(VoiceKind Kind, int Index);
 /// <param name="Volume">Volume set on this row, 0–1, or <c>null</c> to leave it. A note carries its starting volume.</param>
 /// <param name="NoteOff">True when the sound on this channel must stop (a note of the same MOD channel moved elsewhere).</param>
 /// <param name="Effects">The MOD channel's effects on this row that act on this channel (not the song-wide ones).</param>
-internal sealed record PlanCell(NotePitch? Note, PlanVoice? Voice, double? Volume, bool NoteOff, IReadOnlyList<Effect> Effects)
+/// <param name="Source">The song channel the note, volume or effects came from, or <c>null</c> when the cell is empty; writers pan by it (<see cref="Channel.Pan"/>).</param>
+/// <param name="Sample">The song sample <paramref name="Note"/> plays (<see cref="Song.Samples"/>), or <c>null</c> when there is no note; writers measure its pitch and noise colour.</param>
+internal sealed record PlanCell(NotePitch? Note, PlanVoice? Voice, double? Volume, bool NoteOff, IReadOnlyList<Effect> Effects, int? Source = null, int? Sample = null)
 {
     /// <summary>A cell that does nothing.</summary>
     public static PlanCell Empty { get; } = new(null, null, null, false, []);

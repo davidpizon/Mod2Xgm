@@ -1,0 +1,30 @@
+system Genesis, 10 channels
+name "dac", author "", highlights 4/16
+time base 0, tick times 6/6, PAL, custom Hz off
+1 matrix rows of 64 rows
+channel 1: orders [0], effect columns 1
+channel 2: orders [0], effect columns 1
+channel 3: orders [0], effect columns 1
+channel 4: orders [0], effect columns 1
+channel 5: orders [0], effect columns 1
+channel 6: orders [0], effect columns 3
+  0:00 note 12 octave 2 volume -1 instrument -1 effects [1701 EB00 0810]
+  0:08 note 1 octave 3 volume -1 instrument -1 effects []
+  0:16 note 2 octave 3 volume -1 instrument -1 effects []
+  0:24 note 3 octave 3 volume -1 instrument -1 effects []
+  0:32 note 4 octave 3 volume -1 instrument -1 effects []
+  0:40 note 5 octave 3 volume -1 instrument -1 effects []
+  0:48 note 12 octave 2 volume -1 instrument -1 effects []
+channel 7: orders [0], effect columns 1
+channel 8: orders [0], effect columns 1
+channel 9: orders [0], effect columns 1
+channel 10: orders [0], effect columns 1
+sample 0 "drum 11025Hz": rate code 2, pitch 5, amp 50, 16 bits, 10642 values, checksum C47BC78A
+sample 1 "drum 11025Hz -6dB": rate code 2, pitch 5, amp 50, 16 bits, 10642 values, checksum 7F680FE6
+sample 2 "drum 11025Hz -12dB": rate code 2, pitch 5, amp 50, 16 bits, 10642 values, checksum 65567C39
+sample 3 "drum 11025Hz -18dB": rate code 2, pitch 5, amp 50, 16 bits, 10642 values, checksum 49972BFF
+sample 4 "drum 11025Hz +1024": rate code 2, pitch 5, amp 50, 16 bits, 9280 values, checksum CD30B1D0
+sample 5 "drum 11025Hz +2048": rate code 2, pitch 5, amp 50, 16 bits, 7918 values, checksum 0E1DE88E
+conversion notes:
+  6 DAC sample copies were made from 1 samples: one per start point (9xx) and per 3 dB of loudness, because the DAC has no volume
+  1 DAC notes play at their sample's most-used pitch, not their own: the simple mapper gives each DAC sample one pitch (ADR 0040)

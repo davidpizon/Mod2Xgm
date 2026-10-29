@@ -100,6 +100,12 @@ end, trims trailing silence, applies MOD volume where the target cannot, and con
 clipping with a conversion note. A toolbox: the mapper picks rates, lengths and volumes
 ([ADR 0038](adr/0038-sample-processor.md)).
 
+**DmfTimingPlanner / DmfSongBuilder** (`src/Dmf`, plan T5.4–T5.5, [ADR 0043](adr/0043-dmf-timing.md),
+[ADR 0044](adr/0044-dmf-effects-and-song-grid.md)) — turn a `GenesisPlan` into a `DmfFile`: the clock, then the grid
+(one DMF pattern per order) with notes at each sample's measured pitch (`SamplePitch`), volumes in decibel steps,
+Amiga stereo, DAC sample copies per loudness and start point, noise instruments that fade like their sample, and
+every effect in DefleMask's units (`DmfPatternTranslator`, `DmfUnits`).
+
 **Writers** — Serialize the plan. The DMF writer emits pattern data that DefleMask plays; XGM writers emit
 a per-frame register-write stream (they need a small "player" that runs the song tick by tick to produce
 YM2612/PSG writes — shared between XGM and XGM2).
