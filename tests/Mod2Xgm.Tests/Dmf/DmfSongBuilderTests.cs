@@ -131,7 +131,7 @@ public sealed class DmfSongBuilderTests
     {
         DmfConversion.Result result = Convert(Song().WithCell(0, 0, 0, Lead, C2, 0x2, 4));
 
-        Assert.Contains(result.Effects(Fm1, 0), e => e.Code == 0x02 && e.Value > 0);
+        Assert.Contains(result.Effects(Fm1, 0), e => e is { Code: 0x02, Value: > 0 });
         Assert.Contains((0x01, 0x00), result.Effects(Fm1, 1));
     }
 
@@ -141,7 +141,7 @@ public sealed class DmfSongBuilderTests
     {
         DmfConversion.Result result = Convert(Song().WithCell(0, 0, 0, Lead, C2, 0xE, 0x18));
 
-        Assert.Contains(result.Effects(Fm1, 0), e => e.Code == 0x01 && e.Value > 0);
+        Assert.Contains(result.Effects(Fm1, 0), e => e is { Code: 0x01, Value: > 0 });
         Assert.Contains((0x01, 0x00), result.Effects(Fm1, 1));
     }
 
@@ -155,11 +155,11 @@ public sealed class DmfSongBuilderTests
         DmfConversion.Result result = Convert(Song()
             .WithCell(0, 0, 0, Lead, C2)
             .WithCell(0, 1, 0, Lead, E2, 0x3, 8)
-            .WithCell(0, 2, 0, 0, 0, 0x3, 0));
+            .WithCell(0, 2, 0, 0, 0, 0x3));
 
         DmfCell glide = result.Cell(Fm1, 1);
         Assert.Equal(-1, glide.Instrument);
-        Assert.Contains(result.Effects(Fm1, 1), e => e.Code == 0x03 && e.Value > 0);
+        Assert.Contains(result.Effects(Fm1, 1), e => e is { Code: 0x03, Value: > 0 });
         Assert.DoesNotContain(result.Effects(Fm1, 2), e => e.Code == 0x03);
         Assert.Contains((0x03, 0x00), result.Effects(Fm1, 3));
     }
@@ -256,7 +256,7 @@ public sealed class DmfSongBuilderTests
             .WithCell(0, 0, 0, Lead, C2)
             .WithCell(0, 5, 0, 0, 0, 0xB, 0x01)
             .WithCell(0, 5, 1, 0, 0, 0xD, 0x08)
-            .WithCell(1, 6, 0, 0, 0, 0xF, 0x00)
+            .WithCell(1, 6, 0, 0, 0, 0xF)
             .WithCell(2, 7, 0, 0, 0, 0xD, 0x04));
 
         Assert.Contains((0x0B, 1), result.RowEffects(5, order: 0));
@@ -384,7 +384,7 @@ public sealed class DmfSongBuilderTests
     public void NoiseInstrumentsFadeLikeTheirSample()
     {
         const int framesPerTick = 100;
-        float[] fading = [.. Enumerable.Range(0, 5 * framesPerTick).Select(i => (float)(HatData[i] / 128.0 * Math.Pow(0.5, i / framesPerTick)))];
+        float[] fading = [.. Enumerable.Range(0, 5 * framesPerTick).Select(i => (float)(HatData[i] / 128.0 * Math.Pow(0.5, Math.DivRem(i, framesPerTick).Quotient)))];
 
         DmfInstrument fade = DmfSongBuilder.NoiseInstrument(new Mod2Xgm.Model.Sample("fade", fading, null), framesPerTick * 50, 50);
         DmfInstrument held = DmfSongBuilder.NoiseInstrument(new Mod2Xgm.Model.Sample("held", fading, new Mod2Xgm.Model.SampleLoop(0, framesPerTick)), framesPerTick * 50, 50);

@@ -40,14 +40,6 @@ public sealed class DmfPatternTranslatorTests
         return plan with { Patterns = [rows, .. plan.Patterns.Skip(1)] };
     };
 
-    /// <summary>The plan with flow effects added to row <paramref name="row"/> of order 0.</summary>
-    private static Func<GenesisPlan, GenesisPlan> AddFlow(int row, params Effect[] flow) => plan =>
-    {
-        List<PlanRow> rows = [.. plan.Patterns[0]];
-        rows[row] = rows[row] with { Flow = [.. rows[row].Flow, .. flow] };
-        return plan with { Patterns = [rows, .. plan.Patterns.Skip(1)] };
-    };
-
     /// <summary>
     /// The song loops back to row 0 with a vibrato running from its last row; DMF would keep it running, so row 0 stops it,
     /// and restates the pan, which can't be known after a jump.
@@ -60,7 +52,7 @@ public sealed class DmfPatternTranslatorTests
             .WithCell(0, 63, 0, 0, 0, 0x4, 0x48)
             .Build());
 
-        Assert.Contains(result.Effects(GenesisChannel.Fm1, 63), e => e.Code == 0x04 && e.Value > 0);
+        Assert.Contains(result.Effects(GenesisChannel.Fm1, 63), e => e is { Code: 0x04, Value: > 0 });
         Assert.Contains((0x04, 0x00), result.Effects(GenesisChannel.Fm1, 0));
         Assert.Contains((0x08, 0x10), result.Effects(GenesisChannel.Fm1, 0));
     }
@@ -170,7 +162,7 @@ public sealed class DmfPatternTranslatorTests
         DmfConversion.Result result = DmfConversion.Convert(Song()
             .WithCell(0, 0, 0, Drum, C2)
             .WithCell(0, 2, 0, Drum, C2, 0x9, 0x40)
-            .WithCell(0, 4, 0, Drum, C2, 0xC, 0)
+            .WithCell(0, 4, 0, Drum, C2, 0xC)
             .Build());
 
         Assert.Equal(100, result.Cell(GenesisChannel.Fm6, 2).Note);

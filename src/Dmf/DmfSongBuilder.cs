@@ -133,7 +133,7 @@ internal static class DmfSongBuilder
     }
 
     /// <summary>An FM patch as a DMF instrument: operators in file order (OP1, OP3, OP2, OP4), detune stored with 3 = none.</summary>
-    internal static DmfInstrument Instrument(FmPatch patch)
+    private static DmfInstrument Instrument(FmPatch patch)
     {
         int[] fileOrder = [0, 2, 1, 3];
         DmfOperator[] operators = [.. fileOrder.Select(i => Operator(patch.Operators[i]))];
@@ -233,15 +233,11 @@ internal static class DmfSongBuilder
     {
         foreach ((int sample, bool measured) in translation.FmSamples)
         {
-            string label = Label(sample, song.Samples[sample].Name);
-            if (measured)
-            {
-                notes.Add("Sample {Sample}: its FM notes are placed at the pitch measured from the sample", label);
-            }
-            else
-            {
-                notes.Add("Sample {Sample}: no clear pitch found, so its FM notes are placed two octaves above the MOD note's name", label);
-            }
+            notes.Add(
+                measured
+                    ? "Sample {Sample}: its FM notes are placed at the pitch measured from the sample"
+                    : "Sample {Sample}: no clear pitch found, so its FM notes are placed two octaves above the MOD note's name",
+                Label(sample, song.Samples[sample].Name));
         }
 
         int copies = translation.DacVariants.Count;

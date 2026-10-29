@@ -17,7 +17,7 @@ namespace Mod2Xgm.Dmf;
 internal sealed class DmfPatternTranslator
 {
     /// <summary>Most effect columns a DMF channel has (docs/formats/dmf.md#7-pattern-data).</summary>
-    public const int MaxEffectColumns = 4;
+    private const int MaxEffectColumns = 4;
 
     /// <summary>Samples the DAC can reach: 12 banks (<c>EBxx</c>) of 12 notes (docs/formats/dmf.md#dac-samples-on-fm6).</summary>
     public const int MaxDacNotes = 144;
@@ -73,7 +73,7 @@ internal sealed class DmfPatternTranslator
     private const int ArpeggioCode = 0x00;
     private const int SlideUp = 0x01;
     private const int SlideDown = 0x02;
-    private const int Portamento = 0x03;
+    private const int PortamentoCode = 0x03;
     private const int VibratoCode = 0x04;
     private const int TremoloCode = 0x07;
     private const int Panning = 0x08;
@@ -227,36 +227,27 @@ internal sealed class DmfPatternTranslator
     }
 
     /// <summary>One run over the rows.</summary>
-    private sealed class Pass
+    /// <param name="translator">The translation this pass belongs to.</param>
+    /// <param name="stopsAt">Effects to stop where a jump lands, learned by the previous pass.</param>
+    private sealed class Pass(DmfPatternTranslator translator, IReadOnlyDictionary<(int Order, int Row), HashSet<(int Channel, int Code)>> stopsAt)
     {
-        private readonly DmfPatternTranslator _t;
-        private readonly IReadOnlyDictionary<(int Order, int Row), HashSet<(int Channel, int Code)>> _stopsAt;
+        private readonly DmfPatternTranslator _t = translator;
+        private readonly IReadOnlyDictionary<(int Order, int Row), HashSet<(int Channel, int Code)>> _stopsAt = stopsAt;
         private readonly HashSet<(int Order, int Row)> _destinations = [];
         private readonly Track[] _tracks = [.. Enumerable.Range(0, GenesisPlan.ChannelCount).Select(_ => new Track())];
-        private readonly Memory[] _memory;
-        private readonly double?[] _panOverride;
+        private readonly Memory[] _memory = [.. translator._song.Channels.Select(_ => new Memory())];
+        private readonly double?[] _panOverride = new double?[translator._song.Channels.Count];
         private readonly List<DacVariant> _variants = [];
         private readonly Dictionary<DacVariant, int> _variantIndex = [];
         private readonly List<double> _variantSeconds = [];
         private readonly Dictionary<string, int> _tallies = [];
         private readonly SortedDictionary<int, bool> _fmSamples = [];
-        private readonly DmfCell[][][] _cells;
+        private readonly DmfCell[][][] _cells = [.. Enumerable.Range(0, GenesisPlan.ChannelCount).Select(_ => new DmfCell[translator._orders][])];
 
-        private TickTimes _pair;
-        private int _speed;
+        private TickTimes _pair = new(translator._timing.Timing.TickTime1, translator._timing.Timing.TickTime2);
+        private int _speed = translator._plan.Timing.Speed;
         private double _seconds;
         private bool _restorePair;
-
-        public Pass(DmfPatternTranslator translator, IReadOnlyDictionary<(int Order, int Row), HashSet<(int Channel, int Code)>> stopsAt)
-        {
-            _t = translator;
-            _stopsAt = stopsAt;
-            _memory = [.. translator._song.Channels.Select(_ => new Memory())];
-            _panOverride = new double?[translator._song.Channels.Count];
-            _cells = [.. Enumerable.Range(0, GenesisPlan.ChannelCount).Select(_ => new DmfCell[translator._orders][])];
-            _pair = new TickTimes(translator._timing.Timing.TickTime1, translator._timing.Timing.TickTime2);
-            _speed = translator._plan.Timing.Speed;
-        }
 
         /// <summary>For each row a jump lands on, the effects that were running on each channel when some jump left for it.</summary>
         public Dictionary<(int Order, int Row), HashSet<(int Channel, int Code)>> RunningAtJumps { get; } = [];
@@ -328,7 +319,7 @@ internal sealed class DmfPatternTranslator
                     track.Forget();
                     if (_stopsAt.TryGetValue((order, row), out HashSet<(int Channel, int Code)>? stops))
                     {
-                        foreach ((int c, int code) in stops.Where(s => s.Channel == channel))
+                        foreach (int code in stops.Where(s => s.Channel == channel).Select(s => s.Code))
                         {
                             track.Running[Group(code)] = code;
                         }
@@ -470,14 +461,14 @@ internal sealed class DmfPatternTranslator
             int? source = cell.Source;
             Memory? memory = source is { } s && s < _memory.Length ? _memory[s] : null;
 
-            if (cell.NoteOff && cell.Note is null)
+            if (cell is { NoteOff: true, Note: null })
             {
                 draft.Note = NoteOff;
                 EndSound(channel, track);
             }
 
             TonePortamento? porta = cell.Effects.OfType<TonePortamento>().FirstOrDefault();
-            if (cell.Note is { } note && cell.Voice is { } voice && cell.Sample is { } sample)
+            if (cell is { Note: { } note, Voice: { } voice, Sample: { } sample })
             {
                 switch (voice.Kind)
                 {
@@ -497,7 +488,7 @@ internal sealed class DmfPatternTranslator
                     track.Source = src;
                 }
             }
-            else if (cell.Volume is { } volume && track.Sounding && track.Kind is VoiceKind.Fm or VoiceKind.PsgNoise)
+            else if (cell.Volume is { } volume && track is { Sounding: true, Kind: VoiceKind.Fm or VoiceKind.PsgNoise })
             {
                 track.ModVolume = volume;
                 draft.Volume = track.Kind == VoiceKind.PsgNoise ? DmfUnits.PsgVolume(volume) : DmfUnits.FmVolume(volume);
@@ -579,7 +570,7 @@ internal sealed class DmfPatternTranslator
             }
 
             int fine = DmfUnits.FinePitchCentre + (int)Math.Round((semitones - whole) * DmfUnits.FinePitchStepsPerSemitone, MidpointRounding.AwayFromZero);
-            bool glide = porta is not null && track.Sounding && track.Kind == VoiceKind.Fm;
+            bool glide = porta is not null && track is { Sounding: true, Kind: VoiceKind.Fm };
             (draft.Note, draft.Octave) = NoteAndOctave(shifted);
 
             // An instrument on a portamento row would restart the note in DefleMask (Furnace: newInsTriggersInPorta).
@@ -788,7 +779,7 @@ internal sealed class DmfPatternTranslator
             bool dac = track.Kind == VoiceKind.Dac;
             switch (effect)
             {
-                case Model.Arpeggio arpeggio when fm:
+                case Arpeggio arpeggio when fm:
                     Issue(new DmfEffect(ArpeggioCode, (Math.Min(arpeggio.FirstSemitones, 15) << 4) | Math.Min(arpeggio.SecondSemitones, 15)), PitchPriority, track, effects, issued);
                     break;
                 case PitchSlide slide when fm:
@@ -837,7 +828,7 @@ internal sealed class DmfPatternTranslator
         {
             string name = effect switch
             {
-                Model.Arpeggio => "arpeggio (0xy)",
+                Arpeggio => "arpeggio (0xy)",
                 PitchSlide => "pitch slide (1xx, 2xx, E1x, E2x)",
                 TonePortamento => "tone portamento (3xx, 5xy)",
                 Vibrato => "vibrato (4xy, 6xy)",
@@ -901,7 +892,7 @@ internal sealed class DmfPatternTranslator
         /// <summary>Effects that share DefleMask's state: 01, 02 and 03 one speed; 0A and 07 one volume change.</summary>
         private static int Group(int code) => code switch
         {
-            SlideDown or Portamento => SlideUp,
+            SlideDown or PortamentoCode => SlideUp,
             TremoloCode => VolumeSlideCode,
             _ => code,
         };
@@ -959,11 +950,11 @@ internal sealed class DmfPatternTranslator
                 // The whole glide takes distance / perRow rows of the MOD, so as many rows' ticks in the DMF.
                 double move = 12 * Math.Log2(track.Period / target);
                 double ticks = distance / perRow * row.Ticks;
-                Issue(new DmfEffect(Portamento, DmfUnits.ByteValue(DmfUnits.FnumDistance(track.Semitones, move) / ticks)), PitchPriority, track, effects, issued);
+                Issue(new DmfEffect(PortamentoCode, DmfUnits.ByteValue(DmfUnits.FnumDistance(track.Semitones, move) / ticks)), PitchPriority, track, effects, issued);
             }
-            else if (track.Running.ContainsKey(Group(Portamento)))
+            else if (track.Running.ContainsKey(Group(PortamentoCode)))
             {
-                issued.Add(Group(Portamento));
+                issued.Add(Group(PortamentoCode));
             }
             else if (distance > 0)
             {

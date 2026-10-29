@@ -62,7 +62,7 @@ internal static class DmfUnits
     /// The volume-column value for <paramref name="volume"/>, unrounded: full volume is <paramref name="max"/>, and each
     /// step down is <paramref name="stepDb"/> quieter.
     /// </summary>
-    public static double ExactSteps(double volume, int max, double stepDb) =>
+    private static double ExactSteps(double volume, int max, double stepDb) =>
         volume <= 0 ? 0 : Math.Clamp(max + (20 * Math.Log10(volume) / stepDb), 0, max);
 
     /// <summary>The volume steps of <paramref name="volume"/> on an FM (<paramref name="psg"/> false) or PSG channel, unrounded.</summary>

@@ -54,14 +54,12 @@ internal static class DmfEffectProbes
             .WithSample(Hat, "hat", HatData.Length, data: i => (sbyte)Math.Round(HatData[i] * Math.Exp(-i / 600.0)));
 
     /// <summary>Puts <paramref name="effect"/> <paramref name="parameter"/> on channel 1, rows <paramref name="from"/> to <paramref name="to"/>.</summary>
-    private static ModBuilder Hold(ModBuilder mod, int from, int to, int effect, int parameter, int channel = 0)
+    private static void Hold(ModBuilder mod, int from, int to, int effect, int parameter, int channel = 0)
     {
         for (int row = from; row <= to; row++)
         {
             mod.WithCell(0, row, channel, 0, 0, effect, parameter);
         }
-
-        return mod;
     }
 
     /// <summary>Slide up (<c>104</c>) for 8 rows, back to C-2, slide down (<c>204</c>), then four fine slides up (<c>E14</c>).</summary>
@@ -77,7 +75,7 @@ internal static class DmfEffectProbes
             mod.WithCell(0, row, 0, 0, 0, 0xE, 0x14);
         }
 
-        return mod.WithCell(0, 60, 0, 0, 0, 0xC, 0);
+        return mod.WithCell(0, 60, 0, 0, 0, 0xC);
     }
 
     /// <summary>C-2 glides up to G-2 (<c>308</c>, then <c>300</c> to keep going), fast down to C-2 (<c>310</c>), then to E-2 while fading (<c>502</c>).</summary>
@@ -90,7 +88,7 @@ internal static class DmfEffectProbes
         Hold(mod, 33, 47, 0x3, 0x00);
         mod.WithCell(0, 48, 0, 0, E2, 0x5, 0x02);
         Hold(mod, 49, 59, 0x5, 0x02);
-        return mod.WithCell(0, 62, 0, 0, 0, 0xC, 0);
+        return mod.WithCell(0, 62, 0, 0, 0, 0xC);
     }
 
     /// <summary>Gentle vibrato (<c>448</c>), fast and deep (<c>48C</c>), vibrato while fading (<c>602</c>), then a plain note.</summary>
@@ -102,7 +100,7 @@ internal static class DmfEffectProbes
         Hold(mod, 17, 31, 0x4, 0x00);
         Hold(mod, 32, 43, 0x6, 0x02);
         mod.WithCell(0, 48, 0, Lead, C2);
-        return mod.WithCell(0, 60, 0, 0, 0, 0xC, 0);
+        return mod.WithCell(0, 60, 0, 0, 0, 0xC);
     }
 
     /// <summary>A major (<c>047</c>), a minor (<c>037</c>) and an octave (<c>00C</c>) arpeggio on C, then the plain note.</summary>
@@ -115,7 +113,7 @@ internal static class DmfEffectProbes
         mod.WithCell(0, 32, 0, Lead, C2, 0x0, 0x0C);
         Hold(mod, 33, 47, 0x0, 0x0C);
         mod.WithCell(0, 48, 0, Lead, C2);
-        return mod.WithCell(0, 60, 0, 0, 0, 0xC, 0);
+        return mod.WithCell(0, 60, 0, 0, 0, 0xC);
     }
 
     /// <summary>Volume steps (<c>C40</c>, <c>C20</c>, <c>C10</c>, <c>C08</c>), a slide down (<c>A02</c>) and up (<c>A20</c>), and fine slides (<c>EA4</c>, <c>EB8</c>).</summary>
@@ -131,7 +129,7 @@ internal static class DmfEffectProbes
         mod.WithCell(0, 54, 0, 0, 0, 0xE, 0xB8);
         mod.WithCell(0, 56, 0, 0, 0, 0xE, 0xB8);
         mod.WithCell(0, 58, 0, 0, 0, 0xE, 0xA4);
-        return mod.WithCell(0, 62, 0, 0, 0, 0xC, 0);
+        return mod.WithCell(0, 62, 0, 0, 0, 0xC);
     }
 
     /// <summary>Slow tremolo (<c>748</c>), fast and deep (<c>78F</c>), then a plain note.</summary>
@@ -141,7 +139,7 @@ internal static class DmfEffectProbes
         Hold(mod, 1, 15, 0x7, 0x48);
         Hold(mod, 16, 31, 0x7, 0x8F);
         mod.WithCell(0, 40, 0, 0, 0, 0xC, 0x20);
-        return mod.WithCell(0, 60, 0, 0, 0, 0xC, 0);
+        return mod.WithCell(0, 60, 0, 0, 0, 0xC);
     }
 
     /// <summary>
@@ -165,8 +163,8 @@ internal static class DmfEffectProbes
         {
             mod.WithCell(0, row, 0, Lead, C2, 0xE, 0xD3);
             mod.WithCell(0, row, 1, Lead, C3);
-            mod.WithCell(0, row + 2, 0, 0, 0, 0xC, 0);
-            mod.WithCell(0, row + 2, 1, 0, 0, 0xC, 0);
+            mod.WithCell(0, row + 2, 0, 0, 0, 0xC);
+            mod.WithCell(0, row + 2, 1, 0, 0, 0xC);
         }
 
         mod.WithCell(0, 48, 2, Drum, C2, 0xE, 0x93);
@@ -182,7 +180,7 @@ internal static class DmfEffectProbes
         for (int channel = 0; channel < 4; channel++)
         {
             mod.WithCell(0, channel * 16, channel, Lead, periods[channel]);
-            mod.WithCell(0, (channel * 16) + 12, channel, 0, 0, 0xC, 0);
+            mod.WithCell(0, (channel * 16) + 12, channel, 0, 0, 0xC);
         }
 
         mod.WithCell(0, 56, 1, Drum, C2);

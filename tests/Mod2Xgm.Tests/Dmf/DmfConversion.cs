@@ -14,8 +14,8 @@ namespace Mod2Xgm.Tests.Dmf;
 /// </summary>
 internal static class DmfConversion
 {
-    /// <summary>The DMF file, its bytes, the plan it came from, and the conversion notes.</summary>
-    internal sealed record Result(DmfFile File, byte[] Bytes, GenesisPlan Plan, Song Song, List<string> Notes)
+    /// <summary>The DMF file, its bytes, and the conversion notes.</summary>
+    internal sealed record Result(DmfFile File, byte[] Bytes, List<string> Notes)
     {
         /// <summary>The cell of channel <paramref name="channel"/> at <paramref name="order"/>, <paramref name="row"/>.</summary>
         public DmfCell Cell(GenesisChannel channel, int row, int order = 0) => File.Channels[(int)channel].Patterns[order][row];
@@ -44,6 +44,6 @@ internal static class DmfConversion
         DmfTimingPlan timing = DmfTimingPlanner.Plan(plan, 1.0, Region.Pal, notes);
         DmfFile built = DmfSongBuilder.Build(plan, song, timing, new DmfBuildSettings(AmigaPitch.PalClockHz, ResamplingMode.Smooth), notes);
         byte[] bytes = DmfWriter.Write(built, notes);
-        return new Result(DmfReader.Read(bytes), bytes, plan, song, [.. notes.Messages]);
+        return new Result(DmfReader.Read(bytes), bytes, [.. notes.Messages]);
     }
 }

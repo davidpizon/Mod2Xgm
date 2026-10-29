@@ -99,8 +99,8 @@ public sealed class SimpleMapperTests
             RowOf(Cell.Empty, new Cell(null, null, 0.25, []), Cell.Empty, new Cell(null, null, null, [new Retrigger(3)])),
         ]]));
 
-        Assert.Equal((1, (int?)Organ), (CellAt(plan, GenesisChannel.Fm2).Source, CellAt(plan, GenesisChannel.Fm2).Sample));
-        Assert.Equal((3, (int?)Kick), (CellAt(plan, GenesisChannel.Fm6).Source, CellAt(plan, GenesisChannel.Fm6).Sample));
+        Assert.Equal((1, Organ), (CellAt(plan, GenesisChannel.Fm2).Source, CellAt(plan, GenesisChannel.Fm2).Sample));
+        Assert.Equal((3, Kick), (CellAt(plan, GenesisChannel.Fm6).Source, CellAt(plan, GenesisChannel.Fm6).Sample));
         Assert.Equal(1, CellAt(plan, GenesisChannel.Fm2, row: 1).Source);
         Assert.Null(CellAt(plan, GenesisChannel.Fm2, row: 1).Sample);
         Assert.Equal(3, CellAt(plan, GenesisChannel.Fm6, row: 1).Source);
