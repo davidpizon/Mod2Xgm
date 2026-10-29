@@ -56,6 +56,7 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0040](0040-simple-mapper.md) | Simple mapper, `--no-dac` and the Genesis plan (T5.3) | 2026-10-28 | Accepted |
 | [0041](0041-require-dac-require-psg.md) | `--require-pcm` becomes `--require-dac`; add `--require-psg` | 2026-10-28 | Accepted; supersedes [ADR 0021](0021-require-fm-require-pcm.md) |
 | [0042](0042-scoring-metrics.md) | Scoring metrics (T6.2) | 2026-10-28 | Accepted |
+| [0043](0043-dmf-timing.md) | DMF timing: tick rate, tick times and speed changes (T5.4) | 2026-10-28 | Accepted |
 
 ## Open questions
 

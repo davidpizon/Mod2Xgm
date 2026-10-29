@@ -87,11 +87,14 @@ Suggest highlight A = 4, B = 16 (MOD convention).
 
 (The old 1-byte arpeggio tick speed was removed in ver 11.1 — don't write it.)
 
-**MOD timing mapping:** tick time 1 = tick time 2 = MOD speed. Tick rate = BPM×2/5 Hz; BPM 125 → PAL with
-no custom Hz; any other BPM → custom Hz, rounded to whole Hz (conversion note when it isn't whole). Mid-song speed
-changes use `09xx` + `0Fxx` (see [Effects](#effects)). **DMF has no tick-rate effect**: the custom Hz value is
-the one rate for the whole song, so a mid-song tempo (BPM) change can only be approximated through speeds
-(conversion note) — plan T5.4.
+**MOD timing mapping** ([ADR 0043](../adr/0043-dmf-timing.md), `DmfTimingPlanner`): the tick rate is the song's
+most-used one, BPM×2/5 Hz (×6/5 for an NTSC Amiga), rounded to whole Hz; it is the output region's 50/60 with no
+custom Hz only when it equals that frame rate, custom Hz otherwise. Tick time 1 = tick time 2 = MOD speed at that
+rate. **DMF has no tick-rate effect**: the custom Hz value is the one rate for the whole song, so every other
+speed/tempo pair is copied with tick times that make its rows as long as the MOD's (tick time 1 + tick time 2 =
+2 × Hz × speed ÷ the pair's tick rate, rounded; they differ by at most one), set by `09xx` + `0Fxx` on the row
+(see [Effects](#effects)). When whole Hz or half-tick steps would leave the song more than 1 % off, the tick rate is
+a multiple of the song's and per-tick effects are scaled by that multiple. Conversion notes say what was rounded.
 
 ### 5. Pattern matrix
 Channel-major: for each channel (10 or 13, in the order above), for each matrix row, 1 byte = pattern index
