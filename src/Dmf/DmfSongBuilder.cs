@@ -149,9 +149,11 @@ internal static class DmfSongBuilder
             }
         }
 
-        List<DmfInstrumentSource> sources = [.. fm.Select(s => new DmfInstrumentSource(VoiceKind.Fm, [.. s]))];
-        sources.AddRange(noiseInstruments.OrderBy(n => n.Value).Select(n => new DmfInstrumentSource(VoiceKind.PsgNoise, [n.Key])));
-        return sources;
+        return
+        [
+            .. fm.Select(s => new DmfInstrumentSource(VoiceKind.Fm, [.. s])),
+            .. noiseInstruments.OrderBy(n => n.Value).Select(n => new DmfInstrumentSource(VoiceKind.PsgNoise, [n.Key])),
+        ];
     }
 
     private static DmfSampleSource SampleSource(DacVariant variant, GenesisPlan plan) =>

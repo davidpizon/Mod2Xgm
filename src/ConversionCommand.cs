@@ -112,7 +112,7 @@ internal static class ConversionCommand
     }
 
     /// <summary>The line every <c>--format xgm2</c> run prints, verbatim (docs/cli.md#console-output).</summary>
-    internal const string Xgm2ExtensionNote = "NOTE: SGDK expects XGM2 files to use the .XGM file extension.";
+    private const string Xgm2ExtensionNote = "NOTE: SGDK expects XGM2 files to use the .XGM file extension.";
 
     /// <summary>The optimizer (plan M9) isn't built yet, so every quality uses the simple mapper; a run asking for more says so (ADR 0045).</summary>
     private static void LogQuality(ConversionOptions options, ILogger logger)
