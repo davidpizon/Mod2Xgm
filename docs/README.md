@@ -16,13 +16,14 @@
 | [formats/xgm.txt](formats/xgm.txt) | Official SGDK XGM v1.01 spec, verbatim copy |
 | [genesis-audio.md](genesis-audio.md) | YM2612 / SN76489 facts the converter relies on |
 | [testing.md](testing.md) | Test strategy and test data rules |
+| [harness.md](harness.md) | Accuracy harness: scores conversions against OpenMPT on the corpus; setup, options, output |
 | [adr/](adr/README.md) | Architecture Decision Records: every decision, one file each, plus open questions ([decisions.md](decisions.md) points there) |
 
 ## Goal
 
 Produce the **most accurate *sounding*** rendition of the MOD on Genesis hardware. When trade-offs are
 needed, sound accuracy wins over output size, editability in DefleMask, or implementation simplicity.
-Accuracy is judged by listening and by the measurement harness in [testing.md](testing.md).
+Accuracy is judged by listening and by the measurement harness ([harness.md](harness.md)).
 
 ## Scope of v1
 

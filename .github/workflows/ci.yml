@@ -84,7 +84,8 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          dotnet test -c Release \
+          # Mod2Xgm.Tests only: the converter's tests, and the one report the next step reads (ADR 0047).
+          dotnet test -c Release --project tests/Mod2Xgm.Tests \
             --coverage \
             --coverage-output-format cobertura \
             --coverage-output coverage.cobertura.xml \

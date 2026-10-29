@@ -58,7 +58,7 @@ libraries for these.
 
 ```
 /AGENTS.md                  this file
-/Mod2Xgm.slnx               solution (XML .slnx format) — src/ and tests/ projects
+/Mod2Xgm.slnx               solution (XML .slnx format) — src/, tests/ and tools/ projects
 /Directory.Build.props      settings shared by every project (net10.0, nullable, warnings-as-errors, analyzers)
 /Directory.Packages.props   central package versions — PackageReference items carry no Version
 /.gitattributes             line-ending normalization (LF in the repo)
@@ -69,6 +69,8 @@ libraries for these.
 /src/Program.cs             entry point
 /tests/                     test projects, one folder each (see tests/README.md)
 /tests/Mod2Xgm.Tests/       xUnit v3 tests for the app
+/tests/Mod2Xgm.Harness.Tests/ xUnit v3 tests for the accuracy harness
+/tools/Mod2Xgm.Harness/     accuracy harness: scores conversions against OpenMPT on the corpus (docs/harness.md)
 /.vs/                       Visual Studio state — never edit or commit (git-ignored)
 ```
 
@@ -175,7 +177,8 @@ compiler, analyzer, trim/AOT, NuGet or MSBuild warning fails the build.
    - Pin the version in `Directory.Packages.props`, record the addition in an ADR (`docs/adr/`), and add it to
      `THIRD-PARTY-NOTICES.md`.
    Approved so far: **Serilog**, **Serilog.Sinks.Console**, **System.CommandLine**, **NWaves** (resampling, ADR 0038);
-   test-only **xUnit v3**.
+   test-only **xUnit v3**; harness-only **libopenmpt** (native, BSD-3, loaded at run time by `tools/Mod2Xgm.Harness`,
+   never by the converter; ADR 0047).
    The BCL still covers the basics: `ZLibStream` (DMF is zlib-compressed), `BinaryPrimitives` (endianness), `Span<T>`.
 3. **Local-only.** The tool never touches the network.
 4. **Never modify the input file.** Output goes next to the input unless `--output` is given. Do not

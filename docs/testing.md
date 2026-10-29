@@ -1,7 +1,8 @@
 # Testing
 
 Test projects live in **`tests/`**, one folder each (see [`tests/README.md`](../tests/README.md)). The main one is
-`tests/Mod2Xgm.Tests` (**xUnit v3**), referenced from the root `Mod2Xgm.slnx`. Run with `dotnet test`.
+`tests/Mod2Xgm.Tests` (**xUnit v3**); `tests/Mod2Xgm.Harness.Tests` tests the accuracy harness. Both are in the root
+`Mod2Xgm.slnx`. Run with `dotnet test`.
 
 ## Layers
 1. **Reader unit tests** — build MOD bytes in code (a small `ModBuilder` test helper) and assert
@@ -41,10 +42,12 @@ Coverage comes from **Microsoft.Testing.Extensions.CodeCoverage** (Cobertura XML
 summary and a `Line coverage` annotation, **fails below 80 %** (`MIN_LINE_COVERAGE`), and keeps the report as
 the `coverage-cobertura` artifact.
 
-Measure locally (from the repository root):
+Coverage is measured on `tests/Mod2Xgm.Tests` only: it is the project that tests the converter, and with every test
+project in one run the reports of both would land in the same folder and CI could pick the wrong one
+([ADR 0047](adr/0047-accuracy-harness.md)). Measure locally (from the repository root):
 
 ```
-dotnet test --coverage --coverage-output-format cobertura --coverage-output coverage.cobertura.xml --coverage-settings tests/coverage.runsettings --results-directory artifacts/coverage
+dotnet test --project tests/Mod2Xgm.Tests --coverage --coverage-output-format cobertura --coverage-output coverage.cobertura.xml --coverage-settings tests/coverage.runsettings --results-directory artifacts/coverage
 ```
 
 Read the line coverage (the first `line-rate` attribute; 0.934 = 93.4 %):
@@ -67,9 +70,13 @@ or make the code testable (e.g. `Program.Run` takes the work as a delegate so th
 
 The goal is the most accurate **sounding** output, so it is measured, not guessed:
 
-1. Render the MOD to WAV with a reference player (`openmpt123 --render` or libxmp).
-2. Render the output: DefleMask WAV export for `.dmf`; emulator audio capture (BlastEm / Genesis Plus GX)
-   of an SGDK test ROM for `.xgm` / `.xgm2`.
+`tools/Mod2Xgm.Harness` does all of it on the corpus in one command; [harness.md](harness.md) says how to set it up and
+run it ([ADR 0047](adr/0047-accuracy-harness.md)).
+
+1. Render the MOD with a reference player: libopenmpt, OpenMPT's engine (what `openmpt123 --render` plays). The
+   tick player's timeline is checked against libopenmpt's, row by row, to one tick ([harness.md](harness.md#song-timeline)).
+2. Render the output: Furnace (automatic) and DefleMask WAV exports (by hand) for `.dmf`; emulator audio capture
+   (BlastEm / Genesis Plus GX) of an SGDK test ROM for `.xgm` / `.xgm2` (plans M10/M11).
 3. Align and compare with objective metrics — multi-resolution log-mel spectral distance and onset/timing
    error — plus a short A/B listening check.
    `src/Scoring` (`SongScorer.Compare`) does the comparing: it lines the two renderings up, then reports the log-mel

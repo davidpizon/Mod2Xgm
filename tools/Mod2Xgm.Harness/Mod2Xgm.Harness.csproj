@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The accuracy harness (docs/harness.md, ADR 0047): scores conversions against OpenMPT on the corpus. Runs on a
+       developer PC only; it may launch other programs (Furnace) and load libopenmpt, which the converter never does.
+       Shared settings (target framework, warnings-as-errors, analyzers) live in ../../Directory.Build.props. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- LibraryImport (source-generated P/Invoke into libopenmpt) needs pointers. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Serilog" />
+    <PackageReference Include="Serilog.Sinks.Console" />
+    <PackageReference Include="System.CommandLine" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Mod2Xgm.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Mod2Xgm.Harness.Tests" />
+  </ItemGroup>
+
+</Project>
