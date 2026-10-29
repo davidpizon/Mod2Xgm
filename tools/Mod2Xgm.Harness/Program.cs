@@ -23,11 +23,11 @@ internal static class Program
     internal static int DefaultJobs => Math.Clamp(Environment.ProcessorCount / 2, 1, 4);
 
     /// <summary>DefleMask exports made for plan T5.7, used when present.</summary>
-    internal const string DefaultDefleMaskWavs = "tests/golden/corpus-check/out/wav";
+    private const string DefaultDefleMaskWavs = "tests/golden/corpus-check/out/wav";
 
     internal static int Main(string[] args)
     {
-        LoggingLevelSwitch level = new(LogEventLevel.Information);
+        LoggingLevelSwitch level = new(); // starts at Information
         Log.Logger = new LoggerConfiguration()
             .MinimumLevel.ControlledBy(level)
             .WriteTo.Console(outputTemplate: Mod2Xgm.Program.ConsoleOutputTemplate, formatProvider: CultureInfo.InvariantCulture, standardErrorFromLevel: LogEventLevel.Warning)

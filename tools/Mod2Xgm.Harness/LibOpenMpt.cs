@@ -23,7 +23,7 @@ internal static partial class LibOpenMpt
     public static void UseDirectory(string? directory) => _directory = directory;
 
     /// <summary>The library's file name on this OS, as its packages install it.</summary>
-    internal static string FileName =>
+    private static string FileName =>
         OperatingSystem.IsWindows() ? "libopenmpt.dll" : OperatingSystem.IsMacOS() ? "libopenmpt.0.dylib" : "libopenmpt.so.0";
 
     /// <summary>
@@ -98,7 +98,7 @@ internal static partial class LibOpenMpt
     }
 
     [LibraryImport(Library, EntryPoint = "openmpt_get_library_version")]
-    internal static partial uint GetLibraryVersion();
+    private static partial uint GetLibraryVersion();
 
     [LibraryImport(Library, EntryPoint = "openmpt_module_create_from_memory2")]
     internal static unsafe partial IntPtr CreateFromMemory(
@@ -114,10 +114,10 @@ internal static partial class LibOpenMpt
 
     /// <summary>libopenmpt.h: the text for an <c>OPENMPT_ERROR_*</c> code; free it with <see cref="FreeString"/>.</summary>
     [LibraryImport(Library, EntryPoint = "openmpt_error_string")]
-    internal static partial IntPtr ErrorString(int error);
+    private static partial IntPtr ErrorString(int error);
 
     [LibraryImport(Library, EntryPoint = "openmpt_free_string")]
-    internal static partial void FreeString(IntPtr text);
+    private static partial void FreeString(IntPtr text);
 
     /// <summary>
     /// A log function that drops libopenmpt's messages (its default prints them to stderr); errors still reach the

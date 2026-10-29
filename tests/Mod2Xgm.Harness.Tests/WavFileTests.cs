@@ -25,7 +25,7 @@ public sealed class WavFileTests
 
         byte[] riffSize = new byte[4];
         BinaryPrimitives.WriteUInt32LittleEndian(riffSize, (uint)(chunks.Count + 4));
-        return [.. Encoding.ASCII.GetBytes("RIFF"), .. riffSize, .. Encoding.ASCII.GetBytes("WAVE"), .. chunks];
+        return [.. "RIFF"u8, .. riffSize, .. "WAVE"u8, .. chunks];
     }
 
     /// <summary>A plain 16-byte fmt chunk.</summary>
@@ -142,9 +142,9 @@ public sealed class WavFileTests
     {
         byte[] wav = kind switch
         {
-            "not-riff" => Encoding.ASCII.GetBytes("RIFX....WAVE"),
+            "not-riff" => "RIFX....WAVE"u8.ToArray(),
             "no-data" => Wav(Fmt(1, 1, 8000, 16), [])[..36],
-            "data-first" => [.. Encoding.ASCII.GetBytes("RIFF"), 12, 0, 0, 0, .. Encoding.ASCII.GetBytes("WAVEdata"), 0, 0, 0, 0],
+            "data-first" => [.. "RIFF"u8, 12, 0, 0, 0, .. "WAVEdata"u8, 0, 0, 0, 0],
             "short-fmt" => Wav(new byte[14], []),
             "three-channels" => Wav(Fmt(1, 3, 8000, 16), new byte[6]),
             "zero-rate" => Wav(Fmt(1, 1, 0, 16), new byte[2]),

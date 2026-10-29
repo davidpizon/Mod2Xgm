@@ -57,7 +57,7 @@ public sealed class CorpusRunTests
     public void ASongIsConvertedCheckedAndScored()
     {
         using TempDirectory temp = new();
-        Candidate same = new("same", _ => new CandidateRender(TestFiles.Tone(2.0, 8000), "a remark"));
+        Candidate same = new("same", _ => new CandidateRender(TestFiles.Tone(2.0), "a remark"));
         Candidate nothing = new("nothing", _ => null);
         Candidate failing = new("failing", _ => throw new HarnessException("broken renderer"));
         CorpusRun run = new(temp.Path, Rate, saveReferenceWavs: true, new ToneReference(30.72), [same, nothing, failing], Logger.None);

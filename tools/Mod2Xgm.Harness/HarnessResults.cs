@@ -119,7 +119,7 @@ internal sealed record RowTiming(int Order, int Row, double TickPlayerSeconds, d
 internal static class OpenMptTiming
 {
     /// <summary>The sample rate libopenmpt counts song time in (seen in its row times: 937 samples per tick at BPM 128).</summary>
-    public const int TimingRate = 48_000;
+    private const int TimingRate = 48_000;
 
     private const int MinBpm = 32;
     private const int MaxBpm = 255;
@@ -129,12 +129,13 @@ internal static class OpenMptTiming
     {
         ArgumentNullException.ThrowIfNull(playback);
         IReadOnlyList<PlaybackTick> ticks = playback.Ticks;
-        double[] ideal = [.. ticks.Select(t => Bpm(t.DurationSeconds) is { } bpm ? 2.5 / bpm : t.DurationSeconds)];
+        int?[] bpms = [.. ticks.Select(t => Bpm(t.DurationSeconds))];
+        double[] ideal = [.. ticks.Select((t, i) => bpms[i] is { } bpm ? 2.5 / bpm : t.DurationSeconds)];
 
         // A tempo change shows on the tick after the row's first tick; OpenMPT times that first tick with it already.
         for (int i = 0; i + 1 < ticks.Count; i++)
         {
-            if (ticks[i].Tick == 0 && ideal[i + 1] != ideal[i] && Bpm(ticks[i + 1].DurationSeconds) is not null)
+            if (ticks[i].Tick == 0 && bpms[i + 1] is { } next && bpms[i] != next)
             {
                 ideal[i] = ideal[i + 1];
             }

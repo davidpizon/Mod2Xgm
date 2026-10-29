@@ -113,13 +113,13 @@ internal sealed class CorpusRun(
         if (check.FirstRowOff is { } first)
         {
             logger.Information(
-                "{Song}: the players first part at order {Order} row {Row} ({OpenMptRules} s against {Reference} s); every row is in logs/{Song}.rows.csv",
+                "{Song}: the players first part at order {Order} row {Row} ({OpenMptRules} s against {Reference} s); every row is in {RowsFile}",
                 song.Name,
                 first.Order,
                 first.Row,
                 Seconds(first.OpenMptRulesSeconds),
                 Seconds(first.ReferenceSeconds),
-                song.Name);
+                $"logs/{song.Name}.rows.csv");
         }
 
         if (check.StopsAtF00)
@@ -150,7 +150,7 @@ internal sealed class CorpusRun(
         return log.Warnings;
     }
 
-    private CandidateScore? Score(ICandidateRenderer candidate, SongFiles song, AudioSignal reference)
+    private CandidateScore? Score(ICandidateRenderer candidate, SongFiles song, AudioSignal original)
     {
         try
         {
@@ -160,7 +160,7 @@ internal sealed class CorpusRun(
                 return null;
             }
 
-            ScoreReport score = SongScorer.Compare(reference, render.Audio.At(sampleRate).ToMono(), ScoreOptions.Default, logger);
+            ScoreReport score = SongScorer.Compare(original, render.Audio.At(sampleRate).ToMono(), ScoreOptions.Default, logger);
             logger.Information(
                 "{Song}: {Renderer} scores {Combined} (log-mel {Mel} dB, onset F1 {F1}){Remark}",
                 song.Name,

@@ -163,7 +163,7 @@ internal sealed class FurnaceRenderer(string executable, TimeSpan timeout) : ICa
     }
 
     /// <inheritdoc/>
-    public CandidateRender? Render(SongFiles song)
+    public CandidateRender Render(SongFiles song)
     {
         ArgumentNullException.ThrowIfNull(song);
         string wav = Path.Combine(song.WavDirectory, song.Name + ".furnace.wav");

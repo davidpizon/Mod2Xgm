@@ -67,10 +67,8 @@ public sealed class RendererTests
 
     /// <summary>Furnace renders once through, with no window and no status output, to the WAV named.</summary>
     [Fact]
-    public void FurnaceArgumentsRenderOnceToTheWav()
-    {
+    public void FurnaceArgumentsRenderOnceToTheWav() =>
         Assert.Equal(["-console", "-nostatus", "-nocontrols", "-loops", "0", "-output", "out.wav", "in.dmf"], FurnaceRenderer.Arguments("in.dmf", "out.wav"));
-    }
 
     /// <summary>A Furnace path given on the command line must exist; an existing one is used as is.</summary>
     [Fact]
@@ -108,7 +106,7 @@ public sealed class RendererTests
         SongFiles song = new("fx-poly1", TestFiles.ShortSong, temp.Combine("fx-poly1.dmf"), temp.Path);
         ConversionCommand.Execute(new ConversionOptions { InputPath = song.ModPath, OutputPath = song.DmfPath }, Logger.None);
 
-        CandidateRender? render = new FurnaceRenderer(furnace!, TimeSpan.FromMinutes(5)).Render(song); // furnace is non-null past SkipWhen.
+        CandidateRender? render = new FurnaceRenderer(furnace, TimeSpan.FromMinutes(5)).Render(song);
 
         Assert.NotNull(render);
         Assert.InRange(render.Audio.Seconds, 25, 40);
@@ -149,7 +147,7 @@ public sealed class RendererTests
     [Fact]
     public void StereoAudioResamplesAndMixes()
     {
-        StereoAudio mono = TestFiles.Tone(1.0, 8000);
+        StereoAudio mono = TestFiles.Tone(1.0);
         StereoAudio stereo = new([1f, 0f], [0f, -1f], 8000);
 
         StereoAudio up = mono.At(16_000);

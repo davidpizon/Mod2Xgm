@@ -4,7 +4,7 @@ namespace Mod2Xgm.Harness.Tests;
 internal static class TestFiles
 {
     /// <summary>The repository root: the folder above the test binaries that holds <c>Mod2Xgm.slnx</c>.</summary>
-    public static string Root { get; } = FindRoot();
+    private static string Root { get; } = FindRoot();
 
     /// <summary>A short corpus song (31 s, plan T6.1).</summary>
     public static string ShortSong => Path.Combine(Root, "tests", "data", "corpus", "fx-poly1.mod");

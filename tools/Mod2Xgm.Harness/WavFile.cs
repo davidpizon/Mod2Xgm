@@ -99,9 +99,9 @@ internal static class WavFile
     public static byte[] ToBytes(StereoAudio audio)
     {
         ArgumentNullException.ThrowIfNull(audio);
-        const int Channels = 2;
-        const int BytesPerSample = 2;
-        int dataBytes = audio.Length * Channels * BytesPerSample;
+        const int channels = 2;
+        const int bytesPerSample = 2;
+        int dataBytes = audio.Length * channels * bytesPerSample;
         byte[] bytes = new byte[44 + dataBytes];
         Span<byte> span = bytes;
         Encoding.ASCII.GetBytes("RIFF", span);
@@ -109,11 +109,11 @@ internal static class WavFile
         Encoding.ASCII.GetBytes("WAVEfmt ", span[8..]);
         BinaryPrimitives.WriteUInt32LittleEndian(span[16..], FmtMinBytes);
         BinaryPrimitives.WriteUInt16LittleEndian(span[20..], FormatPcm);
-        BinaryPrimitives.WriteUInt16LittleEndian(span[22..], Channels);
+        BinaryPrimitives.WriteUInt16LittleEndian(span[22..], channels);
         BinaryPrimitives.WriteUInt32LittleEndian(span[24..], (uint)audio.SampleRate);
-        BinaryPrimitives.WriteUInt32LittleEndian(span[28..], (uint)(audio.SampleRate * Channels * BytesPerSample));
-        BinaryPrimitives.WriteUInt16LittleEndian(span[32..], Channels * BytesPerSample);
-        BinaryPrimitives.WriteUInt16LittleEndian(span[34..], BytesPerSample * 8);
+        BinaryPrimitives.WriteUInt32LittleEndian(span[28..], (uint)(audio.SampleRate * channels * bytesPerSample));
+        BinaryPrimitives.WriteUInt16LittleEndian(span[32..], channels * bytesPerSample);
+        BinaryPrimitives.WriteUInt16LittleEndian(span[34..], bytesPerSample * 8);
         Encoding.ASCII.GetBytes("data", span[36..]);
         BinaryPrimitives.WriteUInt32LittleEndian(span[40..], (uint)dataBytes);
         for (int i = 0; i < audio.Length; i++)
