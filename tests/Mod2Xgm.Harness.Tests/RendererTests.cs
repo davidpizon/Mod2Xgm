@@ -106,9 +106,8 @@ public sealed class RendererTests
         SongFiles song = new("fx-poly1", TestFiles.ShortSong, temp.Combine("fx-poly1.dmf"), temp.Path);
         ConversionCommand.Execute(new ConversionOptions { InputPath = song.ModPath, OutputPath = song.DmfPath }, Logger.None);
 
-        CandidateRender? render = new FurnaceRenderer(furnace, TimeSpan.FromMinutes(5)).Render(song);
+        CandidateRender render = new FurnaceRenderer(furnace, TimeSpan.FromMinutes(5)).Render(song);
 
-        Assert.NotNull(render);
         Assert.InRange(render.Audio.Seconds, 25, 40);
         Assert.True(File.Exists(temp.Combine("fx-poly1.furnace.wav")));
     }
