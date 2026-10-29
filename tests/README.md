@@ -4,7 +4,8 @@ Test projects live here, one folder per project:
 
 ```
 tests/
-  Mod2Xgm.Tests/      xUnit v3 unit, golden-file and CLI tests for src/Mod2Xgm.csproj
+  Mod2Xgm.Tests/          xUnit v3 unit, golden-file and CLI tests for src/Mod2Xgm.csproj
+  Mod2Xgm.Harness.Tests/  xUnit v3 tests for the accuracy harness, tools/Mod2Xgm.Harness (docs/harness.md)
 ```
 
 - Every test project is added to the root `Mod2Xgm.slnx` and inherits `Directory.Build.props`

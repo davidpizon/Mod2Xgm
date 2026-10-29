@@ -3,6 +3,10 @@
     <Project Path="src/Mod2Xgm.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Mod2Xgm.Harness.Tests/Mod2Xgm.Harness.Tests.csproj" />
     <Project Path="tests/Mod2Xgm.Tests/Mod2Xgm.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/Mod2Xgm.Harness/Mod2Xgm.Harness.csproj" />
   </Folder>
 </Solution>

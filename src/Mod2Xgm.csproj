@@ -20,6 +20,9 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Mod2Xgm.Tests" />
+    <!-- The accuracy harness (tools/Mod2Xgm.Harness) runs the converter, tick player and scorer in-process. -->
+    <InternalsVisibleTo Include="Mod2Xgm.Harness" />
+    <InternalsVisibleTo Include="Mod2Xgm.Harness.Tests" />
   </ItemGroup>
 
 </Project>

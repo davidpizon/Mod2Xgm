@@ -30,6 +30,7 @@ Planned (add the entry when the code lands):
 | xunit.v3, xunit.runner.visualstudio | Apache-2.0 | https://github.com/xunit/xunit |
 | Microsoft.NET.Test.Sdk | MIT | https://github.com/microsoft/vstest |
 | Microsoft.Testing.Extensions.CodeCoverage | Microsoft .NET Library License (closed-source, free to use) | https://github.com/microsoft/codecoverage |
+| libopenmpt (loaded at run time by `tools/Mod2Xgm.Harness` only; installed on the PC, not in the repository; [ADR 0047](docs/adr/0047-accuracy-harness.md)) | BSD-3-Clause | https://lib.openmpt.org/libopenmpt/ |
 
 ## Reference documents included in `docs/formats/`
 
