@@ -333,6 +333,20 @@ public sealed class DmfSongBuilderTests
         Assert.Contains(result.Notes, n => n.Contains("DAC sample copies", StringComparison.Ordinal));
     }
 
+    /// <summary>
+    /// A DAC sample that clips when resampled is named by its number as well as its name, so the note still says which
+    /// sample it is when the name is empty (many real MODs leave it empty; found in the T5.7 corpus check).
+    /// </summary>
+    [Fact]
+    public void ClippingNoteNamesTheSampleNumber()
+    {
+        DmfConversion.Result result = Convert(new ModBuilder()
+            .WithSample(Drum, string.Empty, 4000, data: i => (sbyte)(i % 20 < 10 ? 127 : -128))
+            .WithCell(0, 0, 0, Drum, C2));
+
+        Assert.Contains(result.Notes, n => n.StartsWith($"Sample {Drum} \"\": ", StringComparison.Ordinal) && n.Contains("clipped converting to 16-bit PCM", StringComparison.Ordinal));
+    }
+
     /// <summary>Sample offset <c>9xx</c> on the DAC plays a copy cut at that point.</summary>
     [Fact]
     public void SampleOffsetPlaysACutCopy()

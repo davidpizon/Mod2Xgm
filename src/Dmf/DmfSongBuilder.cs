@@ -265,7 +265,7 @@ internal static class DmfSongBuilder
             name += string.Create(CultureInfo.InvariantCulture, $" -{variant.VolumeSteps * DmfPatternTranslator.DacVolumeStepDb:0}dB");
         }
 
-        short[] pcm = SampleProcessor.ToSigned16(data, sample.Name, notes);
+        short[] pcm = SampleProcessor.ToSigned16(data, Label(dac.Sample, sample.Name), notes);
         return new DmfSample(name, code, SamplePitchAsStored, SampleAmpUnchanged, SampleBits, null, null, pcm);
     }
 
