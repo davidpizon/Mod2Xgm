@@ -28,7 +28,9 @@ For each MOD (the corpus in `tests/data/corpus/` by default):
    precision/recall/F1 and timing, alignment lag, length difference and the combined number. **Lower is closer**,
    except F1.
 
-6. **Instrument balance** (with `--balance`): each MOD sample alone in the clip, from both sides, and how far its
+6. **Loudness:** each whole rendering, and each clip, on an EBU R128 meter (R128Net): integrated loudness, loudness
+   range and true peak, next to the original's ([below](#loudness)).
+7. **Instrument balance** (with `--balance`): each MOD sample alone in the clip, from both sides, and how far its
    loudness is from the original's ([below](#instrument-balance)).
 
 A song that fails (an unreadable MOD, a Furnace error) is reported and the run goes on.
@@ -75,6 +77,26 @@ makes **stems**, each MOD sample alone, and compares their loudness ([ADR 0051](
   loudness but not sample by sample, so the check compares levels.
 
 A balance run renders each sample once more with each player: on the corpus it takes a few minutes with `-j 4`.
+
+Each stem's offset is also measured a second way, by gated EBU R128 loudness (`r128_offset_lu`, below): the stem's
+loudness next to its mix in the conversion, minus the same in the original. Gating ignores the moments an instrument is
+silent, so it reads how loud the instrument is *when it plays* ([ADR 0053](adr/0053-r128-loudness-in-the-harness.md)).
+
+## Loudness
+
+Every rendering, and the original, goes through an ITU-R BS.1770 / EBU R128 loudness meter (R128Net, a C# port of
+libebur128; [ADR 0053](adr/0053-r128-loudness-in-the-harness.md)), in stereo:
+
+- **Integrated loudness** (LUFS): what a loudness meter shows for the whole song, gated so silences and fades don't count.
+  *Δ LU* is the conversion minus the original (+ = louder).
+- **Loudness range** (LRA, LU): how far the song's loud parts are from its quiet ones. A smaller range than the original's
+  means the conversion flattened the dynamics.
+- **True peak** (dBTP, 4× oversampled): above 0 the render clips.
+
+Whole songs are in the report and `loudness.csv`; with `--clip`, the clips get a line of their own in `loudness.csv`.
+
+`BalanceMetrics` (the balance distance) keeps its own K-weighting in the converter's `src/Scoring`. A test checks it against
+R128Net: it reads up to 0.3 dB low, for the reasons in ADR 0053.
 
 ## Setup
 
@@ -128,7 +150,8 @@ In the output folder:
 | `scores.csv` | `song,renderer,combined,mel_db,mfcc,onset_precision,onset_recall,onset_f1,onset_timing_ms,lag_ms,length_difference_s,remark` |
 | `clip-scores.csv` | With `--clip`: the same columns as `scores.csv`, for the first seconds only |
 | `balance.csv` | With `--balance`: `song,renderer,balance_db,static_db,mix_relative_db,gain_db,stems,reference_sum_error_db,candidate_sum_error_db` |
-| `balance-instruments.csv` | With `--balance`: `song,renderer,sample,name,voices,offset_db,distance_db,frames,reference_level_db`, one line per stem |
+| `balance-instruments.csv` | With `--balance`: `song,renderer,sample,name,voices,offset_db,distance_db,frames,reference_level_db,r128_offset_lu`, one line per stem |
+| `loudness.csv` | `song,renderer,span,reference_lufs,candidate_lufs,difference_lu,reference_lra_lu,candidate_lra_lu,reference_true_peak_dbtp,candidate_true_peak_dbtp`; `span` is `song`, or `clip` with `--clip` |
 | `durations.csv` | `song,tick_player_s,openmpt_rules_s,reference_s,difference_s,amiga_difference_s,one_tick_s,within_one_tick,first_row_off,stops_at_f00,conversion_notes,error` |
 | `dmf/`, `wav/` | The conversions and the renders; `dmf/stems/` holds the stem DMFs (their renders are deleted) |
 | `logs/` | Each conversion's console output (`song.log`) and its rows' times (`song.rows.csv`: `order,row,tick_player_s,openmpt_rules_s,reference_s,difference_s`) |
@@ -141,5 +164,5 @@ are measured against, is committed in [tests/golden/harness-baseline/](../tests/
 ## Tests
 
 `tests/Mod2Xgm.Harness.Tests` covers the WAV reader and writer, the report, the length check, the command line, the
-stems and a whole run with stand-in renderers. These run in CI. The tests that need libopenmpt or Furnace skip themselves where
+stems, the loudness meter (with BS.1770's calibration tone) and a whole run with stand-in renderers. These run in CI. The tests that need libopenmpt or Furnace skip themselves where
 those aren't installed, as on the CI runners. Coverage is measured on the converter (`Mod2Xgm.Tests`) only.

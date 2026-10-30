@@ -178,7 +178,7 @@ compiler, analyzer, trim/AOT, NuGet or MSBuild warning fails the build.
      `THIRD-PARTY-NOTICES.md`.
    Approved so far: **Serilog**, **Serilog.Sinks.Console**, **System.CommandLine**, **NWaves** (resampling, ADR 0038);
    test-only **xUnit v3**; harness-only **libopenmpt** (native, BSD-3, loaded at run time by `tools/Mod2Xgm.Harness`,
-   never by the converter; ADR 0047).
+   never by the converter; ADR 0047) and **R128Net** (EBU R128 loudness, MIT, pure C#; on trial, ADR 0053).
    The BCL still covers the basics: `ZLibStream` (DMF is zlib-compressed), `BinaryPrimitives` (endianness), `Span<T>`.
 3. **Local-only.** The tool never touches the network.
 4. **Never modify the input file.** Output goes next to the input unless `--output` is given. Do not

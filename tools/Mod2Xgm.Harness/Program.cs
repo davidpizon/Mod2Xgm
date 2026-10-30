@@ -189,6 +189,7 @@ internal static class Program
         Directory.CreateDirectory(options.OutputDirectory);
         File.WriteAllText(Path.Combine(options.OutputDirectory, "scores.csv"), HarnessReport.ScoresCsv(results));
         File.WriteAllText(Path.Combine(options.OutputDirectory, "durations.csv"), HarnessReport.DurationsCsv(results));
+        File.WriteAllText(Path.Combine(options.OutputDirectory, "loudness.csv"), HarnessReport.LoudnessCsv(results));
         if (options.ClipSeconds is not null)
         {
             File.WriteAllText(Path.Combine(options.OutputDirectory, "clip-scores.csv"), HarnessReport.ClipScoresCsv(results));

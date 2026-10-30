@@ -74,22 +74,25 @@ internal sealed class CorpusRun(
             }
 
             StereoAudio? referenceClip = null;
+            Loudness? referenceClipLoudness = null;
             if (clipSeconds is { } clip)
             {
                 referenceClip = original.Audio.Head(clip);
+                referenceClipLoudness = Loudness.Of(referenceClip);
                 WavFile.Write(Path.Combine(song.WavDirectory, name + ".reference.clip.wav"), referenceClip);
             }
 
             duration = CheckLength(song, mod, original.DurationSeconds, out IReadOnlyList<RowTiming> rows);
             notes = Convert(song);
             AudioSignal referenceMono = original.Audio.ToMono();
+            Loudness referenceLoudness = Loudness.Of(original.Audio);
             ReferenceStems? stems = balance && referenceClip is not null && candidates.Any(c => c is IDmfRenderer)
                 ? MakeReferenceStems(song, mod, rows, referenceClip)
                 : null;
             List<CandidateScore> scores = [];
             foreach (ICandidateRenderer candidate in candidates)
             {
-                if (Score(candidate, song, referenceMono, referenceClip, stems) is { } score)
+                if (Score(candidate, song, referenceMono, referenceLoudness, referenceClip, referenceClipLoudness, stems) is { } score)
                 {
                     scores.Add(score);
                 }
@@ -170,7 +173,14 @@ internal sealed class CorpusRun(
         return log.Warnings;
     }
 
-    private CandidateScore? Score(ICandidateRenderer candidate, SongFiles song, AudioSignal original, StereoAudio? originalClip, ReferenceStems? stems)
+    private CandidateScore? Score(
+        ICandidateRenderer candidate,
+        SongFiles song,
+        AudioSignal original,
+        Loudness originalLoudness,
+        StereoAudio? originalClip,
+        Loudness? originalClipLoudness,
+        ReferenceStems? stems)
     {
         try
         {
@@ -182,13 +192,16 @@ internal sealed class CorpusRun(
 
             StereoAudio audio = render.Audio.At(sampleRate);
             ScoreReport score = SongScorer.Compare(original, audio.ToMono(), ScoreOptions.Default, logger);
+            LoudnessComparison loudness = new(originalLoudness, Loudness.Of(audio));
             ScoreReport? clip = null;
+            LoudnessComparison? clipLoudness = null;
             BalanceResult? balanced = null;
-            if (originalClip is not null)
+            if (originalClip is not null && originalClipLoudness is not null)
             {
                 StereoAudio candidateClip = audio.Head(originalClip.Seconds);
                 WavFile.Write(Path.Combine(song.WavDirectory, $"{song.Name}.{candidate.Name}.clip.wav"), candidateClip);
                 clip = SongScorer.Compare(originalClip.ToMono(), candidateClip.ToMono(), ScoreOptions.Default, logger);
+                clipLoudness = new LoudnessComparison(originalClipLoudness, Loudness.Of(candidateClip));
                 logger.Information(
                     "{Song}: {Renderer} scores {Combined} on the first {Seconds} s",
                     song.Name,
@@ -202,14 +215,15 @@ internal sealed class CorpusRun(
             }
 
             logger.Information(
-                "{Song}: {Renderer} scores {Combined} (log-mel {Mel} dB, onset F1 {F1}){Remark}",
+                "{Song}: {Renderer} scores {Combined} (log-mel {Mel} dB, onset F1 {F1}, loudness {Loudness} LU){Remark}",
                 song.Name,
                 candidate.Name,
                 score.Combined.ToString("0.00", CultureInfo.InvariantCulture),
                 score.MelDistanceDb.ToString("0.00", CultureInfo.InvariantCulture),
                 score.OnsetF1.ToString("0.00", CultureInfo.InvariantCulture),
+                loudness.DifferenceLu?.ToString("+0.0;-0.0", CultureInfo.InvariantCulture) ?? "–",
                 render.Remark is null ? string.Empty : "; " + render.Remark);
-            return new CandidateScore(candidate.Name, score, render.Remark, clip, balanced);
+            return new CandidateScore(candidate.Name, score, render.Remark, clip, balanced, loudness, clipLoudness);
         }
         catch (HarnessException ex)
         {
@@ -262,11 +276,14 @@ internal sealed class CorpusRun(
 
         AudioSignal mix = Clip(audio);
         BalanceReport report = BalanceMetrics.Compare(stems.Mix, mix, pairs);
+        double? referenceMix = Loudness.GatedLufs(stems.Mix);
+        double? candidateMix = Loudness.GatedLufs(mix);
         BalanceResult result = new(
             report,
             stems.Stems,
             BalanceMetrics.SumErrorDb(stems.Mix, stems.Audio),
-            BalanceMetrics.SumErrorDb(mix, pairs.Select(p => p.Candidate)));
+            BalanceMetrics.SumErrorDb(mix, pairs.Select(p => p.Candidate)),
+            [.. pairs.Select(p => Loudness.GatedLufs(p.Candidate) - candidateMix - (Loudness.GatedLufs(p.Reference) - referenceMix))]);
         logger.Information(
             "{Song}: {Renderer} balance {Balance} dB over {Count} instruments (stems add up to the mix's loudness within {ReferenceSum} / {CandidateSum} dB)",
             song.Name,

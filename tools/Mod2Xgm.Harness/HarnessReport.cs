@@ -24,7 +24,51 @@ internal static class HarnessReport
 
     /// <summary>Header of <c>balance-instruments.csv</c>.</summary>
     public const string BalanceInstrumentsHeader =
-        "song,renderer,sample,name,voices,offset_db,distance_db,frames,reference_level_db";
+        "song,renderer,sample,name,voices,offset_db,distance_db,frames,reference_level_db,r128_offset_lu";
+
+    /// <summary>Header of <c>loudness.csv</c>.</summary>
+    public const string LoudnessHeader =
+        "song,renderer,span,reference_lufs,candidate_lufs,difference_lu,reference_lra_lu,candidate_lra_lu,reference_true_peak_dbtp,candidate_true_peak_dbtp";
+
+    /// <summary>
+    /// One line per song and renderer, and one more for the clip (<c>--clip</c>): both renderings' EBU R128 loudness,
+    /// loudness range and true peak (ADR 0053). <c>span</c> is <c>song</c> or <c>clip</c>.
+    /// </summary>
+    public static string LoudnessCsv(IReadOnlyList<SongResult> results)
+    {
+        ArgumentNullException.ThrowIfNull(results);
+        StringBuilder csv = new();
+        csv.Append(LoudnessHeader).Append('\n');
+        foreach (SongResult song in results)
+        {
+            foreach (CandidateScore candidate in song.Scores)
+            {
+                foreach ((string span, LoudnessComparison? l) in new[] { ("song", candidate.Loudness), ("clip", candidate.ClipLoudness) })
+                {
+                    if (l is null)
+                    {
+                        continue;
+                    }
+
+                    csv.AppendJoin(
+                        ',',
+                        Csv(song.Song),
+                        Csv(candidate.Renderer),
+                        span,
+                        Number(l.Reference.IntegratedLufs),
+                        Number(l.Candidate.IntegratedLufs),
+                        Number(l.DifferenceLu),
+                        Number(l.Reference.RangeLu),
+                        Number(l.Candidate.RangeLu),
+                        Number(l.Reference.TruePeakDbtp),
+                        Number(l.Candidate.TruePeakDbtp));
+                    csv.Append('\n');
+                }
+            }
+        }
+
+        return csv.ToString();
+    }
 
     /// <summary>One line per song and renderer with a balance (<c>--balance</c>): the clip's balance distance and its checks.</summary>
     public static string BalanceCsv(IReadOnlyList<SongResult> results)
@@ -73,7 +117,8 @@ internal static class HarnessReport
                     Number(instrument.OffsetDb),
                     Number(instrument.DistanceDb),
                     instrument.Frames.ToString(CultureInfo.InvariantCulture),
-                    Number(instrument.ReferenceLevelDb));
+                    Number(instrument.ReferenceLevelDb),
+                    Number(b.R128OffsetsLu[i]));
                 csv.Append('\n');
             }
         }
@@ -217,6 +262,27 @@ internal static class HarnessReport
                 string name = furthest < 0 ? string.Empty : string.Create(CultureInfo.InvariantCulture, $"{b.Stems[furthest].Sample} {Cell(b.Stems[furthest].Name)} ({Cell(b.Stems[furthest].Voices)})");
                 double? offset = furthest < 0 ? null : b.Report.Instruments[furthest].OffsetDb;
                 md.Append(CultureInfo.InvariantCulture, $"| `{song.Song}` | {candidate.Renderer} | {Number(b.Report.DistanceDb, "0.00")} | {Number(b.Report.GainDb, "0.0")} | {b.Stems.Count} | {name} | {Number(offset, "+0.0;-0.0")} |\n");
+            }
+        }
+
+        if (results.SelectMany(r => r.Scores).Any(c => c.Loudness is not null))
+        {
+            md.Append("\n## Loudness (EBU R128)\n\n");
+            md.Append("Each whole rendering on a BS.1770 loudness meter (gated; docs/adr/0053-r128-loudness-in-the-harness.md). *Δ LU*: the conversion minus the original (+ = louder).\n");
+            md.Append("*LRA*: loudness range, LU. *True peak*: above 0 dBTP clips. Clips and the original's figures: `loudness.csv`.\n\n");
+            md.Append("| Song | Renderer | Original LUFS | Conversion LUFS | Δ LU | LRA original | LRA conversion | True peak dBTP |\n");
+            md.Append("|---|---|---:|---:|---:|---:|---:|---:|\n");
+            foreach (SongResult song in results)
+            {
+                foreach (CandidateScore candidate in song.Scores)
+                {
+                    if (candidate.Loudness is not { } l)
+                    {
+                        continue;
+                    }
+
+                    md.Append(CultureInfo.InvariantCulture, $"| `{song.Song}` | {candidate.Renderer} | {Number(l.Reference.IntegratedLufs, "0.0")} | {Number(l.Candidate.IntegratedLufs, "0.0")} | {Number(l.DifferenceLu, "+0.0;-0.0")} | {Number(l.Reference.RangeLu, "0.0")} | {Number(l.Candidate.RangeLu, "0.0")} | {Number(l.Candidate.TruePeakDbtp, "+0.0;-0.0")} |\n");
+                }
             }
         }
 
