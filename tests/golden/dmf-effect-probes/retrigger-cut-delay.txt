@@ -8,22 +8,22 @@ instrument 0 "Sine" FM: ALG 7 FB 0 FMS 0 AMS 0
   DmfOperator { Am = 0, Ar = 31, Dr = 0, Mult = 1, Rr = 8, Sl = 0, Tl = 127, Dt2 = 0, Rs = 0, Dt = 3, D2R = 0, SsgMode = 0 }
   DmfOperator { Am = 0, Ar = 31, Dr = 0, Mult = 1, Rr = 8, Sl = 0, Tl = 127, Dt2 = 0, Rs = 0, Dt = 3, D2R = 0, SsgMode = 0 }
 channel 1: orders [0], effect columns 3
-  0:00 note 12 octave 3 volume 127 instrument 0 effects [E56A 0810 0C03]
-  0:02 note 12 octave 3 volume 127 instrument 0 effects [0C03]
-  0:04 note 12 octave 3 volume 127 instrument 0 effects [0C03]
-  0:06 note 12 octave 3 volume 127 instrument 0 effects [0C03]
-  0:16 note 12 octave 3 volume 127 instrument 0 effects [EC02]
-  0:18 note 12 octave 3 volume 127 instrument 0 effects [EC02]
-  0:20 note 12 octave 3 volume 127 instrument 0 effects [EC02]
-  0:22 note 12 octave 3 volume 127 instrument 0 effects [EC02]
-  0:32 note 12 octave 3 volume 127 instrument 0 effects [ED03]
+  0:00 note 12 octave 3 volume 124 instrument 0 effects [E56A 0810 0C03]
+  0:02 note 12 octave 3 volume 124 instrument 0 effects [0C03]
+  0:04 note 12 octave 3 volume 124 instrument 0 effects [0C03]
+  0:06 note 12 octave 3 volume 124 instrument 0 effects [0C03]
+  0:16 note 12 octave 3 volume 124 instrument 0 effects [EC02]
+  0:18 note 12 octave 3 volume 124 instrument 0 effects [EC02]
+  0:20 note 12 octave 3 volume 124 instrument 0 effects [EC02]
+  0:22 note 12 octave 3 volume 124 instrument 0 effects [EC02]
+  0:32 note 12 octave 3 volume 124 instrument 0 effects [ED03]
   0:34 note 0 octave 0 volume 0 instrument -1 effects []
-  0:36 note 12 octave 3 volume 127 instrument 0 effects [ED03]
+  0:36 note 12 octave 3 volume 124 instrument 0 effects [ED03]
   0:38 note 0 octave 0 volume 0 instrument -1 effects []
 channel 2: orders [0], effect columns 2
-  0:32 note 12 octave 4 volume 127 instrument 0 effects [E56A 0801]
+  0:32 note 12 octave 4 volume 124 instrument 0 effects [E56A 0801]
   0:34 note 0 octave 0 volume 0 instrument -1 effects []
-  0:36 note 12 octave 4 volume 127 instrument 0 effects []
+  0:36 note 12 octave 4 volume 124 instrument 0 effects []
   0:38 note 0 octave 0 volume 0 instrument -1 effects []
 channel 3: orders [0], effect columns 1
 channel 4: orders [0], effect columns 1

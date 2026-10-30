@@ -26,7 +26,29 @@ internal static class DmfProbes
         ["dac-sample"] = DacSample,
         ["custom-hz"] = CustomHz,
         ["ext-ch3"] = ExtendedChannel3,
+        ["levels"] = Levels,
     };
+
+    /// <summary>
+    /// How loud each kind of voice is at full volume, one after another for 8 rows (0.96 s) each: FM1 a single-carrier
+    /// sine (TL 0) at volume 7F, then at 77 (8 steps: 6 dB quieter if a step is 0.75 dB); FM6 as DAC playing a
+    /// full-scale 440 Hz sine; PSG1 a square at F; PSG4 white noise at F. Measured from renders to set FM levels against
+    /// the DAC and PSG (ADR 0050).
+    /// </summary>
+    private static DmfBuilder Levels() =>
+        Song("levels", rows: 48)
+            .WithFmInstrument("sine (file op 2)", FmPatch(algorithm: 7, soundingOperators: [2]))
+            .WithSample(Sine("a440 full scale @ 32 kHz", rateCode: 5, rateHz: 32000, toneHz: 440, seconds: 1.2, amplitude: 32767))
+            .WithCell(0, 0, 0, note: 9, octave: 4, volume: FmVolume, instrument: 0, effects: new DmfEffect(0x08, 0x11))
+            .WithCell(0, 0, 8, note: 9, octave: 4, volume: FmVolume - 8, instrument: 0)
+            .WithCell(0, 0, 16, note: Off)
+            .WithCell(5, 0, 16, note: 12, octave: 2, instrument: 0, effects: new DmfEffect(0x17, 0x01))
+            .WithCell(5, 0, 24, note: Off)
+            .WithStdInstrument("full volume", new DmfStdInstrument(new DmfMacro([PsgVolume], -1), Empty(), 0, Empty(), Empty()))
+            .WithCell(6, 0, 24, note: 9, octave: 2, volume: PsgVolume, instrument: 1)
+            .WithCell(6, 0, 32, note: Off)
+            .WithCell(9, 0, 32, note: 12, octave: 3, volume: PsgVolume, instrument: 1, effects: new DmfEffect(0x20, 0x01))
+            .WithCell(9, 0, 40, note: Off);
 
     /// <summary>
     /// FM1 plays A-4, then C-5, with a patch whose only sounding operator is <b>file operator 2</b> under algorithm 4.
@@ -124,10 +146,10 @@ internal static class DmfProbes
     /// <summary>An empty macro.</summary>
     private static DmfMacro Empty() => new([], -1);
 
-    /// <summary>0.4 s of a sine tone at half of full scale, as signed 16-bit samples at <paramref name="rateHz"/>.</summary>
-    private static DmfSample Sine(string name, int rateCode, int rateHz, double toneHz)
+    /// <summary>A sine tone (by default 0.4 s at about half of full scale), as signed 16-bit samples at <paramref name="rateHz"/>.</summary>
+    private static DmfSample Sine(string name, int rateCode, int rateHz, double toneHz, double seconds = 0.4, double amplitude = 16000)
     {
-        short[] data = [.. Enumerable.Range(0, rateHz * 2 / 5).Select(i => (short)Math.Round(16000 * Math.Sin(2 * Math.PI * toneHz * i / rateHz)))];
+        short[] data = [.. Enumerable.Range(0, (int)Math.Round(rateHz * seconds)).Select(i => (short)Math.Round(amplitude * Math.Sin(2 * Math.PI * toneHz * i / rateHz)))];
         return new DmfSample(name, rateCode, 5, 50, 16, null, null, data);
     }
 }
