@@ -170,7 +170,16 @@ internal static class OpenMptTiming
 /// <param name="Remark">Anything the reader should know (a stale export, the error).</param>
 /// <param name="Clip">The scores of the song's first seconds alone (<c>--clip</c>), or <c>null</c> when not asked for.</param>
 /// <param name="Balance">The clip's instrument balance (<c>--balance</c>), or <c>null</c> when not asked for or this renderer can't make stems.</param>
-internal sealed record CandidateScore(string Renderer, ScoreReport? Score, string? Remark, ScoreReport? Clip = null, BalanceResult? Balance = null);
+/// <param name="Loudness">The whole song's EBU R128 loudness against the reference's (ADR 0053), or <c>null</c> when it couldn't be rendered.</param>
+/// <param name="ClipLoudness">The same for the song's first seconds (<c>--clip</c>), or <c>null</c>.</param>
+internal sealed record CandidateScore(
+    string Renderer,
+    ScoreReport? Score,
+    string? Remark,
+    ScoreReport? Clip = null,
+    BalanceResult? Balance = null,
+    LoudnessComparison? Loudness = null,
+    LoudnessComparison? ClipLoudness = null);
 
 /// <summary>Which MOD sample a stem is, and what the conversion plays it with.</summary>
 /// <param name="Sample">The MOD sample number (1-based, as in the MOD's cells).</param>
@@ -183,7 +192,17 @@ internal sealed record StemInfo(int Sample, string Name, string Voices);
 /// <param name="Stems">The stems compared.</param>
 /// <param name="ReferenceSumErrorDb">How far the reference's stems' loudness, added up, is from its mix's, in dB (near 0 is right).</param>
 /// <param name="CandidateSumErrorDb">The same for the rendering's stems.</param>
-internal sealed record BalanceResult(BalanceReport Report, IReadOnlyList<StemInfo> Stems, double ReferenceSumErrorDb, double CandidateSumErrorDb);
+/// <param name="R128OffsetsLu">
+/// Each stem's offset by gated EBU R128 loudness instead (ADR 0053), in the order of <paramref name="Stems"/>: how much
+/// louder the stem is next to its mix in the conversion than in the original, in LU; <c>null</c> where a stem or mix is
+/// below the gate.
+/// </param>
+internal sealed record BalanceResult(
+    BalanceReport Report,
+    IReadOnlyList<StemInfo> Stems,
+    double ReferenceSumErrorDb,
+    double CandidateSumErrorDb,
+    IReadOnlyList<double?> R128OffsetsLu);
 
 /// <summary>Everything the harness found for one song.</summary>
 /// <param name="Song">File name without extension.</param>

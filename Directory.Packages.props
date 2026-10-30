@@ -9,6 +9,10 @@
     <PackageVersion Include="System.CommandLine" Version="2.0.14" />
     <PackageVersion Include="NWaves" Version="0.9.6" />
   </ItemGroup>
+  <ItemGroup Label="Harness">
+    <!-- tools/Mod2Xgm.Harness only, never the converter (ADR 0053). -->
+    <PackageVersion Include="R128Net" Version="1.1.2" />
+  </ItemGroup>
   <ItemGroup Label="Tests">
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
     <PackageVersion Include="xunit.v3" Version="4.0.2" />

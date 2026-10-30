@@ -1,7 +1,7 @@
 namespace Mod2Xgm.Render;
 
 /// <summary>
-/// An 8-tap Kaiser-windowed sinc interpolator, like OpenMPT's default resampler for MODs (docs/adr/0053-mod-renderer.md):
+/// An 8-tap Kaiser-windowed sinc interpolator, like OpenMPT's default resampler for MODs (docs/adr/0054-mod-renderer.md):
 /// a table of <see cref="Phases"/> filters, one per fraction of a source sample. Each filter reads the source samples
 /// at offsets −3 … +4 from the current one and sums to 1, so a constant signal keeps its level. Like OpenMPT, a voice
 /// played faster than the output rate switches to a lower cutoff (<see cref="For"/>); the three tables' responses were

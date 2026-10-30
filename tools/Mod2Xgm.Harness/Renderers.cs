@@ -131,7 +131,7 @@ internal sealed class OpenMptRenderer : IReferenceRenderer
 }
 
 /// <summary>
-/// The converter's own MOD renderer (plan T7.1, docs/adr/0053-mod-renderer.md) playing the original MOD, not the
+/// The converter's own MOD renderer (plan T7.1, docs/adr/0054-mod-renderer.md) playing the original MOD, not the
 /// conversion: it checks the in-app reference against libopenmpt's. The tick player plays the MOD (PAL) and its ticks get
 /// OpenMPT's lengths at the render rate, so the two keep time and the score measures the sound.
 /// </summary>
@@ -143,7 +143,7 @@ internal sealed class ModRendererCheck(int sampleRate) : ICandidateRenderer
 
     /// <summary>
     /// The bar (plan T7.1): every song's whole-song log-mel distance to libopenmpt stays at or below this
-    /// (docs/adr/0053-mod-renderer.md; the corpus's worst song was 1.02 dB).
+    /// (docs/adr/0054-mod-renderer.md; the corpus's worst song was 1.02 dB).
     /// </summary>
     public const double MaxMelDistanceDb = 1.25;
 

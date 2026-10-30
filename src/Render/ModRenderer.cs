@@ -22,7 +22,7 @@ internal sealed record ModRenderOptions(int SampleRate = 44_100, double StereoSe
 
 /// <summary>
 /// Plays a song from its <see cref="Playback"/> (the tick player's output) the way libopenmpt plays it with its default
-/// settings (plan T7.1, docs/adr/0053-mod-renderer.md): the in-app reference the optimizer listens to. Each channel
+/// settings (plan T7.1, docs/adr/0054-mod-renderer.md): the in-app reference the optimizer listens to. Each channel
 /// plays its sample parts at the playback rate through an 8-tap windowed sinc (<see cref="SincTable"/>), with OpenMPT's
 /// level, MOD panning and volume ramps, a short fade-out of the old note when a new one starts, and OpenMPT's click
 /// removal where a sample ends. The Amiga's low-pass ("LED") filter is not modelled, as libopenmpt doesn't by default.

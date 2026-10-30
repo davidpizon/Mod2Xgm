@@ -8,7 +8,7 @@ namespace Mod2Xgm.Tests.Render;
 
 /// <summary>
 /// Tests for the in-app MOD renderer (plan T7.1): OpenMPT's level, panning, volume ramps, note crossfade and click removal
-/// as measured on libopenmpt (docs/adr/0053-mod-renderer.md), pitch from the playback rate, sample parts and timing.
+/// as measured on libopenmpt (docs/adr/0054-mod-renderer.md), pitch from the playback rate, sample parts and timing.
 /// </summary>
 public sealed class ModRendererTests
 {

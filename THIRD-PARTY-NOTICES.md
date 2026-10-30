@@ -31,6 +31,7 @@ Planned (add the entry when the code lands):
 | Microsoft.NET.Test.Sdk | MIT | https://github.com/microsoft/vstest |
 | Microsoft.Testing.Extensions.CodeCoverage | Microsoft .NET Library License (closed-source, free to use) | https://github.com/microsoft/codecoverage |
 | libopenmpt (loaded at run time by `tools/Mod2Xgm.Harness` only; installed on the PC, not in the repository; [ADR 0047](docs/adr/0047-accuracy-harness.md)) | BSD-3-Clause | https://lib.openmpt.org/libopenmpt/ |
+| R128Net (`tools/Mod2Xgm.Harness` and its tests only; [ADR 0053](docs/adr/0053-r128-loudness-in-the-harness.md)), a C# port of libebur128 (© 2011 Jan Kokemüller, MIT) | MIT | https://github.com/routersys/R128Net |
 
 ## Reference documents included in `docs/formats/`
 
