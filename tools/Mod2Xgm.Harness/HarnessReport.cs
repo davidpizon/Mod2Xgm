@@ -18,6 +18,84 @@ internal static class HarnessReport
     public const string DurationsHeader =
         "song,tick_player_s,openmpt_rules_s,reference_s,difference_s,amiga_difference_s,one_tick_s,within_one_tick,first_row_off,stops_at_f00,conversion_notes,error";
 
+    /// <summary>Header of <c>balance.csv</c>.</summary>
+    public const string BalanceHeader =
+        "song,renderer,balance_db,static_db,mix_relative_db,gain_db,stems,reference_sum_error_db,candidate_sum_error_db";
+
+    /// <summary>Header of <c>balance-instruments.csv</c>.</summary>
+    public const string BalanceInstrumentsHeader =
+        "song,renderer,sample,name,voices,offset_db,distance_db,frames,reference_level_db";
+
+    /// <summary>One line per song and renderer with a balance (<c>--balance</c>): the clip's balance distance and its checks.</summary>
+    public static string BalanceCsv(IReadOnlyList<SongResult> results)
+    {
+        ArgumentNullException.ThrowIfNull(results);
+        StringBuilder csv = new();
+        csv.Append(BalanceHeader).Append('\n');
+        foreach ((SongResult song, CandidateScore candidate, BalanceResult b) in Balances(results))
+        {
+            csv.AppendJoin(
+                ',',
+                Csv(song.Song),
+                Csv(candidate.Renderer),
+                Number(b.Report.DistanceDb),
+                Number(b.Report.StaticDb),
+                Number(b.Report.MixRelativeDb),
+                Number(b.Report.GainDb),
+                b.Stems.Count.ToString(CultureInfo.InvariantCulture),
+                Number(b.ReferenceSumErrorDb),
+                Number(b.CandidateSumErrorDb));
+            csv.Append('\n');
+        }
+
+        return csv.ToString();
+    }
+
+    /// <summary>One line per instrument of every balance: how far its level is off (positive = too loud in the conversion).</summary>
+    public static string BalanceInstrumentsCsv(IReadOnlyList<SongResult> results)
+    {
+        ArgumentNullException.ThrowIfNull(results);
+        StringBuilder csv = new();
+        csv.Append(BalanceInstrumentsHeader).Append('\n');
+        foreach ((SongResult song, CandidateScore candidate, BalanceResult b) in Balances(results))
+        {
+            for (int i = 0; i < b.Stems.Count; i++)
+            {
+                StemInfo stem = b.Stems[i];
+                InstrumentBalance instrument = b.Report.Instruments[i];
+                csv.AppendJoin(
+                    ',',
+                    Csv(song.Song),
+                    Csv(candidate.Renderer),
+                    stem.Sample.ToString(CultureInfo.InvariantCulture),
+                    Csv(stem.Name),
+                    Csv(stem.Voices),
+                    Number(instrument.OffsetDb),
+                    Number(instrument.DistanceDb),
+                    instrument.Frames.ToString(CultureInfo.InvariantCulture),
+                    Number(instrument.ReferenceLevelDb));
+                csv.Append('\n');
+            }
+        }
+
+        return csv.ToString();
+    }
+
+    /// <summary>Every renderer's balance, song by song.</summary>
+    private static IEnumerable<(SongResult Song, CandidateScore Candidate, BalanceResult Balance)> Balances(IReadOnlyList<SongResult> results)
+    {
+        foreach (SongResult song in results)
+        {
+            foreach (CandidateScore candidate in song.Scores)
+            {
+                if (candidate.Balance is { } balance)
+                {
+                    yield return (song, candidate, balance);
+                }
+            }
+        }
+    }
+
     /// <summary>One line per song and renderer.</summary>
     public static string ScoresCsv(IReadOnlyList<SongResult> results) => ScoresCsv(results, c => c.Score);
 
@@ -123,6 +201,22 @@ internal static class HarnessReport
                     ScoreReport? s = candidate.Clip;
                     md.Append(CultureInfo.InvariantCulture, $"| `{song.Song}` | {candidate.Renderer} | {Number(s?.Combined, "0.00")} | {Number(s?.MelDistanceDb, "0.00")} | {Number(s?.MfccDistance, "0.00")} | {Number(s?.OnsetF1, "0.00")} |\n");
                 }
+            }
+        }
+
+        if (Balances(results).Any())
+        {
+            md.Append("\n## Instrument balance (listening clips)\n\n");
+            md.Append("Each MOD sample alone in both renderings, its loudness compared every 100 ms after the overall gain (`--balance`, docs/adr/0051-instrument-balance-metric.md).\n");
+            md.Append("*Balance*: mean level error per instrument and moment, dB. *Furthest*: the instrument whose mean offset is largest (+ = too loud in the conversion). Per instrument: `balance-instruments.csv`.\n\n");
+            md.Append("| Song | Renderer | Balance dB | Gain dB | Stems | Furthest | Offset dB |\n");
+            md.Append("|---|---|---:|---:|---:|---|---:|\n");
+            foreach ((SongResult song, CandidateScore candidate, BalanceResult b) in Balances(results))
+            {
+                int furthest = Enumerable.Range(0, b.Stems.Count).Where(i => b.Report.Instruments[i].Frames > 0).DefaultIfEmpty(-1).MaxBy(i => i < 0 ? 0 : Math.Abs(b.Report.Instruments[i].OffsetDb));
+                string name = furthest < 0 ? string.Empty : string.Create(CultureInfo.InvariantCulture, $"{b.Stems[furthest].Sample} {Cell(b.Stems[furthest].Name)} ({Cell(b.Stems[furthest].Voices)})");
+                double? offset = furthest < 0 ? null : b.Report.Instruments[furthest].OffsetDb;
+                md.Append(CultureInfo.InvariantCulture, $"| `{song.Song}` | {candidate.Renderer} | {Number(b.Report.DistanceDb, "0.00")} | {Number(b.Report.GainDb, "0.0")} | {b.Stems.Count} | {name} | {Number(offset, "+0.0;-0.0")} |\n");
             }
         }
 

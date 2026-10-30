@@ -63,6 +63,7 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0047](0047-accuracy-harness.md) | The accuracy harness: libopenmpt reference, Furnace and DefleMask renders (T6.3) | 2026-10-29 | Accepted |
 | [0048](0048-midi-input.md) | MIDI input (M13) | 2026-10-30 | Accepted |
 | [0049](0049-simple-mapper-baseline.md) | Simple-mapper baseline and score calibration (T6.4) | 2026-10-30 | Accepted; changes the onset weight of [ADR 0042](0042-scoring-metrics.md) |
+| [0051](0051-instrument-balance-metric.md) | Instrument balance metric: per-sample stems, checked against listening | 2026-10-30 | Accepted |
 
 ## Open questions
 

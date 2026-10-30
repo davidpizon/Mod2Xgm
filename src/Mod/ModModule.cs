@@ -69,6 +69,9 @@ internal sealed record ModSample
     /// <summary>8-bit signed PCM. Its length is the sample length (possibly shortened if the file was truncated).</summary>
     public required sbyte[] Data { get; init; }
 
+    /// <summary>Byte offset of <see cref="Data"/> in the file (0 for a sample made in code). The accuracy harness uses it to silence samples in a copy.</summary>
+    public int DataOffset { get; init; }
+
     public int Length => Data.Length;
 
     /// <summary>True when the sample loops (loop length longer than 2 bytes).</summary>

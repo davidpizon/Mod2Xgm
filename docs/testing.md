@@ -84,6 +84,9 @@ run it ([ADR 0047](adr/0047-accuracy-harness.md)).
    and timing error, and a combined number (lower is closer; since T6.4 the log-mel distance alone, which agrees only
    weakly with listening so far). Limits: mono only, one constant lag, both renderings at the same sample rate. Metric
    choices: [ADR 0042](adr/0042-scoring-metrics.md), calibration and baseline: [ADR 0049](adr/0049-simple-mapper-baseline.md).
+   `BalanceMetrics` measures what a whole-mix score hardly sees: each instrument's loudness against the original's,
+   from stems (each MOD sample alone on both sides; the harness's `--balance`,
+   [ADR 0051](adr/0051-instrument-balance-metric.md)).
 4. Keep a small corpus of freely licensed MODs with scores per strategy; a change to mapping or consolidation
    must not lower the corpus score without a recorded reason in an ADR ([adr/](adr/README.md)).
 

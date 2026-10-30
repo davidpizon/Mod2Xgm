@@ -77,12 +77,13 @@ internal static class Program
         Option<bool> noDefleMask = new("--no-deflemask") { Description = "Don't score DefleMask exports." };
         Option<bool> saveReference = new("--save-reference-wavs") { Description = "Also write each reference render to wav/song.reference.wav." };
         Option<double?> clip = new("--clip") { Description = "Also score each song's first this many seconds, and write them as wav/*.clip.wav for listening." };
+        Option<bool> balance = new("--balance") { Description = "Also measure each clip's instrument balance from stems (needs --clip and Furnace)." };
         Option<int> jobs = new("--jobs", "-j") { Description = "Songs measured at once.", DefaultValueFactory = _ => DefaultJobs };
         Option<bool> verbose = new("--verbose", "-v") { Description = "Log every scoring step." };
 
         RootCommand root = new("Mod2Xgm accuracy harness: scores conversions against OpenMPT (docs/harness.md).")
         {
-            inputs, output, rate, libopenmpt, furnace, noFurnace, deflemask, noDefleMask, saveReference, clip, jobs, verbose,
+            inputs, output, rate, libopenmpt, furnace, noFurnace, deflemask, noDefleMask, saveReference, clip, balance, jobs, verbose,
         };
         root.SetAction(result =>
         {
@@ -104,6 +105,12 @@ internal static class Program
                 throw new HarnessException(string.Create(CultureInfo.InvariantCulture, $"--clip {clipSeconds}: between 1 and 600 seconds, please"));
             }
 
+            bool measureBalance = result.GetValue(balance);
+            if (measureBalance && clipSeconds is null)
+            {
+                throw new HarnessException("--balance measures the listening clips: give --clip too");
+            }
+
             string[] given = result.GetValue(inputs) ?? [];
             return execute(new HarnessOptions(
                 given.Length == 0 ? [DefaultCorpus] : given,
@@ -117,7 +124,8 @@ internal static class Program
                 result.GetValue(verbose),
                 songsAtOnce,
                 result.GetValue(noDefleMask),
-                clipSeconds));
+                clipSeconds,
+                measureBalance));
         });
 
         ParseResult parsed = root.Parse(args);
@@ -168,7 +176,7 @@ internal static class Program
             options.SampleRate,
             candidates.Count == 0 ? "none (lengths only)" : string.Join(", ", candidates.Select(c => c.Name)));
 
-        IReadOnlyList<SongResult> results = new CorpusRun(options.OutputDirectory, options.SampleRate, options.SaveReferenceWavs, reference, candidates, logger, options.ClipSeconds).Run(songs, options.Jobs);
+        IReadOnlyList<SongResult> results = new CorpusRun(options.OutputDirectory, options.SampleRate, options.SaveReferenceWavs, reference, candidates, logger, options.ClipSeconds, options.Balance).Run(songs, options.Jobs);
         return Report(results, options, reference.Name, logger);
     }
 
@@ -184,6 +192,12 @@ internal static class Program
         if (options.ClipSeconds is not null)
         {
             File.WriteAllText(Path.Combine(options.OutputDirectory, "clip-scores.csv"), HarnessReport.ClipScoresCsv(results));
+        }
+
+        if (options.Balance)
+        {
+            File.WriteAllText(Path.Combine(options.OutputDirectory, "balance.csv"), HarnessReport.BalanceCsv(results));
+            File.WriteAllText(Path.Combine(options.OutputDirectory, "balance-instruments.csv"), HarnessReport.BalanceInstrumentsCsv(results));
         }
 
         string report = Path.Combine(options.OutputDirectory, "report.md");
@@ -237,6 +251,7 @@ internal static class Program
 /// <param name="Jobs">Songs measured at once.</param>
 /// <param name="NoDefleMask">Skip DefleMask exports, even in the default folder.</param>
 /// <param name="ClipSeconds">Also score and write the first this many seconds, or <c>null</c>.</param>
+/// <param name="Balance">Also measure the clips' instrument balance from stems.</param>
 internal sealed record HarnessOptions(
     IReadOnlyList<string> Inputs,
     string OutputDirectory,
@@ -249,4 +264,5 @@ internal sealed record HarnessOptions(
     bool Verbose,
     int Jobs = 1,
     bool NoDefleMask = false,
-    double? ClipSeconds = null);
+    double? ClipSeconds = null,
+    bool Balance = false);

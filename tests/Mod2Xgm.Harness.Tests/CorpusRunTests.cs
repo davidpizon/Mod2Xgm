@@ -107,6 +107,49 @@ public sealed class CorpusRunTests
         Assert.Equal(1.5, WavFile.Read(temp.Combine("wav", "fx-poly1.same.clip.wav")).Seconds, 0.01);
     }
 
+    /// <summary>A candidate that can also play any DMF, as stems need; it plays the tone for every file and remembers which.</summary>
+    private sealed class DmfCandidate : ICandidateRenderer, IDmfRenderer
+    {
+        public string Name => "dmf";
+
+        public List<string> Played { get; } = [];
+
+        public CandidateRender? Render(SongFiles song) => new(TestFiles.Tone(2.0), null);
+
+        public StereoAudio RenderDmf(string dmfPath, string wavPath)
+        {
+            Played.Add(dmfPath);
+            File.WriteAllBytes(wavPath, [0]);
+            return TestFiles.Tone(2.0);
+        }
+    }
+
+    /// <summary>
+    /// With --balance, each sample the clip plays gets a stem DMF, rendered by a renderer that can play DMFs and measured
+    /// against the reference's stem; the stem WAVs are deleted, the DMFs kept. Every stand-in plays the same tone, so the
+    /// balance is perfect. A renderer that can't play DMFs gets no balance.
+    /// </summary>
+    [Fact]
+    public void BalanceIsMeasuredFromStems()
+    {
+        using TempDirectory temp = new();
+        DmfCandidate player = new();
+        Candidate other = new("other", _ => new CandidateRender(TestFiles.Tone(2.0), null));
+        CorpusRun run = new(temp.Path, Rate, saveReferenceWavs: false, new ToneReference(30.72), [player, other], Logger.None, clipSeconds: 1.5, balance: true);
+
+        SongResult result = Assert.Single(run.Run([TestFiles.ShortSong]));
+
+        BalanceResult? balance = result.Scores[0].Balance;
+        Assert.NotNull(balance);
+        Assert.Null(result.Scores[1].Balance);
+        Assert.NotEmpty(balance.Stems);
+        Assert.Equal(balance.Stems.Count, player.Played.Count);
+        Assert.Equal(0, balance.Report.DistanceDb, 3);
+        Assert.Equal(0, balance.Report.GainDb, 3);
+        Assert.All(balance.Stems, s => Assert.True(File.Exists(temp.Combine("dmf", "stems", FormattableString.Invariant($"fx-poly1.s{s.Sample:00}.dmf")))));
+        Assert.Empty(Directory.GetFiles(temp.Combine("wav", "stems")));
+    }
+
     /// <summary>An end more than a tick away from the reference's is flagged even when every row is on time.</summary>
     [Fact]
     public void AnEndOffByMoreThanATickIsFlagged()

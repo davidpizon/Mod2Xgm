@@ -28,6 +28,9 @@ For each MOD (the corpus in `tests/data/corpus/` by default):
    precision/recall/F1 and timing, alignment lag, length difference and the combined number. **Lower is closer**,
    except F1.
 
+6. **Instrument balance** (with `--balance`): each MOD sample alone in the clip, from both sides, and how far its
+   loudness is from the original's ([below](#instrument-balance)).
+
 A song that fails (an unreadable MOD, a Furnace error) is reported and the run goes on.
 
 ## Song timeline
@@ -53,6 +56,25 @@ converter follows the Amiga. Every row's three times are in `logs/song.rows.csv`
 On the corpus (2026-10-29) every song's timeline matches libopenmpt's to the microsecond. `musix-omg-plz-help` stops at
 `F00`. A real Amiga's timing differs from OpenMPT's by up to 0.21 s (`drozerix_-_stardust_jam`, 6 minutes at 101–128
 BPM).
+
+## Instrument balance
+
+A whole-mix score hardly sees one instrument too loud and another too quiet. With `--balance` (and `--clip`) the harness
+makes **stems**, each MOD sample alone, and compares their loudness ([ADR 0051](adr/0051-instrument-balance-metric.md)):
+
+- **Original:** a copy of the MOD with every other sample's data zeroed, rendered by libopenmpt. Patterns and effects
+  are untouched.
+- **Conversion:** the converter's own plan with every other sample's notes turned into note-offs, cut after the orders
+  the clip reaches, written to `dmf/stems/song.sNN.dmf` and rendered by Furnace. The harness first checks that its copy
+  of the conversion steps gives exactly the converter's DMF.
+- **Measure** (`BalanceMetrics`): each stem's K-weighted loudness every 100 ms (400 ms windows), the candidate's moved
+  by the clip's lag and corrected by the overall gain between the mixes. The **balance distance** is the mean absolute
+  level difference over every audible instrument and moment, in dB. Each instrument's mean offset (+ = too loud in the
+  conversion) goes to `balance-instruments.csv`.
+- **Check:** the stems' loudness, added up, should match the mix's (`*_sum_error_db`, near 0). Furnace's stems match in
+  loudness but not sample by sample, so the check compares levels.
+
+A balance run renders each sample once more with each player: on the corpus it takes a few minutes with `-j 4`.
 
 ## Setup
 
@@ -92,6 +114,7 @@ its timeline is within one tick, **1** a song failed or is more than a tick off,
 | `--no-deflemask` | | Don't score DefleMask exports, even from the default folder |
 | `--save-reference-wavs` | | Also write the libopenmpt renders to `wav/song.reference.wav`, for listening |
 | `--clip <seconds>` | | Also score each song's first *seconds* (1–600) on their own, write them to `clip-scores.csv` and a report section, and save them for listening as `wav/song.reference.clip.wav` and `wav/song.<renderer>.clip.wav` |
+| `--balance` | | With `--clip`: also measure each clip's [instrument balance](#instrument-balance) from stems, for Furnace, into `balance.csv`, `balance-instruments.csv` and a report section |
 | `-j`, `--jobs` | half the processors, at most 4 | Songs measured at once (1–64). The reports list songs in the same order either way |
 | `-v`, `--verbose` | | Log every scoring step |
 
@@ -104,8 +127,10 @@ In the output folder:
 | `report.md` | Scores per song and renderer, the average per renderer, and the timeline table |
 | `scores.csv` | `song,renderer,combined,mel_db,mfcc,onset_precision,onset_recall,onset_f1,onset_timing_ms,lag_ms,length_difference_s,remark` |
 | `clip-scores.csv` | With `--clip`: the same columns as `scores.csv`, for the first seconds only |
+| `balance.csv` | With `--balance`: `song,renderer,balance_db,static_db,mix_relative_db,gain_db,stems,reference_sum_error_db,candidate_sum_error_db` |
+| `balance-instruments.csv` | With `--balance`: `song,renderer,sample,name,voices,offset_db,distance_db,frames,reference_level_db`, one line per stem |
 | `durations.csv` | `song,tick_player_s,openmpt_rules_s,reference_s,difference_s,amiga_difference_s,one_tick_s,within_one_tick,first_row_off,stops_at_f00,conversion_notes,error` |
-| `dmf/`, `wav/` | The conversions and the renders |
+| `dmf/`, `wav/` | The conversions and the renders; `dmf/stems/` holds the stem DMFs (their renders are deleted) |
 | `logs/` | Each conversion's console output (`song.log`) and its rows' times (`song.rows.csv`: `order,row,tick_player_s,openmpt_rules_s,reference_s,difference_s`) |
 
 Nothing in the reports depends on the time or the machine, so two runs of the same converter give the same files
@@ -115,6 +140,6 @@ are measured against, is committed in [tests/golden/harness-baseline/](../tests/
 
 ## Tests
 
-`tests/Mod2Xgm.Harness.Tests` covers the WAV reader and writer, the report, the length check, the command line and a
-whole run with stand-in renderers. These run in CI. The tests that need libopenmpt or Furnace skip themselves where
+`tests/Mod2Xgm.Harness.Tests` covers the WAV reader and writer, the report, the length check, the command line, the
+stems and a whole run with stand-in renderers. These run in CI. The tests that need libopenmpt or Furnace skip themselves where
 those aren't installed, as on the CI runners. Coverage is measured on the converter (`Mod2Xgm.Tests`) only.
