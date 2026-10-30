@@ -42,7 +42,8 @@ patch (or PSG for simple square-like tones).
 ### B. All PCM
 Every MOD channel stays a sample.
 - DMF: only one DAC → need **priority/stealing** (e.g. most recent note, or lowest channel wins) or offline
-  **pre-mixing** of channels into one rendered sample stream (loses editability).
+  **pre-mixing** of channels into one rendered sample stream (loses editability). Pre-mixing just the repeated
+  overlaps, not whole channels, is planned in [ADR 0052](adr/0052-pre-mixed-pcm.md).
 - XGM/XGM2: 4 / 3 channels; pitches done by **pre-rendered sample variants per (sample, note)**.
 - ✅ Closest to the original sound on XGM. ❌ DMF heavily lossy; ROM size explodes with many pitches;
   XGM2 has only 3 channels for 4 MOD channels.
