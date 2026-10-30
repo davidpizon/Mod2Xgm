@@ -57,7 +57,7 @@ public sealed class LoudnessTests
     [Fact]
     public void MonoReadsOneChannel()
     {
-        StereoAudio tone = TestFiles.Tone(2, 44_100, 1000, 0.5f);
+        StereoAudio tone = TestFiles.Tone(2, 44_100, 1000);
 
         double stereo = Loudness.Of(tone).IntegratedLufs ?? double.NaN;
         double mono = Loudness.GatedLufs(tone.ToMono()) ?? double.NaN;
