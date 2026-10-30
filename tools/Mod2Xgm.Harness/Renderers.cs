@@ -133,7 +133,8 @@ internal sealed class OpenMptRenderer : IReferenceRenderer
 /// <summary>
 /// The converter's own MOD renderer (plan T7.1, docs/adr/0054-mod-renderer.md) playing the original MOD, not the
 /// conversion: it checks the in-app reference against libopenmpt's. The tick player plays the MOD (PAL) and its ticks get
-/// OpenMPT's lengths at the render rate, so the two keep time and the score measures the sound.
+/// OpenMPT's lengths at the render rate, with tempo changes one tick late as in libopenmpt's audio, so the two keep time
+/// and the score measures the sound.
 /// </summary>
 /// <param name="sampleRate">The rate to render at: the harness's scoring rate.</param>
 internal sealed class ModRendererCheck(int sampleRate) : ICandidateRenderer
@@ -143,7 +144,7 @@ internal sealed class ModRendererCheck(int sampleRate) : ICandidateRenderer
 
     /// <summary>
     /// The bar (plan T7.1): every song's whole-song log-mel distance to libopenmpt stays at or below this
-    /// (docs/adr/0054-mod-renderer.md; the corpus's worst song was 1.02 dB).
+    /// (docs/adr/0054-mod-renderer.md; the corpus's worst song was 0.94 dB, at 8 kHz).
     /// </summary>
     public const double MaxMelDistanceDb = 1.25;
 
@@ -165,7 +166,7 @@ internal sealed class ModRendererCheck(int sampleRate) : ICandidateRenderer
         ModModule module = ModReader.Read(File.ReadAllBytes(song.ModPath), silent);
         Song model = ModToSong.Convert(module, AmigaPitch.PalClockHz, silent);
         Playback playback = ModTickPlayer.Play(module, AmigaPitch.PalClockHz, 1.0, silent);
-        ModRenderOptions options = new(sampleRate) { TickDurations = OpenMptTiming.TickDurations(playback, sampleRate) };
+        ModRenderOptions options = new(sampleRate) { TickDurations = OpenMptTiming.TickDurations(playback, sampleRate, tempoOnItsTick: false) };
         return new CandidateRender(ModRenderer.Render(model, playback, options), null, InReferenceTime: true);
     }
 }

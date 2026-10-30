@@ -72,6 +72,19 @@ public sealed class DurationCheckTests
         Assert.Equal([861.0 / 44_100], OpenMptTiming.TickDurations(Ticks(PlaybackEnd.Stops, (0, 0, 0, Cia(128))), 44_100));
     }
 
+    /// <summary>
+    /// For libopenmpt's audio a tempo change stays one tick late, as the tick player has it: a song that starts at 96 BPM
+    /// renders its first tick at 125 BPM (ADR 0054).
+    /// </summary>
+    [Fact]
+    public void AudioTimeKeepsTheTempoChangeLate()
+    {
+        Playback playback = Ticks(PlaybackEnd.Stops, (0, 0, 0, Cia(125)), (0, 0, 1, Cia(96)), (0, 0, 2, Cia(96)));
+
+        Assert.Equal([882.0 / 44_100, 1148.0 / 44_100, 1148.0 / 44_100], OpenMptTiming.TickDurations(playback, 44_100, tempoOnItsTick: false));
+        Assert.Equal([1148.0 / 44_100, 1148.0 / 44_100, 1148.0 / 44_100], OpenMptTiming.TickDurations(playback, 44_100));
+    }
+
     /// <summary>A tick that isn't a CIA tempo (Ultimate Soundtracker's tempo byte) keeps its length, in whole samples.</summary>
     [Fact]
     public void OtherTicksKeepTheirLength()

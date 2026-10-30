@@ -130,7 +130,12 @@ internal static class OpenMptTiming
     /// The rate the ticks are whole samples at: libopenmpt's timing rate for song time, or the render rate for what it
     /// renders (a tick of a 44.1 kHz render is ⌊44100 × 2.5 / BPM⌋ samples).
     /// </param>
-    public static IReadOnlyList<double> TickDurations(Playback playback, int sampleRate = TimingRate)
+    /// <param name="tempoOnItsTick">
+    /// Time a tempo change from the tick that read it, as libopenmpt's song time does. Its rendered audio doesn't: there
+    /// the change shows one tick late, as on an Amiga, so a song that sets its tempo on the first row starts with a tick
+    /// at 125 BPM (measured on the corpus; docs/adr/0054-mod-renderer.md).
+    /// </param>
+    public static IReadOnlyList<double> TickDurations(Playback playback, int sampleRate = TimingRate, bool tempoOnItsTick = true)
     {
         ArgumentNullException.ThrowIfNull(playback);
         IReadOnlyList<PlaybackTick> ticks = playback.Ticks;
@@ -138,7 +143,7 @@ internal static class OpenMptTiming
         double[] ideal = [.. ticks.Select((t, i) => bpms[i] is { } bpm ? 2.5 / bpm : t.DurationSeconds)];
 
         // A tempo change shows on the tick after the row's first tick; OpenMPT times that first tick with it already.
-        for (int i = 0; i + 1 < ticks.Count; i++)
+        for (int i = 0; tempoOnItsTick && i + 1 < ticks.Count; i++)
         {
             if (ticks[i].Tick == 0 && bpms[i + 1] is { } next && bpms[i] != next)
             {

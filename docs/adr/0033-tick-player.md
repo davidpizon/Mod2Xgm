@@ -1,6 +1,6 @@
 # ADR 0033: Tick player (T3.4)
 
-- **Status:** Accepted
+- **Status:** Accepted; amended by [ADR 0055](0055-notes-beyond-protracker-range.md) (notes beyond ProTracker's range)
 - **Date:** 2026-10-27
 
 ## Context

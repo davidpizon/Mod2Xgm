@@ -101,11 +101,12 @@
 ### M7 — In-app rendering (pure C#)
 | Task | Work | Acceptance |
 |---|---|---|
-| T7.1 | MOD renderer on the tick player (Amiga-accurate mixing, hard L/R) | Score vs openmpt123 render below a tight threshold on the corpus |
+| T7.1 ✅ (PR #57) | MOD renderer on the tick player: OpenMPT's clean default sound, measured ([ADR 0054](adr/0054-mod-renderer.md)); notes beyond ProTracker's range as in OpenMPT ([ADR 0055](adr/0055-notes-beyond-protracker-range.md)) | Score vs openmpt123 render below a tight threshold on the corpus: ≤ 1.25 dB log-mel on every song ([harness.md](harness.md#in-app-mod-renderer)) |
 | T7.2 | YM2612 model: C# port of ymfm OPN2 (BSD-3 notice) | Matches ymfm reference output on test register streams (bit-exact or within tolerance); vs BlastEm captures |
 | T7.3 | SN76489 model | Tests vs reference captures |
 | T7.4 | PCM driver models: DMF DAC, XGM (4 ch ~14 kHz), XGM2 (3 ch 13.3/6.65 kHz) | Tests vs emulator captures |
 | T7.5 | `GenesisRenderer`: plan → stereo WAV through T7.2–T7.4 | Renders corpus; performance budget recorded |
+| T7.6 | Close the MOD renderer's known differences from OpenMPT ([ADR 0054](adr/0054-mod-renderer.md#known-differences)): finetune of in-range notes (2^(−ft/96)), the first pass of a loop, the wandering offset in `sharpojects_cantpleaseeveryone` | Each difference measured against libopenmpt, then fixed or recorded; the corpus's worst log-mel score goes down |
 
 ### M8 — Candidate generation
 | Task | Work | Acceptance |
