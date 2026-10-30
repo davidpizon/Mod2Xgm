@@ -61,6 +61,7 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0045](0045-command-line-writes-dmf.md) | The command line writes the DMF (T5.6) | 2026-10-28 | Accepted |
 | [0046](0046-mod-corpus.md) | The MOD corpus (T6.1) | 2026-10-29 | Accepted |
 | [0047](0047-accuracy-harness.md) | The accuracy harness: libopenmpt reference, Furnace and DefleMask renders (T6.3) | 2026-10-29 | Accepted |
+| [0048](0048-midi-input.md) | MIDI input (M13) | 2026-10-30 | Accepted |
 
 ## Open questions
 

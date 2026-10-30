@@ -149,15 +149,37 @@
 | T12.2 | Performance: reader/writer < 1 s; optimizer respects time budget | Benchmarks recorded |
 | T12.3 | Root `README.md`, `THIRD-PARTY-NOTICES.md` complete, release workflow | **1.0.0** |
 
+### M13 — MIDI input
+Design in [ADR 0048](adr/0048-midi-input.md): MIDI becomes a song with sampled General MIDI instruments from
+VSCO-2 CE (CC0, [sgossner/VSCO-2-CE](https://github.com/sgossner/VSCO-2-CE)), then runs through the same optimizer as
+a MOD. Programs VSCO-2 CE doesn't cover play on FM alone; hi-hats and ride on PSG noise.
+
+| Task | Work | Acceptance |
+|---|---|---|
+| T13.1 | `MidiReader` (SMF 0/1/2, RMID, SMPTE division); `docs/formats/midi.md`; report sections 1–2 for MIDI; input detected by content | Tests per event type on files built in code; every text / copyright / track-name event reported |
+| T13.2 | Instrument set: map of General MIDI programs and drum keys → VSCO-2 CE samples (root note, velocity range), built from its SFZ maps; programs without a sample → FM, hi-hats and ride → PSG noise; a `tools/` step fetches the pinned VSCO-2 CE commits and prepares the samples used; loading (16/24-bit WAV, stereo → mono, loops for sustained instruments) | Every program and drum key mapped or noted; tests on generated samples |
+| T13.3 | `MidiToSong`: grid choice, tempo map, voice splitting, note-off / sustain, controllers → effects | Per-feature tests; every rounding a conversion note |
+| T13.4 | Command line converts MIDI to DMF through the optimizer (voice stealing); sample options on MIDI → exit 1 | CLI tests; MIDI corpus opens in DefleMask and passes rescomp |
+| T13.5 | Harness for MIDI: MeltySynth + General MIDI SoundFont reference, timing and pitch against the events; freely licensed MIDI corpus | Scores recorded |
+
 ## Dependencies
 
-```
-M0 → M1 → M2 → M3 ─┬→ M4 → M5 ─┬→ M6 ─┐
-                   │           │       ├→ M8 → M9 → M10 → M11 → M12
-                   └───────────┴→ M7 ──┘
+```mermaid
+flowchart LR
+    M0 --> M1 --> M2 --> M3
+    M3 --> M4 --> M5
+    M3 --> M7
+    M5 --> M6
+    M5 --> M7
+    M6 --> M8
+    M7 --> M8
+    M8 --> M9
+    M9 --> M10 --> M11 --> M12
+    M9 --> M13
 ```
 
 M4 can run in parallel with M3. M7 can start once M3's tick player lands; M8 needs M6 (scoring) and M7 (rendering).
+M13 starts once M9 is done ([ADR 0048](adr/0048-midi-input.md)).
 
 ## Risks
 
