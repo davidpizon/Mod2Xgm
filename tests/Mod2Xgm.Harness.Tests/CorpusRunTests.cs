@@ -103,6 +103,8 @@ public sealed class CorpusRunTests
         Assert.NotNull(score.Score);
         Assert.NotNull(score.Clip);
         Assert.True(score.Clip.MelDistanceDb < 1, "the clip of a copy of the tone is close to the clip of the original");
+        Assert.Equal(0, score.Loudness?.DifferenceLu ?? double.NaN, 1);
+        Assert.Equal(0, score.ClipLoudness?.DifferenceLu ?? double.NaN, 1);
         Assert.Equal(1.5, WavFile.Read(temp.Combine("wav", "fx-poly1.reference.clip.wav")).Seconds, 0.01);
         Assert.Equal(1.5, WavFile.Read(temp.Combine("wav", "fx-poly1.same.clip.wav")).Seconds, 0.01);
     }
@@ -146,6 +148,8 @@ public sealed class CorpusRunTests
         Assert.Equal(balance.Stems.Count, player.Played.Count);
         Assert.Equal(0, balance.Report.DistanceDb, 3);
         Assert.Equal(0, balance.Report.GainDb, 3);
+        Assert.Equal(balance.Stems.Count, balance.R128OffsetsLu.Count);
+        Assert.All(balance.R128OffsetsLu, o => Assert.Equal(0, o ?? double.NaN, 3));
         Assert.All(balance.Stems, s => Assert.True(File.Exists(temp.Combine("dmf", "stems", FormattableString.Invariant($"fx-poly1.s{s.Sample:00}.dmf")))));
         Assert.Empty(Directory.GetFiles(temp.Combine("wav", "stems")));
     }

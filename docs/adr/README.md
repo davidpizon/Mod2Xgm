@@ -66,6 +66,7 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0050](0050-voice-levels.md) | Voice levels: FM and PSG noise as loud as their samples | 2026-10-30 | Accepted |
 | [0051](0051-instrument-balance-metric.md) | Instrument balance metric: per-sample stems, checked against listening | 2026-10-30 | Accepted |
 | [0052](0052-pre-mixed-pcm.md) | Pre-mixed PCM for repeated overlaps (T8.5) | 2026-10-30 | Accepted |
+| [0053](0053-r128-loudness-in-the-harness.md) | EBU R128 loudness in the harness (R128Net), checked against listening | 2026-10-30 | Proposed |
 
 ## Open questions
 
