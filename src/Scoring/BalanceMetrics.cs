@@ -33,10 +33,10 @@ internal sealed record BalanceReport(double DistanceDb, double StaticDb, double 
 internal static class BalanceMetrics
 {
     /// <summary>Loudness window: ITU-R BS.1770's momentary loudness, 400 ms.</summary>
-    public const double WindowSeconds = 0.4;
+    private const double WindowSeconds = 0.4;
 
     /// <summary>A level every 100 ms.</summary>
-    public const double HopSeconds = 0.1;
+    private const double HopSeconds = 0.1;
 
     /// <summary>A stem frame counts when it is louder than the reference mix's mean level minus this, and each side is clamped there.</summary>
     public const double AudibleBelowMixDb = 30;
@@ -191,7 +191,7 @@ internal static class BalanceMetrics
     /// </summary>
     /// <param name="signal">The audio.</param>
     /// <param name="length">How many samples to return; silence past the signal's end.</param>
-    public static double[] KWeighted(AudioSignal signal, int length)
+    private static double[] KWeighted(AudioSignal signal, int length)
     {
         ArgumentNullException.ThrowIfNull(signal);
         double[] x = new double[length];

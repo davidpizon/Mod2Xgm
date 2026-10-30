@@ -5,7 +5,7 @@ namespace Mod2Xgm.Tests.Scoring;
 /// <summary>Tests for the per-instrument balance measure (docs/adr/0051-instrument-balance-metric.md).</summary>
 public sealed class BalanceMetricsTests
 {
-    /// <summary>The same stems on both sides are 0 dB apart, with no gain and no offsets.</summary>
+    /// <summary>The same stems on both sides are 0 dB apart, with no gain and no offsets; each instrument keeps its id.</summary>
     [Fact]
     public void IdenticalStemsAreBalanced()
     {
@@ -17,6 +17,7 @@ public sealed class BalanceMetricsTests
         Assert.Equal(0, report.StaticDb, 9);
         Assert.Equal(0, report.MixRelativeDb, 9);
         Assert.Equal(0, report.GainDb, 9);
+        Assert.Equal([1, 2], report.Instruments.Select(i => i.Id));
         Assert.All(report.Instruments, i => Assert.Equal(0, i.OffsetDb, 9));
         Assert.All(report.Instruments, i => Assert.True(i.Frames > 0));
     }
@@ -136,10 +137,10 @@ public sealed class BalanceMetricsTests
     [Fact]
     public void KWeightingFollowsTheStandard()
     {
-        const int Rate = 48000;
+        const int rate = 48000;
         double Level(double hertz)
         {
-            AudioSignal sine = TestSignals.Sine(hertz, 1, rate: Rate);
+            AudioSignal sine = TestSignals.Sine(hertz, 1, rate: rate);
             return BalanceMetrics.Levels(sine, sine.Length)[^1];
         }
 

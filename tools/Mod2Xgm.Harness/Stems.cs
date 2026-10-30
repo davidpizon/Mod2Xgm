@@ -82,7 +82,8 @@ internal sealed class StemSource
             {
                 for (int channel = 0; channel < cells.ChannelCount; channel++)
                 {
-                    if (cells[row, channel].Sample is > 0 and int number && number <= _module.Samples.Count)
+                    int number = cells[row, channel].Sample;
+                    if (number > 0 && number <= _module.Samples.Count)
                     {
                         samples.Add(number - 1);
                     }

@@ -67,7 +67,7 @@ internal static class HarnessReport
                     ',',
                     Csv(song.Song),
                     Csv(candidate.Renderer),
-                    stem.Sample.ToString(CultureInfo.InvariantCulture),
+                    instrument.Id.ToString(CultureInfo.InvariantCulture),
                     Csv(stem.Name),
                     Csv(stem.Voices),
                     Number(instrument.OffsetDb),

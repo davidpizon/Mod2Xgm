@@ -114,7 +114,7 @@ public sealed class CorpusRunTests
 
         public List<string> Played { get; } = [];
 
-        public CandidateRender? Render(SongFiles song) => new(TestFiles.Tone(2.0), null);
+        public CandidateRender Render(SongFiles song) => new(TestFiles.Tone(2.0), null);
 
         public StereoAudio RenderDmf(string dmfPath, string wavPath)
         {
