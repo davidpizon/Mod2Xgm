@@ -366,7 +366,7 @@ public sealed class ModTickPlayerTests
 
     /// <summary>
     /// A note beyond ProTracker's range plays at its own pitch, snapped to OpenMPT's nearest note (57 → A#4's 56, 1700 →
-    /// C-0's 1712), and one note says so (ADR 0054).
+    /// C-0's 1712), and one note says so (ADR 0055).
     /// </summary>
     [Fact]
     public void NotesBeyondTheRangeSnapToOpenMptsTable()

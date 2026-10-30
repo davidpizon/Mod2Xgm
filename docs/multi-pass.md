@@ -71,8 +71,9 @@ PCM candidates; samples in `--require-psg` only PSG candidates. The allocator ne
 
 All in-process, no native libraries and no external programs:
 
-- **MOD renderer** — Amiga-accurate mixer driven by the IR tick player (period-exact pitch, finetune,
-  effects, hard L/R stereo). Validated against openmpt123 renders in the harness.
+- **MOD renderer** — mixer driven by the IR tick player that sounds like OpenMPT's default (8-tap sinc, 75/25 panning,
+  volume ramps; [ADR 0054](adr/0054-mod-renderer.md)), not like a real Amiga. Validated against libopenmpt renders in
+  the harness ([harness.md](harness.md#in-app-mod-renderer)).
 - **YM2612 model** — C# port of **ymfm** (BSD-3; keep its license notice in `THIRD-PARTY-NOTICES.md`).
 - **SN76489 model** — C# implementation.
 - **PCM driver model** — mimics XGM (4 ch, ~14 kHz) / XGM2 (3 ch, 13.3 / 6.65 kHz) software mixing and the

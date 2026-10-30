@@ -22,6 +22,8 @@ For each MOD (the corpus in `tests/data/corpus/` by default):
      and picked up as `song.wav` from a folder. When that folder's sibling `dmf/` holds the DMF the export was made
      from (the [corpus-check](../tests/golden/corpus-check/README.md) layout), the harness compares it with the fresh
      conversion. The report then says *stale* if the converter has changed since the export.
+   - **mod-renderer**: the converter's own MOD renderer (plan T7.1) plays the *original* MOD, not the conversion, as a
+     check that the optimizer's reference sounds like libopenmpt ([below](#in-app-mod-renderer)).
    - Emulator captures of XGM/XGM2 ROMs join here when those writers exist (plans M10/M11).
 5. **Scores.** Each rendering is resampled to the scoring rate if needed, mixed to mono and compared with the reference
    by `SongScorer` ([ADR 0042](adr/0042-scoring-metrics.md)): log-mel distance (dB), MFCC distance, note-start
@@ -58,6 +60,37 @@ converter follows the Amiga. Every row's three times are in `logs/song.rows.csv`
 On the corpus (2026-10-29) every song's timeline matches libopenmpt's to the microsecond. `musix-omg-plz-help` stops at
 `F00`. A real Amiga's timing differs from OpenMPT's by up to 0.21 s (`drozerix_-_stardust_jam`, 6 minutes at 101–128
 BPM).
+
+## In-app MOD renderer
+
+The optimizer will score its candidates against the converter's own rendering of the MOD (`src/Render/ModRenderer.cs`,
+[ADR 0054](adr/0054-mod-renderer.md)), so that rendering has to sound like the reference. The `mod-renderer` column
+checks it: the tick player plays the MOD (PAL), the renderer mixes it at the scoring rate, and the result is scored like
+any rendering. **The bar is 1.25 dB of whole-song log-mel distance on every song;** a song over it fails the run.
+
+Two things make the check measure the sound and not the clock:
+
+- **OpenMPT's tick lengths.** The renderer gets ⌊rate × 2.5 / BPM⌋ samples per tick at the render rate, and a tempo
+  change starts **one tick late**, as on an Amiga. That is how libopenmpt's audio is timed, and it is not how its song
+  time is timed ([Song timeline](#song-timeline) uses the tick that read the change). A song that sets its tempo on its
+  first row therefore starts with one tick at 125 BPM in libopenmpt's audio: 266 samples at 44.1 kHz for
+  `musix-omg-plz-help` (96 BPM), −193 for `musix-cute-october` (160 BPM). With the song-time rule those songs scored up
+  to 1.59 dB; with the audio rule 0.02–0.14 dB.
+- **No alignment.** The rendering already keeps libopenmpt's time, so it is scored with alignment off. On a song that
+  repeats, the alignment can line a bar up with the wrong repeat (`musix-cute-october`: 743 ms off at 22.05 kHz,
+  4.33 dB), and it moves in steps of 256 samples, which hid the first-tick offset above.
+
+On the corpus (2026-10-30), worst song per rate:
+
+| Rate | Worst song | Log-mel (dB) |
+|---|---|---|
+| 44.1 kHz | `drozerix_-_ai_renaissance` | 0.85 |
+| 22.05 kHz | `soundtracker15` | 0.76 |
+| 8 kHz | `fx-poly1` | 0.94 |
+
+Still different (ADR 0054, plan T7.6): finetune of in-range notes (up to about 6 cents), the first pass of a loop, and a
+1–3 ms offset that wanders through `sharpojects_cantpleaseeveryone` (speed 3, tempo changes and jumps), whose cause is
+not known yet.
 
 ## Instrument balance
 
@@ -119,7 +152,8 @@ dotnet run --project tools/Mod2Xgm.Harness -c Release
 ```
 
 Use `-c Release`: the scoring is several times slower in a Debug build. Exit code: **0** every song was measured and
-its timeline is within one tick, **1** a song failed or is more than a tick off, **2** the harness couldn't run
+its timeline is within one tick and the in-app renderer within its bar, **1** a song failed, is more than a tick off or
+is over the renderer's bar, **2** the harness couldn't run
 (libopenmpt missing, bad options).
 
 ## Options
@@ -146,7 +180,7 @@ In the output folder:
 
 | File | What it holds |
 |---|---|
-| `report.md` | Scores per song and renderer, the average per renderer, and the timeline table |
+| `report.md` | Scores per song and renderer, the average per renderer, the in-app renderer against its bar, and the timeline table |
 | `scores.csv` | `song,renderer,combined,mel_db,mfcc,onset_precision,onset_recall,onset_f1,onset_timing_ms,lag_ms,length_difference_s,remark` |
 | `clip-scores.csv` | With `--clip`: the same columns as `scores.csv`, for the first seconds only |
 | `balance.csv` | With `--balance`: `song,renderer,balance_db,static_db,mix_relative_db,gain_db,stems,reference_sum_error_db,candidate_sum_error_db` |

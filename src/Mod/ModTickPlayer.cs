@@ -10,7 +10,7 @@ namespace Mod2Xgm.Mod;
 /// behavior match it exactly (David, 2026-10-27).
 /// <para>The song plays once through, ending the way pt2-clone's MOD2WAV export decides it: after the tick that would
 /// move to a row already played (or past the song's end), which becomes the loop point; or on <c>F00</c>.</para>
-/// <para>One departure, as OpenMPT does (docs/adr/0054-notes-beyond-protracker-range.md): a song with notes outside
+/// <para>One departure, as OpenMPT does (docs/adr/0055-notes-beyond-protracker-range.md): a song with notes outside
 /// every ProTracker finetune row (period below 108 or above 907) was written in a tracker with more octaves, so those notes
 /// play at their own pitch, snapped to the nearest note from C-0 to B-5, and slides run from period 14 to 3424.
 /// ProTracker 2 would play silence or a stuck tone there.</para>
@@ -58,7 +58,7 @@ internal static class ModTickPlayer
         private const int MaxPeriod = 856;
         private const int TableStride = 37;
 
-        // OpenMPT's limits for a MOD whose notes go beyond ProTracker's range (measured with libopenmpt, ADR 0054).
+        // OpenMPT's limits for a MOD whose notes go beyond ProTracker's range (measured with libopenmpt, ADR 0055).
         private const int ExtendedMinPeriod = 14;
         private const int ExtendedMaxPeriod = 3424;
 
@@ -135,7 +135,7 @@ internal static class ModTickPlayer
         // For conversion notes.
         private bool _usesInvertLoop;
 
-        /// <summary>Notes beyond ProTracker's range play at their pitch (ADR 0054); the number of such cells, 0 when off.</summary>
+        /// <summary>Notes beyond ProTracker's range play at their pitch (ADR 0055); the number of such cells, 0 when off.</summary>
         private readonly int _extendedNotes;
 
         /// <summary>The smallest period slides reach and Paula plays: ProTracker's 113, or 14 with <see cref="_extendedNotes"/>.</summary>
@@ -695,7 +695,7 @@ internal static class ModTickPlayer
             ch.Period = unchecked((short)(ch.Period - ((ch.Cmd & 0xFF) & _lowMask)));
             _lowMask = 0xFF;
 
-            // PT BUG: sign removed before comparison, underflow not clamped! OpenMPT's extended range clamps it (ADR 0054).
+            // PT BUG: sign removed before comparison, underflow not clamped! OpenMPT's extended range clamps it (ADR 0055).
             if ((_extendedNotes > 0 && ch.Period < _minPeriod) || (ch.Period & 0xFFF) < _minPeriod)
             {
                 ch.Period = unchecked((short)((ch.Period & 0xF000) | _minPeriod));
