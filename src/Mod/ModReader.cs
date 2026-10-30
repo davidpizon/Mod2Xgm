@@ -182,6 +182,7 @@ internal static class ModReader
                     header.Length);
             }
 
+            int dataOffset = offset;
             sbyte[] pcm = new sbyte[available];
             data.Slice(offset, available).CopyTo(System.Runtime.InteropServices.MemoryMarshal.AsBytes(pcm.AsSpan()));
             offset += available;
@@ -199,6 +200,7 @@ internal static class ModReader
                 LoopStart = loopStart,
                 LoopLength = loopLength,
                 Data = pcm,
+                DataOffset = dataOffset,
             });
         }
 

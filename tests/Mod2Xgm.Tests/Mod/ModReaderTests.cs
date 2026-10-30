@@ -119,6 +119,22 @@ public sealed class ModReaderTests
         Assert.Equal(new sbyte[] { 100, 101 }, module.Samples[1].Data);
     }
 
+    /// <summary>Each sample's data offset points at its bytes in the file: right after the patterns, one after another.</summary>
+    [Fact]
+    public void SampleDataOffsetsPointIntoTheFile()
+    {
+        byte[] bytes = new ModBuilder()
+            .WithSample(1, "a", 4, data: i => (sbyte)(-1 - i))
+            .WithSample(2, "b", 2, data: i => (sbyte)(100 + i))
+            .Build();
+
+        ModModule module = Read(bytes);
+
+        Assert.Equal(1084 + 1024, module.Samples[0].DataOffset);
+        Assert.Equal(module.Samples[0].DataOffset + 4, module.Samples[1].DataOffset);
+        Assert.Equal(100, (sbyte)bytes[module.Samples[1].DataOffset]);
+    }
+
     [Fact]
     public void PatternCellsAreDecoded()
     {
