@@ -55,13 +55,14 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0039](0039-dmf-writer.md) | DMF writer and its song model (T5.2) | 2026-10-28 | Accepted |
 | [0040](0040-simple-mapper.md) | Simple mapper, `--no-dac` and the Genesis plan (T5.3) | 2026-10-28 | Accepted |
 | [0041](0041-require-dac-require-psg.md) | `--require-pcm` becomes `--require-dac`; add `--require-psg` | 2026-10-28 | Accepted; supersedes [ADR 0021](0021-require-fm-require-pcm.md) |
-| [0042](0042-scoring-metrics.md) | Scoring metrics (T6.2) | 2026-10-28 | Accepted |
+| [0042](0042-scoring-metrics.md) | Scoring metrics (T6.2) | 2026-10-28 | Accepted; the onset weight is superseded by [ADR 0049](0049-simple-mapper-baseline.md) |
 | [0043](0043-dmf-timing.md) | DMF timing: tick rate, tick times and speed changes (T5.4) | 2026-10-28 | Accepted |
 | [0044](0044-dmf-effects-and-song-grid.md) | DMF effects and song grid (T5.5) | 2026-10-28 | Accepted |
 | [0045](0045-command-line-writes-dmf.md) | The command line writes the DMF (T5.6) | 2026-10-28 | Accepted |
 | [0046](0046-mod-corpus.md) | The MOD corpus (T6.1) | 2026-10-29 | Accepted |
 | [0047](0047-accuracy-harness.md) | The accuracy harness: libopenmpt reference, Furnace and DefleMask renders (T6.3) | 2026-10-29 | Accepted |
 | [0048](0048-midi-input.md) | MIDI input (M13) | 2026-10-30 | Accepted |
+| [0049](0049-simple-mapper-baseline.md) | Simple-mapper baseline and score calibration (T6.4) | 2026-10-30 | Accepted; changes the onset weight of [ADR 0042](0042-scoring-metrics.md) |
 
 ## Open questions
 

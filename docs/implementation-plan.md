@@ -58,8 +58,8 @@
 |---|---|---|
 | T2.1 (PR #15) | `ModBuilder` test helper (both variants) | Used by reader tests |
 | T2.2 (PR #15) | `ModReader`: tags, 31-sample layout, patterns, sample data; reject 6/8-ch (exit 3) | Field tests; corrupt files → exit 3 with offset |
-| T2.3 | 15-sample detection (relaxed checks, a conversion note for every sign of junk), loop-in-bytes quirk | Heuristic tests incl. false positives |
-| T2.4 | Usage scan: trigger counts following the song flow (`Bxx`/`Dxx`/`E6x`/`F00`, one extra time around a jump back), used/unused/empty | Tests |
+| T2.3 (PR #22) | 15-sample detection (relaxed checks, a conversion note for every sign of junk), loop-in-bytes quirk | Heuristic tests incl. false positives |
+| T2.4 (PR #24) | Usage scan: trigger counts following the song flow (`Bxx`/`Dxx`/`E6x`/`F00`, one extra time around a jump back), used/unused/empty | Tests |
 | T2.5 (PR #27) | `ModReport` sections 1–2, wired into the **conversion command itself** right after reading | Golden text tests |
 
 ### M3 — Song model and playback semantics
@@ -96,7 +96,7 @@
 | T6.1 ✅ | Corpus of 10–20 freely licensed MODs; `tests/data/LICENSES.md` ([ADR 0046](adr/0046-mod-corpus.md): 18 Public Domain / CC0 songs from The Mod Archive + a 15-sample song made in code) | Licenses recorded |
 | T6.2 ✅ | `src/Scoring` (pure C#, [ADR 0042](adr/0042-scoring-metrics.md)): STFT, multi-resolution log-mel distance, MFCC distance (compared on the corpus; see [references/fm-matching.md](references/fm-matching.md)), onset error, alignment, `SongScorer` | Unit tests on synthetic signals |
 | T6.3 ✅ | `tools/Mod2Xgm.Harness` ([harness.md](harness.md), [ADR 0047](adr/0047-accuracy-harness.md)): libopenmpt (openmpt123's engine) reference renders; Furnace renders; ingest DefleMask WAV exports and emulator captures; CSV + markdown report; tick-player durations vs openmpt123 ± 1 tick (moved from T3.4) | Stable scores on reruns |
-| T6.4 | Baseline for the simple mapper | Recorded in an ADR ([adr/](adr/README.md)) |
+| T6.4 ✅ | Baseline for the simple mapper ([ADR 0049](adr/0049-simple-mapper-baseline.md), [baseline](../tests/golden/harness-baseline/README.md)): Furnace renders; onset weight 0 after listening; the score agrees only weakly with ears so far | Recorded in an ADR ([adr/](adr/README.md)) |
 
 ### M7 — In-app rendering (pure C#)
 | Task | Work | Acceptance |

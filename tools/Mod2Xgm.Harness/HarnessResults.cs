@@ -163,7 +163,8 @@ internal static class OpenMptTiming
 /// <param name="Renderer">Which renderer made it.</param>
 /// <param name="Score">The scores, or <c>null</c> when it couldn't be rendered or scored.</param>
 /// <param name="Remark">Anything the reader should know (a stale export, the error).</param>
-internal sealed record CandidateScore(string Renderer, ScoreReport? Score, string? Remark);
+/// <param name="Clip">The scores of the song's first seconds alone (<c>--clip</c>), or <c>null</c> when not asked for.</param>
+internal sealed record CandidateScore(string Renderer, ScoreReport? Score, string? Remark, ScoreReport? Clip = null);
 
 /// <summary>Everything the harness found for one song.</summary>
 /// <param name="Song">File name without extension.</param>

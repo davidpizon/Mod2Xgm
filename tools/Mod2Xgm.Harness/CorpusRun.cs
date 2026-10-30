@@ -21,13 +21,18 @@ namespace Mod2Xgm.Harness;
 /// <param name="reference">Plays the original.</param>
 /// <param name="candidates">Play the conversion.</param>
 /// <param name="logger">Progress, one line per step.</param>
+/// <param name="clipSeconds">
+/// Also score the song's first this many seconds on their own, and write them as <c>wav/name.reference.clip.wav</c> and
+/// <c>wav/name.renderer.clip.wav</c> for listening (plan T6.4); <c>null</c> for whole songs only.
+/// </param>
 internal sealed class CorpusRun(
     string outputDirectory,
     int sampleRate,
     bool saveReferenceWavs,
     IReferenceRenderer reference,
     IReadOnlyList<ICandidateRenderer> candidates,
-    ILogger logger)
+    ILogger logger,
+    double? clipSeconds = null)
 {
     /// <summary>
     /// Measures every song in <paramref name="modPaths"/>, <paramref name="jobs"/> at a time; the results are in the
@@ -63,13 +68,20 @@ internal sealed class CorpusRun(
                 WavFile.Write(Path.Combine(song.WavDirectory, name + ".reference.wav"), original.Audio);
             }
 
+            StereoAudio? referenceClip = null;
+            if (clipSeconds is { } clip)
+            {
+                referenceClip = original.Audio.Head(clip);
+                WavFile.Write(Path.Combine(song.WavDirectory, name + ".reference.clip.wav"), referenceClip);
+            }
+
             duration = CheckLength(song, mod, original.DurationSeconds);
             notes = Convert(song);
             AudioSignal referenceMono = original.Audio.ToMono();
             List<CandidateScore> scores = [];
             foreach (ICandidateRenderer candidate in candidates)
             {
-                if (Score(candidate, song, referenceMono) is { } score)
+                if (Score(candidate, song, referenceMono, referenceClip) is { } score)
                 {
                     scores.Add(score);
                 }
@@ -150,7 +162,7 @@ internal sealed class CorpusRun(
         return log.Warnings;
     }
 
-    private CandidateScore? Score(ICandidateRenderer candidate, SongFiles song, AudioSignal original)
+    private CandidateScore? Score(ICandidateRenderer candidate, SongFiles song, AudioSignal original, StereoAudio? originalClip)
     {
         try
         {
@@ -160,7 +172,22 @@ internal sealed class CorpusRun(
                 return null;
             }
 
-            ScoreReport score = SongScorer.Compare(original, render.Audio.At(sampleRate).ToMono(), ScoreOptions.Default, logger);
+            StereoAudio audio = render.Audio.At(sampleRate);
+            ScoreReport score = SongScorer.Compare(original, audio.ToMono(), ScoreOptions.Default, logger);
+            ScoreReport? clip = null;
+            if (originalClip is not null)
+            {
+                StereoAudio candidateClip = audio.Head(originalClip.Seconds);
+                WavFile.Write(Path.Combine(song.WavDirectory, $"{song.Name}.{candidate.Name}.clip.wav"), candidateClip);
+                clip = SongScorer.Compare(originalClip.ToMono(), candidateClip.ToMono(), ScoreOptions.Default, logger);
+                logger.Information(
+                    "{Song}: {Renderer} scores {Combined} on the first {Seconds} s",
+                    song.Name,
+                    candidate.Name,
+                    clip.Combined.ToString("0.00", CultureInfo.InvariantCulture),
+                    originalClip.Seconds.ToString("0.##", CultureInfo.InvariantCulture));
+            }
+
             logger.Information(
                 "{Song}: {Renderer} scores {Combined} (log-mel {Mel} dB, onset F1 {F1}){Remark}",
                 song.Name,
@@ -169,7 +196,7 @@ internal sealed class CorpusRun(
                 score.MelDistanceDb.ToString("0.00", CultureInfo.InvariantCulture),
                 score.OnsetF1.ToString("0.00", CultureInfo.InvariantCulture),
                 render.Remark is null ? string.Empty : "; " + render.Remark);
-            return new CandidateScore(candidate.Name, score, render.Remark);
+            return new CandidateScore(candidate.Name, score, render.Remark, clip);
         }
         catch (HarnessException ex)
         {

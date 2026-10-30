@@ -1,6 +1,6 @@
 # ADR 0042: Scoring metrics (T6.2)
 
-- **Status:** Accepted
+- **Status:** Accepted; the onset weight is superseded by [ADR 0049](0049-simple-mapper-baseline.md)
 - **Date:** 2026-10-28
 
 ## Context

@@ -18,6 +18,19 @@ internal sealed record StereoAudio(float[] Left, float[] Right, int SampleRate)
     /// <summary>Both channels mixed to one, which is what the scorer compares (ADR 0042).</summary>
     public AudioSignal ToMono() => AudioSignal.FromStereo(Left, Right, SampleRate);
 
+    /// <summary>The first <paramref name="seconds"/> of the audio, or all of it when it is shorter.</summary>
+    public StereoAudio Head(double seconds)
+    {
+        int length = (int)Math.Min(Length, Math.Round(seconds * SampleRate));
+        if (length == Length)
+        {
+            return this;
+        }
+
+        float[] left = Left[..length];
+        return new StereoAudio(left, ReferenceEquals(Left, Right) ? left : Right[..length], SampleRate);
+    }
+
     /// <summary>
     /// The same audio at <paramref name="sampleRate"/>, through the converter's own smooth resampler, so renders made
     /// at different rates (DefleMask, Furnace) can be compared with the reference. Returns this when the rate matches.

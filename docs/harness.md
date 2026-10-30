@@ -89,7 +89,9 @@ its timeline is within one tick, **1** a song failed or is more than a tick off,
 | `--furnace` | PATH, then `Program Files\Furnace` | Path to Furnace |
 | `--no-furnace` | | Don't render with Furnace |
 | `--deflemask-wavs` | `tests/golden/corpus-check/out/wav` when it exists | Folder of DefleMask exports named `song.wav` |
+| `--no-deflemask` | | Don't score DefleMask exports, even from the default folder |
 | `--save-reference-wavs` | | Also write the libopenmpt renders to `wav/song.reference.wav`, for listening |
+| `--clip <seconds>` | | Also score each song's first *seconds* (1–600) on their own, write them to `clip-scores.csv` and a report section, and save them for listening as `wav/song.reference.clip.wav` and `wav/song.<renderer>.clip.wav` |
 | `-j`, `--jobs` | half the processors, at most 4 | Songs measured at once (1–64). The reports list songs in the same order either way |
 | `-v`, `--verbose` | | Log every scoring step |
 
@@ -101,13 +103,15 @@ In the output folder:
 |---|---|
 | `report.md` | Scores per song and renderer, the average per renderer, and the timeline table |
 | `scores.csv` | `song,renderer,combined,mel_db,mfcc,onset_precision,onset_recall,onset_f1,onset_timing_ms,lag_ms,length_difference_s,remark` |
+| `clip-scores.csv` | With `--clip`: the same columns as `scores.csv`, for the first seconds only |
 | `durations.csv` | `song,tick_player_s,openmpt_rules_s,reference_s,difference_s,amiga_difference_s,one_tick_s,within_one_tick,first_row_off,stops_at_f00,conversion_notes,error` |
 | `dmf/`, `wav/` | The conversions and the renders |
 | `logs/` | Each conversion's console output (`song.log`) and its rows' times (`song.rows.csv`: `order,row,tick_player_s,openmpt_rules_s,reference_s,difference_s`) |
 
 Nothing in the reports depends on the time or the machine, so two runs of the same converter give the same files
-(plan T6.3: *stable scores on reruns*). Reports stay in `artifacts/`. The baseline that later changes are measured
-against is recorded in an ADR in plan T6.4.
+(plan T6.3: *stable scores on reruns*). Reports stay in `artifacts/`. The simple mapper's baseline, which later changes
+are measured against, is committed in [tests/golden/harness-baseline/](../tests/golden/harness-baseline/README.md)
+([ADR 0049](adr/0049-simple-mapper-baseline.md)).
 
 ## Tests
 

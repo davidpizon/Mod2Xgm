@@ -7,16 +7,19 @@ namespace Mod2Xgm.Scoring;
 /// <param name="Align">Line the candidate up with the reference before comparing (recommended).</param>
 /// <param name="MaxLagSeconds">Largest offset the alignment looks for, either way.</param>
 /// <param name="OnsetToleranceSeconds">How far apart two note starts may be and still be the same note.</param>
-/// <param name="OnsetWeight">dB added to the combined score for a candidate whose note starts all miss (F1 of 0).</param>
+/// <param name="OnsetWeight">
+/// dB added to the combined score for a candidate whose note starts all miss (F1 of 0). 0 by default: on the corpus the
+/// onset term made the score agree less with listening (docs/adr/0049-simple-mapper-baseline.md).
+/// </param>
 /// <param name="Resolutions">The spectral scales, or <c>null</c> for <see cref="MelResolution.Default"/>.</param>
 internal sealed record ScoreOptions(
     bool Align = true,
     double MaxLagSeconds = 1.0,
     double OnsetToleranceSeconds = OnsetMetrics.DefaultToleranceSeconds,
-    double OnsetWeight = 3.0,
+    double OnsetWeight = 0.0,
     IReadOnlyList<MelResolution>? Resolutions = null)
 {
-    /// <summary>Alignment on, 1 s search, 50 ms tolerance, default scales.</summary>
+    /// <summary>Alignment on, 1 s search, 50 ms tolerance, no onset weight, default scales.</summary>
     public static ScoreOptions Default { get; } = new();
 }
 
@@ -29,7 +32,10 @@ internal sealed record ScoreOptions(
 /// <param name="OnsetTimingErrorSeconds">Mean timing error of the matched note starts, or <c>null</c> when none matched.</param>
 /// <param name="LagSeconds">How late the candidate was; it was moved earlier by this much (0 when not aligning).</param>
 /// <param name="LengthDifferenceSeconds">Candidate length minus reference length (before alignment).</param>
-/// <param name="Combined">The number to minimize: <paramref name="MelDistanceDb"/> plus the onset penalty. Provisional until calibrated on the corpus (plan T6.4).</param>
+/// <param name="Combined">
+/// The number to minimize: <paramref name="MelDistanceDb"/> plus the onset penalty (none by default). It agrees only
+/// weakly with listening so far (docs/adr/0049-simple-mapper-baseline.md).
+/// </param>
 internal sealed record ScoreReport(
     double MelDistanceDb,
     double MfccDistance,

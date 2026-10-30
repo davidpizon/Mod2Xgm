@@ -74,13 +74,15 @@ internal static class Program
         Option<string?> furnace = new("--furnace") { Description = "Path to Furnace (default: furnace on PATH, or its Windows install folder)." };
         Option<bool> noFurnace = new("--no-furnace") { Description = "Don't render the DMFs with Furnace." };
         Option<string?> deflemask = new("--deflemask-wavs") { Description = "Folder of DefleMask WAV exports named song.wav (default: " + DefaultDefleMaskWavs + " when it exists)." };
+        Option<bool> noDefleMask = new("--no-deflemask") { Description = "Don't score DefleMask exports." };
         Option<bool> saveReference = new("--save-reference-wavs") { Description = "Also write each reference render to wav/song.reference.wav." };
+        Option<double?> clip = new("--clip") { Description = "Also score each song's first this many seconds, and write them as wav/*.clip.wav for listening." };
         Option<int> jobs = new("--jobs", "-j") { Description = "Songs measured at once.", DefaultValueFactory = _ => DefaultJobs };
         Option<bool> verbose = new("--verbose", "-v") { Description = "Log every scoring step." };
 
         RootCommand root = new("Mod2Xgm accuracy harness: scores conversions against OpenMPT (docs/harness.md).")
         {
-            inputs, output, rate, libopenmpt, furnace, noFurnace, deflemask, saveReference, jobs, verbose,
+            inputs, output, rate, libopenmpt, furnace, noFurnace, deflemask, noDefleMask, saveReference, clip, jobs, verbose,
         };
         root.SetAction(result =>
         {
@@ -96,6 +98,12 @@ internal static class Program
                 throw new HarnessException(string.Create(CultureInfo.InvariantCulture, $"--jobs {songsAtOnce}: between 1 and 64, please"));
             }
 
+            double? clipSeconds = result.GetValue(clip);
+            if (clipSeconds is < 1 or > 600)
+            {
+                throw new HarnessException(string.Create(CultureInfo.InvariantCulture, $"--clip {clipSeconds}: between 1 and 600 seconds, please"));
+            }
+
             string[] given = result.GetValue(inputs) ?? [];
             return execute(new HarnessOptions(
                 given.Length == 0 ? [DefaultCorpus] : given,
@@ -107,7 +115,9 @@ internal static class Program
                 result.GetValue(deflemask),
                 result.GetValue(saveReference),
                 result.GetValue(verbose),
-                songsAtOnce));
+                songsAtOnce,
+                result.GetValue(noDefleMask),
+                clipSeconds));
         });
 
         ParseResult parsed = root.Parse(args);
@@ -144,7 +154,7 @@ internal static class Program
         }
 
         string? deflemask = options.DefleMaskWavs ?? (Directory.Exists(DefaultDefleMaskWavs) ? DefaultDefleMaskWavs : null);
-        if (deflemask is not null)
+        if (deflemask is not null && !options.NoDefleMask)
         {
             candidates.Add(new DefleMaskExports(deflemask));
         }
@@ -158,7 +168,7 @@ internal static class Program
             options.SampleRate,
             candidates.Count == 0 ? "none (lengths only)" : string.Join(", ", candidates.Select(c => c.Name)));
 
-        IReadOnlyList<SongResult> results = new CorpusRun(options.OutputDirectory, options.SampleRate, options.SaveReferenceWavs, reference, candidates, logger).Run(songs, options.Jobs);
+        IReadOnlyList<SongResult> results = new CorpusRun(options.OutputDirectory, options.SampleRate, options.SaveReferenceWavs, reference, candidates, logger, options.ClipSeconds).Run(songs, options.Jobs);
         return Report(results, options, reference.Name, logger);
     }
 
@@ -171,6 +181,11 @@ internal static class Program
         Directory.CreateDirectory(options.OutputDirectory);
         File.WriteAllText(Path.Combine(options.OutputDirectory, "scores.csv"), HarnessReport.ScoresCsv(results));
         File.WriteAllText(Path.Combine(options.OutputDirectory, "durations.csv"), HarnessReport.DurationsCsv(results));
+        if (options.ClipSeconds is not null)
+        {
+            File.WriteAllText(Path.Combine(options.OutputDirectory, "clip-scores.csv"), HarnessReport.ClipScoresCsv(results));
+        }
+
         string report = Path.Combine(options.OutputDirectory, "report.md");
         File.WriteAllText(report, HarnessReport.Markdown(results, reference, version, options.SampleRate));
 
@@ -220,6 +235,8 @@ internal static class Program
 /// <param name="SaveReferenceWavs">Write the reference renders.</param>
 /// <param name="Verbose">Debug logging.</param>
 /// <param name="Jobs">Songs measured at once.</param>
+/// <param name="NoDefleMask">Skip DefleMask exports, even in the default folder.</param>
+/// <param name="ClipSeconds">Also score and write the first this many seconds, or <c>null</c>.</param>
 internal sealed record HarnessOptions(
     IReadOnlyList<string> Inputs,
     string OutputDirectory,
@@ -230,4 +247,6 @@ internal sealed record HarnessOptions(
     string? DefleMaskWavs,
     bool SaveReferenceWavs,
     bool Verbose,
-    int Jobs = 1);
+    int Jobs = 1,
+    bool NoDefleMask = false,
+    double? ClipSeconds = null);
