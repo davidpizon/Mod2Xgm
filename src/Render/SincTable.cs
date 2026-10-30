@@ -13,7 +13,7 @@ internal sealed class SincTable
     public const int Taps = 8;
 
     /// <summary>Fractions of a source sample the table holds a filter for.</summary>
-    public const int Phases = 4096;
+    private const int Phases = 4096;
 
     /// <summary>Taps before the current source sample (offsets −3 … −1).</summary>
     public const int TapsBefore = 3;
@@ -45,26 +45,26 @@ internal sealed class SincTable
         }
     }
 
-    /// <summary>For playing a sample at up to <see cref="Downsample13xFrom"/> times the output rate (OpenMPT's Kaiser sinc).</summary>
+    /// <summary>For playing a sample at up to <see cref="Downsample13XFrom"/> times the output rate (OpenMPT's Kaiser sinc).</summary>
     public static SincTable Normal { get; } = new(9.6377, 0.97);
 
-    /// <summary>For playing a sample at <see cref="Downsample13xFrom"/> to <see cref="Downsample2xFrom"/> times the output rate (OpenMPT's 1.3× table).</summary>
-    public static SincTable Downsample13x { get; } = new(8.5, 0.5);
+    /// <summary>For playing a sample at <see cref="Downsample13XFrom"/> to <see cref="Downsample2XFrom"/> times the output rate (OpenMPT's 1.3× table).</summary>
+    public static SincTable Downsample13X { get; } = new(8.5, 0.5);
 
-    /// <summary>For playing a sample at more than <see cref="Downsample2xFrom"/> times the output rate: fitted to libopenmpt's response.</summary>
-    public static SincTable Downsample2x { get; } = new(7.25, 0.415);
+    /// <summary>For playing a sample at more than <see cref="Downsample2XFrom"/> times the output rate: fitted to libopenmpt's response.</summary>
+    public static SincTable Downsample2X { get; } = new(7.25, 0.415);
 
-    /// <summary>The increment above which OpenMPT switches to <see cref="Downsample13x"/> (0x1.3 in its 32.32 fixed point).</summary>
-    public const double Downsample13xFrom = 1.1875;
+    /// <summary>The increment above which OpenMPT switches to <see cref="Downsample13X"/> (0x1.3 in its 32.32 fixed point).</summary>
+    private const double Downsample13XFrom = 1.1875;
 
-    /// <summary>The increment above which OpenMPT switches to <see cref="Downsample2x"/>.</summary>
-    public const double Downsample2xFrom = 1.5;
+    /// <summary>The increment above which OpenMPT switches to <see cref="Downsample2X"/>.</summary>
+    private const double Downsample2XFrom = 1.5;
 
     /// <summary>The table for a voice that steps <paramref name="increment"/> source samples per output sample.</summary>
     public static SincTable For(double increment) => increment switch
     {
-        > Downsample2xFrom => Downsample2x,
-        > Downsample13xFrom => Downsample13x,
+        > Downsample2XFrom => Downsample2X,
+        > Downsample13XFrom => Downsample13X,
         _ => Normal,
     };
 

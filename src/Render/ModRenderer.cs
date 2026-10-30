@@ -30,22 +30,22 @@ internal sealed record ModRenderOptions(int SampleRate = 44_100, double StereoSe
 internal static class ModRenderer
 {
     /// <summary>Output level of one channel at full volume, before panning: libopenmpt's, measured on a full-scale sample.</summary>
-    public const double ChannelGain = 0.5;
+    private const double ChannelGain = 0.5;
 
     /// <summary>OpenMPT pans MOD channels to 25 % / 75 % (pan ±0.5), not hard left/right.</summary>
     public const double OpenMptSeparation = 0.5;
 
     /// <summary>A rising volume reaches its new value over this long (OpenMPT's default ramp up, 16 samples at 44.1 kHz).</summary>
-    public const double RampUpSeconds = 363e-6;
+    private const double RampUpSeconds = 363e-6;
 
     /// <summary>A falling volume, or a note cut by a new one, takes this long (OpenMPT's default ramp down, 42 samples at 44.1 kHz).</summary>
-    public const double RampDownSeconds = 952e-6;
+    private const double RampDownSeconds = 952e-6;
 
     /// <summary>
     /// Click removal: where a one-shot sample ends, OpenMPT keeps its last value as an offset that shrinks by this share
     /// every output sample, instead of jumping to 0 (its mixer's offset decay, a shift by 8 bits).
     /// </summary>
-    public const double OffsetDecay = 1.0 / 256;
+    private const double OffsetDecay = 1.0 / 256;
 
     /// <summary>Renders <paramref name="playback"/> once through, from its first tick to the end of its last.</summary>
     /// <param name="song">The song the playback's sample parts point into.</param>
@@ -260,7 +260,8 @@ internal static class ModRenderer
         /// <summary>Ramps to a new <paramref name="volume"/> with these left and right gains: quickly when it rises, slower when it falls.</summary>
         public void SetVolume(double volume, double left, double right, Mixer mixer)
         {
-            if (left == _targetLeft && right == _targetRight)
+            // The same gains as the last ones asked for, exactly: nothing to ramp to.
+            if (left.Equals(_targetLeft) && right.Equals(_targetRight))
             {
                 return;
             }
@@ -376,6 +377,6 @@ internal static class ModRenderer
         /// True for a part that means silence: no sample, or the 2-frame stretch at a sample's start that ends a one-shot
         /// sample on an Amiga (docs/architecture.md#layers); OpenMPT stops the note there too.
         /// </summary>
-        private static bool IsEnd(SampleBlock block) => block.Sample is null || block.Frames <= 0 || (block.StartFrame == 0 && block.Frames <= 2);
+        private static bool IsEnd(SampleBlock block) => block is { Sample: null } or { Frames: <= 2, StartFrame: 0 } or { Frames: <= 0 };
     }
 }

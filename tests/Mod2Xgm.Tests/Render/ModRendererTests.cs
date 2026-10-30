@@ -144,7 +144,7 @@ public sealed class ModRendererTests
     [Fact]
     public void NextPartsFollowTheStartedOne()
     {
-        Sample first = Constant(10, 1f);
+        Sample first = Constant(10);
         Sample second = Constant(10, 0.5f);
         Playback playback = PlaybackOf(0.001, Channel(1, Whole(10), Whole(10), pan: 1), Channel(1, Whole(10, sample: 1), pan: 1));
 
@@ -237,7 +237,7 @@ public sealed class ModRendererTests
     [Fact]
     public void SincFiltersKeepTheLevel()
     {
-        foreach (SincTable table in new[] { SincTable.Normal, SincTable.Downsample13x, SincTable.Downsample2x })
+        foreach (SincTable table in new[] { SincTable.Normal, SincTable.Downsample13X, SincTable.Downsample2X })
         {
             foreach (double fraction in new[] { 0, 0.25, 0.5, 0.999 })
             {
@@ -256,8 +256,8 @@ public sealed class ModRendererTests
         Assert.InRange(whole[SincTable.TapsBefore], 0.95f, 1f);
         Assert.All(whole.Where((_, i) => i != SincTable.TapsBefore), tap => Assert.InRange(tap, -0.05f, 0.05f));
         Assert.Same(SincTable.Normal, SincTable.For(0.7));
-        Assert.Same(SincTable.Downsample13x, SincTable.For(1.2));
-        Assert.Same(SincTable.Downsample13x, SincTable.For(1.5));
-        Assert.Same(SincTable.Downsample2x, SincTable.For(3));
+        Assert.Same(SincTable.Downsample13X, SincTable.For(1.2));
+        Assert.Same(SincTable.Downsample13X, SincTable.For(1.5));
+        Assert.Same(SincTable.Downsample2X, SincTable.For(3));
     }
 }

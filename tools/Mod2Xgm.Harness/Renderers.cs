@@ -154,7 +154,7 @@ internal sealed class ModRendererCheck(int sampleRate) : ICandidateRenderer
     public static bool OverTheBar(CandidateScore score)
     {
         ArgumentNullException.ThrowIfNull(score);
-        return score.Renderer == RendererName && score.Score is { } s && s.MelDistanceDb > MaxMelDistanceDb;
+        return score is { Renderer: RendererName, Score.MelDistanceDb: > MaxMelDistanceDb };
     }
 
     /// <inheritdoc/>
