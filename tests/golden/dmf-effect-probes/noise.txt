@@ -28,3 +28,4 @@ channel 10: orders [0], effect columns 1
   0:44 note 2 octave 3 volume 9 instrument 0 effects []
 conversion notes:
   Sample 3 "hat": it is noise and the DAC is off (--no-dac), so it is played by the PSG noise channel
+  12 noise notes play quieter than in the MOD: their sample is louder than the PSG's noise at full volume

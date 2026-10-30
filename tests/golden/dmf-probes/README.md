@@ -1,6 +1,6 @@
 # DMF probe files (plan T4.3)
 
-Five tiny songs that check, **by ear**, the parts of [docs/formats/dmf.md](../../../docs/formats/dmf.md) that came
+Tiny songs that check, **by ear**, the parts of [docs/formats/dmf.md](../../../docs/formats/dmf.md) that came
 from reading other programs (Furnace, DefleMask's effect list) rather than from DefleMask itself. Each probe is built
 so that a wrong guess sounds clearly wrong, or is silent.
 
@@ -40,6 +40,7 @@ worked. The results go into docs/formats/dmf.md.
 | `dac-sample.dmf` | `17xx` turns on the DAC on FM6; the note picks the sample (octave ignored); sample rate codes 5 = 32 kHz, 1 = 8 kHz | Three beeps: **A-4**, **the same A-4 again** (even though the note is two octaves higher), then **E-5** (660 Hz). Wrong pitches mean the rate codes are wrong; a different second beep means the octave isn't ignored | FM6: `1701` on the first row; notes `C-3`, `C-5`, `C#3`. Samples "a440 @ 32 kHz" (rate 32000) and "e660 @ 8 kHz" (rate 8000) |
 | `custom-hz.dmf` | Custom Hz `"25"` (3 ASCII bytes), tick times | **One A-4 beep every second**, steady, also when the song loops | Song settings: custom rate **25 Hz**, speed 5/5 |
 | `ext-ch3.dmf` | System `0x42` and its channel order (FM1, FM2, FM3 OP1–OP4, FM4–6, PSG) | Four notes entering one by one — **C-4, E-4, G-4, C-5** — making a **C major chord**, then silence | System "Genesis (Ext. CH3)". The four notes sit in the **FM3 OP1, OP2, OP3, OP4** columns (not FM4–FM6 or PSG) |
+| `levels.dmf` | How loud each kind of voice is at full volume ([ADR 0050](../../../docs/adr/0050-voice-levels.md)): FM at `7F` and `77`, the DAC, a PSG square and PSG noise | Five sounds of about one second each, one after another: a pure tone **A-4**, the same tone **a little quieter** (6 dB), the same tone from the **DAC** about as loud as the first, a **square** A-4 (written A-2: PSG notes sound two octaves up), then **noise**. The square and the noise are clearly quieter | FM1: `A-4 7F`, `A-4 77`, `OFF`; FM6: `C-3 1701`, `OFF`; SN1: `A-2 0F`; SN4: `C-4 0F 2001` |
 
 ## Results
 

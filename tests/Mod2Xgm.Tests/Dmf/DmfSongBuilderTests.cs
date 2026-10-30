@@ -26,6 +26,12 @@ public sealed class DmfSongBuilderTests
     /// <summary>The lead: a 32-frame sine loop, so it sounds at 8287 / 32 = 259 Hz at C-2 (C-4, 17 cents flat).</summary>
     private const int LeadCycle = 32;
 
+    /// <summary>
+    /// The lead's level against the Sine patch that plays it (ADR 0050): a sine at 100/128 of full scale, played by a
+    /// full-scale sine, so its FM volume at MOD volume 64 is this much below 7F.
+    /// </summary>
+    private const double LeadLevel = 100 / 128.0;
+
     private static readonly GenesisChannel Fm1 = GenesisChannel.Fm1;
     private static readonly GenesisChannel Fm2 = GenesisChannel.Fm2;
     private static readonly GenesisChannel Dac = GenesisChannel.Fm6;
@@ -57,7 +63,7 @@ public sealed class DmfSongBuilderTests
         DmfCell cell = result.Cell(Fm1, 0);
         Assert.Equal((12, 3), (cell.Note, cell.Octave));
         Assert.Equal(0, cell.Instrument);
-        Assert.Equal(DmfUnits.MaxFmVolume, cell.Volume);
+        Assert.Equal(DmfUnits.FmVolume(LeadLevel), cell.Volume);
         int fine = result.Effects(Fm1, 0).Single(e => e.Code == 0xE5).Value;
         Assert.InRange(fine, 0x80 - 24, 0x80 - 20);
         Assert.Contains(result.Notes, n => n.Contains("\"lead\": its FM notes are placed at the pitch measured", StringComparison.Ordinal));
@@ -87,7 +93,7 @@ public sealed class DmfSongBuilderTests
         Assert.DoesNotContain(result.Effects(Fm1, 4), e => e.Code == 0x08);
     }
 
-    /// <summary>A MOD volume becomes the FM volume that sounds as loud: half volume is 6 dB down, 8 steps of 0.75 dB.</summary>
+    /// <summary>A MOD volume becomes the FM volume that sounds as loud: half volume is 6 dB below the lead at full volume, 8 steps of 0.75 dB.</summary>
     [Fact]
     public void VolumesAreConvertedToDecibelSteps()
     {
@@ -95,8 +101,8 @@ public sealed class DmfSongBuilderTests
             .WithCell(0, 0, 0, Lead, C2, 0xC, 32)
             .WithCell(0, 2, 0, 0, 0, 0xC, 16));
 
-        Assert.Equal(DmfUnits.MaxFmVolume - 8, result.Cell(Fm1, 0).Volume);
-        Assert.Equal(DmfUnits.MaxFmVolume - 16, result.Cell(Fm1, 2).Volume);
+        Assert.Equal(DmfUnits.FmVolume(LeadLevel) - 8, result.Cell(Fm1, 0).Volume);
+        Assert.Equal(DmfUnits.FmVolume(LeadLevel) - 16, result.Cell(Fm1, 2).Volume);
     }
 
     /// <summary>Arpeggio <c>0xy</c> is <c>00xy</c>, stopped with <c>0000</c> on the next row because DMF keeps it running.</summary>
@@ -213,7 +219,7 @@ public sealed class DmfSongBuilderTests
             .WithCell(0, 0, 0, Lead, C2, 0xC, 32)
             .WithCell(0, 1, 0, 0, 0, 0xE, 0xB8));
 
-        Assert.Equal(DmfUnits.FmVolume(24 / 64.0), result.Cell(Fm1, 1).Volume);
+        Assert.Equal(DmfUnits.FmVolume(LeadLevel * 24 / 64.0), result.Cell(Fm1, 1).Volume);
     }
 
     /// <summary>Retrigger <c>E9x</c>, note cut <c>ECx</c> and note delay <c>EDx</c> keep their tick counts (the DMF ticks at the MOD's rate).</summary>
@@ -377,7 +383,48 @@ public sealed class DmfSongBuilderTests
         Assert.Equal(12, result.Cell(Dac, 24).Note);
     }
 
-    /// <summary>With <c>--no-dac</c> a noise hit plays on PSG4 with fixed-rate white noise and the noise instrument.</summary>
+    /// <summary>
+    /// An FM voice plays its sample as loud as the MOD does (ADR 0050): a lead a quarter as loud (12 dB) is 16 steps
+    /// quieter than the lead, both at MOD volume 64.
+    /// </summary>
+    [Fact]
+    public void FmVolumeFollowsTheSampleLevel()
+    {
+        const int quiet = 4;
+        DmfConversion.Result result = Convert(Song()
+            .WithSample(quiet, "quiet lead", LeadCycle, loopStart: 0, loopLength: LeadCycle, data: i => (sbyte)Math.Round(25 * Math.Sin(2 * Math.PI * i / LeadCycle)))
+            .WithCell(0, 0, 0, Lead, C2)
+            .WithCell(0, 0, 1, quiet, C2));
+
+        int loud = result.Cell(Fm1, 0).Volume;
+        int soft = result.Cell(Fm2, 0).Volume;
+        Assert.Equal(DmfUnits.FmVolume(LeadLevel), loud);
+        Assert.Equal(loud - 16, soft);
+    }
+
+    /// <summary>
+    /// A sample louder than its patch can play plays at the patch's loudest at full MOD volume, and softer notes in
+    /// proportion, with a conversion note: a full-scale square loop is louder than any sine.
+    /// </summary>
+    [Fact]
+    public void ASampleLouderThanItsPatchIsNoted()
+    {
+        const int square = 4;
+        DmfConversion.Result result = Convert(Song()
+            .WithSample(square, "square", LeadCycle, loopStart: 0, loopLength: LeadCycle, data: i => (sbyte)(i < LeadCycle / 2 ? 127 : -128))
+            .WithCell(0, 0, 0, square, C2)
+            .WithCell(0, 1, 0, square, C2, 0xC, 32));
+
+        int full = result.Cell(Fm1, 0).Volume;
+        Assert.InRange(full, DmfUnits.MaxFmVolume - 8, DmfUnits.MaxFmVolume);
+        Assert.Equal(full - 8, result.Cell(Fm1, 1).Volume);
+        Assert.Contains(result.Notes, n => n.Contains("FM notes play quieter than in the MOD", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// With <c>--no-dac</c> a noise hit plays on PSG4 with fixed-rate white noise and the noise instrument, at full volume:
+    /// the hat is louder than the PSG's noise can play, which is noted.
+    /// </summary>
     [Fact]
     public void NoisePlaysOnThePsgNoiseChannel()
     {
@@ -387,7 +434,22 @@ public sealed class DmfSongBuilderTests
         Assert.Contains((0x20, 0x01), result.Effects(Noise, 0));
         Assert.Equal(DmfUnits.MaxPsgVolume, cell.Volume);
         Assert.NotNull(result.File.Instruments[cell.Instrument].Std);
+        Assert.Contains(result.Notes, n => n.Contains("noise notes play quieter than in the MOD", StringComparison.Ordinal));
         Assert.InRange(cell.Note, 1, 12);
+    }
+
+    /// <summary>A quiet noise hit plays the PSG noise quieter, as loud as the MOD plays it (ADR 0050).</summary>
+    [Fact]
+    public void QuietNoiseIsQuieterOnThePsg()
+    {
+        const int soft = 4;
+        DmfConversion.Result result = Convert(
+            Song().WithSample(soft, "soft hat", HatData.Length, data: i => (sbyte)(HatData[i] / 8)).WithCell(0, 0, 2, soft, C2),
+            MappingOptions.Default with { UseDac = false });
+
+        double level = VoiceLevel.Loudest(result.Song.Samples[soft - 1]);
+        Assert.Equal(DmfUnits.PsgVolume(level / VoiceLevel.PsgNoise), result.Cell(Noise, 0).Volume);
+        Assert.True(result.Cell(Noise, 0).Volume < DmfUnits.MaxPsgVolume);
     }
 
     /// <summary>
