@@ -19,9 +19,9 @@ decides by error and cost, not by a fixed "FM first" rule.
 
 | Pass | What happens |
 |---|---|
-| 1. Read & analyze song | Apply `--ignore-samples`; per sample: notes/pitches used, durations, volumes, trigger counts; per pair of instruments: co-onset rate and pitch interval (locked-pair detection) |
+| 1. Read & analyze song | Apply `--ignore-samples`; per sample: notes/pitches used, durations, volumes, trigger counts; per pair of instruments: co-onset rate and pitch interval (locked-pair detection); repeated overlaps of PCM notes, with offsets ([ADR 0052](adr/0052-pre-mixed-pcm.md)) |
 | 2. Analyze samples | Tonal vs percussive, pitch stability, amplitude envelope, loop, spectral envelope per pitch region |
-| 3. Generate candidates | Per instrument and pitch region: **fitted FM patch(es)**, **PSG** tone/noise, **PCM variants** (target rate, per pitch for XGM/XGM2), **combined** candidates for locked pairs. Each candidate gets an error score (rendered vs original, at the pitches actually played) and a cost |
+| 3. Generate candidates | Per instrument and pitch region: **fitted FM patch(es)**, **PSG** tone/noise, **PCM variants** (target rate, per pitch for XGM/XGM2), **combined** candidates (CH3 special for locked pairs, pre-mixed PCM for repeated overlaps). Each candidate gets an error score (rendered vs original, at the pitches actually played) and a cost |
 | 4. Allocate | Assign candidates to channels over time, section by section, within the target's limits; greedy start, then local search; objective = importance-weighted total error |
 | 5. Render & refine | Render the whole song in-app (Genesis model) and compare with the in-app MOD render; find the worst sections; re-fit patches or re-allocate there; repeat until no improvement or the time budget is spent |
 | 6. Write | Emit DMF / XGM / XGM2; every substitution logged as a conversion note; report section 3 lists the final instruments |
@@ -41,13 +41,17 @@ decides by error and cost, not by a fixed "FM first" rule.
   timbre changes with pitch, so fit **per pitch region** (typically 1–3 patches per instrument).
 - **PSG.** Square or noise approximations for simple tones and hi-hats/cymbals.
 - **PCM variants.** Pre-resampled copies; costs slots, voices and bytes (see [sample-capacity.md](sample-capacity.md)).
-- **Combined instruments** (only for *locked* pairs — they start together at a fixed pitch interval, e.g.
-  layered bass+kick, octave doubling, chord stabs):
-  - **CH3 special mode**: channel 3's four operators get independent frequencies → two 2-operator voices on
-    one channel. Allowed for **DMF** (system `0x42`, "Genesis ext. CH3") and **XGM2** (`$FA`/`$FB`, `$3x` b3).
+- **Combined instruments**:
+  - **CH3 special mode** (only for *locked* pairs — they start together at a fixed pitch interval, e.g.
+    layered bass+kick, octave doubling, chord stabs): channel 3's four operators get independent frequencies → two
+    2-operator voices on one channel. Allowed for **DMF** (system `0x42`, "Genesis ext. CH3") and **XGM2** (`$FA`/`$FB`, `$3x` b3).
     **XGM v1:** the format can express it, but `$27` also holds the YM timer controls — enabled only after a
     probe ROM confirms it plays correctly (T11.1).
-  - **Pre-mixed PCM**: one sample containing both sounds — saves a PCM voice and a slot.
+  - **Pre-mixed PCM** ([ADR 0052](adr/0052-pre-mixed-pcm.md)): for any overlap of two or more PCM notes that
+    repeats, including offset starts (a snare a tick after the kick) and partial overlaps (a kick over the start of a
+    bass note). One sample holds the overlap's window; a sound that outlasts it continues as a **tail** of its own
+    sample on the same voice. Windows are found from the note events and deduplicated by their rendered bytes. Saves
+    a PCM voice per overlap, at the cost of the window's bytes and slot.
 
 ## Constraints the allocator enforces
 
