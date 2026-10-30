@@ -19,7 +19,12 @@ internal static class HarnessReport
         "song,tick_player_s,openmpt_rules_s,reference_s,difference_s,amiga_difference_s,one_tick_s,within_one_tick,first_row_off,stops_at_f00,conversion_notes,error";
 
     /// <summary>One line per song and renderer.</summary>
-    public static string ScoresCsv(IReadOnlyList<SongResult> results)
+    public static string ScoresCsv(IReadOnlyList<SongResult> results) => ScoresCsv(results, c => c.Score);
+
+    /// <summary>One line per song and renderer, for the first seconds only (<c>--clip</c>); the same columns as <see cref="ScoresCsv(IReadOnlyList{SongResult})"/>.</summary>
+    public static string ClipScoresCsv(IReadOnlyList<SongResult> results) => ScoresCsv(results, c => c.Clip);
+
+    private static string ScoresCsv(IReadOnlyList<SongResult> results, Func<CandidateScore, ScoreReport?> pick)
     {
         ArgumentNullException.ThrowIfNull(results);
         StringBuilder csv = new();
@@ -28,7 +33,7 @@ internal static class HarnessReport
         {
             foreach (CandidateScore candidate in song.Scores)
             {
-                ScoreReport? s = candidate.Score;
+                ScoreReport? s = pick(candidate);
                 csv.AppendJoin(
                     ',',
                     Csv(song.Song),
@@ -91,7 +96,7 @@ internal static class HarnessReport
         md.Append("# Accuracy harness report\n\n");
         md.Append(CultureInfo.InvariantCulture, $"Reference: {reference}. Converter: Mod2Xgm {converter}. Scored mono at {sampleRate} Hz.\n");
         md.Append("Every number is the conversion against the reference; **lower is closer** except onset F1 (1 = every note start found).\n");
-        md.Append("Metrics: docs/adr/0042-scoring-metrics.md. The combined score is provisional until plan T6.4.\n\n");
+        md.Append("Metrics: docs/adr/0042-scoring-metrics.md. The combined score is the log-mel distance; it agrees only weakly with listening (docs/adr/0049-simple-mapper-baseline.md).\n\n");
 
         md.Append("## Scores\n\n");
         md.Append("| Song | Renderer | Combined | Log-mel dB | MFCC | Onset F1 | Timing ms | Lag ms | Length Δ s | Remark |\n");
@@ -102,6 +107,22 @@ internal static class HarnessReport
             {
                 ScoreReport? s = candidate.Score;
                 md.Append(CultureInfo.InvariantCulture, $"| `{song.Song}` | {candidate.Renderer} | {Number(s?.Combined, "0.00")} | {Number(s?.MelDistanceDb, "0.00")} | {Number(s?.MfccDistance, "0.00")} | {Number(s?.OnsetF1, "0.00")} | {Number(s?.OnsetTimingErrorSeconds * 1000, "0.0")} | {Number(s?.LagSeconds * 1000, "0")} | {Number(s?.LengthDifferenceSeconds, "0.00")} | {Cell(candidate.Remark)} |\n");
+            }
+        }
+
+        if (results.SelectMany(r => r.Scores).Any(c => c.Clip is not null))
+        {
+            md.Append("\n## First seconds only (listening clips)\n\n");
+            md.Append("The same scores for the clips in `wav/*.clip.wav` (`--clip`).\n\n");
+            md.Append("| Song | Renderer | Combined | Log-mel dB | MFCC | Onset F1 |\n");
+            md.Append("|---|---|---:|---:|---:|---:|\n");
+            foreach (SongResult song in results)
+            {
+                foreach (CandidateScore candidate in song.Scores.Where(c => c.Clip is not null))
+                {
+                    ScoreReport? s = candidate.Clip;
+                    md.Append(CultureInfo.InvariantCulture, $"| `{song.Song}` | {candidate.Renderer} | {Number(s?.Combined, "0.00")} | {Number(s?.MelDistanceDb, "0.00")} | {Number(s?.MfccDistance, "0.00")} | {Number(s?.OnsetF1, "0.00")} |\n");
+                }
             }
         }
 

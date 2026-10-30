@@ -86,6 +86,27 @@ public sealed class CorpusRunTests
         Assert.Equal(2.0, WavFile.Read(temp.Combine("wav", "fx-poly1.reference.wav")).Seconds, 0.01);
     }
 
+    /// <summary>
+    /// With a clip length, the first seconds of the reference and of each rendering are written for listening and
+    /// scored on their own, next to the whole-song scores.
+    /// </summary>
+    [Fact]
+    public void AClipIsWrittenAndScored()
+    {
+        using TempDirectory temp = new();
+        Candidate same = new("same", _ => new CandidateRender(TestFiles.Tone(2.0), null));
+        CorpusRun run = new(temp.Path, Rate, saveReferenceWavs: false, new ToneReference(30.72), [same], Logger.None, clipSeconds: 1.5);
+
+        SongResult result = Assert.Single(run.Run([TestFiles.ShortSong]));
+
+        CandidateScore score = Assert.Single(result.Scores);
+        Assert.NotNull(score.Score);
+        Assert.NotNull(score.Clip);
+        Assert.True(score.Clip.MelDistanceDb < 1, "the clip of a copy of the tone is close to the clip of the original");
+        Assert.Equal(1.5, WavFile.Read(temp.Combine("wav", "fx-poly1.reference.clip.wav")).Seconds, 0.01);
+        Assert.Equal(1.5, WavFile.Read(temp.Combine("wav", "fx-poly1.same.clip.wav")).Seconds, 0.01);
+    }
+
     /// <summary>An end more than a tick away from the reference's is flagged even when every row is on time.</summary>
     [Fact]
     public void AnEndOffByMoreThanATickIsFlagged()

@@ -31,6 +31,8 @@ public sealed class ProgramTests
         Assert.Null(options.DefleMaskWavs);
         Assert.False(options.SaveReferenceWavs);
         Assert.False(options.Verbose);
+        Assert.False(options.NoDefleMask);
+        Assert.Null(options.ClipSeconds);
         Assert.Equal(Program.DefaultJobs, options.Jobs);
         Assert.InRange(options.Jobs, 1, 4);
     }
@@ -41,7 +43,7 @@ public sealed class ProgramTests
     {
         HarnessOptions options = Parse(
             "a.mod", "songs", "-o", "out", "--rate", "22050", "--libopenmpt", "lib", "--furnace", "f.exe", "--no-furnace",
-            "--deflemask-wavs", "wavs", "--save-reference-wavs", "-j", "3", "-v");
+            "--deflemask-wavs", "wavs", "--no-deflemask", "--save-reference-wavs", "--clip", "30", "-j", "3", "-v");
 
         Assert.Equal(["a.mod", "songs"], options.Inputs);
         Assert.Equal("out", options.OutputDirectory);
@@ -50,18 +52,21 @@ public sealed class ProgramTests
         Assert.Equal("f.exe", options.FurnacePath);
         Assert.True(options.NoFurnace);
         Assert.Equal("wavs", options.DefleMaskWavs);
+        Assert.True(options.NoDefleMask);
         Assert.True(options.SaveReferenceWavs);
+        Assert.Equal(30, options.ClipSeconds);
         Assert.True(options.Verbose);
         Assert.Equal(3, options.Jobs);
     }
 
-    /// <summary>An unknown option, or a rate or job count out of range, is a usage error.</summary>
+    /// <summary>An unknown option, or a rate, job count or clip length out of range, is a usage error.</summary>
     [Fact]
     public void BadOptionsAreUsageErrors()
     {
         Assert.Equal(2, Program.Invoke(["--no-such-option"], _ => 0));
         Assert.Throws<HarnessException>(() => Program.Invoke(["--rate", "100"], _ => 0));
         Assert.Throws<HarnessException>(() => Program.Invoke(["--jobs", "0"], _ => 0));
+        Assert.Throws<HarnessException>(() => Program.Invoke(["--clip", "0.5"], _ => 0));
     }
 
     /// <summary>Songs are the .mod files named or inside folders named, once each, sorted; nothing found is an error.</summary>
@@ -82,7 +87,10 @@ public sealed class ProgramTests
         Assert.Throws<HarnessException>(() => Program.FindSongs([temp.Combine("empty")]));
     }
 
-    /// <summary>The report files are written; the exit code is 1 when a song failed or is more than a tick off.</summary>
+    /// <summary>
+    /// The report files are written, clip-scores.csv only with --clip; the exit code is 1 when a song failed or is more
+    /// than a tick off.
+    /// </summary>
     [Fact]
     public void ReportWritesFilesAndSetsTheExitCode()
     {
@@ -95,9 +103,12 @@ public sealed class ProgramTests
         Assert.Equal(0, Program.Report([good], options, "ref", Logger.None));
         Assert.True(File.Exists(temp.Combine("out", "scores.csv")));
         Assert.True(File.Exists(temp.Combine("out", "durations.csv")));
+        Assert.False(File.Exists(temp.Combine("out", "clip-scores.csv")));
         Assert.Contains("Converter: Mod2Xgm 0.", File.ReadAllText(temp.Combine("out", "report.md")), StringComparison.Ordinal);
         Assert.Equal(1, Program.Report([good, off], options, "ref", Logger.None));
         Assert.Equal(1, Program.Report([good, failed], options, "ref", Logger.None));
+        Assert.Equal(0, Program.Report([good], options with { ClipSeconds = 30 }, "ref", Logger.None));
+        Assert.True(File.Exists(temp.Combine("out", "clip-scores.csv")));
     }
 
     /// <summary>A whole run with the real libopenmpt and no candidate renderers (skipped where libopenmpt isn't installed).</summary>

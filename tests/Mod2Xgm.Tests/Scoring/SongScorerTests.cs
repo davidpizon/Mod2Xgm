@@ -43,7 +43,7 @@ public sealed class SongScorerTests
         Assert.InRange(aligned.LagSeconds, 0.19, 0.21);
         Assert.True(aligned.Combined < 1, $"aligned: {aligned.Combined}");
         Assert.Equal(0, unaligned.LagSeconds);
-        Assert.True(unaligned.Combined > aligned.Combined + 3);
+        Assert.True(unaligned.Combined > aligned.Combined + 3, $"unaligned: {unaligned.Combined}");
         Assert.Equal(0, unaligned.OnsetF1);
         Assert.Equal(0, unaligned.OnsetPrecision);
         Assert.Equal(0, unaligned.OnsetRecall);
@@ -64,14 +64,17 @@ public sealed class SongScorerTests
         Assert.True(close < far, $"{close} vs {far}");
     }
 
-    /// <summary>The length difference is reported with its sign, and the weight of the onset term can be changed.</summary>
+    /// <summary>
+    /// The length difference is reported with its sign; the combined number is the log-mel distance by default, and the
+    /// weight of the onset term can be changed.
+    /// </summary>
     [Fact]
     public void LengthDifferenceAndOnsetWeightAreReported()
     {
         AudioSignal reference = TestSignals.Bursts(Starts, 3.5);
         AudioSignal wrongNotes = TestSignals.Bursts([0.3, 0.9, 1.7], 4.0);
 
-        ScoreReport light = Score(reference, wrongNotes, new ScoreOptions(OnsetWeight: 0));
+        ScoreReport light = Score(reference, wrongNotes);
         ScoreReport heavy = Score(reference, wrongNotes, new ScoreOptions(OnsetWeight: 10));
 
         Assert.Equal(0.5, light.LengthDifferenceSeconds, 3);
