@@ -25,6 +25,10 @@ namespace Mod2Xgm.Harness;
 /// Also score the song's first this many seconds on their own, and write them as <c>wav/name.reference.clip.wav</c> and
 /// <c>wav/name.renderer.clip.wav</c> for listening (plan T6.4); <c>null</c> for whole songs only.
 /// </param>
+/// <param name="balance">
+/// Also measure the clip's instrument balance from stems, for renderers that can play any DMF
+/// (docs/adr/0051-instrument-balance-metric.md); needs <paramref name="clipSeconds"/>.
+/// </param>
 internal sealed class CorpusRun(
     string outputDirectory,
     int sampleRate,
@@ -32,7 +36,8 @@ internal sealed class CorpusRun(
     IReferenceRenderer reference,
     IReadOnlyList<ICandidateRenderer> candidates,
     ILogger logger,
-    double? clipSeconds = null)
+    double? clipSeconds = null,
+    bool balance = false)
 {
     /// <summary>
     /// Measures every song in <paramref name="modPaths"/>, <paramref name="jobs"/> at a time; the results are in the
@@ -42,7 +47,7 @@ internal sealed class CorpusRun(
     {
         ArgumentNullException.ThrowIfNull(modPaths);
         ArgumentOutOfRangeException.ThrowIfLessThan(jobs, 1);
-        foreach (string folder in new[] { "dmf", "logs", "wav" })
+        foreach (string folder in new[] { "dmf", "logs", "wav", Path.Combine("dmf", "stems"), Path.Combine("wav", "stems") })
         {
             Directory.CreateDirectory(Path.Combine(outputDirectory, folder));
         }
@@ -75,13 +80,16 @@ internal sealed class CorpusRun(
                 WavFile.Write(Path.Combine(song.WavDirectory, name + ".reference.clip.wav"), referenceClip);
             }
 
-            duration = CheckLength(song, mod, original.DurationSeconds);
+            duration = CheckLength(song, mod, original.DurationSeconds, out IReadOnlyList<RowTiming> rows);
             notes = Convert(song);
             AudioSignal referenceMono = original.Audio.ToMono();
+            ReferenceStems? stems = balance && referenceClip is not null && candidates.Any(c => c is IDmfRenderer)
+                ? MakeReferenceStems(song, mod, rows, referenceClip)
+                : null;
             List<CandidateScore> scores = [];
             foreach (ICandidateRenderer candidate in candidates)
             {
-                if (Score(candidate, song, referenceMono, referenceClip) is { } score)
+                if (Score(candidate, song, referenceMono, referenceClip, stems) is { } score)
                 {
                     scores.Add(score);
                 }
@@ -100,12 +108,12 @@ internal sealed class CorpusRun(
     /// Plays the song with the converter's tick player (PAL, the reference's assumption too), compares when each row
     /// starts with the reference (every row to <c>logs/name.rows.csv</c>) and checks the length.
     /// </summary>
-    private DurationCheck CheckLength(SongFiles song, byte[] mod, double referenceSeconds)
+    private DurationCheck CheckLength(SongFiles song, byte[] mod, double referenceSeconds, out IReadOnlyList<RowTiming> rows)
     {
         ConversionNotes silent = new(Logger.None);
         ModModule module = ModReader.Read(mod, silent);
         Playback playback = ModTickPlayer.Play(module, AmigaPitch.PalClockHz, 1.0, silent);
-        IReadOnlyList<RowTiming> rows = DurationCheck.Rows(playback, r => reference.RowTimes(mod, r));
+        rows = DurationCheck.Rows(playback, r => reference.RowTimes(mod, r));
         System.Text.StringBuilder csv = new("order,row,tick_player_s,openmpt_rules_s,reference_s,difference_s\n");
         foreach (RowTiming row in rows)
         {
@@ -162,7 +170,7 @@ internal sealed class CorpusRun(
         return log.Warnings;
     }
 
-    private CandidateScore? Score(ICandidateRenderer candidate, SongFiles song, AudioSignal original, StereoAudio? originalClip)
+    private CandidateScore? Score(ICandidateRenderer candidate, SongFiles song, AudioSignal original, StereoAudio? originalClip, ReferenceStems? stems)
     {
         try
         {
@@ -175,6 +183,7 @@ internal sealed class CorpusRun(
             StereoAudio audio = render.Audio.At(sampleRate);
             ScoreReport score = SongScorer.Compare(original, audio.ToMono(), ScoreOptions.Default, logger);
             ScoreReport? clip = null;
+            BalanceResult? balanced = null;
             if (originalClip is not null)
             {
                 StereoAudio candidateClip = audio.Head(originalClip.Seconds);
@@ -186,6 +195,10 @@ internal sealed class CorpusRun(
                     candidate.Name,
                     clip.Combined.ToString("0.00", CultureInfo.InvariantCulture),
                     originalClip.Seconds.ToString("0.##", CultureInfo.InvariantCulture));
+                if (stems is not null && candidate is IDmfRenderer player)
+                {
+                    balanced = Balance(candidate.Name, player, song, stems, audio, clip.LagSeconds);
+                }
             }
 
             logger.Information(
@@ -196,7 +209,7 @@ internal sealed class CorpusRun(
                 score.MelDistanceDb.ToString("0.00", CultureInfo.InvariantCulture),
                 score.OnsetF1.ToString("0.00", CultureInfo.InvariantCulture),
                 render.Remark is null ? string.Empty : "; " + render.Remark);
-            return new CandidateScore(candidate.Name, score, render.Remark, clip);
+            return new CandidateScore(candidate.Name, score, render.Remark, clip, balanced);
         }
         catch (HarnessException ex)
         {
@@ -205,7 +218,76 @@ internal sealed class CorpusRun(
         }
     }
 
+    /// <summary>
+    /// The reference's stems for the clip: which orders the clip reaches (with a second to spare for the alignment), the
+    /// samples heard in them, and each sample alone rendered by the reference player (docs/adr/0051-instrument-balance-metric.md).
+    /// </summary>
+    private ReferenceStems MakeReferenceStems(SongFiles song, byte[] mod, IReadOnlyList<RowTiming> rows, StereoAudio referenceClip)
+    {
+        StemSource source = StemSource.Prepare(mod, File.ReadAllBytes(song.DmfPath));
+        double until = referenceClip.Seconds + ScoreOptions.Default.MaxLagSeconds;
+        int orders = Math.Min(source.Orders, rows.Where(r => r.ReferenceSeconds < until).Select(r => r.Order + 1).DefaultIfEmpty(1).Max());
+        IReadOnlyList<int> samples = source.SamplesIn(orders);
+        logger.Information("{Song}: rendering {Count} stems of the first {Orders} orders with {Reference}", song.Name, samples.Count, orders, reference.Name);
+        AudioSignal[] audio = [.. samples.Select(s => reference.Render(source.SoloMod(s), sampleRate).Audio.Head(referenceClip.Seconds).ToMono())];
+        StemInfo[] stems = [.. samples.Select(s => new StemInfo(s + 1, source.Name(s), source.Voices(s, orders)))];
+        return new ReferenceStems(source, orders, samples, stems, referenceClip.ToMono(), audio);
+    }
+
+    /// <summary>
+    /// Renders the conversion's stems with <paramref name="player"/>, lines them up by the clip's lag, and measures the
+    /// balance against the reference's stems.
+    /// </summary>
+    private BalanceResult Balance(string renderer, IDmfRenderer player, SongFiles song, ReferenceStems stems, StereoAudio audio, double lagSeconds)
+    {
+        int lag = (int)Math.Round(lagSeconds * sampleRate);
+        int length = stems.Mix.Length;
+        AudioSignal Clip(StereoAudio render)
+        {
+            AudioSignal moved = render.At(sampleRate).ToMono().Shifted(-lag);
+            return moved.Length <= length ? moved : new AudioSignal(moved.Samples[..length].ToArray(), sampleRate);
+        }
+
+        List<InstrumentStem> pairs = [];
+        for (int i = 0; i < stems.Samples.Count; i++)
+        {
+            string stem = FormattableString.Invariant($"{song.Name}.s{stems.Stems[i].Sample:00}");
+            string dmf = Path.Combine(outputDirectory, "dmf", "stems", stem + ".dmf");
+            File.WriteAllBytes(dmf, stems.Source.SoloDmf(stems.Samples[i], stems.Orders));
+            string wav = Path.Combine(song.WavDirectory, "stems", $"{stem}.{renderer}.wav");
+            AudioSignal candidate = Clip(player.RenderDmf(dmf, wav));
+            File.Delete(wav); // Hundreds of stems; the DMF stays, to render again by hand.
+            pairs.Add(new InstrumentStem(stems.Stems[i].Sample, stems.Audio[i], candidate));
+        }
+
+        AudioSignal mix = Clip(audio);
+        BalanceReport report = BalanceMetrics.Compare(stems.Mix, mix, pairs);
+        BalanceResult result = new(
+            report,
+            stems.Stems,
+            BalanceMetrics.SumErrorDb(stems.Mix, stems.Audio),
+            BalanceMetrics.SumErrorDb(mix, pairs.Select(p => p.Candidate)));
+        logger.Information(
+            "{Song}: {Renderer} balance {Balance} dB over {Count} instruments (stems add up to the mix's loudness within {ReferenceSum} / {CandidateSum} dB)",
+            song.Name,
+            renderer,
+            report.DistanceDb.ToString("0.00", CultureInfo.InvariantCulture),
+            pairs.Count,
+            result.ReferenceSumErrorDb.ToString("0.00", CultureInfo.InvariantCulture),
+            result.CandidateSumErrorDb.ToString("0.00", CultureInfo.InvariantCulture));
+        return result;
+    }
+
     private static string Seconds(double value) => value.ToString("0.000", CultureInfo.InvariantCulture);
+
+    /// <summary>One song's reference stems, made once and compared with each renderer's.</summary>
+    /// <param name="Source">Makes the conversion's stems.</param>
+    /// <param name="Orders">Orders the clip reaches.</param>
+    /// <param name="Samples">The samples (0-based) with a stem.</param>
+    /// <param name="Stems">What each stem is, in the same order.</param>
+    /// <param name="Mix">The reference clip, mono.</param>
+    /// <param name="Audio">Each sample alone in the reference clip, mono, in the same order.</param>
+    private sealed record ReferenceStems(StemSource Source, int Orders, IReadOnlyList<int> Samples, IReadOnlyList<StemInfo> Stems, AudioSignal Mix, IReadOnlyList<AudioSignal> Audio);
 
     /// <summary>Keeps a conversion's console output as text, in the console's format, and counts its conversion notes.</summary>
     private sealed class LogFileSink : ILogEventSink

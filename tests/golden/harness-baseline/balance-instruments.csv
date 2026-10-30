@@ -1,0 +1,147 @@
+song,renderer,sample,name,voices,offset_db,distance_db,frames,reference_level_db
+10kdub,furnace,1,   10k Reggae Dub,FM,1.889715,1.983742,240,-19.954329
+10kdub,furnace,2,,DAC+noise,-2.006038,2.006038,297,-23.930107
+10kdub,furnace,3,     by Jam,FM+DAC,8.181154,8.181154,159,-26.847718
+10kdub,furnace,4,,FM,8.590833,8.590833,164,-26.704738
+10kdub,furnace,5,    04.10.2023,FM,-12.337617,12.337617,236,-19.795937
+8bit_castle,furnace,1,"   ""8-bit Castle""",FM,-10.917278,10.917278,297,-16.904977
+8bit_castle,furnace,2,,FM,3.236696,3.236696,297,-21.9397
+8bit_castle,furnace,6,,FM,6.831706,6.831706,147,-22.171546
+8bit_castle,furnace,7,,DAC,1.19917,1.19917,166,-22.34924
+8bit_castle,furnace,9,,DAC,1.453586,1.453586,172,-34.489185
+8bit_castle,furnace,10,,DAC,2.427448,2.427448,115,-27.96898
+cancan,furnace,1,Guitar MjChord Short,FM+DAC,1.303485,2.724544,186,-24.111596
+cancan,furnace,2,Synth Piano,FM,0,0,0,-150
+cancan,furnace,3,Bass,FM+DAC,-0.083262,0.686131,188,-22.88084
+cancan,furnace,4,Banjo,FM+DAC,-2.620616,2.665245,297,-13.572603
+cancan,furnace,5,Tamborin,FM,9.371783,9.371783,230,-25.320841
+cancan,furnace,6,strings5,FM,0.73478,0.826777,44,-20.053798
+cancan,furnace,9,Crash Cymbal,noise,-3.683712,3.683712,31,-19.13671
+drozerix_-_ai_renaissance,furnace,1,Composed by: Dr0Zerix,FM,-3.337131,3.583377,248,-20.676024
+drozerix_-_ai_renaissance,furnace,2,----------------------,FM,0.055715,0.602368,112,-21.684314
+drozerix_-_ai_renaissance,furnace,3,Will AI replace me?,FM,-0.216533,0.834155,41,-22.149254
+drozerix_-_ai_renaissance,furnace,4,Will it replace you?,DAC,6.985685,6.985685,126,-22.350916
+drozerix_-_ai_renaissance,furnace,5,Only time will tell...,DAC,5.861628,5.861628,103,-23.394611
+drozerix_-_ai_renaissance,furnace,6,,FM,6.991278,6.991278,57,-33.477877
+drozerix_-_ai_renaissance,furnace,7,Greets to Peak!,FM,-7.055425,7.055425,297,-17.109277
+drozerix_-_ai_renaissance,furnace,8,,FM,10.596431,10.596431,32,-27.396296
+drozerix_-_ai_renaissance,furnace,9,2-5-2023 Contact:,FM,0.265459,1.218082,48,-21.728194
+drozerix_-_ai_renaissance,furnace,10,DroZerix@Gmail.com,FM,2.294329,2.294329,165,-24.099815
+drozerix_-_ai_renaissance,furnace,11,DroZerix@Gmail.com,FM,5.352919,5.352919,156,-30.363903
+drozerix_-_ai_renaissance,furnace,12,DroZerix@Gmail.com,FM,8.032347,8.032347,161,-33.433837
+drozerix_-_ai_renaissance,furnace,13,DroZerix@Gmail.com,FM,12.101732,12.101732,160,-34.69411
+drozerix_-_neon_techno,furnace,1,     ..::DROZERiX::..,DAC,-1.366696,1.366696,236,-22.174973
+drozerix_-_neon_techno,furnace,5,,DAC,-0.792533,1.240719,238,-29.851383
+drozerix_-_neon_techno,furnace,6,,FM+DAC,0.123651,0.671845,292,-18.581294
+drozerix_-_neon_techno,furnace,7,,FM,-2.480837,2.864215,258,-25.690975
+drozerix_-_neon_techno,furnace,8,Contact:,FM,2.979818,2.979818,260,-25.13899
+drozerix_-_neon_techno,furnace,9,Drozerix@gmail.com,FM,-0.142316,0.677447,297,-20.084757
+drozerix_-_stardust_jam,furnace,3,,FM+DAC,1.55979,15.146958,159,-28.032277
+drozerix_-_stardust_jam,furnace,4,Samples recorded,DAC+noise,0.119433,4.091055,172,-38.609345
+drozerix_-_stardust_jam,furnace,5,on my Yamaha MM8,FM+DAC,1.616686,2.975327,226,-23.204662
+drozerix_-_stardust_jam,furnace,6,except for 2 samples,DAC,-1.902579,14.888931,133,-27.026607
+drozerix_-_stardust_jam,furnace,10,to capture those ones,FM,-4.019759,10.862259,71,-24.459276
+drozerix_-_stardust_jam,furnace,11,as they are old.,FM,0,0,0,-150
+drozerix_-_stardust_jam,furnace,12,Male voice is mine,FM,3.424441,5.904826,227,-25.891785
+drozerix_-_stardust_jam,furnace,13,Female is a voice,FM+DAC,0.753556,5.418553,230,-23.291081
+drozerix_-_stardust_jam,furnace,14,program,FM+DAC,-5.616159,9.843385,202,-22.046984
+drozerix_-_stardust_jam,furnace,15,,FM,-4.699825,12.527796,133,-24.969767
+drozerix_-_stardust_jam,furnace,18,,FM,0.068245,4.329473,88,-25.980357
+drozerix_-_stardust_jam,furnace,19,,FM,4.806996,8.980261,30,-25.652807
+drozerix_-_stardust_jam,furnace,20,,FM,-5.466685,8.509128,12,-20.686112
+drozerix_-_stardust_jam,furnace,25,6-4-2023,FM,-4.739453,12.429341,62,-23.646713
+drozerix_-_the_hawks_claw,furnace,1,Samples are taken from,FM,-7.37361,10.857963,205,-24.062432
+drozerix_-_the_hawks_claw,furnace,5,----------------------,FM+DAC,-4.832749,12.276099,191,-26.577779
+drozerix_-_the_hawks_claw,furnace,7,Are you looking for a,FM+DAC,-5.279955,13.037019,288,-24.426852
+drozerix_-_the_hawks_claw,furnace,8,"composer? If so,",FM+DAC,-5.592406,14.350924,147,-25.21043
+drozerix_-_the_hawks_claw,furnace,9,feel free to contact,DAC+noise,2.284905,10.41419,152,-38.867891
+drozerix_-_the_hawks_claw,furnace,10,me!,FM+DAC,9.513426,13.806888,155,-26.628072
+drozerix_-_the_hawks_claw,furnace,11,-Drozerix,FM,-0.225573,15.177886,131,-36.349524
+drozerix_-_the_hawks_claw,furnace,13,Contact:,FM+DAC,5.054389,20.26634,76,-35.553438
+fx-poly1,furnace,1,Output4.wav,FM,1.983113,2.003713,297,-28.117497
+fx-poly1,furnace,2,909sna~1.wav,DAC,-5.60596,5.611297,287,-29.009869
+fx-poly1,furnace,3,Openhi~1.wav,DAC,-4.90907,4.90907,228,-37.127972
+hit,furnace,1,BY DIGITAL BEAT 2000,FM+DAC,2.644137,3.337225,155,-22.452239
+hit,furnace,3,BASS.SPL,FM+DAC,-2.293674,2.293674,297,-22.352743
+hit,furnace,4,CRASH2.AVR,noise,-5.122003,5.122003,12,-27.926039
+hit,furnace,5,HIOPEN2.AVR,FM+DAC,0,0,0,-150
+hit,furnace,7,TECHBEAT.SPL,FM+DAC,0.540821,0.540821,3,-21.152401
+hit,furnace,8,SD3.AVR,DAC+noise,0,0,0,-150
+hit,furnace,9,TECHNOSYNTH OVERDRIVE,FM+DAC,2.345452,5.428968,297,-24.143842
+hit,furnace,14,EYE1.AVR,FM,-1.403896,4.526763,37,-28.216758
+jam_-_heatwave_cruise,furnace,2,,FM+DAC,3.091559,3.250047,158,-25.445278
+jam_-_heatwave_cruise,furnace,3,,DAC,-4.192712,4.192712,297,-21.120063
+jam_-_heatwave_cruise,furnace,5,,FM+DAC,0.425716,1.722413,271,-23.508038
+jam_-_heatwave_cruise,furnace,6,,FM+DAC,-1.336341,4.641589,251,-26.622488
+jam_-_heatwave_cruise,furnace,7,,FM+DAC,2.650433,3.742348,70,-24.511282
+jam_-_heatwave_cruise,furnace,10,,FM+DAC,10.756268,10.784037,297,-32.430701
+jam_-_latenightcoffee,furnace,6,,FM,1.521729,2.006775,147,-24.357634
+jam_-_latenightcoffee,furnace,7,,FM+DAC,0.294811,1.186282,297,-23.805458
+jam_-_latenightcoffee,furnace,9,,DAC+noise,-4.898995,4.898995,18,-39.450442
+jam_-_latenightcoffee,furnace,10,,FM+DAC,8.048673,8.580562,64,-32.232811
+jam_-_latenightcoffee,furnace,11,,noise,1.388773,1.967732,51,-34.776158
+jam_-_latenightcoffee,furnace,12,,DAC+noise,0.451072,3.544375,120,-40.106511
+jam_-_latenightcoffee,furnace,13,,FM+DAC,1.669079,7.648035,93,-40.07202
+jam_-_latenightcoffee,furnace,14,,DAC+noise,-3.323269,3.782213,37,-35.738611
+jam_-_latenightcoffee,furnace,16,,DAC+noise,-5.02904,5.02904,190,-26.635037
+jam_-_latenightcoffee,furnace,17,,DAC,0,0,0,-150
+jam_-_latenightcoffee,furnace,18,,FM+DAC,-5.481204,5.481204,186,-28.020153
+jam_-_latenightcoffee,furnace,20,,FM,-2.986837,4.519161,156,-27.356929
+jam_-_latenightcoffee,furnace,21,,FM+DAC,-2.108378,2.122594,144,-27.989038
+jam_-_xlr8,furnace,1,st-01:BassDrum2,FM,10.417388,10.417388,117,-31.806913
+jam_-_xlr8,furnace,2,st-01:Snare3,FM+DAC,8.143837,8.173222,193,-29.641449
+jam_-_xlr8,furnace,3,st-01:HiHat1,FM+DAC,11.432187,11.432187,125,-36.317227
+jam_-_xlr8,furnace,4,st-01:MonoBass,DAC,-5.55195,5.55195,297,-20.381141
+jam_-_xlr8,furnace,6,st-01:Organ,FM,4.649637,4.649637,70,-23.069701
+jam_-_xlr8,furnace,8,st-01:Strange,FM,0.31635,2.090951,224,-24.490152
+k0w-rsnd,furnace,1,"""robotsound""-k0wax",FM,13.754787,13.754787,159,-38.099342
+k0w-rsnd,furnace,2,---,FM+DAC,10.601964,10.908291,297,-34.494595
+k0w-rsnd,furnace,3,"it's just fun ""track""",FM,3.097028,3.106545,146,-29.523561
+k0w-rsnd,furnace,4,...,DAC,-7.535387,7.535387,161,-25.867869
+k0w-rsnd,furnace,5,samples from,DAC,-7.074932,7.074932,150,-29.837607
+k0w-rsnd,furnace,6,basehead,DAC+noise,-7.436738,7.436738,290,-25.803166
+k0w-rsnd,furnace,7,"3,9 - my own",DAC,-7.233837,7.233837,222,-29.918687
+k0w-rsnd,furnace,9,  VERY fastmade =],FM,0,0,0,-150
+kc-dancinonamiga,furnace,1,bassdrum.st,DAC,-3.297672,3.298369,269,-26.402442
+kc-dancinonamiga,furnace,2,sp12snar.st,DAC,-3.638402,3.638402,287,-24.581501
+kc-dancinonamiga,furnace,3,KoolBass.st,FM+DAC,-3.496879,3.496879,297,-20.663815
+kc-dancinonamiga,furnace,4,LUVHORN.ST,FM,6.033506,6.033506,189,-23.799931
+kc-dancinonamiga,furnace,5,SynthFMaj,FM,1.877463,2.008253,275,-23.804693
+kc-dancinonamiga,furnace,6,SynthMaj,FM,0.247686,1.457363,294,-21.590151
+musix-cute-october,furnace,1,Cute october,DAC,-3.882533,3.882533,297,-24.426794
+musix-cute-october,furnace,2,By RedHeat haha... yea,FM,-9.750629,9.750629,240,-19.629908
+musix-cute-october,furnace,4,You really think i,FM,5.182115,5.99875,297,-27.975558
+musix-cute-october,furnace,5,take this SERIOUSLY??!,FM+DAC,16.190259,17.519387,116,-35.376603
+musix-cute-october,furnace,6,Greetings to the,noise,0,0,0,-150
+musix-cute-october,furnace,7,#modarchive Crew on,FM,6.495217,8.303942,118,-26.397185
+musix-cute-october,furnace,8,Espernet IRC,FM,-0.906716,4.925162,60,-22.858958
+musix-omg-plz-help,furnace,1,MuSiX aka M0d/RedHeat,FM,0,0,0,-150
+musix-omg-plz-help,furnace,3,made in protracker,FM,-1.109418,1.499047,297,-26.342784
+musix-omg-plz-help,furnace,4,Date: 24 Sept 2003,FM,3.919241,3.919241,201,-29.42701
+musix-omg-plz-help,furnace,5,My a1200 rox,DAC+noise,-5.769487,6.367504,15,-27.064702
+musix-omg-plz-help,furnace,6,Greetz to modarchive,FM+DAC,-3.438148,4.358513,278,-28.069843
+musix-omg-plz-help,furnace,7,ppl etc...,DAC+noise,-1.07972,1.097153,290,-35.199408
+musix-omg-plz-help,furnace,10,old skool rox,,0,0,0,-150
+musix-omg-plz-help,furnace,11,and m0d woz 'ere 2003.,FM,4.239167,4.449953,123,-30.784452
+musix-omg-plz-help,furnace,12,,FM,0.22531,2.400356,101,-27.573645
+musix-omg-plz-help,furnace,14,,FM,0,0,0,-150
+musix-omg-plz-help,furnace,15,,FM+DAC,-0.049175,1.326328,201,-24.378507
+musix-rubbish,furnace,2,amigamusic workshop,FM,0.797506,0.960824,278,-25.472602
+musix-rubbish,furnace,3,1996 for pleasure,FM,0.511902,2.37206,238,-23.906729
+musix-rubbish,furnace,4,op:moonbouncer,DAC,0,0,0,-150
+musix-rubbish,furnace,5,central england,FM,-3.783253,4.535631,63,-25.452404
+musix-rubbish,furnace,6,the mad mod man makes,DAC,-11.547481,11.798994,60,-25.743894
+musix-rubbish,furnace,9,many modules mainly,DAC,-3.565143,8.661714,27,-26.381039
+musix-rubbish,furnace,10,mindlessly miles!,FM,0,0,0,-150
+musix-rubbish,furnace,13,england!!!!!!!!!!!1,FM,0.976231,1.413565,117,-32.044612
+sharpojects_cantpleaseeveryone,furnace,4,Sharp Objects,FM+DAC,4.277197,4.277197,78,-26.18767
+sharpojects_cantpleaseeveryone,furnace,5,,DAC,0.708051,0.708051,29,-26.64668
+sharpojects_cantpleaseeveryone,furnace,6,play in mono,DAC,0.993682,0.993682,49,-30.908929
+sharpojects_cantpleaseeveryone,furnace,13,,FM+DAC,1.354678,8.262872,197,-26.547254
+sharpojects_cantpleaseeveryone,furnace,14,,FM+DAC,-1.485085,7.513412,171,-25.512459
+sharpojects_cantpleaseeveryone,furnace,15,,FM+DAC,-2.586231,3.753093,41,-25.239812
+sharpojects_cantpleaseeveryone,furnace,16,,DAC,-3.287298,4.491588,41,-25.03767
+soundtracker15,furnace,1,st-drum,DAC,0.378504,1.326133,236,-26.551563
+soundtracker15,furnace,2,st-bass,FM,1.98383,1.98383,297,-19.579606
+soundtracker15,furnace,3,st-lead,FM,-8.993423,8.993423,224,-19.803849
+soundtracker15,furnace,4,st-hat,DAC,1.367933,1.367933,143,-36.593046

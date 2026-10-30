@@ -128,7 +128,7 @@ internal sealed class OpenMptRenderer : IReferenceRenderer
 /// </summary>
 /// <param name="executable">Path to <c>furnace</c>.</param>
 /// <param name="timeout">How long one render may take.</param>
-internal sealed class FurnaceRenderer(string executable, TimeSpan timeout) : ICandidateRenderer
+internal sealed class FurnaceRenderer(string executable, TimeSpan timeout) : ICandidateRenderer, IDmfRenderer
 {
     /// <inheritdoc/>
     public string Name => "furnace";
@@ -166,7 +166,15 @@ internal sealed class FurnaceRenderer(string executable, TimeSpan timeout) : ICa
     public CandidateRender Render(SongFiles song)
     {
         ArgumentNullException.ThrowIfNull(song);
-        string wav = Path.Combine(song.WavDirectory, song.Name + ".furnace.wav");
+        return new CandidateRender(RenderDmf(song.DmfPath, Path.Combine(song.WavDirectory, song.Name + ".furnace.wav")), null);
+    }
+
+    /// <inheritdoc/>
+    public StereoAudio RenderDmf(string dmfPath, string wavPath)
+    {
+        ArgumentNullException.ThrowIfNull(dmfPath);
+        ArgumentNullException.ThrowIfNull(wavPath);
+        string wav = wavPath;
         File.Delete(wav);
         ProcessStartInfo start = new(executable)
         {
@@ -175,7 +183,7 @@ internal sealed class FurnaceRenderer(string executable, TimeSpan timeout) : ICa
             UseShellExecute = false,
             CreateNoWindow = true,
         };
-        foreach (string argument in Arguments(song.DmfPath, wav))
+        foreach (string argument in Arguments(dmfPath, wav))
         {
             start.ArgumentList.Add(argument);
         }
@@ -198,7 +206,7 @@ internal sealed class FurnaceRenderer(string executable, TimeSpan timeout) : ICa
         if (!process.WaitForExit(timeout))
         {
             process.Kill(entireProcessTree: true);
-            throw new HarnessException(string.Create(CultureInfo.InvariantCulture, $"Furnace took longer than {timeout.TotalSeconds} s on {song.DmfPath}"));
+            throw new HarnessException(string.Create(CultureInfo.InvariantCulture, $"Furnace took longer than {timeout.TotalSeconds} s on {dmfPath}"));
         }
 
         Task.WaitAll(output, errors);
@@ -206,10 +214,10 @@ internal sealed class FurnaceRenderer(string executable, TimeSpan timeout) : ICa
         {
             throw new HarnessException(string.Create(
                 CultureInfo.InvariantCulture,
-                $"Furnace failed on {song.DmfPath} (exit {process.ExitCode}): {errors.Result.Trim()}{output.Result.Trim()}"));
+                $"Furnace failed on {dmfPath} (exit {process.ExitCode}): {errors.Result.Trim()}{output.Result.Trim()}"));
         }
 
-        return new CandidateRender(WavFile.Read(wav), null);
+        return WavFile.Read(wav);
     }
 }
 

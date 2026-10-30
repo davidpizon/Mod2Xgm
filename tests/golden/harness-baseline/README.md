@@ -11,6 +11,7 @@ measured against them. What they mean, and how far to trust them: [ADR 0049](../
 | `clip-scores.csv` | The same for each song's first 30 seconds: the audio David rated |
 | `durations.csv` | The tick player's song timeline against libopenmpt |
 | `listening.tsv` | David's ratings of the 30-second clips, `song<TAB>rating`, 1–10, 10 = sounds almost the same |
+| `balance.csv`, `balance-instruments.csv` | The clips' instrument balance and each sample's level offset, added later with `--balance` ([ADR 0051](../../../docs/adr/0051-instrument-balance-metric.md)) |
 
 ## How it was made
 
@@ -21,6 +22,8 @@ dotnet run --project tools/Mod2Xgm.Harness -c Release -- -o artifacts/harness-ba
 ```
 
 Then the four report files were copied here. Two earlier runs gave identical score and length files.
+
+The balance files come from the same converter, run the same way with `--balance` added (same clip scores, 2026-10-30).
 
 ## Comparing a later run
 

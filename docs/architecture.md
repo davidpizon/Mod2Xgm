@@ -85,7 +85,9 @@ samples the notes use, and per-row song-wide effects (`Flow`). `SampleTraits` (b
 **Scoring** (`src/Scoring`, plan T6.2, [ADR 0042](adr/0042-scoring-metrics.md)) — pure C#: says how close a rendering sounds to the
 original. `AudioSignal` (mono audio) → `Alignment` (constant lag from the note-start curves) → `SpectralMetrics`
 (multi-resolution log-mel distance, MFCC distance on `MelAnalyzer`/`FftPlan`) and `OnsetMetrics` (note-start precision,
-recall, timing) → `SongScorer.Compare` → `ScoreReport` with a combined number to minimize. Used by the accuracy harness
+recall, timing) → `SongScorer.Compare` → `ScoreReport` with a combined number to minimize. `BalanceMetrics` compares
+each instrument's loudness over time from stems (each instrument alone), after the overall gain
+([ADR 0051](adr/0051-instrument-balance-metric.md)). Used by the accuracy harness
 (T6.3) and the optimizer's candidate tournament (M9); it logs each step at Debug.
 
 **ModReport** (`src/Mod`) — called **unconditionally** by the conversion command: prints the metadata and

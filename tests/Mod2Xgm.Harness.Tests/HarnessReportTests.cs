@@ -9,9 +9,15 @@ public sealed class HarnessReportTests
 
     private static readonly ScoreReport Clip = new(3.25, 20.5, 1, 1, 1, 0.002, 0.1, 0, 3.25);
 
+    private static readonly BalanceResult Balance = new(
+        new BalanceReport(4.25, 3.5, 4, -1.5, [new InstrumentBalance(1, 2.5, 3, 200, -20), new InstrumentBalance(3, -6.25, 6.25, 100, -25), new InstrumentBalance(4, 0, 0, 0, -150)]),
+        [new StemInfo(1, "bass, low", "FM"), new StemInfo(3, "snare | 2", "DAC+noise"), new StemInfo(4, "silent", string.Empty)],
+        0.01,
+        0.75);
+
     private static readonly SongResult[] Results =
     [
-        new("alpha", new DurationCheck(60.05, 60.02, 60.0, 0.02, null, false), 3, [new("furnace", Score, null, Clip), new("deflemask", null, "stale, \"old\"")], null),
+        new("alpha", new DurationCheck(60.05, 60.02, 60.0, 0.02, null, false), 3, [new("furnace", Score, null, Clip, Balance), new("deflemask", null, "stale, \"old\"")], null),
         new("beta", null, 0, [], "Not a MOD | broken"),
         new("gamma", new DurationCheck(61.1, 61, 60, 0.02, new RowTiming(3, 16, 30.6, 30.5, 30.0), false), 1, [], null),
         new("delta", new DurationCheck(93.38, 93.385, 95, 0.026, null, true), 31, [], null),
@@ -41,6 +47,21 @@ public sealed class HarnessReportTests
         Assert.Equal("alpha,deflemask,,,,,,,,,,\"stale, \"\"old\"\"\"", lines[2]);
     }
 
+    /// <summary>The balance CSV has one line per rendering with a balance; the instruments CSV one line per stem.</summary>
+    [Fact]
+    public void BalanceCsvsHaveEveryRenderingAndStem()
+    {
+        string[] lines = HarnessReport.BalanceCsv(Results).Split('\n');
+        string[] instruments = HarnessReport.BalanceInstrumentsCsv(Results).Split('\n');
+
+        Assert.Equal([HarnessReport.BalanceHeader, "alpha,furnace,4.25,3.5,4,-1.5,3,0.01,0.75", string.Empty], lines);
+        Assert.Equal(HarnessReport.BalanceInstrumentsHeader, instruments[0]);
+        Assert.Equal("alpha,furnace,1,\"bass, low\",FM,2.5,3,200,-20", instruments[1]);
+        Assert.Equal("alpha,furnace,3,snare | 2,DAC+noise,-6.25,6.25,100,-25", instruments[2]);
+        Assert.Equal("alpha,furnace,4,silent,,0,0,0,-150", instruments[3]);
+        Assert.Equal(5, instruments.Length);
+    }
+
     /// <summary>One CSV line per song: both timings, the check, the first row off, the F00 end, and a value that rounds to zero without its minus sign.</summary>
     [Fact]
     public void DurationsCsvHasOneLinePerSong()
@@ -66,6 +87,8 @@ public sealed class HarnessReportTests
         Assert.Contains("| `alpha` | deflemask |  |  |  |  |  |  |  | stale, \"old\" |", md, StringComparison.Ordinal);
         Assert.Contains("## First seconds only (listening clips)", md, StringComparison.Ordinal);
         Assert.Contains("| `alpha` | furnace | 3.25 | 3.25 | 20.50 | 1.00 |", md, StringComparison.Ordinal);
+        Assert.Contains("## Instrument balance (listening clips)", md, StringComparison.Ordinal);
+        Assert.Contains("| `alpha` | furnace | 4.25 | -1.5 | 3 | 3 snare \\| 2 (DAC+noise) | -6.3 |", md, StringComparison.Ordinal);
         Assert.Contains("| furnace | 1 | 4.95 | 4.50 | 30.25 | 0.85 |", md, StringComparison.Ordinal);
         Assert.DoesNotContain("| deflemask | 1", md, StringComparison.Ordinal);
         Assert.Contains("| `alpha` | 60.050 | 60.020 | 60.000 | 0.020 | 0.030 | 0.020 | ✅ |  | 3 |  |", md, StringComparison.Ordinal);
@@ -83,6 +106,7 @@ public sealed class HarnessReportTests
         SongResult song = new("alpha", null, 0, [new("furnace", Score, null)], null);
 
         Assert.DoesNotContain("First seconds", HarnessReport.Markdown([song], "r", "v", 8000), StringComparison.Ordinal);
+        Assert.DoesNotContain("Instrument balance", HarnessReport.Markdown([song], "r", "v", 8000), StringComparison.Ordinal);
     }
 
     /// <summary>The same results give the same files: the report holds no time or machine detail (plan T6.3).</summary>
