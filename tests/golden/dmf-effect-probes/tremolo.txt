@@ -8,11 +8,11 @@ instrument 0 "Sine" FM: ALG 7 FB 0 FMS 0 AMS 0
   DmfOperator { Am = 0, Ar = 31, Dr = 0, Mult = 1, Rr = 8, Sl = 0, Tl = 127, Dt2 = 0, Rs = 0, Dt = 3, D2R = 0, SsgMode = 0 }
   DmfOperator { Am = 0, Ar = 31, Dr = 0, Mult = 1, Rr = 8, Sl = 0, Tl = 127, Dt2 = 0, Rs = 0, Dt = 3, D2R = 0, SsgMode = 0 }
 channel 1: orders [0], effect columns 2
-  0:00 note 12 octave 3 volume 119 instrument 0 effects [E56A 0810]
+  0:00 note 12 octave 3 volume 116 instrument 0 effects [E56A 0810]
   0:01 note 0 octave 0 volume -1 instrument -1 effects [077F]
   0:16 note 0 octave 0 volume -1 instrument -1 effects [07DF]
   0:32 note 0 octave 0 volume -1 instrument -1 effects [0700]
-  0:40 note 0 octave 0 volume 119 instrument -1 effects []
+  0:40 note 0 octave 0 volume 116 instrument -1 effects []
   0:60 note 0 octave 0 volume 0 instrument -1 effects []
 channel 2: orders [0], effect columns 1
 channel 3: orders [0], effect columns 1

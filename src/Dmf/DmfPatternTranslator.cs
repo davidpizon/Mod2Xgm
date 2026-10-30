@@ -120,6 +120,7 @@ internal sealed class DmfPatternTranslator
     private readonly IReadOnlyDictionary<int, int> _noiseInstruments;
     private readonly Dictionary<int, SamplePitch> _pitches = [];
     private readonly Dictionary<int, int> _noiseNotes = [];
+    private readonly Dictionary<(int Sample, int Patch), (double Gain, bool Limited)> _fmLevels = [];
 
     /// <summary>Prepares a translation of the first <paramref name="orders"/> orders of <paramref name="plan"/>.</summary>
     /// <param name="plan">The mapped song.</param>
@@ -215,6 +216,35 @@ internal sealed class DmfPatternTranslator
 
         return note;
     }
+
+    /// <summary>
+    /// The factor on the MOD volume that plays <paramref name="sample"/> on patch <paramref name="patch"/> as loud as the
+    /// MOD does (ADR 0050): the sample's level over the patch's. It is at most the patch's ceiling, full volume or lower
+    /// where the carriers would add up past full scale; <c>Limited</c> says the sample is louder than that.
+    /// </summary>
+    private (double Gain, bool Limited) FmLevel(int sample, int patch)
+    {
+        if (!_fmLevels.TryGetValue((sample, patch), out (double Gain, bool Limited) level))
+        {
+            Sample played = _song.Samples[sample];
+            FmPatch fm = _plan.FmPatches[patch];
+            double rms = VoiceLevel.Fm(fm, sustained: played.Loop is not null).Rms;
+            double peak = VoiceLevel.Fm(fm, sustained: false).Peak;
+            level = Limit(rms > 0 ? VoiceLevel.Sample(played) / rms : 1, peak > 1 ? 1 / peak : 1);
+            _fmLevels[(sample, patch)] = level;
+        }
+
+        return level;
+    }
+
+    /// <summary>The factor on the MOD volume that plays noise sample <paramref name="sample"/> as loud as the MOD does, at most 1 (ADR 0050).</summary>
+    private (double Gain, bool Limited) NoiseLevel(int sample) => Limit(VoiceLevel.Loudest(_song.Samples[sample]) / VoiceLevel.PsgNoise, 1);
+
+    /// <summary>
+    /// <paramref name="gain"/> kept at or below <paramref name="ceiling"/>. A sample too loud for its voice keeps its
+    /// dynamics: its notes at full MOD volume play at the voice's loudest, softer ones in proportion.
+    /// </summary>
+    private static (double Gain, bool Limited) Limit(double gain, double ceiling) => (Math.Min(gain, ceiling), gain > ceiling);
 
     /// <summary>The <c>08xy</c> value for a pan of −1 (left) to +1 (right).</summary>
     private static int PanCode(double pan) => pan < -PanSide ? PanLeft : pan > PanSide ? PanRight : PanBoth;
@@ -489,7 +519,7 @@ internal sealed class DmfPatternTranslator
             else if (cell.Volume is { } volume && track is { Sounding: true, Kind: VoiceKind.Fm or VoiceKind.PsgNoise })
             {
                 track.ModVolume = volume;
-                draft.Volume = track.Kind == VoiceKind.PsgNoise ? DmfUnits.PsgVolume(volume) : DmfUnits.FmVolume(volume);
+                draft.Volume = track.Kind == VoiceKind.PsgNoise ? DmfUnits.PsgVolume(track.Level(volume)) : DmfUnits.FmVolume(track.Level(volume));
                 track.DmfVolume = draft.Volume;
             }
 
@@ -525,10 +555,10 @@ internal sealed class DmfPatternTranslator
             }
 
             bool psg = track.Kind == VoiceKind.PsgNoise;
-            double exact = DmfUnits.ExactVolume(track.ModVolume, psg);
+            double exact = DmfUnits.ExactVolume(track.Level(track.ModVolume), psg);
             if (track.DmfVolume is not { } dmf || Math.Abs(dmf - exact) >= 1)
             {
-                draft.Volume = psg ? DmfUnits.PsgVolume(track.ModVolume) : DmfUnits.FmVolume(track.ModVolume);
+                draft.Volume = psg ? DmfUnits.PsgVolume(track.Level(track.ModVolume)) : DmfUnits.FmVolume(track.Level(track.ModVolume));
                 track.DmfVolume = draft.Volume;
             }
         }
@@ -574,7 +604,13 @@ internal sealed class DmfPatternTranslator
             // An instrument on a portamento row would restart the note in DefleMask (Furnace: newInsTriggersInPorta).
             draft.Instrument = glide ? -1 : voice.Index;
             double volume = cell.Volume ?? track.ModVolume;
-            draft.Volume = DmfUnits.FmVolume(volume);
+            (track.Gain, bool limited) = translator.FmLevel(sample, voice.Index);
+            if (limited)
+            {
+                Tally("{Count} FM notes play quieter than in the MOD: their sample is louder than its patch can play without clipping");
+            }
+
+            draft.Volume = DmfUnits.FmVolume(track.Level(volume));
             if (fine != track.Fine)
             {
                 effects.Add(new Planned(PitchPriority, new DmfEffect(FinePitch, Math.Clamp(fine, 0, byte.MaxValue)), effects.Count));
@@ -614,7 +650,13 @@ internal sealed class DmfPatternTranslator
             (draft.Note, draft.Octave) = NoteAndOctave((NoiseOctave * 12) + note);
             draft.Instrument = translator._noiseInstruments[sample];
             double volume = cell.Volume ?? track.ModVolume;
-            draft.Volume = DmfUnits.PsgVolume(volume);
+            (track.Gain, bool limited) = translator.NoiseLevel(sample);
+            if (limited)
+            {
+                Tally("{Count} noise notes play quieter than in the MOD: their sample is louder than the PSG's noise at full volume");
+            }
+
+            draft.Volume = DmfUnits.PsgVolume(track.Level(volume));
             track.Kind = VoiceKind.PsgNoise;
             track.Sounding = true;
             track.ModVolume = volume;
@@ -680,6 +722,7 @@ internal sealed class DmfPatternTranslator
             track.Kind = VoiceKind.Dac;
             track.Sounding = true;
             track.ModVolume = volume;
+            track.Gain = 1;
             track.DacVariant = k;
             track.DacStart = _seconds;
         }
@@ -1044,14 +1087,14 @@ internal sealed class DmfPatternTranslator
             {
                 // A fine slide is one step at the row's start: just set the volume it reaches.
                 track.ModVolume = Math.Clamp(track.ModVolume + step, 0, 1);
-                draft.Volume = psg ? DmfUnits.PsgVolume(track.ModVolume) : DmfUnits.FmVolume(track.ModVolume);
+                draft.Volume = psg ? DmfUnits.PsgVolume(track.Level(track.ModVolume)) : DmfUnits.FmVolume(track.Level(track.ModVolume));
                 track.DmfVolume = draft.Volume;
                 return;
             }
 
             // Each slide row starts from the MOD's volume, so a slide DefleMask can't keep up with (its fastest is 3.75
             // steps a tick) lags by one row at most.
-            double start = DmfUnits.ExactVolume(track.ModVolume, psg);
+            double start = DmfUnits.ExactVolume(track.Level(track.ModVolume), psg);
             if (draft.Volume < 0 && (track.DmfVolume is not { } known || Math.Abs(known - start) >= 1))
             {
                 draft.Volume = (int)Math.Round(start, MidpointRounding.AwayFromZero);
@@ -1060,7 +1103,7 @@ internal sealed class DmfPatternTranslator
 
             double end = Math.Clamp(track.ModVolume + (step * (row.Speed - 1)), 0, 1);
             double from = track.DmfVolume ?? start;
-            double to = DmfUnits.ExactVolume(end, psg);
+            double to = DmfUnits.ExactVolume(track.Level(end), psg);
             track.ModVolume = end;
             double perTick = (to - from) / row.Ticks;
             int digit = DmfUnits.Digit(Math.Abs(perTick) / DmfUnits.VolumeSlideStep);
@@ -1113,6 +1156,12 @@ internal sealed class DmfPatternTranslator
 
         /// <summary>The DMF volume in steps, or <c>null</c> when unknown.</summary>
         public double? DmfVolume { get; set; }
+
+        /// <summary>Factor on the MOD volume that plays the sample as loud as the MOD does on this voice (ADR 0050).</summary>
+        public double Gain { get; set; } = 1;
+
+        /// <summary>The linear volume to write for MOD volume <paramref name="volume"/>: matched to the sample.</summary>
+        public double Level(double volume) => volume * Gain;
 
         /// <summary>The Amiga period now playing.</summary>
         public double Period { get; set; } = 428;
