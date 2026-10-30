@@ -265,6 +265,9 @@ table. Add a summary in the same format when a new paper informs the design. Nev
   updates only the old one's Status line. `docs/decisions.md` now just points to the index.
 - Format docs carry a **"Verify"** marker on anything not yet checked against the primary spec. Remove
   the marker only after checking against the spec or a real file opened in DefleMask / played via SGDK.
+- **Draw graphs and diagrams in Mermaid** (a ` ```mermaid ` block), not ASCII art (David, 2026-10-30): dependency graphs,
+  pipelines, flows, state machines. GitHub renders Mermaid. Folder trees and byte layouts stay plain text. When you
+  edit a doc that still has an ASCII graph, convert it.
 
 ## When unsure
 

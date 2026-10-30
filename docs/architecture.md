@@ -2,26 +2,28 @@
 
 ## Pipeline
 
-```
- .mod bytes
-    │  ModReader            (src/Mod)       big-endian parse + validation
-    ▼
- ModModule                                  faithful image of the file
-    │  ModToSong            (src/Mod)       notes, instruments, samples, effects decoded (T3.3)
-    ▼
- Song (IR)                                  format-neutral: orders, rows, notes, instruments, samples
-    │  IChannelMapper       (src/Mapping)   SimpleMapper, then multi-pass Optimizer — see multi-pass.md
-    │     ↑↓ uses: Render (src/Render: MOD renderer, YM2612/PSG/PCM models) + Scoring (src/Scoring)
-    ▼
- GenesisPlan                                per-channel events for FM1–6 / DAC / PSG1–4
-    │  SampleBudgeter       (src/Mapping)   capacity check + consolidation — see sample-capacity.md
-    ▼
- GenesisPlan (fits target)
-    │  SampleProcessor      (src/Audio)     resample, 8/16-bit, loops, length limits
-    ▼
- ┌──────────────┬──────────────────┐
- DmfWriter      XgmWriter          Xgm2Writer      (src/Dmf, src/Xgm)
- .dmf (zlib)    .xgm               .xgm2
+```mermaid
+flowchart TD
+    bytes[".mod bytes"]
+    module["ModModule<br/>faithful image of the file"]
+    song["Song (IR)<br/>format-neutral: orders, rows, notes, instruments, samples"]
+    plan["GenesisPlan<br/>per-channel events for FM1–6 / DAC / PSG1–4"]
+    fits["GenesisPlan (fits target)"]
+    processed["GenesisPlan + processed samples"]
+    dmf[".dmf (zlib)"]
+    xgm[".xgm"]
+    xgm2[".xgm2"]
+    tools["Render (src/Render: MOD renderer, YM2612/PSG/PCM models)<br/>+ Scoring (src/Scoring)"]
+
+    bytes -- "ModReader (src/Mod): big-endian parse + validation" --> module
+    module -- "ModToSong (src/Mod): notes, instruments, samples, effects decoded (T3.3)" --> song
+    song -- "IChannelMapper (src/Mapping): SimpleMapper, then multi-pass Optimizer, see multi-pass.md" --> plan
+    song -. "IChannelMapper renders and scores candidates with" .-> tools
+    plan -- "SampleBudgeter (src/Mapping): capacity check + consolidation, see sample-capacity.md" --> fits
+    fits -- "SampleProcessor (src/Audio): resample, 8/16-bit, loops, length limits" --> processed
+    processed -- "DmfWriter (src/Dmf)" --> dmf
+    processed -- "XgmWriter (src/Xgm)" --> xgm
+    processed -- "Xgm2Writer (src/Xgm)" --> xgm2
 ```
 
 Each arrow is a pure function of its input plus a shared `ConversionNotes` collector (each note is logged
