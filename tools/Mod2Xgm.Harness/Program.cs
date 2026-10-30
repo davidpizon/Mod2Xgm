@@ -148,7 +148,7 @@ internal static class Program
         ArgumentNullException.ThrowIfNull(options);
         LibOpenMpt.UseDirectory(options.LibOpenMptDirectory);
         OpenMptRenderer reference = new();
-        List<ICandidateRenderer> candidates = [];
+        List<ICandidateRenderer> candidates = [new ModRendererCheck(options.SampleRate)];
         if (!options.NoFurnace)
         {
             if (FurnaceRenderer.Find(options.FurnacePath) is { } furnace)
@@ -203,8 +203,8 @@ internal static class Program
         string report = Path.Combine(options.OutputDirectory, "report.md");
         File.WriteAllText(report, HarnessReport.Markdown(results, reference, version, options.SampleRate));
 
-        int failed = results.Count(r => r.Error is not null || r.Duration?.Within == false);
-        logger.Information("Report: {Report} ({Failed} of {Count} songs failed or are more than a tick off)", report, failed, results.Count);
+        int failed = results.Count(r => r.Error is not null || r.Duration?.Within == false || r.Scores.Any(ModRendererCheck.OverTheBar));
+        logger.Information("Report: {Report} ({Failed} of {Count} songs failed, are more than a tick off, or the in-app MOD renderer is over its bar)", report, failed, results.Count);
         return failed == 0 ? 0 : 1;
     }
 

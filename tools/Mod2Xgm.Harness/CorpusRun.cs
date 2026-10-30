@@ -2,6 +2,7 @@ using System.Globalization;
 using Mod2Xgm.Cli;
 using Mod2Xgm.Mod;
 using Mod2Xgm.Model;
+using Mod2Xgm.Render;
 using Mod2Xgm.Scoring;
 using Serilog;
 using Serilog.Core;
@@ -181,14 +182,15 @@ internal sealed class CorpusRun(
             }
 
             StereoAudio audio = render.Audio.At(sampleRate);
-            ScoreReport score = SongScorer.Compare(original, audio.ToMono(), ScoreOptions.Default, logger);
+            ScoreOptions options = render.InReferenceTime ? ScoreOptions.Default with { Align = false } : ScoreOptions.Default;
+            ScoreReport score = SongScorer.Compare(original, audio.ToMono(), options, logger);
             ScoreReport? clip = null;
             BalanceResult? balanced = null;
             if (originalClip is not null)
             {
                 StereoAudio candidateClip = audio.Head(originalClip.Seconds);
                 WavFile.Write(Path.Combine(song.WavDirectory, $"{song.Name}.{candidate.Name}.clip.wav"), candidateClip);
-                clip = SongScorer.Compare(originalClip.ToMono(), candidateClip.ToMono(), ScoreOptions.Default, logger);
+                clip = SongScorer.Compare(originalClip.ToMono(), candidateClip.ToMono(), options, logger);
                 logger.Information(
                     "{Song}: {Renderer} scores {Combined} on the first {Seconds} s",
                     song.Name,

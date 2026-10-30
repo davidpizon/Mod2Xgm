@@ -1,4 +1,6 @@
 using Mod2Xgm.Cli;
+using Mod2Xgm.Render;
+using Mod2Xgm.Scoring;
 using Serilog.Core;
 
 namespace Mod2Xgm.Harness.Tests;
@@ -142,19 +144,32 @@ public sealed class RendererTests
         Assert.Null(Render("absent"));
     }
 
-    /// <summary>Resampling keeps the length in seconds, a mono recording stays one shared array, and the mix averages the channels.</summary>
+    /// <summary>The in-app renderer plays the original MOD in OpenMPT's time, so it is scored unaligned, with sound and no remark.</summary>
     [Fact]
-    public void StereoAudioResamplesAndMixes()
+    public void ModRendererCheckRendersTheMod()
     {
-        StereoAudio mono = TestFiles.Tone(1.0);
-        StereoAudio stereo = new([1f, 0f], [0f, -1f], 8000);
+        ModRendererCheck check = new(8000);
 
-        StereoAudio up = mono.At(16_000);
+        CandidateRender render = check.Render(new SongFiles("fx-poly1", TestFiles.ShortSong, "unused.dmf", "unused"));
 
-        Assert.Same(mono, mono.At(8000));
-        Assert.Equal(16_000, up.Length);
-        Assert.Same(up.Left, up.Right);
-        Assert.Equal(4, stereo.At(16_000).Length);
-        Assert.Equal([0.5f, -0.5f], stereo.ToMono().Samples.ToArray());
+        Assert.Equal(ModRendererCheck.RendererName, check.Name);
+        Assert.Null(render.Remark);
+        Assert.True(render.InReferenceTime);
+        Assert.Equal(8000, render.Audio.SampleRate);
+        Assert.Equal(30.72, render.Audio.Seconds, 0.05);
+        Assert.Contains(render.Audio.Left, s => Math.Abs(s) > 0.05f);
+    }
+
+    /// <summary>Only the in-app renderer's scores are held to the bar, and only above it.</summary>
+    [Fact]
+    public void OnlyTheModRendererIsHeldToTheBar()
+    {
+        static CandidateScore Score(string renderer, double melDb) =>
+            new(renderer, new ScoreReport(melDb, 0, 1, 1, 1, 0, 0, 0, melDb), null);
+
+        Assert.True(ModRendererCheck.OverTheBar(Score(ModRendererCheck.RendererName, 1.3)));
+        Assert.False(ModRendererCheck.OverTheBar(Score(ModRendererCheck.RendererName, 1.25)));
+        Assert.False(ModRendererCheck.OverTheBar(Score("furnace", 9)));
+        Assert.False(ModRendererCheck.OverTheBar(new CandidateScore(ModRendererCheck.RendererName, null, "failed")));
     }
 }

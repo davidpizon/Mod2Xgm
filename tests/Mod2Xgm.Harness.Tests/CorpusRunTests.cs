@@ -1,3 +1,4 @@
+using Mod2Xgm.Render;
 using Serilog.Core;
 
 namespace Mod2Xgm.Harness.Tests;
@@ -84,6 +85,27 @@ public sealed class CorpusRunTests
         Assert.True(File.Exists(files.DmfPath));
         Assert.Contains("Emulating ProTracker", File.ReadAllText(temp.Combine("logs", "fx-poly1.log")), StringComparison.Ordinal);
         Assert.Equal(2.0, WavFile.Read(temp.Combine("wav", "fx-poly1.reference.wav")).Seconds, 0.01);
+    }
+
+    /// <summary>
+    /// A rendering 0.1 s late is lined up before scoring, unless it says it keeps the reference's time: then the lag
+    /// stays 0 and is scored as it is, whole song and clip alike.
+    /// </summary>
+    [Fact]
+    public void RendersInReferenceTimeAreNotAligned()
+    {
+        using TempDirectory temp = new();
+        float[] late = [.. new float[Rate / 10], .. TestFiles.Tone(1.9, Rate).Left];
+        StereoAudio lateTone = new(late, late, Rate);
+        Candidate aligned = new("aligned", _ => new CandidateRender(lateTone, null));
+        Candidate kept = new("kept", _ => new CandidateRender(lateTone, null, InReferenceTime: true));
+        CorpusRun run = new(temp.Path, Rate, saveReferenceWavs: false, new ToneReference(30.72), [aligned, kept], Logger.None, clipSeconds: 1.5);
+
+        SongResult result = Assert.Single(run.Run([TestFiles.ShortSong]));
+
+        Assert.NotEqual(0, result.Scores[0].Score?.LagSeconds ?? 0);
+        Assert.Equal(0, result.Scores[1].Score?.LagSeconds);
+        Assert.Equal(0, result.Scores[1].Clip?.LagSeconds);
     }
 
     /// <summary>

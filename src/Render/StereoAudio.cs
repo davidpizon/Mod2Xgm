@@ -1,7 +1,7 @@
 using Mod2Xgm.Audio;
 using Mod2Xgm.Scoring;
 
-namespace Mod2Xgm.Harness;
+namespace Mod2Xgm.Render;
 
 /// <summary>Two channels of audio at one rate, samples in −1…+1. A mono recording has the same array in both.</summary>
 /// <param name="Left">Left channel.</param>

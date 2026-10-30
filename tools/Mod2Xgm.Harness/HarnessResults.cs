@@ -125,7 +125,12 @@ internal static class OpenMptTiming
     private const int MaxBpm = 255;
 
     /// <summary>The length OpenMPT gives each tick of <paramref name="playback"/>, in order.</summary>
-    public static IReadOnlyList<double> TickDurations(Playback playback)
+    /// <param name="playback">The tick player's ticks.</param>
+    /// <param name="sampleRate">
+    /// The rate the ticks are whole samples at: libopenmpt's timing rate for song time, or the render rate for what it
+    /// renders (a tick of a 44.1 kHz render is ⌊44100 × 2.5 / BPM⌋ samples).
+    /// </param>
+    public static IReadOnlyList<double> TickDurations(Playback playback, int sampleRate = TimingRate)
     {
         ArgumentNullException.ThrowIfNull(playback);
         IReadOnlyList<PlaybackTick> ticks = playback.Ticks;
@@ -141,7 +146,7 @@ internal static class OpenMptTiming
             }
         }
 
-        return [.. ideal.Select(seconds => Math.Floor((seconds * TimingRate) + 1e-6) / TimingRate)];
+        return [.. ideal.Select(seconds => Math.Floor((seconds * sampleRate) + 1e-6) / sampleRate)];
     }
 
     /// <summary>The BPM whose CIA tick lasts <paramref name="seconds"/>, or <c>null</c> when none does.</summary>

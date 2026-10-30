@@ -1,3 +1,5 @@
+using Mod2Xgm.Render;
+
 namespace Mod2Xgm.Harness.Tests;
 
 /// <summary>Locations in the checkout and scratch folders for the harness tests.</summary>

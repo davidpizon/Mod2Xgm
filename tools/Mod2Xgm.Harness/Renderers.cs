@@ -1,5 +1,9 @@
 using System.Diagnostics;
 using System.Globalization;
+using Mod2Xgm.Mod;
+using Mod2Xgm.Model;
+using Mod2Xgm.Render;
+using Serilog.Core;
 
 namespace Mod2Xgm.Harness;
 
@@ -31,7 +35,11 @@ internal sealed record SongFiles(string Name, string ModPath, string DmfPath, st
 /// <summary>A rendering of the conversion, and anything the report should say about where it came from.</summary>
 /// <param name="Audio">The rendering.</param>
 /// <param name="Remark">E.g. that a hand-made export may be out of date; <c>null</c> when there is nothing to say.</param>
-internal sealed record CandidateRender(StereoAudio Audio, string? Remark);
+/// <param name="InReferenceTime">
+/// The rendering keeps the reference's own time, so it is scored without alignment: on a song that repeats, the
+/// alignment can line a bar up with the wrong repeat.
+/// </param>
+internal sealed record CandidateRender(StereoAudio Audio, string? Remark, bool InReferenceTime = false);
 
 /// <summary>Plays the converted file: one column of the report per renderer.</summary>
 internal interface ICandidateRenderer
@@ -119,6 +127,46 @@ internal sealed class OpenMptRenderer : IReferenceRenderer
         {
             LibOpenMpt.Destroy(module);
         }
+    }
+}
+
+/// <summary>
+/// The converter's own MOD renderer (plan T7.1, docs/adr/0053-mod-renderer.md) playing the original MOD, not the
+/// conversion: it checks the in-app reference against libopenmpt's. The tick player plays the MOD (PAL) and its ticks get
+/// OpenMPT's lengths at the render rate, so the two keep time and the score measures the sound.
+/// </summary>
+/// <param name="sampleRate">The rate to render at: the harness's scoring rate.</param>
+internal sealed class ModRendererCheck(int sampleRate) : ICandidateRenderer
+{
+    /// <summary>The renderer's name in the reports.</summary>
+    public const string RendererName = "mod-renderer";
+
+    /// <summary>
+    /// The bar (plan T7.1): every song's whole-song log-mel distance to libopenmpt stays at or below this
+    /// (docs/adr/0053-mod-renderer.md; the corpus's worst song was 1.02 dB).
+    /// </summary>
+    public const double MaxMelDistanceDb = 1.25;
+
+    /// <inheritdoc/>
+    public string Name => RendererName;
+
+    /// <summary>True when <paramref name="score"/> is this renderer's and over the bar.</summary>
+    public static bool OverTheBar(CandidateScore score)
+    {
+        ArgumentNullException.ThrowIfNull(score);
+        return score.Renderer == RendererName && score.Score is { } s && s.MelDistanceDb > MaxMelDistanceDb;
+    }
+
+    /// <inheritdoc/>
+    public CandidateRender Render(SongFiles song)
+    {
+        ArgumentNullException.ThrowIfNull(song);
+        ConversionNotes silent = new(Logger.None);
+        ModModule module = ModReader.Read(File.ReadAllBytes(song.ModPath), silent);
+        Song model = ModToSong.Convert(module, AmigaPitch.PalClockHz, silent);
+        Playback playback = ModTickPlayer.Play(module, AmigaPitch.PalClockHz, 1.0, silent);
+        ModRenderOptions options = new(sampleRate) { TickDurations = OpenMptTiming.TickDurations(playback, sampleRate) };
+        return new CandidateRender(ModRenderer.Render(model, playback, options), null, InReferenceTime: true);
     }
 }
 

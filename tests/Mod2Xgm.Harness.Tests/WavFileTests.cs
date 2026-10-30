@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.Text;
+using Mod2Xgm.Render;
 
 namespace Mod2Xgm.Harness.Tests;
 

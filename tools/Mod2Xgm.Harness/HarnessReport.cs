@@ -243,6 +243,28 @@ internal static class HarnessReport
             md.Append(CultureInfo.InvariantCulture, $"| {renderer} | {scores.Count} | {scores.Average(s => s.Combined):0.00} | {scores.Average(s => s.MelDistanceDb):0.00} | {scores.Average(s => s.MfccDistance):0.00} | {scores.Average(s => s.OnsetF1):0.00} |\n");
         }
 
+        (string Song, double MelDb)? worst = null;
+        int over = 0;
+        foreach (SongResult song in results)
+        {
+            foreach (CandidateScore candidate in song.Scores.Where(c => c.Renderer == ModRendererCheck.RendererName))
+            {
+                if (candidate.Score is { } score && (worst is null || score.MelDistanceDb > worst.Value.MelDb))
+                {
+                    worst = (song.Song, score.MelDistanceDb);
+                }
+
+                over += ModRendererCheck.OverTheBar(candidate) ? 1 : 0;
+            }
+        }
+
+        if (worst is { } w)
+        {
+            md.Append("\n## In-app MOD renderer against the reference (plan T7.1)\n\n");
+            md.Append(CultureInfo.InvariantCulture, $"`{ModRendererCheck.RendererName}` plays the original MOD, not the conversion (docs/adr/0053-mod-renderer.md). Bar: whole-song log-mel ≤ {ModRendererCheck.MaxMelDistanceDb:0.00} dB on every song. ");
+            md.Append(CultureInfo.InvariantCulture, $"Worst: `{w.Song}`, {w.MelDb:0.00} dB. {(over == 0 ? "✅ Every song is within the bar." : $"❌ {over} songs are over the bar.")}\n");
+        }
+
         md.Append("\n## Song timeline: tick player against the reference (±1 tick)\n\n");
         md.Append("The tick player's ticks timed OpenMPT's way must start every row, and end the song, within one tick of the reference.\n");
         md.Append("*Amiga − OpenMPT* is how much a real Amiga's timing (the tick player's own) differs from OpenMPT's rules (docs/harness.md#song-timeline).\n\n");

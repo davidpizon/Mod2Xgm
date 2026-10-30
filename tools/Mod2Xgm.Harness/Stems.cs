@@ -3,6 +3,7 @@ using Mod2Xgm.Dmf;
 using Mod2Xgm.Mapping;
 using Mod2Xgm.Mod;
 using Mod2Xgm.Model;
+using Mod2Xgm.Render;
 using Serilog.Core;
 
 namespace Mod2Xgm.Harness;
