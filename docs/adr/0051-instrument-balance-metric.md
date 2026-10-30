@@ -96,7 +96,7 @@ The largest are FM instruments 10–14 dB too loud or too quiet (`k0w-rsnd` samp
 So the balance errors are real and large, but across songs the ratings are driven by something else as well: wrong
 timbre (placeholder FM patches, drums on FM), pitch and missing parts, which differ from song to song more than the
 balance does. A ranking across 19 different songs can't separate those. A **paired** test can: the same songs with
-only the levels changed. The FM-loudness fix ([ADR 0050](0050-voice-levels.md), now merged) and David's A/B listening of old against
+only the levels changed. The FM-loudness fix ([ADR 0050](0050-voice-levels.md)) and David's A/B listening of old against
 new levels give exactly that.
 
 ### What follows for the score
