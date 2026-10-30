@@ -122,6 +122,22 @@ public sealed class HarnessReportTests
         Assert.Contains("3 of 4 songs within one tick; 1 songs failed.", md, StringComparison.Ordinal);
     }
 
+    /// <summary>The in-app renderer's section names the worst song and says whether every song is within the bar.</summary>
+    [Fact]
+    public void MarkdownChecksTheModRendererAgainstTheBar()
+    {
+        static SongResult Song(string name, double melDb) =>
+            new(name, null, 0, [new(ModRendererCheck.RendererName, Score with { MelDistanceDb = melDb }, null)], null);
+
+        string within = HarnessReport.Markdown([Song("alpha", 0.5), Song("beta", 1.0)], "r", "v", 8000);
+        string over = HarnessReport.Markdown([Song("alpha", 0.5), Song("beta", 1.5)], "r", "v", 8000);
+
+        Assert.Contains("## In-app MOD renderer against the reference (plan T7.1)", within, StringComparison.Ordinal);
+        Assert.Contains("Bar: whole-song log-mel ≤ 1.25 dB on every song. Worst: `beta`, 1.00 dB. ✅ Every song is within the bar.", within, StringComparison.Ordinal);
+        Assert.Contains("Worst: `beta`, 1.50 dB. ❌ 1 songs are over the bar.", over, StringComparison.Ordinal);
+        Assert.DoesNotContain("In-app MOD renderer", HarnessReport.Markdown(Results, "r", "v", 8000), StringComparison.Ordinal);
+    }
+
     /// <summary>Without clip scores there is no clip section, and without loudness no loudness section.</summary>
     [Fact]
     public void MarkdownLeavesOutTheClipSectionWithoutClips()

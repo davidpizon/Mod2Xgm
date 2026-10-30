@@ -64,6 +64,14 @@ public sealed class DurationCheckTests
         Assert.Equal([OpenMpt(101), OpenMpt(128)], notFirstTick);
     }
 
+    /// <summary>At another rate the ticks are whole samples of that rate: 882 at BPM 125 and 861 at 128 at 44.1 kHz.</summary>
+    [Fact]
+    public void TicksAreWholeSamplesAtTheGivenRate()
+    {
+        Assert.Equal([882.0 / 44_100], OpenMptTiming.TickDurations(Ticks(PlaybackEnd.Stops, (0, 0, 0, Cia(125))), 44_100));
+        Assert.Equal([861.0 / 44_100], OpenMptTiming.TickDurations(Ticks(PlaybackEnd.Stops, (0, 0, 0, Cia(128))), 44_100));
+    }
+
     /// <summary>A tick that isn't a CIA tempo (Ultimate Soundtracker's tempo byte) keeps its length, in whole samples.</summary>
     [Fact]
     public void OtherTicksKeepTheirLength()

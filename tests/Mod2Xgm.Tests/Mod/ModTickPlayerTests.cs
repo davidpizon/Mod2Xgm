@@ -365,6 +365,81 @@ public sealed class ModTickPlayerTests
     }
 
     /// <summary>
+    /// A note beyond ProTracker's range plays at its own pitch, snapped to OpenMPT's nearest note (57 → A#4's 56, 1700 →
+    /// C-0's 1712), and one note says so (ADR 0054).
+    /// </summary>
+    [Fact]
+    public void NotesBeyondTheRangeSnapToOpenMptsTable()
+    {
+        (Playback playback, ConversionNotes notes) = Play(Song()
+            .WithCell(0, row: 0, channel: 0, sample: 1, period: 57)
+            .WithCell(0, row: 0, channel: 1, sample: 1, period: 1700)
+            .WithCell(0, row: 1, channel: 0, sample: 1, period: C2));
+
+        Assert.Equal(56, PeriodAt(playback, 0));
+        Assert.Equal(1712, PeriodAt(playback, 0, channel: 1));
+        Assert.Equal(C2, PeriodAt(playback, 6));
+        Assert.Contains(notes.Messages, m => m.Contains("2 notes lie beyond ProTracker's range", StringComparison.Ordinal));
+    }
+
+    /// <summary>Beyond the range, finetune tunes by eighths of a semitone: C-0 at −8 is 1712 × 2^(8/96) ≈ 1814.</summary>
+    [Fact]
+    public void NotesBeyondTheRangeTakeFinetune()
+    {
+        (Playback playback, _) = Play(new ModBuilder()
+            .WithSample(1, "lead", 1024, fineTune: -8)
+            .WithCell(0, row: 0, channel: 0, sample: 1, period: 1712));
+
+        Assert.Equal(1814, PeriodAt(playback, 0));
+    }
+
+    /// <summary>
+    /// In a song with notes beyond the range, slides run from period 14 to 3424 instead of 113 to 856, and a slide past
+    /// 0 is clamped instead of wrapping as in ProTracker.
+    /// </summary>
+    [Fact]
+    public void NotesBeyondTheRangeWidenTheSlides()
+    {
+        (Playback playback, _) = Play(Song()
+            .WithCell(0, row: 0, channel: 0, sample: 1, period: 30, effect: 0x1, parameter: 0x10)
+            .WithCell(0, row: 0, channel: 1, sample: 1, period: 1712, effect: 0x2, parameter: 0xFF)
+            .WithCell(0, row: 1, channel: 1, sample: 0, period: 0, effect: 0x2, parameter: 0xFF));
+
+        Assert.Equal([30, 14, 14], Enumerable.Range(0, 3).Select(t => PeriodAt(playback, t)));
+        Assert.Equal([1712, 1967, 3242, 3424, 3424], new[] { 0, 1, 7, 8, 9 }.Select(t => PeriodAt(playback, t, channel: 1)));
+    }
+
+    /// <summary>A song with every note in range keeps ProTracker's limits and no note is added.</summary>
+    [Fact]
+    public void NotesInTheRangeKeepProTrackersLimits()
+    {
+        (Playback playback, ConversionNotes notes) = Play(Song().WithCell(0, row: 0, channel: 0, sample: 1, period: 856, effect: 0x2, parameter: 0x10));
+
+        Assert.Equal([856, 856], Enumerable.Range(0, 2).Select(t => PeriodAt(playback, t)));
+        Assert.DoesNotContain(notes.Messages, m => m.Contains("beyond ProTracker's range", StringComparison.Ordinal));
+    }
+
+    /// <summary>Above ProTracker's top note an arpeggio moves by semitone ratios: 56 → 47 (+3) → 37 (+7).</summary>
+    [Fact]
+    public void ArpeggioBeyondTheRangeUsesSemitones()
+    {
+        (Playback playback, _) = Play(Song().WithCell(0, row: 0, channel: 0, sample: 1, period: 56, effect: 0x0, parameter: 0x37));
+
+        Assert.Equal([56, 47, 37, 56], Enumerable.Range(0, 4).Select(t => PeriodAt(playback, t)));
+    }
+
+    /// <summary>A tone portamento reaches a note beyond the range, and glissando doesn't snap it to ProTracker's table there.</summary>
+    [Fact]
+    public void TonePortamentoReachesNotesBeyondTheRange()
+    {
+        (Playback playback, _) = Play(Song()
+            .WithCell(0, row: 0, channel: 0, sample: 1, period: 120, effect: 0xE, parameter: 0x31)
+            .WithCell(0, row: 1, channel: 0, sample: 0, period: 56, effect: 0x3, parameter: 0x10));
+
+        Assert.Equal([120, 104, 88, 72, 56, 56], Enumerable.Range(6, 6).Select(t => PeriodAt(playback, t)));
+    }
+
+    /// <summary>
     /// Ultimate Soundtracker rules: speed 6 always (Fxx doesn't exist), the tempo from byte 471, 1xy is arpeggio and
     /// samples start at their loop start.
     /// </summary>

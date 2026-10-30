@@ -1,3 +1,4 @@
+using Mod2Xgm.Render;
 using Mod2Xgm.Scoring;
 using R128Net;
 
