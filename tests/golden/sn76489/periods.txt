@@ -1,0 +1,43 @@
+# SN76489 probe: periods
+# Tone 3 at periods from the top ($3FF, 109 Hz) to the bottom, including 1 and 0 (both flip every step on Sega's
+# chip, about 112 kHz), then the period changed by one byte at a time during the note.
+w d2
+w cf
+w 3f
+s 6712
+w c0
+w 20
+s 6712
+w ce
+w 0f
+s 6712
+w c0
+w 04
+s 6712
+w c1
+w 01
+s 6712
+w c8
+w 00
+s 6712
+w c3
+w 00
+s 6712
+w c2
+w 00
+s 6712
+w c1
+w 00
+s 6712
+w c0
+w 00
+s 6712
+w ce
+w 0f
+s 6712
+w 08
+s 6712
+w c3
+s 6712
+w df
+s 2237

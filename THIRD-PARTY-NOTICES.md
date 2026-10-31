@@ -17,6 +17,7 @@ Versions are pinned in [`Directory.Packages.props`](Directory.Packages.props).
 | .NET runtime and libraries (Native AOT, .NET 10) | MIT | https://github.com/dotnet/runtime |
 | pt2-clone: ProTracker 2.3 period tables (`src/pt2_tables.c`, in `src/Model/AmigaPitch.cs`) and replayer, ported to C# (`src/pt2_replayer.c` → `src/Mod/ModTickPlayer.cs`) | BSD-3-Clause, notice below | https://github.com/8bitbubsy/pt2-clone |
 | ymfm: the YM3438 (OPN2) emulation, ported to C# (`src/ymfm_opn.cpp`, `src/ymfm_fm.ipp`, `src/ymfm.h` → `src/Render/Fm/`; [ADR 0056](docs/adr/0056-ym3438-model.md)) | BSD-3-Clause, notice below | https://github.com/aaronsgiles/ymfm |
+| MAME: the Sega PSG (SN76489) emulation, ported to C# (`src/devices/sound/sn76496.cpp` → `src/Render/Psg/Sn76489.cs`; [ADR 0057](docs/adr/0057-sn76489-model.md)) | BSD-3-Clause, notice below | https://github.com/mamedev/mame |
 
 ## Used only for building and testing (not shipped)
 
@@ -29,6 +30,8 @@ Versions are pinned in [`Directory.Packages.props`](Directory.Packages.props).
 | R128Net (`tools/Mod2Xgm.Harness` and its tests only; [ADR 0053](docs/adr/0053-r128-loudness-in-the-harness.md)), a C# port of libebur128 (© 2011 Jan Kokemüller, MIT) | MIT | https://github.com/routersys/R128Net |
 | Nuked-OPN2 (built and run only by `tools/ym3438-reference` to make the YM3438 reference outputs in `tests/golden/ym3438/`; downloaded at commit `335747d`, not in the repository, no code copied; [ADR 0056](docs/adr/0056-ym3438-model.md)), © 2017-2022 Alexey Khokholov (Nuke.YKT) | LGPL-2.1 | https://github.com/nukeykt/Nuked-OPN2 |
 | ymfm, as C++ (built and run by `tools/ym3438-reference`, downloaded at commit `81aec25`) | BSD-3-Clause, notice below | https://github.com/aaronsgiles/ymfm |
+| Nuked-PSG (built and run only by `tools/sn76489-reference` to make the SN76489 reference outputs in `tests/golden/sn76489/`; downloaded at commit `d15a168`, not in the repository, no code copied; approved by David for this tool only; [ADR 0057](docs/adr/0057-sn76489-model.md)), © 2021 Alexey Khokholov (Nuke.YKT) | GPL-2.0-or-later | https://github.com/nukeykt/Nuked-PSG |
+| MAME `sn76496.cpp` / `sn76496.h`, as C++ (built and run by `tools/sn76489-reference`, downloaded at commit `d066f16`) | BSD-3-Clause, notice below | https://github.com/mamedev/mame |
 
 ## Reference documents included in `docs/formats/`
 
@@ -95,6 +98,44 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 BSD 3-Clause License
 
 Copyright (c) 2021, Aaron Giles
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its
+   contributors may be used to endorse or promote products derived from
+   this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+```
+
+## MAME sn76496 (BSD-3-Clause)
+
+`src/Render/Psg/Sn76489.cs` is a C# port of MAME's SN76489 / Sega PSG emulation (`src/devices/sound/sn76496.cpp`,
+commit d066f16; its header: `license:BSD-3-Clause`, `copyright-holders:Nicola Salmoria`, "with contributions by
+others"):
+
+```
+BSD 3-Clause License
+
+Copyright (c) Nicola Salmoria
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without

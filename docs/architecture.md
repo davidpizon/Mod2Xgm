@@ -62,6 +62,11 @@ of ymfm's YM3438 (the clean chip, no ladder effect), bit-exact with ymfm. Regist
 144 master clocks out; the Genesis renderer (T7.5) owns the clock and the mixing. Checked against ymfm and
 Nuked-OPN2 on register-write probes (`tests/golden/ym3438/`).
 
+**Sn76489** (`src/Render/Psg`, plan T7.3, [ADR 0057](adr/0057-sn76489-model.md)) — pure C#: the PSG as a C# port of
+MAME's Sega PSG (`segapsg`), bit-exact with MAME. Port writes in, one mono sample per 16 PSG clocks out (223.7 kHz on
+NTSC); the Genesis renderer (T7.5) owns the clock, resampling and the mix with the FM chip. Checked against MAME and
+Nuked-PSG on write probes (`tests/golden/sn76489/`).
+
 **Song (IR)** (`src/Model`, plan T3.1) — Holds what any output needs, in format-neutral units, with 0-based numbering:
 
 - `Title`; `Channels` → starting pan, −1 left … +1 right (Amiga MODs: −1, +1, +1, −1)

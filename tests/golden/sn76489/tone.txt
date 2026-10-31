@@ -1,0 +1,8 @@
+# SN76489 probe: tone
+# Tone 1 alone at 440 Hz, the loudest volume; then off.
+w 8e
+w 0f
+w 90
+s 44744
+w 9f
+s 4474

@@ -1,0 +1,22 @@
+# SN76489 probe: chord
+# A chord on the three tone channels at different volumes, then all four channels at the loudest volume.
+w 8c
+w 1a
+w a3
+w 15
+w cd
+w 11
+w 90
+w b3
+w d6
+s 33558
+w b0
+w d0
+w e5
+w f0
+s 22372
+w 9f
+w bf
+w df
+w ff
+s 2237

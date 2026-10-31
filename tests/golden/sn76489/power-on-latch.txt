@@ -1,0 +1,14 @@
+# SN76489 probe: power-on-latch
+# A data byte written before any latch byte goes to whichever register the latch points at after power-on (on
+# MAME's Sega PSG, tone 2's volume, so tone 2 then sounds at volume 0); then tone 1 set up the normal way.
+w 00
+w a9
+w 0a
+s 11186
+w bf
+w 8e
+w 0f
+w 90
+s 11186
+w 9f
+s 2237

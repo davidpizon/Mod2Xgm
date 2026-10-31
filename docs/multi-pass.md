@@ -76,7 +76,8 @@ All in-process, no native libraries and no external programs:
   the harness ([harness.md](harness.md#in-app-mod-renderer)).
 - **YM2612 model** — C# port of **ymfm**'s YM3438, the clean chip without the ladder effect (`src/Render/Fm/`,
   [ADR 0056](adr/0056-ym3438-model.md); BSD-3, notice in `THIRD-PARTY-NOTICES.md`).
-- **SN76489 model** — C# implementation.
+- **SN76489 model** — C# port of **MAME**'s Sega PSG (`src/Render/Psg/`, [ADR 0057](adr/0057-sn76489-model.md);
+  BSD-3, notice in `THIRD-PARTY-NOTICES.md`).
 - **PCM driver model** — mimics XGM (4 ch, ~14 kHz) / XGM2 (3 ch, 13.3 / 6.65 kHz) software mixing and the
   DMF DAC.
 - **Scoring** — the same `src/Scoring` library the harness uses (multi-resolution log-mel distance, onset error).
