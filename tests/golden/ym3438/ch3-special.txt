@@ -1,0 +1,50 @@
+# YM3438 probe: ch3-special
+# CH3 special mode: each operator of channel 3 at its own frequency, a chord, then back to normal mode and
+# keyed again (so the four operators start in phase).
+w 0 b2 07
+w 0 32 01
+w 0 42 0c
+w 0 52 1f
+w 0 62 00
+w 0 72 00
+w 0 82 08
+w 0 92 00
+w 0 3a 01
+w 0 4a 0c
+w 0 5a 1f
+w 0 6a 00
+w 0 7a 00
+w 0 8a 08
+w 0 9a 00
+w 0 36 01
+w 0 46 0c
+w 0 56 1f
+w 0 66 00
+w 0 76 00
+w 0 86 08
+w 0 96 00
+w 0 3e 01
+w 0 4e 0c
+w 0 5e 1f
+w 0 6e 00
+w 0 7e 00
+w 0 8e 08
+w 0 9e 00
+w 0 27 40
+w 0 ad 24
+w 0 a9 3b
+w 0 ae 25
+w 0 aa 50
+w 0 ac 26
+w 0 a8 5a
+w 0 a6 24
+w 0 a2 3b
+w 0 28 f2
+s 10653
+w 0 27 00
+w 0 28 02
+s 1
+w 0 28 f2
+s 5327
+w 0 28 02
+s 2663

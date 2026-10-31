@@ -11,6 +11,7 @@
   loud (normalize them, and bake the MOD volume in only as far as the sound stays well above the quantization steps,
   rather than relying on a quiet sample), and expect a quiet note on the DAC to sound worse than the same note on
   FM. The accuracy harness should score DAC notes at the volumes the song really uses.
+  The in-app FM model is the clean YM3438 ([ADR 0056](adr/0056-ym3438-model.md)), so it doesn't reproduce this flaw.
 - Channel 3 "special mode" (`$27` bit 6) gives each ch3 operator its own frequency → DefleMask "Genesis
   ext. CH3" system.
 - Panning per channel: left / right / both / none (no fine pan).

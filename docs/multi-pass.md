@@ -74,7 +74,8 @@ All in-process, no native libraries and no external programs:
 - **MOD renderer** — mixer driven by the IR tick player that sounds like OpenMPT's default (8-tap sinc, 75/25 panning,
   volume ramps; [ADR 0054](adr/0054-mod-renderer.md)), not like a real Amiga. Validated against libopenmpt renders in
   the harness ([harness.md](harness.md#in-app-mod-renderer)).
-- **YM2612 model** — C# port of **ymfm** (BSD-3; keep its license notice in `THIRD-PARTY-NOTICES.md`).
+- **YM2612 model** — C# port of **ymfm**'s YM3438, the clean chip without the ladder effect (`src/Render/Fm/`,
+  [ADR 0056](adr/0056-ym3438-model.md); BSD-3, notice in `THIRD-PARTY-NOTICES.md`).
 - **SN76489 model** — C# implementation.
 - **PCM driver model** — mimics XGM (4 ch, ~14 kHz) / XGM2 (3 ch, 13.3 / 6.65 kHz) software mixing and the
   DMF DAC.

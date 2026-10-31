@@ -69,6 +69,7 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0053](0053-r128-loudness-in-the-harness.md) | EBU R128 loudness in the harness (R128Net), checked against listening | 2026-10-30 | Proposed |
 | [0054](0054-mod-renderer.md) | In-app MOD renderer: OpenMPT's clean sound, measured (T7.1) | 2026-10-30 | Accepted |
 | [0055](0055-notes-beyond-protracker-range.md) | Notes beyond ProTracker's range play as in OpenMPT | 2026-10-30 | Accepted; amends [ADR 0033](0033-tick-player.md) |
+| [0056](0056-ym3438-model.md) | YM3438 model: a bit-exact ymfm port, checked against Nuked-OPN2 (T7.2) | 2026-10-30 | Accepted |
 
 ## Open questions
 

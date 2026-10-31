@@ -57,6 +57,11 @@ downsampling tables), 75/25 panning, volume ramps, a crossfade on each new note 
 lengths can be given (`ModRenderOptions.TickDurations`) to render in OpenMPT's time. It is the optimizer's in-app
 reference; the harness checks it against libopenmpt ([harness.md](harness.md#in-app-mod-renderer)).
 
+**Ym3438** (`src/Render/Fm`, plan T7.2, [ADR 0056](adr/0056-ym3438-model.md)) — pure C#: the FM chip as a C# port
+of ymfm's YM3438 (the clean chip, no ladder effect), bit-exact with ymfm. Register writes in, one stereo sample per
+144 master clocks out; the Genesis renderer (T7.5) owns the clock and the mixing. Checked against ymfm and
+Nuked-OPN2 on register-write probes (`tests/golden/ym3438/`).
+
 **Song (IR)** (`src/Model`, plan T3.1) — Holds what any output needs, in format-neutral units, with 0-based numbering:
 
 - `Title`; `Channels` → starting pan, −1 left … +1 right (Amiga MODs: −1, +1, +1, −1)
