@@ -164,13 +164,9 @@ internal sealed class FmChannel
 
         // The chip adds the carriers in slot order, O1, O3, O2, O4, clipping after each one (Nuked-OPN2); ymfm starts
         // from O4 and clips one step wider, which sounds louder when loud carriers saturate (docs/adr/0064-ym3438-chip-differences.md).
+        // Operator 1 starts the sum when it is a carrier; alone, it always fits the clip.
         int clipMin = -clipMax - 1;
-        int result = 0;
-        if (FmTables.Bitfield(algorithmOps, 7) != 0)
-        {
-            result = FmTables.Clamp(result + (opout[1] >> rshift), clipMin, clipMax);
-        }
-
+        int result = FmTables.Bitfield(algorithmOps, 7) != 0 ? opout[1] >> rshift : 0;
         if (FmTables.Bitfield(algorithmOps, 9) != 0)
         {
             result = FmTables.Clamp(result + (opout[3] >> rshift), clipMin, clipMax);
