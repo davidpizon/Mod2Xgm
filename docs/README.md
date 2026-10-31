@@ -29,14 +29,16 @@ Accuracy is judged by listening and by the measurement harness ([harness.md](har
 
 - **Input:** 4-channel MOD — ProTracker 31-sample (`M.K.`, `M!K!`, `FLT4`, `4CHN`) and original
   Soundtracker 15-sample (no tag). 6/8-channel MODs (`6CHN`, `8CHN`, `FLT8`, `CD81`, `xxCH`) are rejected
-  with a clear message.
+  with a clear message (accepted from M14, [ADR 0063](adr/0063-multichannel-mod-xm-it-input.md)).
 - **Console report:** MOD metadata, all sample/instrument names, and the output instrument/sample table
   are printed whenever a MOD file is converted — mandatory, every format (see [cli.md](cli.md#console-report)).
 - **Capacity:** warns when a target can't hold the samples and consolidates by default
   ([sample-capacity.md](sample-capacity.md)); `--ignore-samples` lets the user drop samples.
 - **Output:** `.dmf` (default), `.xgm` with `--format xgm`, or `.xgm2` with `--format xgm2`, written natively.
 - **SGDK compliance:** every output must play through SGDK (XGM/XGM2 directly; DMF via DefleMask VGM export → rescomp).
-- **Not in v1:** S3M/XM/IT input, VGM output, playback/preview, GUI.
+- **Not in v1:** S3M/XM/IT input, VGM output, playback/preview, GUI. Planned after v1: MIDI (M13,
+  [ADR 0048](adr/0048-midi-input.md)), then multichannel MOD, XM and IT (M14–M16,
+  [ADR 0063](adr/0063-multichannel-mod-xm-it-input.md)); S3M is not planned.
 
 ## Glossary
 

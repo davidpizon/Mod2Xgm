@@ -76,6 +76,7 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0060](0060-openmpt-pitch-and-loops.md) | The tick player's pitch and loops follow OpenMPT, measured (T7.6) | 2026-10-31 | Accepted; amends 0033, supersedes parts of 0055; one consequence superseded by [ADR 0061](0061-dmf-pitch-from-tick-player.md); `jam_-_*` lead closed by [ADR 0062](0062-one-word-samples.md) |
 | [0061](0061-dmf-pitch-from-tick-player.md) | The DMF's notes take their pitch from the tick player (T7.10) | 2026-10-31 | Accepted; supersedes parts of 0030 and 0060 |
 | [0062](0062-one-word-samples.md) | A sample 1 word long is read as OpenMPT reads it: empty, its bytes left to the next sample | 2026-10-31 | Accepted; amends 0060 |
+| [0063](0063-multichannel-mod-xm-it-input.md) | Multichannel MOD, XM and IT input (M14–M16): OpenMPT's playback rules ported, NNA emulated, sample options as for MOD | 2026-10-31 | Accepted |
 
 ## Open questions
 
