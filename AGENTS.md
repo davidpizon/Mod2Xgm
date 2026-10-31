@@ -84,7 +84,7 @@ src/Mod/            MOD reader -> ModModule
 src/Model/          format-neutral song model (IR)
 src/Mapping/        IR -> Genesis channel plan (strategy interface) + SampleBudgeter (capacity/consolidation)
 src/Audio/          SampleProcessor: resampling (NWaves), bit-depth conversion, loop handling
-src/Render/         in-app MOD renderer + YM3438 (ymfm port, src/Render/Fm) / SN76489 (MAME port, src/Render/Psg) / PCM driver models (pure C#)
+src/Render/         in-app MOD renderer + YM3438 (ymfm port, src/Render/Fm) / SN76489 (MAME port, src/Render/Psg) / PCM driver models (src/Render/Pcm) (pure C#)
 src/Scoring/        spectral + onset metrics, shared with tools/Mod2Xgm.Harness
 src/Optimizer/      multi-pass candidates, allocation, refinement
 src/Dmf/            DMF writer

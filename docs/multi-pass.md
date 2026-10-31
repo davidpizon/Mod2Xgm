@@ -78,8 +78,9 @@ All in-process, no native libraries and no external programs:
   [ADR 0056](adr/0056-ym3438-model.md); BSD-3, notice in `THIRD-PARTY-NOTICES.md`).
 - **SN76489 model** — C# port of **MAME**'s Sega PSG (`src/Render/Psg/`, [ADR 0057](adr/0057-sn76489-model.md);
   BSD-3, notice in `THIRD-PARTY-NOTICES.md`).
-- **PCM driver model** — mimics XGM (4 ch, ~14 kHz) / XGM2 (3 ch, 13.3 / 6.65 kHz) software mixing and the
-  DMF DAC.
+- **PCM driver models** — SGDK's XGM (4 ch, 14 093 Hz) and XGM2 (3 ch, 13 317 / 6 658 Hz) software mixing and
+  DefleMask's DMF DAC, as the `$2A`/`$2B` bytes they put on the YM3438's DAC (`src/Render/Pcm/`,
+  [ADR 0058](adr/0058-pcm-driver-models.md)).
 - **Scoring** — the same `src/Scoring` library the harness uses (multi-resolution log-mel distance, onset error).
 
 ## Time and quality

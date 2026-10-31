@@ -71,6 +71,7 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0055](0055-notes-beyond-protracker-range.md) | Notes beyond ProTracker's range play as in OpenMPT | 2026-10-30 | Accepted; amends [ADR 0033](0033-tick-player.md) |
 | [0056](0056-ym3438-model.md) | YM3438 model: a bit-exact ymfm port, checked against Nuked-OPN2 (T7.2) | 2026-10-30 | Accepted |
 | [0057](0057-sn76489-model.md) | SN76489 model: a bit-exact port of MAME's Sega PSG, checked against Nuked-PSG (T7.3) | 2026-10-30 | Accepted |
+| [0058](0058-pcm-driver-models.md) | PCM driver models: XGM, XGM2 and the DMF DAC as DAC register streams, from the drivers' source (T7.4) | 2026-10-30 | Accepted |
 
 ## Open questions
 
