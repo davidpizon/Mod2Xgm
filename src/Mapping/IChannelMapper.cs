@@ -9,7 +9,13 @@ namespace Mod2Xgm.Mapping;
 internal interface IChannelMapper
 {
     /// <summary>Maps <paramref name="song"/>; every lossy decision becomes a note in <paramref name="notes"/>.</summary>
-    GenesisPlan Map(Song song, MappingOptions options, ConversionNotes notes);
+    /// <param name="song">The song.</param>
+    /// <param name="playback">The song played by its tick player: each note is placed at the pitch it plays at there
+    /// (<see cref="Playback.NotePitches"/>, docs/adr/0061-dmf-pitch-from-tick-player.md), finetune included; a note it
+    /// lacks (a row the song never plays) is moved by its instrument's finetune.</param>
+    /// <param name="options">What the user pinned or forbade.</param>
+    /// <param name="notes">Collects conversion notes.</param>
+    GenesisPlan Map(Song song, Playback playback, MappingOptions options, ConversionNotes notes);
 }
 
 /// <summary>What the user can pin or forbid for mapping; sample numbers are 0-based, like <see cref="Song.Samples"/>.</summary>

@@ -17,7 +17,20 @@ internal sealed record Playback(IReadOnlyList<PlaybackTick> Ticks, int? LoopTick
 
     /// <summary>Where the loop starts, in seconds, or <c>null</c> when the song doesn't loop.</summary>
     public double? LoopStartSeconds => LoopTick is { } tick ? Ticks[tick].TimeSeconds : null;
+
+    /// <summary>
+    /// The pitch each written note plays at, tuned the way the player tunes it (MOD: the instrument's finetune or an
+    /// <c>E5x</c>, OpenMPT's periods; docs/adr/0061-dmf-pitch-from-tick-player.md), the first time its row plays. A tone
+    /// portamento's note is its target. Notes on rows the song never plays are missing.
+    /// </summary>
+    public IReadOnlyDictionary<NotePosition, NotePitch> NotePitches { get; init; } = new Dictionary<NotePosition, NotePitch>();
 }
+
+/// <summary>Where a written note is: an index into <see cref="Song.Orders"/>, a row and a channel.</summary>
+/// <param name="Order">Order (0-based).</param>
+/// <param name="Row">Row (0-based).</param>
+/// <param name="Channel">Song channel (0-based).</param>
+internal readonly record struct NotePosition(int Order, int Row, int Channel);
 
 /// <summary>Why a <see cref="Playback"/> ends.</summary>
 internal enum PlaybackEnd

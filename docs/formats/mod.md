@@ -119,17 +119,19 @@ ProTracker 2's `setPeriod` does it, not by formula: ProTracker has **16 period t
 rounded by hand, up to 8.75 cents off perfect tuning). The first finetune-0 entry that is **not above** the written
 period picks the note, and the finetune's table gives the period played. So a period between entries snaps to the
 higher note, even at finetune 0; 428 at finetune +1 plays 425, at −8 plays 453. Periods below 113 (B-3 at finetune 0)
-make ProTracker 2 read its tables' zero padding (period 0); Mod2Xgm keeps the written period instead and adds a
-conversion note. Pattern cells keep the note **as written** (finetune 0); the tick player (T3.4) applies the playing
-instrument's finetune, since a cell often doesn't name its instrument. Tables: ProTracker 2.3 data via pt2-clone
-(BSD-3-Clause, [THIRD-PARTY-NOTICES.md](../../THIRD-PARTY-NOTICES.md)).
+make ProTracker 2 read its tables' zero padding (period 0). That is ProTracker's rule; Mod2Xgm plays OpenMPT's
+(below), which starts from the same tables: ProTracker 2.3 data via pt2-clone (BSD-3-Clause,
+[THIRD-PARTY-NOTICES.md](../../THIRD-PARTY-NOTICES.md)). Pattern cells keep the note **as written** (finetune 0),
+since a cell often doesn't name its instrument; the tick player (T3.4) applies the playing instrument's finetune.
 
-The **tick player** plays finetune as **OpenMPT** does instead, measured with libopenmpt 0.8.9
+The **tick player** plays finetune as **OpenMPT** does, measured with libopenmpt 0.8.9
 ([ADR 0060](../adr/0060-openmpt-pitch-and-loops.md)): periods are kept in **quarters**; a finetuned note is its
 finetune's C-1 period (from the same tables) halved for each octave up, the quarters truncated (C-3 at +1 is
 850 ÷ 4 = 212.5, where ProTracker's table has 213); finetune 0 uses the table, except B-3, which plays at 113¼; no
 note plays below 113. That is up to about 7 cents from ProTracker's tables on most notes, and more on the top notes
-of positive finetunes, which ProTracker plays below 113.
+of positive finetunes, which ProTracker plays below 113. The tick player keeps each written note's tuned pitch, the first
+time its row plays (`Playback.NotePitches`), and the mapper plans the note there, so the **DMF** plays the same pitch
+([ADR 0061](../adr/0061-dmf-pitch-from-tick-player.md); before T7.10 the DMF ignored the instrument's finetune).
 
 ## Timing
 

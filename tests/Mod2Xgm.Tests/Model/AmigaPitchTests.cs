@@ -123,43 +123,6 @@ public sealed class AmigaPitchTests
         }
     }
 
-    /// <summary>
-    /// Finetune works like ProTracker 2's <c>setPeriod</c>: find the note in the finetune-0 table (a period between two
-    /// entries snaps to the higher note), then play that note from the finetune's table.
-    /// </summary>
-    [Theory]
-    [InlineData(428, 0, 428, 12)]
-    [InlineData(428, 1, 425, 12)]
-    [InlineData(428, 7, 407, 12)]
-    [InlineData(428, -1, 431, 12)]
-    [InlineData(428, -8, 453, 12)]
-    [InlineData(856, -8, 907, 0)]
-    [InlineData(850, 0, 808, 1)]
-    [InlineData(907, 0, 856, 0)]
-    [InlineData(4000, 7, 814, 0)]
-    [InlineData(113, 7, 108, 35)]
-    [InlineData(114, 0, 113, 35)]
-    public void ApplyFineTuneMatchesProTracker(int period, int fineTune, int expectedPeriod, int expectedNote)
-    {
-        FineTunedPeriod played = AmigaPitch.ApplyFineTune(period, fineTune);
-
-        Assert.Equal(expectedPeriod, played.Period);
-        Assert.Equal(expectedNote, played.NoteIndex);
-    }
-
-    /// <summary>A period below the tables (under 113) is kept as written, with no note index, at any finetune.</summary>
-    [Theory]
-    [InlineData(112, 0)]
-    [InlineData(100, 5)]
-    [InlineData(1, -8)]
-    public void PeriodsBelowTheTablesAreKept(int period, int fineTune)
-    {
-        FineTunedPeriod played = AmigaPitch.ApplyFineTune(period, fineTune);
-
-        Assert.Equal(period, played.Period);
-        Assert.Null(played.NoteIndex);
-    }
-
     /// <summary>The finetune-0 table is ProTracker's familiar C-1…B-3 row, and the extremes of the other tables are right.</summary>
     [Fact]
     public void TablesHoldProTrackerPeriods()
@@ -232,7 +195,5 @@ public sealed class AmigaPitchTests
         Assert.Throws<ArgumentOutOfRangeException>(() => AmigaPitch.PeriodOf(new NotePitch(24, 0, 8287), 0));
         Assert.Throws<ArgumentOutOfRangeException>(() => AmigaPitch.Table(-9).Length);
         Assert.Throws<ArgumentOutOfRangeException>(() => AmigaPitch.Table(8).Length);
-        Assert.Throws<ArgumentOutOfRangeException>(() => AmigaPitch.ApplyFineTune(0, 0));
-        Assert.Throws<ArgumentOutOfRangeException>(() => AmigaPitch.ApplyFineTune(428, 8));
     }
 }

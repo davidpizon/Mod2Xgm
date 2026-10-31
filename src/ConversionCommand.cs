@@ -73,7 +73,8 @@ internal static class ConversionCommand
         LogQuality(options, logger);
 
         Song song = ModToSong.Convert(module, options.AmigaClockHz, notes);
-        GenesisPlan plan = new SimpleMapper().Map(song, MappingOptions.From(options), notes);
+        Playback playback = ModTickPlayer.Play(module, options.AmigaClockHz, options.AmigaTickRateScale, notes);
+        GenesisPlan plan = new SimpleMapper().Map(song, playback, MappingOptions.From(options), notes);
         logger.Debug(
             "Mapped {Orders} orders: {FmPatches} FM patches, {DacSamples} DAC samples",
             plan.Patterns.Count,
@@ -86,7 +87,7 @@ internal static class ConversionCommand
 
         if (wav is not null)
         {
-            RenderWav(options, wav, module, song, plan, notes, logger);
+            RenderWav(options, wav, playback, song, plan, notes, logger);
         }
 
         logger.Information(
@@ -126,9 +127,8 @@ internal static class ConversionCommand
     /// Plays the song with the tick player, renders the plan on the Genesis model with the format's PCM driver and writes
     /// the WAV (<c>--render-wav</c>; written with <c>--info</c> too), saying how long the render took.
     /// </summary>
-    private static void RenderWav(ConversionOptions options, string wav, ModModule module, Song song, GenesisPlan plan, ConversionNotes notes, ILogger logger)
+    private static void RenderWav(ConversionOptions options, string wav, Playback playback, Song song, GenesisPlan plan, ConversionNotes notes, ILogger logger)
     {
-        Playback playback = ModTickPlayer.Play(module, options.AmigaClockHz, options.AmigaTickRateScale, notes);
         PcmDriver driver = options.Format switch
         {
             OutputFormat.Xgm => PcmDriver.Xgm,

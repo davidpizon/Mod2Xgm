@@ -492,13 +492,9 @@ internal sealed class DmfPatternTranslator
             }
 
             CloseDacOn(channel, track);
+            // The plan's note is already tuned by the instrument's finetune and the row's E5x (the tick player's pitch, ADR 0061).
             double semitones = translator._voicing.HeardSemitones(note, sample, out bool measured);
             _fmSamples.TryAdd(sample, measured);
-            if (cell.Effects.OfType<SetFineTune>().FirstOrDefault() is { } fineTune)
-            {
-                double instrumentCents = translator._song.Instruments.FirstOrDefault(i => i.Sample == sample)?.FineTuneCents ?? 0;
-                semitones += (fineTune.Cents - instrumentCents) / 100;
-            }
 
             int whole = (int)Math.Round(semitones, MidpointRounding.AwayFromZero);
             int shifted = whole;
@@ -775,7 +771,7 @@ internal sealed class DmfPatternTranslator
                     effects.Add(new Planned(DetailPriority, new DmfEffect(VibratoShape, VibratoShapeOf(shape.Shape)), effects.Count));
                     break;
                 case SampleOffset when dac:
-                case SetFineTune when fm:
+                case SetFineTune when fm || dac:
                 case NoteDelay:
                     break;
                 default:

@@ -2,8 +2,9 @@ namespace Mod2Xgm.Model;
 
 /// <summary>
 /// Amiga (Paula) pitch, the scale behind <see cref="PitchScale.AmigaPeriod"/> (plan T3.2, docs/formats/mod.md#pitch).
-/// Turns a period into a <see cref="NotePitch"/> for a given Amiga clock, and applies finetune exactly the way
-/// ProTracker 2 does: by reading the same note from one of its 16 hand-rounded period tables.
+/// Turns a period into a <see cref="NotePitch"/> for a given Amiga clock, and holds ProTracker 2's 16 hand-rounded
+/// finetune tables. The tick player tunes notes from them the way OpenMPT does (docs/adr/0060-openmpt-pitch-and-loops.md),
+/// and the DMF takes its notes' pitch from the tick player (docs/adr/0061-dmf-pitch-from-tick-player.md).
 /// <para>A higher period means a lower note: Paula plays a sample at <c>clock / period</c> samples per second.</para>
 /// </summary>
 internal static class AmigaPitch
@@ -151,33 +152,6 @@ internal static class AmigaPitch
         return Periods.Slice((fineTune & 0xF) * NotesPerTable, NotesPerTable);
     }
 
-    /// <summary>
-    /// The period ProTracker 2 plays when a note with <paramref name="period"/> starts on an instrument with
-    /// <paramref name="fineTune"/> (its <c>setPeriod</c>): the first finetune-0 entry that is not above the period
-    /// picks the note, and the finetune's table gives the period. A period between two entries therefore snaps to
-    /// the higher note, even at finetune 0.
-    /// </summary>
-    /// <param name="period">The note's period as written in the pattern.</param>
-    /// <param name="fineTune">The instrument's finetune, −8 to +7.</param>
-    /// <exception cref="ArgumentOutOfRangeException"><paramref name="period"/> is not positive, or <paramref name="fineTune"/> is outside −8…+7.</exception>
-    public static FineTunedPeriod ApplyFineTune(int period, int fineTune)
-    {
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(period);
-        ReadOnlySpan<short> tuned = Table(fineTune);
-        ReadOnlySpan<short> plain = Table(0);
-        for (int note = 0; note < NotesPerTable; note++)
-        {
-            if (period >= plain[note])
-            {
-                return new FineTunedPeriod(tuned[note], note);
-            }
-        }
-
-        // Below B-3 at finetune 0 (113). ProTracker 2 reads its tables' zero padding here and plays period 0; that
-        // can't be rendered, so the period is kept as written (docs/adr/0030-amiga-pitch-regions-finetune.md, T3.2) and the caller adds a conversion note.
-        return new FineTunedPeriod(period, null);
-    }
-
     /// <summary>The finetune step of a tuning in cents (<see cref="Instrument.FineTuneCents"/>), −8 to +7.</summary>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="cents"/> isn't a whole number of steps from −100 to +87.5.</exception>
     public static int FineTuneFromCents(double cents)
@@ -191,9 +165,3 @@ internal static class AmigaPitch
         return (int)steps;
     }
 }
-
-/// <summary>The result of <see cref="AmigaPitch.ApplyFineTune"/>.</summary>
-/// <param name="Period">The period to play.</param>
-/// <param name="NoteIndex">The note found in the tables (0 = C-1 … 35 = B-3), or <c>null</c> when the written period is
-/// below the tables and was kept as written.</param>
-internal readonly record struct FineTunedPeriod(int Period, int? NoteIndex);

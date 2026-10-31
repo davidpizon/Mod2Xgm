@@ -51,8 +51,9 @@ repeats); plus the loop point. The MOD renderer (T7.1) and the XGM writers read 
 Two departures from ProTracker, both to sound like OpenMPT: a song with notes beyond its three octaves plays them as
 OpenMPT does ([ADR 0055](adr/0055-notes-beyond-protracker-range.md)), and every song's pitch (finetune, slides,
 arpeggio, vibrato, in quarter periods) and the first pass of a loop follow OpenMPT, measured with libopenmpt
-([ADR 0060](adr/0060-openmpt-pitch-and-loops.md)). The song model, and so the DMF, still tunes notes with
-ProTracker's tables.
+([ADR 0060](adr/0060-openmpt-pitch-and-loops.md)). The `Playback` also keeps each written note's tuned pitch
+(`NotePitches`), which the mapper plans the note at, so the DMF is tuned the same way
+([ADR 0061](adr/0061-dmf-pitch-from-tick-player.md)).
 
 **ModRenderer** (`src/Render`, plan T7.1, [ADR 0054](adr/0054-mod-renderer.md)) — pure C#: mixes a `Playback` to
 stereo (`StereoAudio`) the way libopenmpt does by default: an 8-tap Kaiser sinc (`SincTable`, with OpenMPT's two
@@ -107,7 +108,8 @@ loop order, one cell per channel, instruments → samples, loops inside sample d
 `Mod2Xgm.Mod`; `tests/Mod2Xgm.Tests/Model/ModelBoundaryTests.cs` enforces it.
 
 **IChannelMapper** — Decides which Genesis channel plays each MOD channel/instrument, and how (DAC sample,
-FM patch, PSG). Several implementations can exist; selected by CLI flag. See
+FM patch, PSG). It gets the song and its `Playback`: notes are planned at the tick player's pitch, finetune included
+([ADR 0061](adr/0061-dmf-pitch-from-tick-player.md)). Several implementations can exist; selected by CLI flag. See
 [channel-mapping.md](channel-mapping.md).
 
 **SimpleMapper / GenesisPlan** (`src/Mapping`, plan T5.3, [ADR 0040](adr/0040-simple-mapper.md)) — the first

@@ -58,7 +58,8 @@ internal sealed class StemSource
         ConversionNotes silent = new(Logger.None);
         ModModule module = ModReader.Read(mod, silent, options.Player);
         Song song = ModToSong.Convert(module, options.AmigaClockHz, silent);
-        GenesisPlan plan = new SimpleMapper().Map(song, MappingOptions.From(options), silent);
+        Playback playback = ModTickPlayer.Play(module, options.AmigaClockHz, options.AmigaTickRateScale, silent);
+        GenesisPlan plan = new SimpleMapper().Map(song, playback, MappingOptions.From(options), silent);
         DmfTimingPlan timing = DmfTimingPlanner.Plan(plan, options.AmigaTickRateScale, options.OutputRegion, silent);
         StemSource source = new(mod, module, song, plan, timing, new DmfBuildSettings(options.AmigaClockHz, options.Resampler));
         if (!source.Dmf(_ => true, plan.Patterns.Count).AsSpan().SequenceEqual(converted))

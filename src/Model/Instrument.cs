@@ -4,7 +4,8 @@ namespace Mod2Xgm.Model;
 /// <param name="Name">Name as stored (may be empty, may carry credits).</param>
 /// <param name="Sample">Index (0-based) into <see cref="Song.Samples"/>.</param>
 /// <param name="DefaultVolume">Volume a new note starts at, 0–1 (MOD: volume / 64).</param>
-/// <param name="FineTuneCents">Tuning offset applied to every note, in cents (MOD: finetune × 12.5).</param>
+/// <param name="FineTuneCents">Tuning offset of every note, in cents (MOD: finetune × 12.5). Cells keep their notes as
+/// written; the tick player tunes them, and the mapper takes its pitch (docs/adr/0061-dmf-pitch-from-tick-player.md).</param>
 internal sealed record Instrument(string Name, int Sample, double DefaultVolume, double FineTuneCents);
 
 /// <summary>
