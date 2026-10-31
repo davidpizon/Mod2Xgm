@@ -70,7 +70,7 @@ internal sealed class FmOperator
     }
 
     /// <summary>The operator's register offset.</summary>
-    public uint OpOffset { get; }
+    private uint OpOffset { get; }
 
     /// <summary>The register offset of the channel it belongs to.</summary>
     public uint ChOffset { get; set; }

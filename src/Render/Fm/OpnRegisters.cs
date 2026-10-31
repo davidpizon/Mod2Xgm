@@ -9,9 +9,6 @@ namespace Mod2Xgm.Render.Fm;
 /// </summary>
 internal sealed class OpnRegisters
 {
-    /// <summary>Output channels: left and right.</summary>
-    public const int Outputs = 2;
-
     /// <summary>FM channels.</summary>
     public const int Channels = 6;
 
@@ -105,7 +102,7 @@ internal sealed class OpnRegisters
                 return false;
             }
 
-            channel += (int)Bitfield(data, 2, 1) * 3;
+            channel += (int)Bitfield(data, 2) * 3;
             opmask = Bitfield(data, 4, 4);
             return true;
         }
@@ -231,19 +228,19 @@ internal sealed class OpnRegisters
     }
 
     /// <summary>LFO on (<c>$22</c> bit 3).</summary>
-    public uint LfoEnable => Bits(0x22, 3, 1);
+    private uint LfoEnable => Bits(0x22, 3, 1);
 
     /// <summary>LFO rate (<c>$22</c> bits 0–2).</summary>
-    public uint LfoRate => Bits(0x22, 0, 3);
+    private uint LfoRate => Bits(0x22, 0, 3);
 
     /// <summary>CH3 special (or CSM) mode: <c>$27</c> bits 6–7 not 0.</summary>
-    public uint MultiFreq => Bits(RegMode, 6, 2) != 0 ? 1u : 0u;
+    private uint MultiFreq => Bits(RegMode, 6, 2) != 0 ? 1u : 0u;
 
     /// <summary>Block and F-number of CH3 special frequency <paramref name="num"/> (<c>$AC</c>/<c>$A8</c>…).</summary>
-    public uint MultiBlockFreq(uint num) => Word(0xac, 0, 6, 0xa8, 0, 8, num);
+    private uint MultiBlockFreq(uint num) => Word(0xac, 0, 6, 0xa8, 0, 8, num);
 
     /// <summary>Block and F-number of a channel (<c>$A4</c>/<c>$A0</c>).</summary>
-    public uint ChBlockFreq(uint choffs) => Word(0xa4, 0, 6, 0xa0, 0, 8, choffs);
+    private uint ChBlockFreq(uint choffs) => Word(0xa4, 0, 6, 0xa0, 0, 8, choffs);
 
     /// <summary>Operator 1's self-feedback (<c>$B0</c> bits 3–5).</summary>
     public uint ChFeedback(uint choffs) => Bits(0xb0, 3, 3, choffs);
@@ -261,40 +258,40 @@ internal sealed class OpnRegisters
     public uint ChOutput1(uint choffs) => Bits(0xb4, 6, 1, choffs);
 
     /// <summary>LFO tremolo depth (<c>$B4</c> bits 4–5).</summary>
-    public uint ChLfoAmSens(uint choffs) => Bits(0xb4, 4, 2, choffs);
+    private uint ChLfoAmSens(uint choffs) => Bits(0xb4, 4, 2, choffs);
 
     /// <summary>LFO vibrato depth (<c>$B4</c> bits 0–2).</summary>
-    public uint ChLfoPmSens(uint choffs) => Bits(0xb4, 0, 3, choffs);
+    private uint ChLfoPmSens(uint choffs) => Bits(0xb4, 0, 3, choffs);
 
     /// <summary>Detune (<c>$30</c> bits 4–6).</summary>
-    public uint OpDetune(uint opoffs) => Bits(0x30, 4, 3, opoffs);
+    private uint OpDetune(uint opoffs) => Bits(0x30, 4, 3, opoffs);
 
     /// <summary>Frequency multiple (<c>$30</c> bits 0–3).</summary>
-    public uint OpMultiple(uint opoffs) => Bits(0x30, 0, 4, opoffs);
+    private uint OpMultiple(uint opoffs) => Bits(0x30, 0, 4, opoffs);
 
     /// <summary>Total level (<c>$40</c> bits 0–6).</summary>
-    public uint OpTotalLevel(uint opoffs) => Bits(0x40, 0, 7, opoffs);
+    private uint OpTotalLevel(uint opoffs) => Bits(0x40, 0, 7, opoffs);
 
     /// <summary>Key scale rate (<c>$50</c> bits 6–7).</summary>
-    public uint OpKsr(uint opoffs) => Bits(0x50, 6, 2, opoffs);
+    private uint OpKsr(uint opoffs) => Bits(0x50, 6, 2, opoffs);
 
     /// <summary>Attack rate (<c>$50</c> bits 0–4).</summary>
-    public uint OpAttackRate(uint opoffs) => Bits(0x50, 0, 5, opoffs);
+    private uint OpAttackRate(uint opoffs) => Bits(0x50, 0, 5, opoffs);
 
     /// <summary>Decay rate (<c>$60</c> bits 0–4).</summary>
-    public uint OpDecayRate(uint opoffs) => Bits(0x60, 0, 5, opoffs);
+    private uint OpDecayRate(uint opoffs) => Bits(0x60, 0, 5, opoffs);
 
     /// <summary>LFO tremolo on for this operator (<c>$60</c> bit 7).</summary>
     public uint OpLfoAmEnable(uint opoffs) => Bits(0x60, 7, 1, opoffs);
 
     /// <summary>Sustain rate (<c>$70</c> bits 0–4).</summary>
-    public uint OpSustainRate(uint opoffs) => Bits(0x70, 0, 5, opoffs);
+    private uint OpSustainRate(uint opoffs) => Bits(0x70, 0, 5, opoffs);
 
     /// <summary>Sustain level (<c>$80</c> bits 4–7).</summary>
-    public uint OpSustainLevel(uint opoffs) => Bits(0x80, 4, 4, opoffs);
+    private uint OpSustainLevel(uint opoffs) => Bits(0x80, 4, 4, opoffs);
 
     /// <summary>Release rate (<c>$80</c> bits 0–3).</summary>
-    public uint OpReleaseRate(uint opoffs) => Bits(0x80, 0, 4, opoffs);
+    private uint OpReleaseRate(uint opoffs) => Bits(0x80, 0, 4, opoffs);
 
     /// <summary>SSG-EG on (<c>$90</c> bit 3).</summary>
     public uint OpSsgEgEnable(uint opoffs) => Bits(0x90, 3, 1, opoffs);

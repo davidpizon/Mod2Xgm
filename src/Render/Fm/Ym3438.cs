@@ -19,7 +19,7 @@ internal sealed class Ym3438
     public const double PalClockHz = 7_600_489;
 
     /// <summary>Master clocks per output sample: prescale 6 × 24 operator slots.</summary>
-    public const int ClocksPerSample = 144;
+    private const int ClocksPerSample = 144;
 
     /// <summary>
     /// The largest output value: six channels at the 9-bit clip (±256) scaled by 128 / 6; one step past

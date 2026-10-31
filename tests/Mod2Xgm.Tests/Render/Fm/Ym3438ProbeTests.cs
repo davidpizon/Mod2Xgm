@@ -57,10 +57,12 @@ public sealed class Ym3438ProbeTests
 
         Assert.Equal(ymfm.Length, port.Length);
         int mismatch = port.AsSpan().CommonPrefixLength(ymfm);
+        int sample = mismatch / 2;
+        double seconds = sample / Ym3438Script.SampleRate;
         Assert.True(
             mismatch == port.Length,
-            mismatch == port.Length ? null : $"{name}: first difference at sample {mismatch / 2} ({(mismatch % 2 == 0 ? "left" : "right")}, " +
-                $"{mismatch / 2 / Ym3438Script.SampleRate:0.0000} s): port {port[mismatch]}, ymfm {ymfm[mismatch]}");
+            mismatch == port.Length ? null : $"{name}: first difference at sample {sample} ({(mismatch % 2 == 0 ? "left" : "right")}, " +
+                $"{seconds:0.0000} s): port {port[mismatch]}, ymfm {ymfm[mismatch]}");
     }
 
     /// <summary>

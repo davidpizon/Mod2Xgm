@@ -41,7 +41,7 @@ internal sealed class FmChannel
     }
 
     /// <summary>The channel's register offset.</summary>
-    public uint ChOffset { get; }
+    private uint ChOffset { get; }
 
     /// <summary>Clears the feedback memory.</summary>
     public void Reset()
@@ -113,7 +113,7 @@ internal sealed class FmChannel
         opout[0] = 0;
         opout[1] = (short)op1Value;
 
-        opmod = opout[(int)FmTables.Bitfield(algorithmOps, 0, 1)] >> 1;
+        opmod = opout[(int)FmTables.Bitfield(algorithmOps, 0)] >> 1;
         opout[2] = (short)_op[1].ComputeVolume(_op[1].Phase + (uint)opmod, amOffset);
         opout[5] = (short)(opout[1] + opout[2]);
 

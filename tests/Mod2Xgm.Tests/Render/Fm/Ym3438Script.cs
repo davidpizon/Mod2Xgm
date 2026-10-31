@@ -40,10 +40,10 @@ internal sealed class Ym3438Script
     }
 
     /// <summary>The probe's name.</summary>
-    public string Name { get; }
+    private string Name { get; }
 
     /// <summary>What the probe checks.</summary>
-    public string Description { get; }
+    private string Description { get; }
 
     /// <summary>The steps, in order.</summary>
     public IReadOnlyList<Ym3438Step> Steps => _steps;
@@ -67,11 +67,11 @@ internal sealed class Ym3438Script
             }
 
             string[] parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            if (parts is ["w", string part, string register, string value])
+            if (parts is ["w", var part, var register, var value])
             {
                 steps.Add(new Ym3438Step(Hex(part), Hex(register), Hex(value), 0));
             }
-            else if (parts is ["s", string count] && int.TryParse(count, NumberStyles.None, CultureInfo.InvariantCulture, out int samples) && samples > 0)
+            else if (parts is ["s", var count] && int.TryParse(count, NumberStyles.None, CultureInfo.InvariantCulture, out int samples) && samples > 0)
             {
                 steps.Add(new Ym3438Step(0, 0, 0, samples));
             }
