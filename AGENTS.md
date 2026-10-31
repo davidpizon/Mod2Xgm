@@ -73,6 +73,7 @@ libraries for these.
 /tools/Mod2Xgm.Harness/     accuracy harness: scores conversions against OpenMPT on the corpus (docs/harness.md)
 /tools/ym3438-reference/    C++ tool that makes the YM3438 reference outputs with ymfm and Nuked-OPN2 (ADR 0056)
 /tools/sn76489-reference/   C++ tool that makes the SN76489 reference outputs with MAME and Nuked-PSG (ADR 0057)
+/tools/pcm-driver-reference/ C++ tool that runs SGDK's XGM / XGM2 Z80 drivers on an emulated Z80 (ADR 0066)
 /.vs/                       Visual Studio state — never edit or commit (git-ignored)
 ```
 
@@ -184,7 +185,9 @@ compiler, analyzer, trim/AOT, NuGet or MSBuild warning fails the build.
    **ymfm** YM3438 core ported to C# (BSD-3, ADR 0056); **MAME**'s Sega PSG (`sn76496.cpp`) ported to C# (BSD-3,
    ADR 0057); only in `tools/ym3438-reference` (never shipped, no code copied), ymfm's C++ and **Nuked-OPN2** (LGPL-2.1),
    built once to make the reference outputs (ADR 0056); and, only in `tools/sn76489-reference` (never shipped, no code
-   copied), MAME's PSG C++ and **Nuked-PSG** (GPL-2.0+, David approved for this tool only), likewise (ADR 0057).
+   copied), MAME's PSG C++ and **Nuked-PSG** (GPL-2.0+, David approved for this tool only), likewise (ADR 0057); and,
+   only in `tools/pcm-driver-reference` (never shipped), SGDK's built Z80 drivers from `libmd.a` (MIT) run on floooh's
+   **`z80.h`** (zlib) to make the PCM driver captures (ADR 0066).
    The BCL still covers the basics: `ZLibStream` (DMF is zlib-compressed), `BinaryPrimitives` (endianness), `Span<T>`.
 3. **Local-only.** The tool never touches the network.
 4. **Never modify the input file.** Output goes next to the input unless `--output` is given. Do not

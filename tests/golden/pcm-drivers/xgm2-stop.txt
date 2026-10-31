@@ -1,0 +1,9 @@
+# PCM driver probe: xgm2-stop
+# XGM2: a long sound stopped 5 frames after it was played.
+driver xgm2
+sample 1 4000 3
+frame 2
+play 0 1 15
+frame 5
+stop 0 15
+frame 6

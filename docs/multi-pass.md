@@ -82,7 +82,7 @@ All in-process, no native libraries and no external programs:
   ([ADR 0065](adr/0065-sn76489-chip-differences.md)).
 - **PCM driver models** — SGDK's XGM (4 ch, 14 093 Hz) and XGM2 (3 ch, 13 317 / 6 658 Hz) software mixing and
   DefleMask's DMF DAC, as the `$2A`/`$2B` bytes they put on the YM3438's DAC (`src/Render/Pcm/`,
-  [ADR 0058](adr/0058-pcm-driver-models.md)).
+  [ADR 0058](adr/0058-pcm-driver-models.md)), timed as SGDK's real drivers play them ([ADR 0066](adr/0066-pcm-drivers-checked-against-sgdk.md)).
 - **Scoring** — the same `src/Scoring` library the harness uses (multi-resolution log-mel distance, onset error).
 
 ## Time and quality

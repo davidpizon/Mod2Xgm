@@ -158,6 +158,20 @@ Sample ids in commands are **1-based** (`id − 1` indexes the table); id 0 stop
 - GD3 tags and multi-track: not written by default (flags b1, b2 = 0). Proposed later: GD3 with the MOD title.
 - `.xgz` (gzip) is an optional variant; not produced.
 
+## Driver behavior measured
+
+SGDK's drivers run on an emulated Z80 ([ADR 0066](../adr/0066-pcm-drivers-checked-against-sgdk.md)); what a writer
+has to know:
+
+- **XGM:** xgmtool (rescomp) moves every PCM command 3 frames ahead on NTSC (2 on PAL) and puts 3 empty frames in
+  front, so samples sound with their frame after the driver's buffer delay; what is left is 0.35–1.37 frames, by
+  where the frame falls in the driver's 256-beat blocks. A mix that clips slows the beat (11 Z80 cycles a clipped
+  add: 3.8 % slow with four loud channels).
+- **XGM2:** no such shift; a PCM play is heard 1.89–2.10 frames after its frame, and its first 64 beats (one buffer
+  fill; 32 bytes at half speed) play twice, because of how `updatePCM` handles a play's "parameters changed" flag.
+- The compiled streams are not the file's: `.xgc` frames start with a length byte and double each command byte (XGM);
+  XGM2's FM and PSG streams are packed (literal / match blocks, chunks ending in `$00`).
+
 ## Rules
 
 - Capacity and consolidation: see [../sample-capacity.md](../sample-capacity.md). XGM/XGM2 can't pitch

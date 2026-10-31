@@ -1,0 +1,17 @@
+# PCM driver probe: xgm2-mix
+# XGM2: three loud sounds started 2 frames apart, one at half speed, so the mix sticks at
+# +127 / -128; then a play at priority 7 on a channel playing at 15 (ignored).
+driver xgm2
+sample 1 2000 3
+sample 2 1000 5
+sample 3 1800 7
+sample 4 600 13
+frame 2
+play 0 1 15
+frame 2
+play 1 2 15 half
+frame 2
+play 2 3 15
+frame 2
+play 0 4 7
+frame 8

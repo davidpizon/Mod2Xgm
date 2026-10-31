@@ -1,6 +1,6 @@
 # ADR 0058: PCM driver models: XGM, XGM2 and the DMF DAC as DAC register streams, from the drivers' source (T7.4)
 
-- **Status:** Accepted
+- **Status:** Accepted; known differences measured against SGDK's real drivers, fixed or recorded by [ADR 0066](0066-pcm-drivers-checked-against-sgdk.md) (buffered timing, XGM2's doubled starts, XGM's clipping slowdown, XGM2's `$2B` rule)
 - **Date:** 2026-10-30
 
 ## Context
