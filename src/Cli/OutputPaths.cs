@@ -26,7 +26,7 @@ internal static class OutputPaths
     }
 
     /// <summary>The extension of the default <c>--render-wav</c> file, after the output's base name.</summary>
-    public const string RenderWavExtension = ".genesis.wav";
+    private const string RenderWavExtension = ".genesis.wav";
 
     /// <summary>
     /// The full path of the <c>--render-wav</c> file: the path given with it, otherwise <paramref name="output"/> (the

@@ -48,7 +48,7 @@ internal sealed class GenesisPlanPlayer
     private const byte RegTl = 0x40;
     private const byte RegRsAr = 0x50;
     private const byte RegAmDr = 0x60;
-    private const byte RegD2r = 0x70;
+    private const byte RegD2R = 0x70;
     private const byte RegSlRr = 0x80;
     private const byte RegSsgEg = 0x90;
     private const byte RegFnumLow = 0xa0;
@@ -271,7 +271,7 @@ internal sealed class GenesisPlanPlayer
         switch (voice.Kind)
         {
             case VoiceKind.Fm:
-                if (c == (int)GenesisChannel.Fm6 && _chips.Dac is DmfDac { } dmf)
+                if (c == (int)GenesisChannel.Fm6 && _chips.Dac is DmfDac dmf)
                 {
                     // 17 00: the DMF switches FM6 back from the DAC before an FM note.
                     dmf.Stop();
@@ -381,6 +381,7 @@ internal sealed class GenesisPlanPlayer
             }
         }
 
+        // The DAC has no pitch or volume of its own: both were set when the note started.
         switch (track.Kind)
         {
             case VoiceKind.Fm:
@@ -388,9 +389,6 @@ internal sealed class GenesisPlanPlayer
                 break;
             case VoiceKind.PsgNoise:
                 UpdateNoise(track, ch, _durations[t]);
-                break;
-            default:
-                // The DAC has no pitch or volume of its own: both were set when the note started.
                 break;
         }
     }
@@ -453,7 +451,7 @@ internal sealed class GenesisPlanPlayer
             WriteFm(c, (byte)(RegTl + slot), (byte)o.Tl);
             WriteFm(c, (byte)(RegRsAr + slot), (byte)((o.Rs << 6) | o.Ar));
             WriteFm(c, (byte)(RegAmDr + slot), (byte)((o.Am ? 0x80 : 0) | o.Dr));
-            WriteFm(c, (byte)(RegD2r + slot), (byte)o.D2R);
+            WriteFm(c, (byte)(RegD2R + slot), (byte)o.D2R);
             WriteFm(c, (byte)(RegSlRr + slot), (byte)((o.Sl << 4) | o.Rr));
             WriteFm(c, (byte)(RegSsgEg + slot), 0);
             track.CarrierTl[op] = -1;
@@ -568,8 +566,6 @@ internal sealed class GenesisPlanPlayer
             case Xgm2PcmDriver xgm2:
                 xgm2.Play(PcmChannel, pcm.Data8!, PcmPriority, halfSpeed: false);
                 break;
-            default:
-                break;
         }
 
         return true;
@@ -587,8 +583,6 @@ internal sealed class GenesisPlanPlayer
                 break;
             case Xgm2PcmDriver xgm2:
                 xgm2.Stop(PcmChannel);
-                break;
-            default:
                 break;
         }
     }

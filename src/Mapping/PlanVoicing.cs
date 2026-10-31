@@ -16,7 +16,7 @@ internal sealed class PlanVoicing(GenesisPlan plan, Song song)
     public const int A4 = 57;
 
     /// <summary>Concert pitch of A-4.</summary>
-    public const double A4Hz = 440;
+    private const double A4Hz = 440;
 
     /// <summary>Without a measured pitch, an FM note is placed this many semitones above the MOD note's name (ProTracker C-2 → C-4).</summary>
     private const int FallbackShift = 24;

@@ -511,10 +511,11 @@ public sealed class ConversionCommandTests
         using TempDirectory temp = new();
         string input = temp.CreateFile("song.mod");
         temp.CreateFile("song.genesis.wav");
+        string dmf = temp.Combine("song.dmf");
 
         Assert.Equal(ExitCode.OutputNotWritable, CodeOf(() => ConversionCommand.Execute(new() { InputPath = input, RenderWav = true })));
         Assert.Equal(ExitCode.Success, ConversionCommand.Execute(new() { InputPath = input, RenderWav = true, Force = true }));
         Assert.Equal(ExitCode.OutputNotWritable, CodeOf(() => ConversionCommand.Execute(new() { InputPath = input, RenderWav = true, RenderWavPath = input, Force = true })));
-        Assert.Equal(ExitCode.OutputNotWritable, CodeOf(() => ConversionCommand.Execute(new() { InputPath = input, RenderWav = true, RenderWavPath = temp.Combine("song.dmf"), Force = true })));
+        Assert.Equal(ExitCode.OutputNotWritable, CodeOf(() => ConversionCommand.Execute(new() { InputPath = input, RenderWav = true, RenderWavPath = dmf, Force = true })));
     }
 }

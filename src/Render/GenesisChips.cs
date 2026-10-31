@@ -30,16 +30,16 @@ internal sealed class GenesisChips
     /// Where a full-scale DAC (and a TL-0 sine carrier at full volume) peaks in the mix: 0.381, measured from Furnace's
     /// render of the <c>levels</c> probe (tests/golden/dmf-probes; −11.42 dBFS RMS, as ADR 0050's table).
     /// </summary>
-    public const double DacPeak = 0.381;
+    private const double DacPeak = 0.381;
 
     /// <summary>
     /// The RMS of a PSG square at the loudest volume in the mix: −20.68 dBFS, measured from the same Furnace render, which
     /// has no DC on the PSG.
     /// </summary>
-    public const double PsgSquareRms = 0.0925;
+    private const double PsgSquareRms = 0.0925;
 
     /// <summary>The PSG's DC is taken off by a first-order high-pass at this frequency, like the coupling capacitors of a real console.</summary>
-    public const double DcBlockHz = 5;
+    private const double DcBlockHz = 5;
 
     /// <summary>The DAC data register: offset binary, <c>$80</c> = 0.</summary>
     private const byte RegDacData = 0x2a;

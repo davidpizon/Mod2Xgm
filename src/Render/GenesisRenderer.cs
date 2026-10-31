@@ -57,7 +57,7 @@ internal static class GenesisRenderer
     }
 
     /// <summary>The render at the YM3438's own rate (returned as <c>Rate</c>), before resampling.</summary>
-    internal static (float[] Left, float[] Right, double Rate) RenderAtChipRate(GenesisPlan plan, Song song, Playback playback, GenesisRenderOptions options, ConversionNotes notes)
+    private static (float[] Left, float[] Right, double Rate) RenderAtChipRate(GenesisPlan plan, Song song, Playback playback, GenesisRenderOptions options, ConversionNotes notes)
     {
         ArgumentNullException.ThrowIfNull(plan);
         ArgumentNullException.ThrowIfNull(song);
