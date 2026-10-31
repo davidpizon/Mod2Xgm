@@ -67,6 +67,12 @@ MAME's Sega PSG (`segapsg`), bit-exact with MAME. Port writes in, one mono sampl
 NTSC); the Genesis renderer (T7.5) owns the clock, resampling and the mix with the FM chip. Checked against MAME and
 Nuked-PSG on write probes (`tests/golden/sn76489/`).
 
+**PCM driver models** (`src/Render/Pcm`, plan T7.4, [ADR 0058](adr/0058-pcm-driver-models.md)) — pure C#: what SGDK's
+XGM and XGM2 Z80 drivers and DefleMask's FM6 DAC put on the YM3438's DAC. Plays and stops in, the `$2A` and `$2B`
+bytes for every YM3438 sample out (`IDacSource`): ordered mixing stuck at ±127, 256-byte padding, priorities and
+each driver's DAC on/off rule. The Genesis renderer (T7.5) writes them into `Ym3438`. Checked by tests built from the
+drivers' source; T7.9 checks them against the real drivers.
+
 **Song (IR)** (`src/Model`, plan T3.1) — Holds what any output needs, in format-neutral units, with 0-based numbering:
 
 - `Title`; `Channels` → starting pan, −1 left … +1 right (Amiga MODs: −1, +1, +1, −1)

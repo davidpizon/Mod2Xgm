@@ -33,7 +33,8 @@ NOTE: SGDK expects XGM2 files to use the .XGM file extension.
 | SGDK | 1.x and later | **2.00 and later** |
 | PCM channels (software-mixed on the DAC, replace FM6) | **4** | **3** (ch 1 normally music, 2–3 SFX) |
 | PCM format in file | 8-bit **signed**, 256-byte aligned address and size | 8-bit **signed**, 256-byte aligned |
-| PCM rate | ~14 kHz fixed | ~13.3 kHz, or ~6.65 kHz "half speed" **per play command** |
+| PCM rate | **14 093 Hz** NTSC / 13 964 Hz PAL fixed: one byte every 254 Z80 cycles | **13 317 Hz** NTSC / 13 195 Hz PAL (YM Timer A, one byte every 4 FM samples), or half that, "half speed", **per play command** |
+| PCM mixing ([ADR 0058](../adr/0058-pcm-driver-models.md)) | channels added in order, each sum stuck at +127 / −128; DAC on while PCM plays and for 3 × 256 bytes after | the same; half speed writes each byte twice; DAC on for 3 × 64 bytes after |
 | Max samples | **63** | **122** single-track (248-byte SID = 124 entries − #0 reserved − end-marker entry; mml2vgm says 123 — **verify**) |
 | Max layout | 5 FM + 4 PCM + 4 PSG | 5 FM + 3 PCM + 4 PSG = 12 |
 | Stream design | one combined stream | **separate FM and PSG streams** |
@@ -126,7 +127,7 @@ All multi-byte values **little-endian**.
 | after music | var | Optional GD3 tags (b1) |
 
 Sample ids in commands are **1-based** (`id − 1` indexes the table); id 0 stops a channel. PCM plays at a fixed
-**~14 kHz**; up to **4** channels are mixed on the DAC **in place of FM6**, so music has FM1–5 + 4 PCM + 4 PSG.
+**14 093 Hz** (NTSC; resample to that, not 14 000 Hz, which is 11 cents flat); up to **4** channels are mixed on the DAC **in place of FM6**, so music has FM1–5 + 4 PCM + 4 PSG.
 
 ### Music commands (one combined stream)
 
@@ -149,7 +150,8 @@ Sample ids in commands are **1-based** (`id − 1` indexes the table); id 0 stop
 - Never write the DAC registers `$2A`/`$2B` or touch FM6 — the driver owns them (inferred from "PCM in
   replacement of the 6th FM channel"; confirm with the probe ROM).
 - Music PCM priority: use a fixed level, proposed `0`, so game SFX at higher priority can take a channel —
-  **confirm** what xgmtool emits for music and that a channel's priority resets after an SFX ends.
+  **confirm** what xgmtool emits for music. A channel's priority goes back to 0 when its sound ends or is stopped
+  (`drv_xgm.s80`; [ADR 0058](../adr/0058-pcm-driver-models.md)); a play or stop at a lower priority is ignored.
 - **CH3 special mode:** the format can express it (register `$27` is a port-0 write), but `$27` also holds the
   YM timer controls and the spec doesn't say whether the driver uses them. Enable for XGM only after a probe
   ROM shows it plays correctly (T11.1).
