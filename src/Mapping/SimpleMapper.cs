@@ -124,7 +124,13 @@ internal sealed class SimpleMapper : IChannelMapper
             for (int order = 0; order < _song.Orders.Count; order++)
             {
                 Pattern pattern = _song.Patterns[_song.Orders[order]];
-                patterns.Add([.. pattern.Rows.Select((row, r) => MapRow(row, order, r))]);
+                PlanRow[] rows = new PlanRow[pattern.Rows.Count];
+                for (int r = 0; r < rows.Length; r++)
+                {
+                    rows[r] = MapRow(pattern.Rows[r], order, r);
+                }
+
+                patterns.Add(rows);
             }
 
             ReportTallies();

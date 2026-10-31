@@ -290,7 +290,7 @@ public sealed class ModTickPlayerTests
 
     /// <summary>An E5x on the note's row tunes that note; a tone portamento's note is kept as its target.</summary>
     [Fact]
-    public void NotePitchesFollowE5xAndPortamentoTargets()
+    public void NotePitchesFollowFineTuneEffectsAndPortamentoTargets()
     {
         (Playback playback, _) = Play(new ModBuilder()
             .WithSample(1, "lead", 1024)
