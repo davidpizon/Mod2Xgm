@@ -16,12 +16,7 @@ Versions are pinned in [`Directory.Packages.props`](Directory.Packages.props).
 | NWaves | MIT, notice below | https://github.com/ar1st0crat/NWaves |
 | .NET runtime and libraries (Native AOT, .NET 10) | MIT | https://github.com/dotnet/runtime |
 | pt2-clone: ProTracker 2.3 period tables (`src/pt2_tables.c`, in `src/Model/AmigaPitch.cs`) and replayer, ported to C# (`src/pt2_replayer.c` → `src/Mod/ModTickPlayer.cs`) | BSD-3-Clause, notice below | https://github.com/8bitbubsy/pt2-clone |
-
-Planned (add the entry when the code lands):
-
-| Component | License | Use |
-|---|---|---|
-| ymfm (C# port) | BSD-3-Clause | YM2612 emulation for in-app rendering (plan M7). The BSD-3 notice must be reproduced here in full |
+| ymfm: the YM3438 (OPN2) emulation, ported to C# (`src/ymfm_opn.cpp`, `src/ymfm_fm.ipp`, `src/ymfm.h` → `src/Render/Fm/`; [ADR 0056](docs/adr/0056-ym3438-model.md)) | BSD-3-Clause, notice below | https://github.com/aaronsgiles/ymfm |
 
 ## Used only for building and testing (not shipped)
 
@@ -32,6 +27,8 @@ Planned (add the entry when the code lands):
 | Microsoft.Testing.Extensions.CodeCoverage | Microsoft .NET Library License (closed-source, free to use) | https://github.com/microsoft/codecoverage |
 | libopenmpt (loaded at run time by `tools/Mod2Xgm.Harness` only; installed on the PC, not in the repository; [ADR 0047](docs/adr/0047-accuracy-harness.md)) | BSD-3-Clause | https://lib.openmpt.org/libopenmpt/ |
 | R128Net (`tools/Mod2Xgm.Harness` and its tests only; [ADR 0053](docs/adr/0053-r128-loudness-in-the-harness.md)), a C# port of libebur128 (© 2011 Jan Kokemüller, MIT) | MIT | https://github.com/routersys/R128Net |
+| Nuked-OPN2 (built and run only by `tools/ym3438-reference` to make the YM3438 reference outputs in `tests/golden/ym3438/`; downloaded at commit `335747d`, not in the repository, no code copied; [ADR 0056](docs/adr/0056-ym3438-model.md)), © 2017-2022 Alexey Khokholov (Nuke.YKT) | LGPL-2.1 | https://github.com/nukeykt/Nuked-OPN2 |
+| ymfm, as C++ (built and run by `tools/ym3438-reference`, downloaded at commit `81aec25`) | BSD-3-Clause, notice below | https://github.com/aaronsgiles/ymfm |
 
 ## Reference documents included in `docs/formats/`
 
@@ -61,6 +58,43 @@ its replayer (`src/pt2_replayer.c`, commit 554bf79):
 BSD 3-Clause License
 
 Copyright (c) 2010-2026, Olav Sørensen
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its
+   contributors may be used to endorse or promote products derived from
+   this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+```
+
+## ymfm (BSD-3-Clause)
+
+`src/Render/Fm/` is a C# port of ymfm's YM3438 emulation (`src/ymfm_opn.cpp`, `src/ymfm_fm.ipp`, `src/ymfm.h`, commit
+81aec25):
+
+```
+BSD 3-Clause License
+
+Copyright (c) 2021, Aaron Giles
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without

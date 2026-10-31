@@ -17,3 +17,5 @@
 *.xgm2    binary
 *.wav     binary
 *.vgm     binary
+*.gz      binary
+*.sh      text eol=lf

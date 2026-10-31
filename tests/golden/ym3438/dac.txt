@@ -1,0 +1,4577 @@
+# YM3438 probe: dac
+# The DAC on channel 6: a 9-bit sawtooth written every other sample (bit 0 through $2C), panned left, mixed with an FM
+# note on channel 1; then the DAC off, so channel 6's own FM note sounds.
+w 0 b0 07
+w 0 30 01
+w 0 40 7f
+w 0 50 1f
+w 0 60 00
+w 0 70 00
+w 0 80 0f
+w 0 90 00
+w 0 38 01
+w 0 48 7f
+w 0 58 1f
+w 0 68 00
+w 0 78 00
+w 0 88 0f
+w 0 98 00
+w 0 34 01
+w 0 44 7f
+w 0 54 1f
+w 0 64 00
+w 0 74 00
+w 0 84 0f
+w 0 94 00
+w 0 3c 01
+w 0 4c 06
+w 0 5c 1f
+w 0 6c 00
+w 0 7c 00
+w 0 8c 08
+w 0 9c 00
+w 0 a4 23
+w 0 a0 2c
+w 1 b2 07
+w 1 32 01
+w 1 42 7f
+w 1 52 1f
+w 1 62 00
+w 1 72 00
+w 1 82 0f
+w 1 92 00
+w 1 3a 01
+w 1 4a 7f
+w 1 5a 1f
+w 1 6a 00
+w 1 7a 00
+w 1 8a 0f
+w 1 9a 00
+w 1 36 01
+w 1 46 7f
+w 1 56 1f
+w 1 66 00
+w 1 76 00
+w 1 86 0f
+w 1 96 00
+w 1 3e 01
+w 1 4e 06
+w 1 5e 1f
+w 1 6e 00
+w 1 7e 00
+w 1 8e 08
+w 1 9e 00
+w 1 a6 24
+w 1 a2 c2
+w 0 28 f0
+w 0 28 f6
+w 0 2b 80
+w 1 b6 80
+w 0 2a 00
+w 0 2c 00
+s 2
+w 0 2a 03
+w 0 2c 08
+s 2
+w 0 2a 07
+w 0 2c 00
+s 2
+w 0 2a 0a
+w 0 2c 08
+s 2
+w 0 2a 0e
+w 0 2c 00
+s 2
+w 0 2a 11
+w 0 2c 08
+s 2
+w 0 2a 15
+w 0 2c 00
+s 2
+w 0 2a 18
+w 0 2c 08
+s 2
+w 0 2a 1c
+w 0 2c 00
+s 2
+w 0 2a 1f
+w 0 2c 08
+s 2
+w 0 2a 23
+w 0 2c 00
+s 2
+w 0 2a 26
+w 0 2c 08
+s 2
+w 0 2a 2a
+w 0 2c 00
+s 2
+w 0 2a 2d
+w 0 2c 08
+s 2
+w 0 2a 31
+w 0 2c 00
+s 2
+w 0 2a 34
+w 0 2c 08
+s 2
+w 0 2a 38
+w 0 2c 00
+s 2
+w 0 2a 3b
+w 0 2c 08
+s 2
+w 0 2a 3f
+w 0 2c 00
+s 2
+w 0 2a 42
+w 0 2c 08
+s 2
+w 0 2a 46
+w 0 2c 00
+s 2
+w 0 2a 49
+w 0 2c 08
+s 2
+w 0 2a 4d
+w 0 2c 00
+s 2
+w 0 2a 50
+w 0 2c 08
+s 2
+w 0 2a 54
+w 0 2c 00
+s 2
+w 0 2a 57
+w 0 2c 08
+s 2
+w 0 2a 5b
+w 0 2c 00
+s 2
+w 0 2a 5e
+w 0 2c 08
+s 2
+w 0 2a 62
+w 0 2c 00
+s 2
+w 0 2a 65
+w 0 2c 08
+s 2
+w 0 2a 69
+w 0 2c 00
+s 2
+w 0 2a 6c
+w 0 2c 08
+s 2
+w 0 2a 70
+w 0 2c 00
+s 2
+w 0 2a 73
+w 0 2c 08
+s 2
+w 0 2a 77
+w 0 2c 00
+s 2
+w 0 2a 7a
+w 0 2c 08
+s 2
+w 0 2a 7e
+w 0 2c 00
+s 2
+w 0 2a 81
+w 0 2c 08
+s 2
+w 0 2a 85
+w 0 2c 00
+s 2
+w 0 2a 88
+w 0 2c 08
+s 2
+w 0 2a 8c
+w 0 2c 00
+s 2
+w 0 2a 8f
+w 0 2c 08
+s 2
+w 0 2a 93
+w 0 2c 00
+s 2
+w 0 2a 96
+w 0 2c 08
+s 2
+w 0 2a 9a
+w 0 2c 00
+s 2
+w 0 2a 9d
+w 0 2c 08
+s 2
+w 0 2a a1
+w 0 2c 00
+s 2
+w 0 2a a4
+w 0 2c 08
+s 2
+w 0 2a a8
+w 0 2c 00
+s 2
+w 0 2a ab
+w 0 2c 08
+s 2
+w 0 2a af
+w 0 2c 00
+s 2
+w 0 2a b2
+w 0 2c 08
+s 2
+w 0 2a b6
+w 0 2c 00
+s 2
+w 0 2a b9
+w 0 2c 08
+s 2
+w 0 2a bd
+w 0 2c 00
+s 2
+w 0 2a c0
+w 0 2c 08
+s 2
+w 0 2a c4
+w 0 2c 00
+s 2
+w 0 2a c7
+w 0 2c 08
+s 2
+w 0 2a cb
+w 0 2c 00
+s 2
+w 0 2a ce
+w 0 2c 08
+s 2
+w 0 2a d2
+w 0 2c 00
+s 2
+w 0 2a d5
+w 0 2c 08
+s 2
+w 0 2a d9
+w 0 2c 00
+s 2
+w 0 2a dc
+w 0 2c 08
+s 2
+w 0 2a e0
+w 0 2c 00
+s 2
+w 0 2a e3
+w 0 2c 08
+s 2
+w 0 2a e7
+w 0 2c 00
+s 2
+w 0 2a ea
+w 0 2c 08
+s 2
+w 0 2a ee
+w 0 2c 00
+s 2
+w 0 2a f1
+w 0 2c 08
+s 2
+w 0 2a f5
+w 0 2c 00
+s 2
+w 0 2a f8
+w 0 2c 08
+s 2
+w 0 2a fc
+w 0 2c 00
+s 2
+w 0 2a ff
+w 0 2c 08
+s 2
+w 0 2a 03
+w 0 2c 00
+s 2
+w 0 2a 06
+w 0 2c 08
+s 2
+w 0 2a 0a
+w 0 2c 00
+s 2
+w 0 2a 0d
+w 0 2c 08
+s 2
+w 0 2a 11
+w 0 2c 00
+s 2
+w 0 2a 14
+w 0 2c 08
+s 2
+w 0 2a 18
+w 0 2c 00
+s 2
+w 0 2a 1b
+w 0 2c 08
+s 2
+w 0 2a 1f
+w 0 2c 00
+s 2
+w 0 2a 22
+w 0 2c 08
+s 2
+w 0 2a 26
+w 0 2c 00
+s 2
+w 0 2a 29
+w 0 2c 08
+s 2
+w 0 2a 2d
+w 0 2c 00
+s 2
+w 0 2a 30
+w 0 2c 08
+s 2
+w 0 2a 34
+w 0 2c 00
+s 2
+w 0 2a 37
+w 0 2c 08
+s 2
+w 0 2a 3b
+w 0 2c 00
+s 2
+w 0 2a 3e
+w 0 2c 08
+s 2
+w 0 2a 42
+w 0 2c 00
+s 2
+w 0 2a 45
+w 0 2c 08
+s 2
+w 0 2a 49
+w 0 2c 00
+s 2
+w 0 2a 4c
+w 0 2c 08
+s 2
+w 0 2a 50
+w 0 2c 00
+s 2
+w 0 2a 53
+w 0 2c 08
+s 2
+w 0 2a 57
+w 0 2c 00
+s 2
+w 0 2a 5a
+w 0 2c 08
+s 2
+w 0 2a 5e
+w 0 2c 00
+s 2
+w 0 2a 61
+w 0 2c 08
+s 2
+w 0 2a 65
+w 0 2c 00
+s 2
+w 0 2a 68
+w 0 2c 08
+s 2
+w 0 2a 6c
+w 0 2c 00
+s 2
+w 0 2a 6f
+w 0 2c 08
+s 2
+w 0 2a 73
+w 0 2c 00
+s 2
+w 0 2a 76
+w 0 2c 08
+s 2
+w 0 2a 7a
+w 0 2c 00
+s 2
+w 0 2a 7d
+w 0 2c 08
+s 2
+w 0 2a 81
+w 0 2c 00
+s 2
+w 0 2a 84
+w 0 2c 08
+s 2
+w 0 2a 88
+w 0 2c 00
+s 2
+w 0 2a 8b
+w 0 2c 08
+s 2
+w 0 2a 8f
+w 0 2c 00
+s 2
+w 0 2a 92
+w 0 2c 08
+s 2
+w 0 2a 96
+w 0 2c 00
+s 2
+w 0 2a 99
+w 0 2c 08
+s 2
+w 0 2a 9d
+w 0 2c 00
+s 2
+w 0 2a a0
+w 0 2c 08
+s 2
+w 0 2a a4
+w 0 2c 00
+s 2
+w 0 2a a7
+w 0 2c 08
+s 2
+w 0 2a ab
+w 0 2c 00
+s 2
+w 0 2a ae
+w 0 2c 08
+s 2
+w 0 2a b2
+w 0 2c 00
+s 2
+w 0 2a b5
+w 0 2c 08
+s 2
+w 0 2a b9
+w 0 2c 00
+s 2
+w 0 2a bc
+w 0 2c 08
+s 2
+w 0 2a c0
+w 0 2c 00
+s 2
+w 0 2a c3
+w 0 2c 08
+s 2
+w 0 2a c7
+w 0 2c 00
+s 2
+w 0 2a ca
+w 0 2c 08
+s 2
+w 0 2a ce
+w 0 2c 00
+s 2
+w 0 2a d1
+w 0 2c 08
+s 2
+w 0 2a d5
+w 0 2c 00
+s 2
+w 0 2a d8
+w 0 2c 08
+s 2
+w 0 2a dc
+w 0 2c 00
+s 2
+w 0 2a df
+w 0 2c 08
+s 2
+w 0 2a e3
+w 0 2c 00
+s 2
+w 0 2a e6
+w 0 2c 08
+s 2
+w 0 2a ea
+w 0 2c 00
+s 2
+w 0 2a ed
+w 0 2c 08
+s 2
+w 0 2a f1
+w 0 2c 00
+s 2
+w 0 2a f4
+w 0 2c 08
+s 2
+w 0 2a f8
+w 0 2c 00
+s 2
+w 0 2a fb
+w 0 2c 08
+s 2
+w 0 2a ff
+w 0 2c 00
+s 2
+w 0 2a 02
+w 0 2c 08
+s 2
+w 0 2a 06
+w 0 2c 00
+s 2
+w 0 2a 09
+w 0 2c 08
+s 2
+w 0 2a 0d
+w 0 2c 00
+s 2
+w 0 2a 10
+w 0 2c 08
+s 2
+w 0 2a 14
+w 0 2c 00
+s 2
+w 0 2a 17
+w 0 2c 08
+s 2
+w 0 2a 1b
+w 0 2c 00
+s 2
+w 0 2a 1e
+w 0 2c 08
+s 2
+w 0 2a 22
+w 0 2c 00
+s 2
+w 0 2a 25
+w 0 2c 08
+s 2
+w 0 2a 29
+w 0 2c 00
+s 2
+w 0 2a 2c
+w 0 2c 08
+s 2
+w 0 2a 30
+w 0 2c 00
+s 2
+w 0 2a 33
+w 0 2c 08
+s 2
+w 0 2a 37
+w 0 2c 00
+s 2
+w 0 2a 3a
+w 0 2c 08
+s 2
+w 0 2a 3e
+w 0 2c 00
+s 2
+w 0 2a 41
+w 0 2c 08
+s 2
+w 0 2a 45
+w 0 2c 00
+s 2
+w 0 2a 48
+w 0 2c 08
+s 2
+w 0 2a 4c
+w 0 2c 00
+s 2
+w 0 2a 4f
+w 0 2c 08
+s 2
+w 0 2a 53
+w 0 2c 00
+s 2
+w 0 2a 56
+w 0 2c 08
+s 2
+w 0 2a 5a
+w 0 2c 00
+s 2
+w 0 2a 5d
+w 0 2c 08
+s 2
+w 0 2a 61
+w 0 2c 00
+s 2
+w 0 2a 64
+w 0 2c 08
+s 2
+w 0 2a 68
+w 0 2c 00
+s 2
+w 0 2a 6b
+w 0 2c 08
+s 2
+w 0 2a 6f
+w 0 2c 00
+s 2
+w 0 2a 72
+w 0 2c 08
+s 2
+w 0 2a 76
+w 0 2c 00
+s 2
+w 0 2a 79
+w 0 2c 08
+s 2
+w 0 2a 7d
+w 0 2c 00
+s 2
+w 0 2a 80
+w 0 2c 08
+s 2
+w 0 2a 84
+w 0 2c 00
+s 2
+w 0 2a 87
+w 0 2c 08
+s 2
+w 0 2a 8b
+w 0 2c 00
+s 2
+w 0 2a 8e
+w 0 2c 08
+s 2
+w 0 2a 92
+w 0 2c 00
+s 2
+w 0 2a 95
+w 0 2c 08
+s 2
+w 0 2a 99
+w 0 2c 00
+s 2
+w 0 2a 9c
+w 0 2c 08
+s 2
+w 0 2a a0
+w 0 2c 00
+s 2
+w 0 2a a3
+w 0 2c 08
+s 2
+w 0 2a a7
+w 0 2c 00
+s 2
+w 0 2a aa
+w 0 2c 08
+s 2
+w 0 2a ae
+w 0 2c 00
+s 2
+w 0 2a b1
+w 0 2c 08
+s 2
+w 0 2a b5
+w 0 2c 00
+s 2
+w 0 2a b8
+w 0 2c 08
+s 2
+w 0 2a bc
+w 0 2c 00
+s 2
+w 0 2a bf
+w 0 2c 08
+s 2
+w 0 2a c3
+w 0 2c 00
+s 2
+w 0 2a c6
+w 0 2c 08
+s 2
+w 0 2a ca
+w 0 2c 00
+s 2
+w 0 2a cd
+w 0 2c 08
+s 2
+w 0 2a d1
+w 0 2c 00
+s 2
+w 0 2a d4
+w 0 2c 08
+s 2
+w 0 2a d8
+w 0 2c 00
+s 2
+w 0 2a db
+w 0 2c 08
+s 2
+w 0 2a df
+w 0 2c 00
+s 2
+w 0 2a e2
+w 0 2c 08
+s 2
+w 0 2a e6
+w 0 2c 00
+s 2
+w 0 2a e9
+w 0 2c 08
+s 2
+w 0 2a ed
+w 0 2c 00
+s 2
+w 0 2a f0
+w 0 2c 08
+s 2
+w 0 2a f4
+w 0 2c 00
+s 2
+w 0 2a f7
+w 0 2c 08
+s 2
+w 0 2a fb
+w 0 2c 00
+s 2
+w 0 2a fe
+w 0 2c 08
+s 2
+w 0 2a 02
+w 0 2c 00
+s 2
+w 0 2a 05
+w 0 2c 08
+s 2
+w 0 2a 09
+w 0 2c 00
+s 2
+w 0 2a 0c
+w 0 2c 08
+s 2
+w 0 2a 10
+w 0 2c 00
+s 2
+w 0 2a 13
+w 0 2c 08
+s 2
+w 0 2a 17
+w 0 2c 00
+s 2
+w 0 2a 1a
+w 0 2c 08
+s 2
+w 0 2a 1e
+w 0 2c 00
+s 2
+w 0 2a 21
+w 0 2c 08
+s 2
+w 0 2a 25
+w 0 2c 00
+s 2
+w 0 2a 28
+w 0 2c 08
+s 2
+w 0 2a 2c
+w 0 2c 00
+s 2
+w 0 2a 2f
+w 0 2c 08
+s 2
+w 0 2a 33
+w 0 2c 00
+s 2
+w 0 2a 36
+w 0 2c 08
+s 2
+w 0 2a 3a
+w 0 2c 00
+s 2
+w 0 2a 3d
+w 0 2c 08
+s 2
+w 0 2a 41
+w 0 2c 00
+s 2
+w 0 2a 44
+w 0 2c 08
+s 2
+w 0 2a 48
+w 0 2c 00
+s 2
+w 0 2a 4b
+w 0 2c 08
+s 2
+w 0 2a 4f
+w 0 2c 00
+s 2
+w 0 2a 52
+w 0 2c 08
+s 2
+w 0 2a 56
+w 0 2c 00
+s 2
+w 0 2a 59
+w 0 2c 08
+s 2
+w 0 2a 5d
+w 0 2c 00
+s 2
+w 0 2a 60
+w 0 2c 08
+s 2
+w 0 2a 64
+w 0 2c 00
+s 2
+w 0 2a 67
+w 0 2c 08
+s 2
+w 0 2a 6b
+w 0 2c 00
+s 2
+w 0 2a 6e
+w 0 2c 08
+s 2
+w 0 2a 72
+w 0 2c 00
+s 2
+w 0 2a 75
+w 0 2c 08
+s 2
+w 0 2a 79
+w 0 2c 00
+s 2
+w 0 2a 7c
+w 0 2c 08
+s 2
+w 0 2a 80
+w 0 2c 00
+s 2
+w 0 2a 83
+w 0 2c 08
+s 2
+w 0 2a 87
+w 0 2c 00
+s 2
+w 0 2a 8a
+w 0 2c 08
+s 2
+w 0 2a 8e
+w 0 2c 00
+s 2
+w 0 2a 91
+w 0 2c 08
+s 2
+w 0 2a 95
+w 0 2c 00
+s 2
+w 0 2a 98
+w 0 2c 08
+s 2
+w 0 2a 9c
+w 0 2c 00
+s 2
+w 0 2a 9f
+w 0 2c 08
+s 2
+w 0 2a a3
+w 0 2c 00
+s 2
+w 0 2a a6
+w 0 2c 08
+s 2
+w 0 2a aa
+w 0 2c 00
+s 2
+w 0 2a ad
+w 0 2c 08
+s 2
+w 0 2a b1
+w 0 2c 00
+s 2
+w 0 2a b4
+w 0 2c 08
+s 2
+w 0 2a b8
+w 0 2c 00
+s 2
+w 0 2a bb
+w 0 2c 08
+s 2
+w 0 2a bf
+w 0 2c 00
+s 2
+w 0 2a c2
+w 0 2c 08
+s 2
+w 0 2a c6
+w 0 2c 00
+s 2
+w 0 2a c9
+w 0 2c 08
+s 2
+w 0 2a cd
+w 0 2c 00
+s 2
+w 0 2a d0
+w 0 2c 08
+s 2
+w 0 2a d4
+w 0 2c 00
+s 2
+w 0 2a d7
+w 0 2c 08
+s 2
+w 0 2a db
+w 0 2c 00
+s 2
+w 0 2a de
+w 0 2c 08
+s 2
+w 0 2a e2
+w 0 2c 00
+s 2
+w 0 2a e5
+w 0 2c 08
+s 2
+w 0 2a e9
+w 0 2c 00
+s 2
+w 0 2a ec
+w 0 2c 08
+s 2
+w 0 2a f0
+w 0 2c 00
+s 2
+w 0 2a f3
+w 0 2c 08
+s 2
+w 0 2a f7
+w 0 2c 00
+s 2
+w 0 2a fa
+w 0 2c 08
+s 2
+w 0 2a fe
+w 0 2c 00
+s 2
+w 0 2a 01
+w 0 2c 08
+s 2
+w 0 2a 05
+w 0 2c 00
+s 2
+w 0 2a 08
+w 0 2c 08
+s 2
+w 0 2a 0c
+w 0 2c 00
+s 2
+w 0 2a 0f
+w 0 2c 08
+s 2
+w 0 2a 13
+w 0 2c 00
+s 2
+w 0 2a 16
+w 0 2c 08
+s 2
+w 0 2a 1a
+w 0 2c 00
+s 2
+w 0 2a 1d
+w 0 2c 08
+s 2
+w 0 2a 21
+w 0 2c 00
+s 2
+w 0 2a 24
+w 0 2c 08
+s 2
+w 0 2a 28
+w 0 2c 00
+s 2
+w 0 2a 2b
+w 0 2c 08
+s 2
+w 0 2a 2f
+w 0 2c 00
+s 2
+w 0 2a 32
+w 0 2c 08
+s 2
+w 0 2a 36
+w 0 2c 00
+s 2
+w 0 2a 39
+w 0 2c 08
+s 2
+w 0 2a 3d
+w 0 2c 00
+s 2
+w 0 2a 40
+w 0 2c 08
+s 2
+w 0 2a 44
+w 0 2c 00
+s 2
+w 0 2a 47
+w 0 2c 08
+s 2
+w 0 2a 4b
+w 0 2c 00
+s 2
+w 0 2a 4e
+w 0 2c 08
+s 2
+w 0 2a 52
+w 0 2c 00
+s 2
+w 0 2a 55
+w 0 2c 08
+s 2
+w 0 2a 59
+w 0 2c 00
+s 2
+w 0 2a 5c
+w 0 2c 08
+s 2
+w 0 2a 60
+w 0 2c 00
+s 2
+w 0 2a 63
+w 0 2c 08
+s 2
+w 0 2a 67
+w 0 2c 00
+s 2
+w 0 2a 6a
+w 0 2c 08
+s 2
+w 0 2a 6e
+w 0 2c 00
+s 2
+w 0 2a 71
+w 0 2c 08
+s 2
+w 0 2a 75
+w 0 2c 00
+s 2
+w 0 2a 78
+w 0 2c 08
+s 2
+w 0 2a 7c
+w 0 2c 00
+s 2
+w 0 2a 7f
+w 0 2c 08
+s 2
+w 0 2a 83
+w 0 2c 00
+s 2
+w 0 2a 86
+w 0 2c 08
+s 2
+w 0 2a 8a
+w 0 2c 00
+s 2
+w 0 2a 8d
+w 0 2c 08
+s 2
+w 0 2a 91
+w 0 2c 00
+s 2
+w 0 2a 94
+w 0 2c 08
+s 2
+w 0 2a 98
+w 0 2c 00
+s 2
+w 0 2a 9b
+w 0 2c 08
+s 2
+w 0 2a 9f
+w 0 2c 00
+s 2
+w 0 2a a2
+w 0 2c 08
+s 2
+w 0 2a a6
+w 0 2c 00
+s 2
+w 0 2a a9
+w 0 2c 08
+s 2
+w 0 2a ad
+w 0 2c 00
+s 2
+w 0 2a b0
+w 0 2c 08
+s 2
+w 0 2a b4
+w 0 2c 00
+s 2
+w 0 2a b7
+w 0 2c 08
+s 2
+w 0 2a bb
+w 0 2c 00
+s 2
+w 0 2a be
+w 0 2c 08
+s 2
+w 0 2a c2
+w 0 2c 00
+s 2
+w 0 2a c5
+w 0 2c 08
+s 2
+w 0 2a c9
+w 0 2c 00
+s 2
+w 0 2a cc
+w 0 2c 08
+s 2
+w 0 2a d0
+w 0 2c 00
+s 2
+w 0 2a d3
+w 0 2c 08
+s 2
+w 0 2a d7
+w 0 2c 00
+s 2
+w 0 2a da
+w 0 2c 08
+s 2
+w 0 2a de
+w 0 2c 00
+s 2
+w 0 2a e1
+w 0 2c 08
+s 2
+w 0 2a e5
+w 0 2c 00
+s 2
+w 0 2a e8
+w 0 2c 08
+s 2
+w 0 2a ec
+w 0 2c 00
+s 2
+w 0 2a ef
+w 0 2c 08
+s 2
+w 0 2a f3
+w 0 2c 00
+s 2
+w 0 2a f6
+w 0 2c 08
+s 2
+w 0 2a fa
+w 0 2c 00
+s 2
+w 0 2a fd
+w 0 2c 08
+s 2
+w 0 2a 01
+w 0 2c 00
+s 2
+w 0 2a 04
+w 0 2c 08
+s 2
+w 0 2a 08
+w 0 2c 00
+s 2
+w 0 2a 0b
+w 0 2c 08
+s 2
+w 0 2a 0f
+w 0 2c 00
+s 2
+w 0 2a 12
+w 0 2c 08
+s 2
+w 0 2a 16
+w 0 2c 00
+s 2
+w 0 2a 19
+w 0 2c 08
+s 2
+w 0 2a 1d
+w 0 2c 00
+s 2
+w 0 2a 20
+w 0 2c 08
+s 2
+w 0 2a 24
+w 0 2c 00
+s 2
+w 0 2a 27
+w 0 2c 08
+s 2
+w 0 2a 2b
+w 0 2c 00
+s 2
+w 0 2a 2e
+w 0 2c 08
+s 2
+w 0 2a 32
+w 0 2c 00
+s 2
+w 0 2a 35
+w 0 2c 08
+s 2
+w 0 2a 39
+w 0 2c 00
+s 2
+w 0 2a 3c
+w 0 2c 08
+s 2
+w 0 2a 40
+w 0 2c 00
+s 2
+w 0 2a 43
+w 0 2c 08
+s 2
+w 0 2a 47
+w 0 2c 00
+s 2
+w 0 2a 4a
+w 0 2c 08
+s 2
+w 0 2a 4e
+w 0 2c 00
+s 2
+w 0 2a 51
+w 0 2c 08
+s 2
+w 0 2a 55
+w 0 2c 00
+s 2
+w 0 2a 58
+w 0 2c 08
+s 2
+w 0 2a 5c
+w 0 2c 00
+s 2
+w 0 2a 5f
+w 0 2c 08
+s 2
+w 0 2a 63
+w 0 2c 00
+s 2
+w 0 2a 66
+w 0 2c 08
+s 2
+w 0 2a 6a
+w 0 2c 00
+s 2
+w 0 2a 6d
+w 0 2c 08
+s 2
+w 0 2a 71
+w 0 2c 00
+s 2
+w 0 2a 74
+w 0 2c 08
+s 2
+w 0 2a 78
+w 0 2c 00
+s 2
+w 0 2a 7b
+w 0 2c 08
+s 2
+w 0 2a 7f
+w 0 2c 00
+s 2
+w 0 2a 82
+w 0 2c 08
+s 2
+w 0 2a 86
+w 0 2c 00
+s 2
+w 0 2a 89
+w 0 2c 08
+s 2
+w 0 2a 8d
+w 0 2c 00
+s 2
+w 0 2a 90
+w 0 2c 08
+s 2
+w 0 2a 94
+w 0 2c 00
+s 2
+w 0 2a 97
+w 0 2c 08
+s 2
+w 0 2a 9b
+w 0 2c 00
+s 2
+w 0 2a 9e
+w 0 2c 08
+s 2
+w 0 2a a2
+w 0 2c 00
+s 2
+w 0 2a a5
+w 0 2c 08
+s 2
+w 0 2a a9
+w 0 2c 00
+s 2
+w 0 2a ac
+w 0 2c 08
+s 2
+w 0 2a b0
+w 0 2c 00
+s 2
+w 0 2a b3
+w 0 2c 08
+s 2
+w 0 2a b7
+w 0 2c 00
+s 2
+w 0 2a ba
+w 0 2c 08
+s 2
+w 0 2a be
+w 0 2c 00
+s 2
+w 0 2a c1
+w 0 2c 08
+s 2
+w 0 2a c5
+w 0 2c 00
+s 2
+w 0 2a c8
+w 0 2c 08
+s 2
+w 0 2a cc
+w 0 2c 00
+s 2
+w 0 2a cf
+w 0 2c 08
+s 2
+w 0 2a d3
+w 0 2c 00
+s 2
+w 0 2a d6
+w 0 2c 08
+s 2
+w 0 2a da
+w 0 2c 00
+s 2
+w 0 2a dd
+w 0 2c 08
+s 2
+w 0 2a e1
+w 0 2c 00
+s 2
+w 0 2a e4
+w 0 2c 08
+s 2
+w 0 2a e8
+w 0 2c 00
+s 2
+w 0 2a eb
+w 0 2c 08
+s 2
+w 0 2a ef
+w 0 2c 00
+s 2
+w 0 2a f2
+w 0 2c 08
+s 2
+w 0 2a f6
+w 0 2c 00
+s 2
+w 0 2a f9
+w 0 2c 08
+s 2
+w 0 2a fd
+w 0 2c 00
+s 2
+w 0 2a 00
+w 0 2c 08
+s 2
+w 0 2a 04
+w 0 2c 00
+s 2
+w 0 2a 07
+w 0 2c 08
+s 2
+w 0 2a 0b
+w 0 2c 00
+s 2
+w 0 2a 0e
+w 0 2c 08
+s 2
+w 0 2a 12
+w 0 2c 00
+s 2
+w 0 2a 15
+w 0 2c 08
+s 2
+w 0 2a 19
+w 0 2c 00
+s 2
+w 0 2a 1c
+w 0 2c 08
+s 2
+w 0 2a 20
+w 0 2c 00
+s 2
+w 0 2a 23
+w 0 2c 08
+s 2
+w 0 2a 27
+w 0 2c 00
+s 2
+w 0 2a 2a
+w 0 2c 08
+s 2
+w 0 2a 2e
+w 0 2c 00
+s 2
+w 0 2a 31
+w 0 2c 08
+s 2
+w 0 2a 35
+w 0 2c 00
+s 2
+w 0 2a 38
+w 0 2c 08
+s 2
+w 0 2a 3c
+w 0 2c 00
+s 2
+w 0 2a 3f
+w 0 2c 08
+s 2
+w 0 2a 43
+w 0 2c 00
+s 2
+w 0 2a 46
+w 0 2c 08
+s 2
+w 0 2a 4a
+w 0 2c 00
+s 2
+w 0 2a 4d
+w 0 2c 08
+s 2
+w 0 2a 51
+w 0 2c 00
+s 2
+w 0 2a 54
+w 0 2c 08
+s 2
+w 0 2a 58
+w 0 2c 00
+s 2
+w 0 2a 5b
+w 0 2c 08
+s 2
+w 0 2a 5f
+w 0 2c 00
+s 2
+w 0 2a 62
+w 0 2c 08
+s 2
+w 0 2a 66
+w 0 2c 00
+s 2
+w 0 2a 69
+w 0 2c 08
+s 2
+w 0 2a 6d
+w 0 2c 00
+s 2
+w 0 2a 70
+w 0 2c 08
+s 2
+w 0 2a 74
+w 0 2c 00
+s 2
+w 0 2a 77
+w 0 2c 08
+s 2
+w 0 2a 7b
+w 0 2c 00
+s 2
+w 0 2a 7e
+w 0 2c 08
+s 2
+w 0 2a 82
+w 0 2c 00
+s 2
+w 0 2a 85
+w 0 2c 08
+s 2
+w 0 2a 89
+w 0 2c 00
+s 2
+w 0 2a 8c
+w 0 2c 08
+s 2
+w 0 2a 90
+w 0 2c 00
+s 2
+w 0 2a 93
+w 0 2c 08
+s 2
+w 0 2a 97
+w 0 2c 00
+s 2
+w 0 2a 9a
+w 0 2c 08
+s 2
+w 0 2a 9e
+w 0 2c 00
+s 2
+w 0 2a a1
+w 0 2c 08
+s 2
+w 0 2a a5
+w 0 2c 00
+s 2
+w 0 2a a8
+w 0 2c 08
+s 2
+w 0 2a ac
+w 0 2c 00
+s 2
+w 0 2a af
+w 0 2c 08
+s 2
+w 0 2a b3
+w 0 2c 00
+s 2
+w 0 2a b6
+w 0 2c 08
+s 2
+w 0 2a ba
+w 0 2c 00
+s 2
+w 0 2a bd
+w 0 2c 08
+s 2
+w 0 2a c1
+w 0 2c 00
+s 2
+w 0 2a c4
+w 0 2c 08
+s 2
+w 0 2a c8
+w 0 2c 00
+s 2
+w 0 2a cb
+w 0 2c 08
+s 2
+w 0 2a cf
+w 0 2c 00
+s 2
+w 0 2a d2
+w 0 2c 08
+s 2
+w 0 2a d6
+w 0 2c 00
+s 2
+w 0 2a d9
+w 0 2c 08
+s 2
+w 0 2a dd
+w 0 2c 00
+s 2
+w 0 2a e0
+w 0 2c 08
+s 2
+w 0 2a e4
+w 0 2c 00
+s 2
+w 0 2a e7
+w 0 2c 08
+s 2
+w 0 2a eb
+w 0 2c 00
+s 2
+w 0 2a ee
+w 0 2c 08
+s 2
+w 0 2a f2
+w 0 2c 00
+s 2
+w 0 2a f5
+w 0 2c 08
+s 2
+w 0 2a f9
+w 0 2c 00
+s 2
+w 0 2a fc
+w 0 2c 08
+s 2
+w 0 2a 00
+w 0 2c 00
+s 2
+w 0 2a 03
+w 0 2c 08
+s 2
+w 0 2a 07
+w 0 2c 00
+s 2
+w 0 2a 0a
+w 0 2c 08
+s 2
+w 0 2a 0e
+w 0 2c 00
+s 2
+w 0 2a 11
+w 0 2c 08
+s 2
+w 0 2a 15
+w 0 2c 00
+s 2
+w 0 2a 18
+w 0 2c 08
+s 2
+w 0 2a 1c
+w 0 2c 00
+s 2
+w 0 2a 1f
+w 0 2c 08
+s 2
+w 0 2a 23
+w 0 2c 00
+s 2
+w 0 2a 26
+w 0 2c 08
+s 2
+w 0 2a 2a
+w 0 2c 00
+s 2
+w 0 2a 2d
+w 0 2c 08
+s 2
+w 0 2a 31
+w 0 2c 00
+s 2
+w 0 2a 34
+w 0 2c 08
+s 2
+w 0 2a 38
+w 0 2c 00
+s 2
+w 0 2a 3b
+w 0 2c 08
+s 2
+w 0 2a 3f
+w 0 2c 00
+s 2
+w 0 2a 42
+w 0 2c 08
+s 2
+w 0 2a 46
+w 0 2c 00
+s 2
+w 0 2a 49
+w 0 2c 08
+s 2
+w 0 2a 4d
+w 0 2c 00
+s 2
+w 0 2a 50
+w 0 2c 08
+s 2
+w 0 2a 54
+w 0 2c 00
+s 2
+w 0 2a 57
+w 0 2c 08
+s 2
+w 0 2a 5b
+w 0 2c 00
+s 2
+w 0 2a 5e
+w 0 2c 08
+s 2
+w 0 2a 62
+w 0 2c 00
+s 2
+w 0 2a 65
+w 0 2c 08
+s 2
+w 0 2a 69
+w 0 2c 00
+s 2
+w 0 2a 6c
+w 0 2c 08
+s 2
+w 0 2a 70
+w 0 2c 00
+s 2
+w 0 2a 73
+w 0 2c 08
+s 2
+w 0 2a 77
+w 0 2c 00
+s 2
+w 0 2a 7a
+w 0 2c 08
+s 2
+w 0 2a 7e
+w 0 2c 00
+s 2
+w 0 2a 81
+w 0 2c 08
+s 2
+w 0 2a 85
+w 0 2c 00
+s 2
+w 0 2a 88
+w 0 2c 08
+s 2
+w 0 2a 8c
+w 0 2c 00
+s 2
+w 0 2a 8f
+w 0 2c 08
+s 2
+w 0 2a 93
+w 0 2c 00
+s 2
+w 0 2a 96
+w 0 2c 08
+s 2
+w 0 2a 9a
+w 0 2c 00
+s 2
+w 0 2a 9d
+w 0 2c 08
+s 2
+w 0 2a a1
+w 0 2c 00
+s 2
+w 0 2a a4
+w 0 2c 08
+s 2
+w 0 2a a8
+w 0 2c 00
+s 2
+w 0 2a ab
+w 0 2c 08
+s 2
+w 0 2a af
+w 0 2c 00
+s 2
+w 0 2a b2
+w 0 2c 08
+s 2
+w 0 2a b6
+w 0 2c 00
+s 2
+w 0 2a b9
+w 0 2c 08
+s 2
+w 0 2a bd
+w 0 2c 00
+s 2
+w 0 2a c0
+w 0 2c 08
+s 2
+w 0 2a c4
+w 0 2c 00
+s 2
+w 0 2a c7
+w 0 2c 08
+s 2
+w 0 2a cb
+w 0 2c 00
+s 2
+w 0 2a ce
+w 0 2c 08
+s 2
+w 0 2a d2
+w 0 2c 00
+s 2
+w 0 2a d5
+w 0 2c 08
+s 2
+w 0 2a d9
+w 0 2c 00
+s 2
+w 0 2a dc
+w 0 2c 08
+s 2
+w 0 2a e0
+w 0 2c 00
+s 2
+w 0 2a e3
+w 0 2c 08
+s 2
+w 0 2a e7
+w 0 2c 00
+s 2
+w 0 2a ea
+w 0 2c 08
+s 2
+w 0 2a ee
+w 0 2c 00
+s 2
+w 0 2a f1
+w 0 2c 08
+s 2
+w 0 2a f5
+w 0 2c 00
+s 2
+w 0 2a f8
+w 0 2c 08
+s 2
+w 0 2a fc
+w 0 2c 00
+s 2
+w 0 2a ff
+w 0 2c 08
+s 2
+w 0 2a 03
+w 0 2c 00
+s 2
+w 0 2a 06
+w 0 2c 08
+s 2
+w 0 2a 0a
+w 0 2c 00
+s 2
+w 0 2a 0d
+w 0 2c 08
+s 2
+w 0 2a 11
+w 0 2c 00
+s 2
+w 0 2a 14
+w 0 2c 08
+s 2
+w 0 2a 18
+w 0 2c 00
+s 2
+w 0 2a 1b
+w 0 2c 08
+s 2
+w 0 2a 1f
+w 0 2c 00
+s 2
+w 0 2a 22
+w 0 2c 08
+s 2
+w 0 2a 26
+w 0 2c 00
+s 2
+w 0 2a 29
+w 0 2c 08
+s 2
+w 0 2a 2d
+w 0 2c 00
+s 2
+w 0 2a 30
+w 0 2c 08
+s 2
+w 0 2a 34
+w 0 2c 00
+s 2
+w 0 2a 37
+w 0 2c 08
+s 2
+w 0 2a 3b
+w 0 2c 00
+s 2
+w 0 2a 3e
+w 0 2c 08
+s 2
+w 0 2a 42
+w 0 2c 00
+s 2
+w 0 2a 45
+w 0 2c 08
+s 2
+w 0 2a 49
+w 0 2c 00
+s 2
+w 0 2a 4c
+w 0 2c 08
+s 2
+w 0 2a 50
+w 0 2c 00
+s 2
+w 0 2a 53
+w 0 2c 08
+s 2
+w 0 2a 57
+w 0 2c 00
+s 2
+w 0 2a 5a
+w 0 2c 08
+s 2
+w 0 2a 5e
+w 0 2c 00
+s 2
+w 0 2a 61
+w 0 2c 08
+s 2
+w 0 2a 65
+w 0 2c 00
+s 2
+w 0 2a 68
+w 0 2c 08
+s 2
+w 0 2a 6c
+w 0 2c 00
+s 2
+w 0 2a 6f
+w 0 2c 08
+s 2
+w 0 2a 73
+w 0 2c 00
+s 2
+w 0 2a 76
+w 0 2c 08
+s 2
+w 0 2a 7a
+w 0 2c 00
+s 2
+w 0 2a 7d
+w 0 2c 08
+s 2
+w 0 2a 81
+w 0 2c 00
+s 2
+w 0 2a 84
+w 0 2c 08
+s 2
+w 0 2a 88
+w 0 2c 00
+s 2
+w 0 2a 8b
+w 0 2c 08
+s 2
+w 0 2a 8f
+w 0 2c 00
+s 2
+w 0 2a 92
+w 0 2c 08
+s 2
+w 0 2a 96
+w 0 2c 00
+s 2
+w 0 2a 99
+w 0 2c 08
+s 2
+w 0 2a 9d
+w 0 2c 00
+s 2
+w 0 2a a0
+w 0 2c 08
+s 2
+w 0 2a a4
+w 0 2c 00
+s 2
+w 0 2a a7
+w 0 2c 08
+s 2
+w 0 2a ab
+w 0 2c 00
+s 2
+w 0 2a ae
+w 0 2c 08
+s 2
+w 0 2a b2
+w 0 2c 00
+s 2
+w 0 2a b5
+w 0 2c 08
+s 2
+w 0 2a b9
+w 0 2c 00
+s 2
+w 0 2a bc
+w 0 2c 08
+s 2
+w 0 2a c0
+w 0 2c 00
+s 2
+w 0 2a c3
+w 0 2c 08
+s 2
+w 0 2a c7
+w 0 2c 00
+s 2
+w 0 2a ca
+w 0 2c 08
+s 2
+w 0 2a ce
+w 0 2c 00
+s 2
+w 0 2a d1
+w 0 2c 08
+s 2
+w 0 2a d5
+w 0 2c 00
+s 2
+w 0 2a d8
+w 0 2c 08
+s 2
+w 0 2a dc
+w 0 2c 00
+s 2
+w 0 2a df
+w 0 2c 08
+s 2
+w 0 2a e3
+w 0 2c 00
+s 2
+w 0 2a e6
+w 0 2c 08
+s 2
+w 0 2a ea
+w 0 2c 00
+s 2
+w 0 2a ed
+w 0 2c 08
+s 2
+w 0 2a f1
+w 0 2c 00
+s 2
+w 0 2a f4
+w 0 2c 08
+s 2
+w 0 2a f8
+w 0 2c 00
+s 2
+w 0 2a fb
+w 0 2c 08
+s 2
+w 0 2a ff
+w 0 2c 00
+s 2
+w 0 2a 02
+w 0 2c 08
+s 2
+w 0 2a 06
+w 0 2c 00
+s 2
+w 0 2a 09
+w 0 2c 08
+s 2
+w 0 2a 0d
+w 0 2c 00
+s 2
+w 0 2a 10
+w 0 2c 08
+s 2
+w 0 2a 14
+w 0 2c 00
+s 2
+w 0 2a 17
+w 0 2c 08
+s 2
+w 0 2a 1b
+w 0 2c 00
+s 2
+w 0 2a 1e
+w 0 2c 08
+s 2
+w 0 2a 22
+w 0 2c 00
+s 2
+w 0 2a 25
+w 0 2c 08
+s 2
+w 0 2a 29
+w 0 2c 00
+s 2
+w 0 2a 2c
+w 0 2c 08
+s 2
+w 0 2a 30
+w 0 2c 00
+s 2
+w 0 2a 33
+w 0 2c 08
+s 2
+w 0 2a 37
+w 0 2c 00
+s 2
+w 0 2a 3a
+w 0 2c 08
+s 2
+w 0 2a 3e
+w 0 2c 00
+s 2
+w 0 2a 41
+w 0 2c 08
+s 2
+w 0 2a 45
+w 0 2c 00
+s 2
+w 0 2a 48
+w 0 2c 08
+s 2
+w 0 2a 4c
+w 0 2c 00
+s 2
+w 0 2a 4f
+w 0 2c 08
+s 2
+w 0 2a 53
+w 0 2c 00
+s 2
+w 0 2a 56
+w 0 2c 08
+s 2
+w 0 2a 5a
+w 0 2c 00
+s 2
+w 0 2a 5d
+w 0 2c 08
+s 2
+w 0 2a 61
+w 0 2c 00
+s 2
+w 0 2a 64
+w 0 2c 08
+s 2
+w 0 2a 68
+w 0 2c 00
+s 2
+w 0 2a 6b
+w 0 2c 08
+s 2
+w 0 2a 6f
+w 0 2c 00
+s 2
+w 0 2a 72
+w 0 2c 08
+s 2
+w 0 2a 76
+w 0 2c 00
+s 2
+w 0 2a 79
+w 0 2c 08
+s 2
+w 0 2a 7d
+w 0 2c 00
+s 2
+w 0 2a 80
+w 0 2c 08
+s 2
+w 0 2a 84
+w 0 2c 00
+s 2
+w 0 2a 87
+w 0 2c 08
+s 2
+w 0 2a 8b
+w 0 2c 00
+s 2
+w 0 2a 8e
+w 0 2c 08
+s 2
+w 0 2a 92
+w 0 2c 00
+s 2
+w 0 2a 95
+w 0 2c 08
+s 2
+w 0 2a 99
+w 0 2c 00
+s 2
+w 0 2a 9c
+w 0 2c 08
+s 2
+w 0 2a a0
+w 0 2c 00
+s 2
+w 0 2a a3
+w 0 2c 08
+s 2
+w 0 2a a7
+w 0 2c 00
+s 2
+w 0 2a aa
+w 0 2c 08
+s 2
+w 0 2a ae
+w 0 2c 00
+s 2
+w 0 2a b1
+w 0 2c 08
+s 2
+w 0 2a b5
+w 0 2c 00
+s 2
+w 0 2a b8
+w 0 2c 08
+s 2
+w 0 2a bc
+w 0 2c 00
+s 2
+w 0 2a bf
+w 0 2c 08
+s 2
+w 0 2a c3
+w 0 2c 00
+s 2
+w 0 2a c6
+w 0 2c 08
+s 2
+w 0 2a ca
+w 0 2c 00
+s 2
+w 0 2a cd
+w 0 2c 08
+s 2
+w 0 2a d1
+w 0 2c 00
+s 2
+w 0 2a d4
+w 0 2c 08
+s 2
+w 0 2a d8
+w 0 2c 00
+s 2
+w 0 2a db
+w 0 2c 08
+s 2
+w 0 2a df
+w 0 2c 00
+s 2
+w 0 2a e2
+w 0 2c 08
+s 2
+w 0 2a e6
+w 0 2c 00
+s 2
+w 0 2a e9
+w 0 2c 08
+s 2
+w 0 2a ed
+w 0 2c 00
+s 2
+w 0 2a f0
+w 0 2c 08
+s 2
+w 0 2a f4
+w 0 2c 00
+s 2
+w 0 2a f7
+w 0 2c 08
+s 2
+w 0 2a fb
+w 0 2c 00
+s 2
+w 0 2a fe
+w 0 2c 08
+s 2
+w 0 2a 02
+w 0 2c 00
+s 2
+w 0 2a 05
+w 0 2c 08
+s 2
+w 0 2a 09
+w 0 2c 00
+s 2
+w 0 2a 0c
+w 0 2c 08
+s 2
+w 0 2a 10
+w 0 2c 00
+s 2
+w 0 2a 13
+w 0 2c 08
+s 2
+w 0 2a 17
+w 0 2c 00
+s 2
+w 0 2a 1a
+w 0 2c 08
+s 2
+w 0 2a 1e
+w 0 2c 00
+s 2
+w 0 2a 21
+w 0 2c 08
+s 2
+w 0 2a 25
+w 0 2c 00
+s 2
+w 0 2a 28
+w 0 2c 08
+s 2
+w 0 2a 2c
+w 0 2c 00
+s 2
+w 0 2a 2f
+w 0 2c 08
+s 2
+w 0 2a 33
+w 0 2c 00
+s 2
+w 0 2a 36
+w 0 2c 08
+s 2
+w 0 2a 3a
+w 0 2c 00
+s 2
+w 0 2a 3d
+w 0 2c 08
+s 2
+w 0 2a 41
+w 0 2c 00
+s 2
+w 0 2a 44
+w 0 2c 08
+s 2
+w 0 2a 48
+w 0 2c 00
+s 2
+w 0 2a 4b
+w 0 2c 08
+s 2
+w 0 2a 4f
+w 0 2c 00
+s 2
+w 0 2a 52
+w 0 2c 08
+s 2
+w 0 2a 56
+w 0 2c 00
+s 2
+w 0 2a 59
+w 0 2c 08
+s 2
+w 0 2a 5d
+w 0 2c 00
+s 2
+w 0 2a 60
+w 0 2c 08
+s 2
+w 0 2a 64
+w 0 2c 00
+s 2
+w 0 2a 67
+w 0 2c 08
+s 2
+w 0 2a 6b
+w 0 2c 00
+s 2
+w 0 2a 6e
+w 0 2c 08
+s 2
+w 0 2a 72
+w 0 2c 00
+s 2
+w 0 2a 75
+w 0 2c 08
+s 2
+w 0 2a 79
+w 0 2c 00
+s 2
+w 0 2a 7c
+w 0 2c 08
+s 2
+w 0 2a 80
+w 0 2c 00
+s 2
+w 0 2a 83
+w 0 2c 08
+s 2
+w 0 2a 87
+w 0 2c 00
+s 2
+w 0 2a 8a
+w 0 2c 08
+s 2
+w 0 2a 8e
+w 0 2c 00
+s 2
+w 0 2a 91
+w 0 2c 08
+s 2
+w 0 2a 95
+w 0 2c 00
+s 2
+w 0 2a 98
+w 0 2c 08
+s 2
+w 0 2a 9c
+w 0 2c 00
+s 2
+w 0 2a 9f
+w 0 2c 08
+s 2
+w 0 2a a3
+w 0 2c 00
+s 2
+w 0 2a a6
+w 0 2c 08
+s 2
+w 0 2a aa
+w 0 2c 00
+s 2
+w 0 2a ad
+w 0 2c 08
+s 2
+w 0 2a b1
+w 0 2c 00
+s 2
+w 0 2a b4
+w 0 2c 08
+s 2
+w 0 2a b8
+w 0 2c 00
+s 2
+w 0 2a bb
+w 0 2c 08
+s 2
+w 0 2a bf
+w 0 2c 00
+s 2
+w 0 2a c2
+w 0 2c 08
+s 2
+w 0 2a c6
+w 0 2c 00
+s 2
+w 0 2a c9
+w 0 2c 08
+s 2
+w 0 2a cd
+w 0 2c 00
+s 2
+w 0 2a d0
+w 0 2c 08
+s 2
+w 0 2a d4
+w 0 2c 00
+s 2
+w 0 2a d7
+w 0 2c 08
+s 2
+w 0 2a db
+w 0 2c 00
+s 2
+w 0 2a de
+w 0 2c 08
+s 2
+w 0 2a e2
+w 0 2c 00
+s 2
+w 0 2a e5
+w 0 2c 08
+s 2
+w 0 2a e9
+w 0 2c 00
+s 2
+w 0 2a ec
+w 0 2c 08
+s 2
+w 0 2a f0
+w 0 2c 00
+s 2
+w 0 2a f3
+w 0 2c 08
+s 2
+w 0 2a f7
+w 0 2c 00
+s 2
+w 0 2a fa
+w 0 2c 08
+s 2
+w 0 2a fe
+w 0 2c 00
+s 2
+w 0 2a 01
+w 0 2c 08
+s 2
+w 0 2a 05
+w 0 2c 00
+s 2
+w 0 2a 08
+w 0 2c 08
+s 2
+w 0 2a 0c
+w 0 2c 00
+s 2
+w 0 2a 0f
+w 0 2c 08
+s 2
+w 0 2a 13
+w 0 2c 00
+s 2
+w 0 2a 16
+w 0 2c 08
+s 2
+w 0 2a 1a
+w 0 2c 00
+s 2
+w 0 2a 1d
+w 0 2c 08
+s 2
+w 0 2a 21
+w 0 2c 00
+s 2
+w 0 2a 24
+w 0 2c 08
+s 2
+w 0 2a 28
+w 0 2c 00
+s 2
+w 0 2a 2b
+w 0 2c 08
+s 2
+w 0 2a 2f
+w 0 2c 00
+s 2
+w 0 2a 32
+w 0 2c 08
+s 2
+w 0 2a 36
+w 0 2c 00
+s 2
+w 0 2a 39
+w 0 2c 08
+s 2
+w 0 2a 3d
+w 0 2c 00
+s 2
+w 0 2a 40
+w 0 2c 08
+s 2
+w 0 2a 44
+w 0 2c 00
+s 2
+w 0 2a 47
+w 0 2c 08
+s 2
+w 0 2a 4b
+w 0 2c 00
+s 2
+w 0 2a 4e
+w 0 2c 08
+s 2
+w 0 2a 52
+w 0 2c 00
+s 2
+w 0 2a 55
+w 0 2c 08
+s 2
+w 0 2a 59
+w 0 2c 00
+s 2
+w 0 2a 5c
+w 0 2c 08
+s 2
+w 0 2a 60
+w 0 2c 00
+s 2
+w 0 2a 63
+w 0 2c 08
+s 2
+w 0 2a 67
+w 0 2c 00
+s 2
+w 0 2a 6a
+w 0 2c 08
+s 2
+w 0 2a 6e
+w 0 2c 00
+s 2
+w 0 2a 71
+w 0 2c 08
+s 2
+w 0 2a 75
+w 0 2c 00
+s 2
+w 0 2a 78
+w 0 2c 08
+s 2
+w 0 2a 7c
+w 0 2c 00
+s 2
+w 0 2a 7f
+w 0 2c 08
+s 2
+w 0 2a 83
+w 0 2c 00
+s 2
+w 0 2a 86
+w 0 2c 08
+s 2
+w 0 2a 8a
+w 0 2c 00
+s 2
+w 0 2a 8d
+w 0 2c 08
+s 2
+w 0 2a 91
+w 0 2c 00
+s 2
+w 0 2a 94
+w 0 2c 08
+s 2
+w 0 2a 98
+w 0 2c 00
+s 2
+w 0 2a 9b
+w 0 2c 08
+s 2
+w 0 2a 9f
+w 0 2c 00
+s 2
+w 0 2a a2
+w 0 2c 08
+s 2
+w 0 2a a6
+w 0 2c 00
+s 2
+w 0 2a a9
+w 0 2c 08
+s 2
+w 0 2a ad
+w 0 2c 00
+s 2
+w 0 2a b0
+w 0 2c 08
+s 2
+w 0 2a b4
+w 0 2c 00
+s 2
+w 0 2a b7
+w 0 2c 08
+s 2
+w 0 2a bb
+w 0 2c 00
+s 2
+w 0 2a be
+w 0 2c 08
+s 2
+w 0 2a c2
+w 0 2c 00
+s 2
+w 0 2a c5
+w 0 2c 08
+s 2
+w 0 2a c9
+w 0 2c 00
+s 2
+w 0 2a cc
+w 0 2c 08
+s 2
+w 0 2a d0
+w 0 2c 00
+s 2
+w 0 2a d3
+w 0 2c 08
+s 2
+w 0 2a d7
+w 0 2c 00
+s 2
+w 0 2a da
+w 0 2c 08
+s 2
+w 0 2a de
+w 0 2c 00
+s 2
+w 0 2a e1
+w 0 2c 08
+s 2
+w 0 2a e5
+w 0 2c 00
+s 2
+w 0 2a e8
+w 0 2c 08
+s 2
+w 0 2a ec
+w 0 2c 00
+s 2
+w 0 2a ef
+w 0 2c 08
+s 2
+w 0 2a f3
+w 0 2c 00
+s 2
+w 0 2a f6
+w 0 2c 08
+s 2
+w 0 2a fa
+w 0 2c 00
+s 2
+w 0 2a fd
+w 0 2c 08
+s 2
+w 0 2a 01
+w 0 2c 00
+s 2
+w 0 2a 04
+w 0 2c 08
+s 2
+w 0 2a 08
+w 0 2c 00
+s 2
+w 0 2a 0b
+w 0 2c 08
+s 2
+w 0 2a 0f
+w 0 2c 00
+s 2
+w 0 2a 12
+w 0 2c 08
+s 2
+w 0 2a 16
+w 0 2c 00
+s 2
+w 0 2a 19
+w 0 2c 08
+s 2
+w 0 2a 1d
+w 0 2c 00
+s 2
+w 0 2a 20
+w 0 2c 08
+s 2
+w 0 2a 24
+w 0 2c 00
+s 2
+w 0 2a 27
+w 0 2c 08
+s 2
+w 0 2a 2b
+w 0 2c 00
+s 2
+w 0 2a 2e
+w 0 2c 08
+s 2
+w 0 2a 32
+w 0 2c 00
+s 2
+w 0 2a 35
+w 0 2c 08
+s 2
+w 0 2a 39
+w 0 2c 00
+s 2
+w 0 2a 3c
+w 0 2c 08
+s 2
+w 0 2a 40
+w 0 2c 00
+s 2
+w 0 2a 43
+w 0 2c 08
+s 2
+w 0 2a 47
+w 0 2c 00
+s 2
+w 0 2a 4a
+w 0 2c 08
+s 2
+w 0 2a 4e
+w 0 2c 00
+s 2
+w 0 2a 51
+w 0 2c 08
+s 2
+w 0 2a 55
+w 0 2c 00
+s 2
+w 0 2a 58
+w 0 2c 08
+s 2
+w 0 2a 5c
+w 0 2c 00
+s 2
+w 0 2a 5f
+w 0 2c 08
+s 2
+w 0 2a 63
+w 0 2c 00
+s 2
+w 0 2a 66
+w 0 2c 08
+s 2
+w 0 2a 6a
+w 0 2c 00
+s 2
+w 0 2a 6d
+w 0 2c 08
+s 2
+w 0 2a 71
+w 0 2c 00
+s 2
+w 0 2a 74
+w 0 2c 08
+s 2
+w 0 2a 78
+w 0 2c 00
+s 2
+w 0 2a 7b
+w 0 2c 08
+s 2
+w 0 2a 7f
+w 0 2c 00
+s 2
+w 0 2a 82
+w 0 2c 08
+s 2
+w 0 2a 86
+w 0 2c 00
+s 2
+w 0 2a 89
+w 0 2c 08
+s 2
+w 0 2a 8d
+w 0 2c 00
+s 2
+w 0 2a 90
+w 0 2c 08
+s 2
+w 0 2a 94
+w 0 2c 00
+s 2
+w 0 2a 97
+w 0 2c 08
+s 2
+w 0 2a 9b
+w 0 2c 00
+s 2
+w 0 2a 9e
+w 0 2c 08
+s 2
+w 0 2a a2
+w 0 2c 00
+s 2
+w 0 2a a5
+w 0 2c 08
+s 2
+w 0 2a a9
+w 0 2c 00
+s 2
+w 0 2a ac
+w 0 2c 08
+s 2
+w 0 2a b0
+w 0 2c 00
+s 2
+w 0 2a b3
+w 0 2c 08
+s 2
+w 0 2a b7
+w 0 2c 00
+s 2
+w 0 2a ba
+w 0 2c 08
+s 2
+w 0 2a be
+w 0 2c 00
+s 2
+w 0 2a c1
+w 0 2c 08
+s 2
+w 0 2a c5
+w 0 2c 00
+s 2
+w 0 2a c8
+w 0 2c 08
+s 2
+w 0 2a cc
+w 0 2c 00
+s 2
+w 0 2a cf
+w 0 2c 08
+s 2
+w 0 2a d3
+w 0 2c 00
+s 2
+w 0 2a d6
+w 0 2c 08
+s 2
+w 0 2a da
+w 0 2c 00
+s 2
+w 0 2a dd
+w 0 2c 08
+s 2
+w 0 2a e1
+w 0 2c 00
+s 2
+w 0 2a e4
+w 0 2c 08
+s 2
+w 0 2a e8
+w 0 2c 00
+s 2
+w 0 2a eb
+w 0 2c 08
+s 2
+w 0 2a ef
+w 0 2c 00
+s 2
+w 0 2a f2
+w 0 2c 08
+s 2
+w 0 2a f6
+w 0 2c 00
+s 2
+w 0 2a f9
+w 0 2c 08
+s 2
+w 0 2a fd
+w 0 2c 00
+s 2
+w 0 2a 00
+w 0 2c 08
+s 2
+w 0 2a 04
+w 0 2c 00
+s 2
+w 0 2a 07
+w 0 2c 08
+s 2
+w 0 2a 0b
+w 0 2c 00
+s 2
+w 0 2a 0e
+w 0 2c 08
+s 2
+w 0 2a 12
+w 0 2c 00
+s 2
+w 0 2a 15
+w 0 2c 08
+s 2
+w 0 2a 19
+w 0 2c 00
+s 2
+w 0 2a 1c
+w 0 2c 08
+s 2
+w 0 2a 20
+w 0 2c 00
+s 2
+w 0 2a 23
+w 0 2c 08
+s 2
+w 0 2a 27
+w 0 2c 00
+s 2
+w 0 2a 2a
+w 0 2c 08
+s 2
+w 0 2a 2e
+w 0 2c 00
+s 2
+w 0 2a 31
+w 0 2c 08
+s 2
+w 0 2a 35
+w 0 2c 00
+s 2
+w 0 2a 38
+w 0 2c 08
+s 2
+w 0 2a 3c
+w 0 2c 00
+s 2
+w 0 2a 3f
+w 0 2c 08
+s 2
+w 0 2a 43
+w 0 2c 00
+s 2
+w 0 2a 46
+w 0 2c 08
+s 2
+w 0 2a 4a
+w 0 2c 00
+s 2
+w 0 2a 4d
+w 0 2c 08
+s 2
+w 0 2a 51
+w 0 2c 00
+s 2
+w 0 2a 54
+w 0 2c 08
+s 2
+w 0 2a 58
+w 0 2c 00
+s 2
+w 0 2a 5b
+w 0 2c 08
+s 2
+w 0 2a 5f
+w 0 2c 00
+s 2
+w 0 2a 62
+w 0 2c 08
+s 2
+w 0 2a 66
+w 0 2c 00
+s 2
+w 0 2a 69
+w 0 2c 08
+s 2
+w 0 2a 6d
+w 0 2c 00
+s 2
+w 0 2a 70
+w 0 2c 08
+s 2
+w 0 2a 74
+w 0 2c 00
+s 2
+w 0 2a 77
+w 0 2c 08
+s 2
+w 0 2a 7b
+w 0 2c 00
+s 2
+w 0 2a 7e
+w 0 2c 08
+s 2
+w 0 2a 82
+w 0 2c 00
+s 2
+w 0 2a 85
+w 0 2c 08
+s 2
+w 0 2a 89
+w 0 2c 00
+s 2
+w 0 2a 8c
+w 0 2c 08
+s 2
+w 0 2a 90
+w 0 2c 00
+s 2
+w 0 2a 93
+w 0 2c 08
+s 2
+w 0 2a 97
+w 0 2c 00
+s 2
+w 0 2a 9a
+w 0 2c 08
+s 2
+w 0 2a 9e
+w 0 2c 00
+s 2
+w 0 2a a1
+w 0 2c 08
+s 2
+w 0 2a a5
+w 0 2c 00
+s 2
+w 0 2a a8
+w 0 2c 08
+s 2
+w 0 2a ac
+w 0 2c 00
+s 2
+w 0 2a af
+w 0 2c 08
+s 2
+w 0 2a b3
+w 0 2c 00
+s 2
+w 0 2a b6
+w 0 2c 08
+s 2
+w 0 2a ba
+w 0 2c 00
+s 2
+w 0 2a bd
+w 0 2c 08
+s 2
+w 0 2a c1
+w 0 2c 00
+s 2
+w 0 2a c4
+w 0 2c 08
+s 2
+w 0 2a c8
+w 0 2c 00
+s 2
+w 0 2a cb
+w 0 2c 08
+s 2
+w 0 2a cf
+w 0 2c 00
+s 2
+w 0 2a d2
+w 0 2c 08
+s 2
+w 0 2a d6
+w 0 2c 00
+s 2
+w 0 2a d9
+w 0 2c 08
+s 2
+w 0 2a dd
+w 0 2c 00
+s 2
+w 0 2a e0
+w 0 2c 08
+s 2
+w 0 2a e4
+w 0 2c 00
+s 2
+w 0 2a e7
+w 0 2c 08
+s 2
+w 0 2a eb
+w 0 2c 00
+s 2
+w 0 2a ee
+w 0 2c 08
+s 2
+w 0 2a f2
+w 0 2c 00
+s 2
+w 0 2a f5
+w 0 2c 08
+s 2
+w 0 2a f9
+w 0 2c 00
+s 2
+w 0 2a fc
+w 0 2c 08
+s 2
+w 0 2a 00
+w 0 2c 00
+s 2
+w 0 2a 03
+w 0 2c 08
+s 2
+w 0 2a 07
+w 0 2c 00
+s 2
+w 0 2a 0a
+w 0 2c 08
+s 2
+w 0 2a 0e
+w 0 2c 00
+s 2
+w 0 2a 11
+w 0 2c 08
+s 2
+w 0 2a 15
+w 0 2c 00
+s 2
+w 0 2a 18
+w 0 2c 08
+s 2
+w 0 2a 1c
+w 0 2c 00
+s 2
+w 0 2a 1f
+w 0 2c 08
+s 2
+w 0 2a 23
+w 0 2c 00
+s 2
+w 0 2a 26
+w 0 2c 08
+s 2
+w 0 2a 2a
+w 0 2c 00
+s 2
+w 0 2a 2d
+w 0 2c 08
+s 2
+w 0 2a 31
+w 0 2c 00
+s 2
+w 0 2a 34
+w 0 2c 08
+s 2
+w 0 2a 38
+w 0 2c 00
+s 2
+w 0 2a 3b
+w 0 2c 08
+s 2
+w 0 2a 3f
+w 0 2c 00
+s 2
+w 0 2a 42
+w 0 2c 08
+s 2
+w 0 2a 46
+w 0 2c 00
+s 2
+w 0 2a 49
+w 0 2c 08
+s 2
+w 0 2a 4d
+w 0 2c 00
+s 2
+w 0 2a 50
+w 0 2c 08
+s 2
+w 0 2a 54
+w 0 2c 00
+s 2
+w 0 2a 57
+w 0 2c 08
+s 2
+w 0 2a 5b
+w 0 2c 00
+s 2
+w 0 2a 5e
+w 0 2c 08
+s 2
+w 0 2a 62
+w 0 2c 00
+s 2
+w 0 2a 65
+w 0 2c 08
+s 2
+w 0 2a 69
+w 0 2c 00
+s 2
+w 0 2a 6c
+w 0 2c 08
+s 2
+w 0 2a 70
+w 0 2c 00
+s 2
+w 0 2a 73
+w 0 2c 08
+s 2
+w 0 2a 77
+w 0 2c 00
+s 2
+w 0 2a 7a
+w 0 2c 08
+s 2
+w 0 2a 7e
+w 0 2c 00
+s 2
+w 0 2a 81
+w 0 2c 08
+s 2
+w 0 2a 85
+w 0 2c 00
+s 2
+w 0 2a 88
+w 0 2c 08
+s 2
+w 0 2a 8c
+w 0 2c 00
+s 2
+w 0 2a 8f
+w 0 2c 08
+s 2
+w 0 2a 93
+w 0 2c 00
+s 2
+w 0 2a 96
+w 0 2c 08
+s 2
+w 0 2a 9a
+w 0 2c 00
+s 2
+w 0 2a 9d
+w 0 2c 08
+s 2
+w 0 2a a1
+w 0 2c 00
+s 2
+w 0 2a a4
+w 0 2c 08
+s 2
+w 0 2a a8
+w 0 2c 00
+s 2
+w 0 2a ab
+w 0 2c 08
+s 2
+w 0 2a af
+w 0 2c 00
+s 2
+w 0 2a b2
+w 0 2c 08
+s 2
+w 0 2a b6
+w 0 2c 00
+s 2
+w 0 2a b9
+w 0 2c 08
+s 2
+w 0 2a bd
+w 0 2c 00
+s 2
+w 0 2a c0
+w 0 2c 08
+s 2
+w 0 2a c4
+w 0 2c 00
+s 2
+w 0 2a c7
+w 0 2c 08
+s 2
+w 0 2a cb
+w 0 2c 00
+s 2
+w 0 2a ce
+w 0 2c 08
+s 2
+w 0 2a d2
+w 0 2c 00
+s 2
+w 0 2a d5
+w 0 2c 08
+s 2
+w 0 2a d9
+w 0 2c 00
+s 2
+w 0 2a dc
+w 0 2c 08
+s 2
+w 0 2a e0
+w 0 2c 00
+s 2
+w 0 2a e3
+w 0 2c 08
+s 2
+w 0 2a e7
+w 0 2c 00
+s 2
+w 0 2a ea
+w 0 2c 08
+s 2
+w 0 2a ee
+w 0 2c 00
+s 2
+w 0 2a f1
+w 0 2c 08
+s 2
+w 0 2a f5
+w 0 2c 00
+s 2
+w 0 2a f8
+w 0 2c 08
+s 2
+w 0 2a fc
+w 0 2c 00
+s 2
+w 0 2a ff
+w 0 2c 08
+s 2
+w 0 2a 03
+w 0 2c 00
+s 2
+w 0 2a 06
+w 0 2c 08
+s 2
+w 0 2a 0a
+w 0 2c 00
+s 2
+w 0 2a 0d
+w 0 2c 08
+s 2
+w 0 2a 11
+w 0 2c 00
+s 2
+w 0 2a 14
+w 0 2c 08
+s 2
+w 0 2a 18
+w 0 2c 00
+s 2
+w 0 2a 1b
+w 0 2c 08
+s 2
+w 0 2a 1f
+w 0 2c 00
+s 2
+w 0 2a 22
+w 0 2c 08
+s 2
+w 0 2a 26
+w 0 2c 00
+s 2
+w 0 2a 29
+w 0 2c 08
+s 2
+w 0 2a 2d
+w 0 2c 00
+s 2
+w 0 2a 30
+w 0 2c 08
+s 2
+w 0 2a 34
+w 0 2c 00
+s 2
+w 0 2a 37
+w 0 2c 08
+s 2
+w 0 2a 3b
+w 0 2c 00
+s 2
+w 0 2a 3e
+w 0 2c 08
+s 2
+w 0 2a 42
+w 0 2c 00
+s 2
+w 0 2a 45
+w 0 2c 08
+s 2
+w 0 2a 49
+w 0 2c 00
+s 2
+w 0 2a 4c
+w 0 2c 08
+s 2
+w 0 2a 50
+w 0 2c 00
+s 2
+w 0 2a 53
+w 0 2c 08
+s 2
+w 0 2a 57
+w 0 2c 00
+s 2
+w 0 2a 5a
+w 0 2c 08
+s 2
+w 0 2a 5e
+w 0 2c 00
+s 2
+w 0 2a 61
+w 0 2c 08
+s 2
+w 0 2a 65
+w 0 2c 00
+s 2
+w 0 2a 68
+w 0 2c 08
+s 2
+w 0 2a 6c
+w 0 2c 00
+s 2
+w 0 2a 6f
+w 0 2c 08
+s 2
+w 0 2a 73
+w 0 2c 00
+s 2
+w 0 2a 76
+w 0 2c 08
+s 2
+w 0 2a 7a
+w 0 2c 00
+s 2
+w 0 2a 7d
+w 0 2c 08
+s 2
+w 0 2a 81
+w 0 2c 00
+s 2
+w 0 2a 84
+w 0 2c 08
+s 2
+w 0 2a 88
+w 0 2c 00
+s 2
+w 0 2a 8b
+w 0 2c 08
+s 2
+w 0 2a 8f
+w 0 2c 00
+s 2
+w 0 2a 92
+w 0 2c 08
+s 2
+w 0 2a 96
+w 0 2c 00
+s 2
+w 0 2a 99
+w 0 2c 08
+s 2
+w 0 2a 9d
+w 0 2c 00
+s 2
+w 0 2a a0
+w 0 2c 08
+s 2
+w 0 2a a4
+w 0 2c 00
+s 2
+w 0 2a a7
+w 0 2c 08
+s 2
+w 0 2a ab
+w 0 2c 00
+s 2
+w 0 2a ae
+w 0 2c 08
+s 2
+w 0 2a b2
+w 0 2c 00
+s 2
+w 0 2a b5
+w 0 2c 08
+s 2
+w 0 2a b9
+w 0 2c 00
+s 2
+w 0 2a bc
+w 0 2c 08
+s 2
+w 0 2a c0
+w 0 2c 00
+s 2
+w 0 2a c3
+w 0 2c 08
+s 2
+w 0 2a c7
+w 0 2c 00
+s 2
+w 0 2a ca
+w 0 2c 08
+s 2
+w 0 2a ce
+w 0 2c 00
+s 2
+w 0 2a d1
+w 0 2c 08
+s 2
+w 0 2a d5
+w 0 2c 00
+s 2
+w 0 2a d8
+w 0 2c 08
+s 2
+w 0 2a dc
+w 0 2c 00
+s 2
+w 0 2a df
+w 0 2c 08
+s 2
+w 0 2a e3
+w 0 2c 00
+s 2
+w 0 2a e6
+w 0 2c 08
+s 2
+w 0 2a ea
+w 0 2c 00
+s 2
+w 0 2a ed
+w 0 2c 08
+s 2
+w 0 2a f1
+w 0 2c 00
+s 2
+w 0 2a f4
+w 0 2c 08
+s 2
+w 0 2a f8
+w 0 2c 00
+s 2
+w 0 2a fb
+w 0 2c 08
+s 2
+w 0 2a ff
+w 0 2c 00
+s 2
+w 0 2a 02
+w 0 2c 08
+s 2
+w 0 2a 06
+w 0 2c 00
+s 2
+w 0 2a 09
+w 0 2c 08
+s 2
+w 0 2a 0d
+w 0 2c 00
+s 2
+w 0 2a 10
+w 0 2c 08
+s 2
+w 0 2a 14
+w 0 2c 00
+s 2
+w 0 2a 17
+w 0 2c 08
+s 2
+w 0 2a 1b
+w 0 2c 00
+s 2
+w 0 2a 1e
+w 0 2c 08
+s 2
+w 0 2a 22
+w 0 2c 00
+s 2
+w 0 2a 25
+w 0 2c 08
+s 2
+w 0 2a 29
+w 0 2c 00
+s 2
+w 0 2a 2c
+w 0 2c 08
+s 2
+w 0 2a 30
+w 0 2c 00
+s 2
+w 0 2a 33
+w 0 2c 08
+s 2
+w 0 2a 37
+w 0 2c 00
+s 2
+w 0 2a 3a
+w 0 2c 08
+s 2
+w 0 2a 3e
+w 0 2c 00
+s 2
+w 0 2a 41
+w 0 2c 08
+s 2
+w 0 2a 45
+w 0 2c 00
+s 2
+w 0 2a 48
+w 0 2c 08
+s 2
+w 0 2a 4c
+w 0 2c 00
+s 2
+w 0 2a 4f
+w 0 2c 08
+s 2
+w 0 2a 53
+w 0 2c 00
+s 2
+w 0 2a 56
+w 0 2c 08
+s 2
+w 0 2a 5a
+w 0 2c 00
+s 2
+w 0 2a 5d
+w 0 2c 08
+s 2
+w 0 2a 61
+w 0 2c 00
+s 2
+w 0 2a 64
+w 0 2c 08
+s 2
+w 0 2a 68
+w 0 2c 00
+s 2
+w 0 2a 6b
+w 0 2c 08
+s 2
+w 0 2a 6f
+w 0 2c 00
+s 2
+w 0 2a 72
+w 0 2c 08
+s 2
+w 0 2a 76
+w 0 2c 00
+s 2
+w 0 2a 79
+w 0 2c 08
+s 2
+w 0 2a 7d
+w 0 2c 00
+s 2
+w 0 2a 80
+w 0 2c 08
+s 2
+w 0 2a 84
+w 0 2c 00
+s 2
+w 0 2a 87
+w 0 2c 08
+s 2
+w 0 2a 8b
+w 0 2c 00
+s 2
+w 0 2a 8e
+w 0 2c 08
+s 2
+w 0 2a 92
+w 0 2c 00
+s 2
+w 0 2a 95
+w 0 2c 08
+s 2
+w 0 2a 99
+w 0 2c 00
+s 2
+w 0 2a 9c
+w 0 2c 08
+s 2
+w 0 2a a0
+w 0 2c 00
+s 2
+w 0 2a a3
+w 0 2c 08
+s 2
+w 0 2a a7
+w 0 2c 00
+s 2
+w 0 2a aa
+w 0 2c 08
+s 2
+w 0 2a ae
+w 0 2c 00
+s 2
+w 0 2a b1
+w 0 2c 08
+s 2
+w 0 2a b5
+w 0 2c 00
+s 2
+w 0 2a b8
+w 0 2c 08
+s 2
+w 0 2a bc
+w 0 2c 00
+s 2
+w 0 2a bf
+w 0 2c 08
+s 2
+w 0 2a c3
+w 0 2c 00
+s 2
+w 0 2a c6
+w 0 2c 08
+s 2
+w 0 2a ca
+w 0 2c 00
+s 2
+w 0 2a cd
+w 0 2c 08
+s 2
+w 0 2a d1
+w 0 2c 00
+s 2
+w 0 2a d4
+w 0 2c 08
+s 2
+w 0 2a d8
+w 0 2c 00
+s 2
+w 0 2a db
+w 0 2c 08
+s 2
+w 0 2a df
+w 0 2c 00
+s 2
+w 0 2a e2
+w 0 2c 08
+s 2
+w 0 2a e6
+w 0 2c 00
+s 2
+w 0 2a e9
+w 0 2c 08
+s 2
+w 0 2a ed
+w 0 2c 00
+s 2
+w 0 2a f0
+w 0 2c 08
+s 2
+w 0 2a f4
+w 0 2c 00
+s 2
+w 0 2a f7
+w 0 2c 08
+s 2
+w 0 2a fb
+w 0 2c 00
+s 2
+w 0 2a fe
+w 0 2c 08
+s 2
+w 0 2a 02
+w 0 2c 00
+s 2
+w 0 2a 05
+w 0 2c 08
+s 2
+w 0 2a 09
+w 0 2c 00
+s 2
+w 0 2a 0c
+w 0 2c 08
+s 2
+w 0 2a 10
+w 0 2c 00
+s 2
+w 0 2a 13
+w 0 2c 08
+s 2
+w 0 2a 17
+w 0 2c 00
+s 2
+w 0 2a 1a
+w 0 2c 08
+s 2
+w 0 2a 1e
+w 0 2c 00
+s 2
+w 0 2a 21
+w 0 2c 08
+s 2
+w 0 2a 25
+w 0 2c 00
+s 2
+w 0 2a 28
+w 0 2c 08
+s 2
+w 0 2a 2c
+w 0 2c 00
+s 2
+w 0 2a 2f
+w 0 2c 08
+s 2
+w 0 2a 33
+w 0 2c 00
+s 2
+w 0 2a 36
+w 0 2c 08
+s 2
+w 0 2a 3a
+w 0 2c 00
+s 2
+w 0 2a 3d
+w 0 2c 08
+s 2
+w 0 2a 41
+w 0 2c 00
+s 2
+w 0 2a 44
+w 0 2c 08
+s 2
+w 0 2a 48
+w 0 2c 00
+s 2
+w 0 2a 4b
+w 0 2c 08
+s 2
+w 0 2a 4f
+w 0 2c 00
+s 2
+w 0 2a 52
+w 0 2c 08
+s 2
+w 0 2a 56
+w 0 2c 00
+s 2
+w 0 2a 59
+w 0 2c 08
+s 2
+w 0 2a 5d
+w 0 2c 00
+s 2
+w 0 2a 60
+w 0 2c 08
+s 2
+w 0 2a 64
+w 0 2c 00
+s 2
+w 0 2a 67
+w 0 2c 08
+s 2
+w 0 2a 6b
+w 0 2c 00
+s 2
+w 0 2a 6e
+w 0 2c 08
+s 2
+w 0 2a 72
+w 0 2c 00
+s 2
+w 0 2a 75
+w 0 2c 08
+s 2
+w 0 2a 79
+w 0 2c 00
+s 2
+w 0 2a 7c
+w 0 2c 08
+s 2
+w 0 2a 80
+w 0 2c 00
+s 2
+w 0 2a 83
+w 0 2c 08
+s 2
+w 0 2a 87
+w 0 2c 00
+s 2
+w 0 2a 8a
+w 0 2c 08
+s 2
+w 0 2a 8e
+w 0 2c 00
+s 2
+w 0 2a 91
+w 0 2c 08
+s 2
+w 0 2a 95
+w 0 2c 00
+s 2
+w 0 2a 98
+w 0 2c 08
+s 2
+w 0 2a 9c
+w 0 2c 00
+s 2
+w 0 2a 9f
+w 0 2c 08
+s 2
+w 0 2a a3
+w 0 2c 00
+s 2
+w 0 2a a6
+w 0 2c 08
+s 2
+w 0 2a aa
+w 0 2c 00
+s 2
+w 0 2a ad
+w 0 2c 08
+s 2
+w 0 2a b1
+w 0 2c 00
+s 2
+w 0 2a b4
+w 0 2c 08
+s 2
+w 0 2a b8
+w 0 2c 00
+s 2
+w 0 2a bb
+w 0 2c 08
+s 2
+w 0 2a bf
+w 0 2c 00
+s 2
+w 0 2a c2
+w 0 2c 08
+s 2
+w 0 2a c6
+w 0 2c 00
+s 2
+w 0 2a c9
+w 0 2c 08
+s 2
+w 0 2a cd
+w 0 2c 00
+s 2
+w 0 2a d0
+w 0 2c 08
+s 2
+w 0 2a d4
+w 0 2c 00
+s 2
+w 0 2a d7
+w 0 2c 08
+s 2
+w 0 2a db
+w 0 2c 00
+s 2
+w 0 2a de
+w 0 2c 08
+s 2
+w 0 2a e2
+w 0 2c 00
+s 2
+w 0 2a e5
+w 0 2c 08
+s 2
+w 0 2a e9
+w 0 2c 00
+s 2
+w 0 2a ec
+w 0 2c 08
+s 2
+w 0 2a f0
+w 0 2c 00
+s 2
+w 0 2a f3
+w 0 2c 08
+s 2
+w 0 2a f7
+w 0 2c 00
+s 2
+w 0 2a fa
+w 0 2c 08
+s 2
+w 0 2a fe
+w 0 2c 00
+s 2
+w 0 2a 01
+w 0 2c 08
+s 2
+w 0 2a 05
+w 0 2c 00
+s 2
+w 0 2a 08
+w 0 2c 08
+s 2
+w 0 2a 0c
+w 0 2c 00
+s 2
+w 0 2a 0f
+w 0 2c 08
+s 2
+w 0 2a 13
+w 0 2c 00
+s 2
+w 0 2a 16
+w 0 2c 08
+s 2
+w 0 2a 1a
+w 0 2c 00
+s 2
+w 0 2a 1d
+w 0 2c 08
+s 2
+w 0 2a 21
+w 0 2c 00
+s 2
+w 0 2a 24
+w 0 2c 08
+s 2
+w 0 2a 28
+w 0 2c 00
+s 2
+w 0 2a 2b
+w 0 2c 08
+s 2
+w 0 2a 2f
+w 0 2c 00
+s 2
+w 0 2a 32
+w 0 2c 08
+s 2
+w 0 2a 36
+w 0 2c 00
+s 2
+w 0 2a 39
+w 0 2c 08
+s 2
+w 0 2a 3d
+w 0 2c 00
+s 2
+w 0 2a 40
+w 0 2c 08
+s 2
+w 0 2a 44
+w 0 2c 00
+s 2
+w 0 2a 47
+w 0 2c 08
+s 2
+w 0 2a 4b
+w 0 2c 00
+s 2
+w 0 2a 4e
+w 0 2c 08
+s 2
+w 0 2a 52
+w 0 2c 00
+s 2
+w 0 2a 55
+w 0 2c 08
+s 2
+w 0 2a 59
+w 0 2c 00
+s 2
+w 0 2a 5c
+w 0 2c 08
+s 2
+w 0 2a 60
+w 0 2c 00
+s 2
+w 0 2a 63
+w 0 2c 08
+s 2
+w 0 2a 67
+w 0 2c 00
+s 2
+w 0 2a 6a
+w 0 2c 08
+s 2
+w 0 2a 6e
+w 0 2c 00
+s 2
+w 0 2a 71
+w 0 2c 08
+s 2
+w 0 2a 75
+w 0 2c 00
+s 2
+w 0 2a 78
+w 0 2c 08
+s 2
+w 0 2a 7c
+w 0 2c 00
+s 2
+w 0 2a 7f
+w 0 2c 08
+s 2
+w 0 2a 83
+w 0 2c 00
+s 2
+w 0 2a 86
+w 0 2c 08
+s 2
+w 0 2a 8a
+w 0 2c 00
+s 2
+w 0 2a 8d
+w 0 2c 08
+s 2
+w 0 2a 91
+w 0 2c 00
+s 2
+w 0 2a 94
+w 0 2c 08
+s 2
+w 0 2a 98
+w 0 2c 00
+s 2
+w 0 2a 9b
+w 0 2c 08
+s 2
+w 0 2a 9f
+w 0 2c 00
+s 2
+w 0 2a a2
+w 0 2c 08
+s 2
+w 0 2a a6
+w 0 2c 00
+s 2
+w 0 2a a9
+w 0 2c 08
+s 2
+w 0 2a ad
+w 0 2c 00
+s 2
+w 0 2a b0
+w 0 2c 08
+s 2
+w 0 2a b4
+w 0 2c 00
+s 2
+w 0 2a b7
+w 0 2c 08
+s 2
+w 0 2a bb
+w 0 2c 00
+s 2
+w 0 2a be
+w 0 2c 08
+s 2
+w 0 2a c2
+w 0 2c 00
+s 2
+w 0 2a c5
+w 0 2c 08
+s 2
+w 0 2a c9
+w 0 2c 00
+s 2
+w 0 2a cc
+w 0 2c 08
+s 2
+w 0 2a d0
+w 0 2c 00
+s 2
+w 0 2a d3
+w 0 2c 08
+s 2
+w 0 2a d7
+w 0 2c 00
+s 2
+w 0 2a da
+w 0 2c 08
+s 2
+w 0 2a de
+w 0 2c 00
+s 2
+w 0 2a e1
+w 0 2c 08
+s 2
+w 0 2a e5
+w 0 2c 00
+s 2
+w 0 2a e8
+w 0 2c 08
+s 2
+w 0 2a ec
+w 0 2c 00
+s 2
+w 0 2a ef
+w 0 2c 08
+s 2
+w 0 2a f3
+w 0 2c 00
+s 2
+w 0 2a f6
+w 0 2c 08
+s 2
+w 0 2a fa
+w 0 2c 00
+s 2
+w 0 2a fd
+w 0 2c 08
+s 2
+w 0 2a 01
+w 0 2c 00
+s 2
+w 0 2a 04
+w 0 2c 08
+s 2
+w 0 2a 08
+w 0 2c 00
+s 2
+w 0 2a 0b
+w 0 2c 08
+s 2
+w 0 2a 0f
+w 0 2c 00
+s 2
+w 0 2a 12
+w 0 2c 08
+s 2
+w 0 2a 16
+w 0 2c 00
+s 2
+w 0 2a 19
+w 0 2c 08
+s 2
+w 0 2a 1d
+w 0 2c 00
+s 2
+w 0 2a 20
+w 0 2c 08
+s 2
+w 0 2a 24
+w 0 2c 00
+s 2
+w 0 2a 27
+w 0 2c 08
+s 2
+w 0 2a 2b
+w 0 2c 00
+s 2
+w 0 2a 2e
+w 0 2c 08
+s 2
+w 0 2a 32
+w 0 2c 00
+s 2
+w 0 2a 35
+w 0 2c 08
+s 2
+w 0 2a 39
+w 0 2c 00
+s 2
+w 0 2a 3c
+w 0 2c 08
+s 2
+w 0 2a 40
+w 0 2c 00
+s 2
+w 0 2a 43
+w 0 2c 08
+s 2
+w 0 2a 47
+w 0 2c 00
+s 2
+w 0 2a 4a
+w 0 2c 08
+s 2
+w 0 2a 4e
+w 0 2c 00
+s 2
+w 0 2a 51
+w 0 2c 08
+s 2
+w 0 2a 55
+w 0 2c 00
+s 2
+w 0 2a 58
+w 0 2c 08
+s 2
+w 0 2a 5c
+w 0 2c 00
+s 2
+w 0 2a 5f
+w 0 2c 08
+s 2
+w 0 2a 63
+w 0 2c 00
+s 2
+w 0 2a 66
+w 0 2c 08
+s 2
+w 0 2a 6a
+w 0 2c 00
+s 2
+w 0 2a 6d
+w 0 2c 08
+s 2
+w 0 2a 71
+w 0 2c 00
+s 2
+w 0 2a 74
+w 0 2c 08
+s 2
+w 0 2a 78
+w 0 2c 00
+s 2
+w 0 2a 7b
+w 0 2c 08
+s 2
+w 0 2a 7f
+w 0 2c 00
+s 2
+w 0 2a 82
+w 0 2c 08
+s 2
+w 0 2a 86
+w 0 2c 00
+s 2
+w 0 2a 89
+w 0 2c 08
+s 2
+w 0 2a 8d
+w 0 2c 00
+s 2
+w 0 2a 90
+w 0 2c 08
+s 2
+w 0 2a 94
+w 0 2c 00
+s 2
+w 0 2a 97
+w 0 2c 08
+s 2
+w 0 2a 9b
+w 0 2c 00
+s 2
+w 0 2a 9e
+w 0 2c 08
+s 2
+w 0 2a a2
+w 0 2c 00
+s 2
+w 0 2a a5
+w 0 2c 08
+s 2
+w 0 2a a9
+w 0 2c 00
+s 2
+w 0 2a ac
+w 0 2c 08
+s 2
+w 0 2a b0
+w 0 2c 00
+s 2
+w 0 2a b3
+w 0 2c 08
+s 2
+w 0 2a b7
+w 0 2c 00
+s 2
+w 0 2a ba
+w 0 2c 08
+s 2
+w 0 2a be
+w 0 2c 00
+s 2
+w 0 2a c1
+w 0 2c 08
+s 2
+w 0 2a c5
+w 0 2c 00
+s 2
+w 0 2a c8
+w 0 2c 08
+s 2
+w 0 2a cc
+w 0 2c 00
+s 2
+w 0 2a cf
+w 0 2c 08
+s 2
+w 0 2a d3
+w 0 2c 00
+s 2
+w 0 2a d6
+w 0 2c 08
+s 2
+w 0 2a da
+w 0 2c 00
+s 2
+w 0 2a dd
+w 0 2c 08
+s 2
+w 0 2a e1
+w 0 2c 00
+s 2
+w 0 2a e4
+w 0 2c 08
+s 2
+w 0 2a e8
+w 0 2c 00
+s 2
+w 0 2a eb
+w 0 2c 08
+s 2
+w 0 2a ef
+w 0 2c 00
+s 2
+w 0 2a f2
+w 0 2c 08
+s 2
+w 0 2a f6
+w 0 2c 00
+s 2
+w 0 2a f9
+w 0 2c 08
+s 2
+w 0 2a fd
+w 0 2c 00
+s 2
+w 0 2a 00
+w 0 2c 08
+s 2
+w 0 2a 04
+w 0 2c 00
+s 2
+w 0 2a 07
+w 0 2c 08
+s 2
+w 0 2a 0b
+w 0 2c 00
+s 2
+w 0 2a 0e
+w 0 2c 08
+s 2
+w 0 2a 12
+w 0 2c 00
+s 2
+w 0 2a 15
+w 0 2c 08
+s 2
+w 0 2a 19
+w 0 2c 00
+s 2
+w 0 2a 1c
+w 0 2c 08
+s 2
+w 0 2a 20
+w 0 2c 00
+s 2
+w 0 2a 23
+w 0 2c 08
+s 2
+w 0 2a 27
+w 0 2c 00
+s 2
+w 0 2a 2a
+w 0 2c 08
+s 2
+w 0 2a 2e
+w 0 2c 00
+s 2
+w 0 2a 31
+w 0 2c 08
+s 2
+w 0 2a 35
+w 0 2c 00
+s 2
+w 0 2a 38
+w 0 2c 08
+s 2
+w 0 2a 3c
+w 0 2c 00
+s 2
+w 0 2a 3f
+w 0 2c 08
+s 2
+w 0 2a 43
+w 0 2c 00
+s 2
+w 0 2a 46
+w 0 2c 08
+s 2
+w 0 2a 4a
+w 0 2c 00
+s 2
+w 0 2a 4d
+w 0 2c 08
+s 2
+w 0 2a 51
+w 0 2c 00
+s 2
+w 0 2a 54
+w 0 2c 08
+s 2
+w 0 2a 58
+w 0 2c 00
+s 2
+w 0 2a 5b
+w 0 2c 08
+s 2
+w 0 2a 5f
+w 0 2c 00
+s 2
+w 0 2a 62
+w 0 2c 08
+s 2
+w 0 2a 66
+w 0 2c 00
+s 2
+w 0 2a 69
+w 0 2c 08
+s 2
+w 0 2a 6d
+w 0 2c 00
+s 2
+w 0 2a 70
+w 0 2c 08
+s 2
+w 0 2a 74
+w 0 2c 00
+s 2
+w 0 2a 77
+w 0 2c 08
+s 2
+w 0 2a 7b
+w 0 2c 00
+s 2
+w 0 2a 7e
+w 0 2c 08
+s 2
+w 1 b6 c0
+w 0 2a 40
+s 1065
+w 0 2b 00
+s 5327
+w 0 28 00
+w 0 28 06
+s 1598

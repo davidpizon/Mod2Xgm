@@ -1,0 +1,37 @@
+# YM3438 probe: sine
+# Operator 4 alone (algorithm 7) at 440 Hz, block 4: held, then released at rate 8.
+w 0 b0 07
+w 0 30 01
+w 0 40 7f
+w 0 50 1f
+w 0 60 00
+w 0 70 00
+w 0 80 0f
+w 0 90 00
+w 0 38 01
+w 0 48 7f
+w 0 58 1f
+w 0 68 00
+w 0 78 00
+w 0 88 0f
+w 0 98 00
+w 0 34 01
+w 0 44 7f
+w 0 54 1f
+w 0 64 00
+w 0 74 00
+w 0 84 0f
+w 0 94 00
+w 0 3c 01
+w 0 4c 00
+w 0 5c 1f
+w 0 6c 00
+w 0 7c 00
+w 0 8c 08
+w 0 9c 00
+w 0 a4 24
+w 0 a0 3b
+w 0 28 f0
+s 13317
+w 0 28 00
+s 5327

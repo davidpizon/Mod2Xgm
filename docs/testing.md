@@ -22,6 +22,9 @@ Test projects live in **`tests/`**, one folder each (see [`tests/README.md`](../
    under `tests/golden/`. Updating goldens is a deliberate act (`UPDATE_GOLDEN=1 dotnet test`). Tests compare
    through `tests/Mod2Xgm.Tests/Golden.cs`, which finds the folder from the repo root and ignores CR/LF
    differences (Windows checkouts get CRLF). First goldens: console report sections 1–2 (`tests/golden/report/`).
+   The YM3438 probes (plan T7.2, `tests/golden/ym3438/`, [ADR 0056](adr/0056-ym3438-model.md)) are register-write
+   scripts built by `Ym3438Probes`; the port must play each one exactly as ymfm does and within a log-mel bar of
+   Nuked-OPN2. Their reference outputs are made by `tools/ym3438-reference/run.sh`, as their README says.
 5. **CLI tests** — argument parsing (incl. `--ignore-samples` lists, ranges, hex), output naming, exit
    codes, no overwrite without `--force`, console report content (metadata, empty-slot names, statuses).
 

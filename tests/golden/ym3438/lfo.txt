@@ -1,0 +1,58 @@
+# YM3438 probe: lfo
+# Tremolo and vibrato at full depth on a two-operator voice, LFO rates 0-7, then the LFO off while an operator
+# still has AM on (it stays attenuated).
+w 0 b0 14
+w 0 30 02
+w 0 40 1c
+w 0 50 1f
+w 0 60 8c
+w 0 70 03
+w 0 80 48
+w 0 90 00
+w 0 38 01
+w 0 48 00
+w 0 58 1f
+w 0 68 80
+w 0 78 00
+w 0 88 08
+w 0 98 00
+w 0 34 01
+w 0 44 7f
+w 0 54 1f
+w 0 64 00
+w 0 74 00
+w 0 84 0f
+w 0 94 00
+w 0 3c 01
+w 0 4c 7f
+w 0 5c 1f
+w 0 6c 00
+w 0 7c 00
+w 0 8c 0f
+w 0 9c 00
+w 0 b4 f7
+w 0 a4 24
+w 0 a0 3b
+w 0 28 30
+w 0 22 08
+s 3196
+w 0 22 09
+s 3196
+w 0 22 0a
+s 3196
+w 0 22 0b
+s 3196
+w 0 22 0c
+s 3196
+w 0 22 0d
+s 3196
+w 0 22 0e
+s 3196
+w 0 22 0f
+s 3196
+w 0 b4 e3
+s 2663
+w 0 22 00
+s 2663
+w 0 28 00
+s 1065
