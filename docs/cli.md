@@ -29,6 +29,7 @@ mod2xgm <input.mod> [options]
 | `--seed <n>` | 0 | Optimizer seed; same input + options + seed → same output. |
 | `--no-cache` | off | Don't read or write the fitted-patch cache. |
 | `--reserve-sfx-channels <n>` | 0 | Leave n PCM channels free for game sound effects (XGM ≤ 4, XGM2 ≤ 3). |
+| `--render-wav [path]` | off | Also write a WAV of a Genesis playing the conversion: 16-bit stereo, 44.1 kHz, rendered in-app on the chip models with the output format's PCM driver ([ADR 0059](adr/0059-genesis-renderer.md)). Without a path it goes next to the output as `song.genesis.wav`. Same checks as the output file (see [Output naming](#output-naming)). Works with `--info` (only the WAV is written). With `--format xgm`/`xgm2` the WAV is written but no song file, and the exit code stays 1. Put it **after** the input or give a path: `mod2xgm --render-wav song.mod` takes `song.mod` as the WAV's path. |
 | `--info` | off | Dry run: read, report and convert in memory (all report sections and conversion notes), but write no output file. |
 | `--force` | off | Overwrite an existing output file. |
 | `-v, --verbose` | off | Also print `Debug`-level detail (per-channel mapping, sample processing). |
@@ -73,6 +74,9 @@ Checks before converting (`src/ConversionCommand.cs`):
 | Writing the output fails (I/O error, read-only file) | 4 |
 
 With `--info` no file is written, so the output checks are skipped.
+
+`--render-wav` makes a second output: `song.genesis.wav` next to the output, or the path given. It goes through the same
+checks (exit 4), is checked with `--info` too, and may not be the song file itself (exit 4).
 
 ## Regions
 

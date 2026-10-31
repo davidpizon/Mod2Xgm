@@ -97,6 +97,8 @@ internal static class OptionsBinder
             Seed = parseResult.GetValue(definition.Seed),
             NoCache = parseResult.GetValue(definition.NoCache),
             ReserveSfxChannels = reserveSfx,
+            RenderWav = parseResult.GetResult(definition.RenderWav) is not null,
+            RenderWavPath = parseResult.GetValue(definition.RenderWav),
             InfoOnly = parseResult.GetValue(definition.Info),
             Force = parseResult.GetValue(definition.Force),
             Verbose = parseResult.GetValue(definition.Verbose),

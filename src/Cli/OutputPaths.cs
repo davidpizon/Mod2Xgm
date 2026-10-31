@@ -25,6 +25,21 @@ internal static class OutputPaths
         return Path.ChangeExtension(input, ExtensionFor(options.Format));
     }
 
+    /// <summary>The extension of the default <c>--render-wav</c> file, after the output's base name.</summary>
+    private const string RenderWavExtension = ".genesis.wav";
+
+    /// <summary>
+    /// The full path of the <c>--render-wav</c> file: the path given with it, otherwise <paramref name="output"/> (the
+    /// resolved output path) with <see cref="RenderWavExtension"/> in place of its extension.
+    /// </summary>
+    public static string ResolveRenderWav(ConversionOptions options, string output)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        return !string.IsNullOrWhiteSpace(options.RenderWavPath)
+            ? Path.GetFullPath(options.RenderWavPath)
+            : Path.ChangeExtension(output, RenderWavExtension);
+    }
+
     /// <summary>Whether two full paths name the same file on this platform's file system.</summary>
     public static bool SameFile(string first, string second) =>
         string.Equals(

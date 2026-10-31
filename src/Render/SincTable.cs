@@ -76,10 +76,10 @@ internal sealed class SincTable
     }
 
     /// <summary>sin(πx) / (πx), 1 at 0.</summary>
-    private static double Sinc(double x) => Math.Abs(x) < 1e-12 ? 1 : Math.Sin(Math.PI * x) / (Math.PI * x);
+    internal static double Sinc(double x) => Math.Abs(x) < 1e-12 ? 1 : Math.Sin(Math.PI * x) / (Math.PI * x);
 
     /// <summary>The Kaiser window with <paramref name="beta"/> at <paramref name="x"/> (−1 … +1 across the filter; 0 outside).</summary>
-    private static double Kaiser(double beta, double x) => Math.Abs(x) >= 1 ? 0 : BesselI0(beta * Math.Sqrt(1 - (x * x))) / BesselI0(beta);
+    internal static double Kaiser(double beta, double x) => Math.Abs(x) >= 1 ? 0 : BesselI0(beta * Math.Sqrt(1 - (x * x))) / BesselI0(beta);
 
     /// <summary>The modified Bessel function of the first kind, order 0, by its power series.</summary>
     private static double BesselI0(double x)

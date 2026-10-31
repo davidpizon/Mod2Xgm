@@ -61,6 +61,12 @@ internal sealed record ConversionOptions
     public int Seed { get; init; }
     public bool NoCache { get; init; }
     public int ReserveSfxChannels { get; init; }
+
+    /// <summary>True when a WAV of the Genesis render is written too (<c>--render-wav</c>, docs/adr/0059-genesis-renderer.md).</summary>
+    public bool RenderWav { get; init; }
+
+    /// <summary>Where the WAV goes (<c>--render-wav path</c>), or <c>null</c> for next to the output.</summary>
+    public string? RenderWavPath { get; init; }
     public bool InfoOnly { get; init; }
     public bool Force { get; init; }
     public bool Verbose { get; init; }

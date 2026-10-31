@@ -1,7 +1,10 @@
+using System.Globalization;
 using Mod2Xgm.Cli;
 using Mod2Xgm.Render;
 using Mod2Xgm.Scoring;
+using Serilog;
 using Serilog.Core;
+using Serilog.Events;
 
 namespace Mod2Xgm.Harness.Tests;
 
@@ -160,6 +163,25 @@ public sealed class RendererTests
         Assert.Contains(render.Audio.Left, s => Math.Abs(s) > 0.05f);
     }
 
+    /// <summary>The Genesis renderer plays the conversion's plan in OpenMPT's time, so it is scored unaligned; its speed goes to the log.</summary>
+    [Fact]
+    public void GenesisRendererCheckRendersThePlan()
+    {
+        MessageSink sink = new();
+        using Logger logger = new LoggerConfiguration().WriteTo.Sink(sink).CreateLogger();
+        GenesisRendererCheck check = new(8000, logger);
+
+        CandidateRender render = check.Render(new SongFiles("fx-poly1", TestFiles.ShortSong, "unused.dmf", "unused"));
+
+        Assert.Equal(GenesisRendererCheck.RendererName, check.Name);
+        Assert.Null(render.Remark);
+        Assert.True(render.InReferenceTime);
+        Assert.Equal(8000, render.Audio.SampleRate);
+        Assert.Equal(30.72, render.Audio.Seconds, 0.05);
+        Assert.Contains(render.Audio.Left, s => Math.Abs(s) > 0.05f);
+        Assert.Contains(sink.Messages, m => m.Contains("real time", StringComparison.Ordinal));
+    }
+
     /// <summary>Only the in-app renderer's scores are held to the bar, and only above it.</summary>
     [Fact]
     public void OnlyTheModRendererIsHeldToTheBar()
@@ -171,5 +193,15 @@ public sealed class RendererTests
         Assert.False(ModRendererCheck.OverTheBar(Score(ModRendererCheck.RendererName, 1.25)));
         Assert.False(ModRendererCheck.OverTheBar(Score("furnace", 9)));
         Assert.False(ModRendererCheck.OverTheBar(new CandidateScore(ModRendererCheck.RendererName, null, "failed")));
+    }
+
+    /// <summary>Keeps every log message, rendered.</summary>
+    private sealed class MessageSink : ILogEventSink
+    {
+        /// <summary>The messages, in order.</summary>
+        public List<string> Messages { get; } = [];
+
+        /// <inheritdoc/>
+        public void Emit(LogEvent logEvent) => Messages.Add(logEvent.RenderMessage(CultureInfo.InvariantCulture));
     }
 }

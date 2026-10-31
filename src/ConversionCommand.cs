@@ -1,15 +1,18 @@
+using System.Diagnostics;
 using Mod2Xgm.Cli;
 using Mod2Xgm.Dmf;
 using Mod2Xgm.Mapping;
 using Mod2Xgm.Mod;
 using Mod2Xgm.Model;
+using Mod2Xgm.Render;
 using Serilog;
 
 namespace Mod2Xgm;
 
 /// <summary>
 /// Runs one conversion: checks the paths, reads the MOD, prints the report, maps the song with the simple mapper and
-/// writes the DMF (docs/architecture.md). Every stage reports its lossy decisions to the conversion notes.
+/// writes the DMF (docs/architecture.md); with <c>--render-wav</c> it also renders the plan on the Genesis model and
+/// writes the WAV (docs/adr/0059-genesis-renderer.md). Every stage reports its lossy decisions to the conversion notes.
 /// </summary>
 internal static class ConversionCommand
 {
@@ -28,9 +31,20 @@ internal static class ConversionCommand
         CheckInput(input);
 
         string output = OutputPaths.Resolve(options);
-        if (!options.InfoOnly)
+        bool writesSong = !options.InfoOnly && (options.Format == OutputFormat.Dmf || !options.RenderWav);
+        if (writesSong)
         {
             CheckOutput(input, output, options.Force);
+        }
+
+        string? wav = options.RenderWav ? OutputPaths.ResolveRenderWav(options, output) : null;
+        if (wav is not null)
+        {
+            CheckOutput(input, wav, options.Force);
+            if (writesSong && OutputPaths.SameFile(wav, output))
+            {
+                throw new ConversionException(ExitCode.OutputNotWritable, $"The WAV would overwrite the output file: {wav}");
+            }
         }
 
         ConversionNotes notes = new(logger);
@@ -65,6 +79,32 @@ internal static class ConversionCommand
             plan.Patterns.Count,
             plan.FmPatches.Count,
             plan.DacSamples.Count);
+        if (options.Format == OutputFormat.Dmf)
+        {
+            WriteDmf(options, output, song, plan, notes, logger);
+        }
+
+        if (wav is not null)
+        {
+            RenderWav(options, wav, module, song, plan, notes, logger);
+        }
+
+        logger.Information(
+            "{Input} -> {Output} ({NoteCount} conversion notes)",
+            Path.GetFileName(input),
+            options.Format != OutputFormat.Dmf ? "(no song file: only the WAV render)" : options.InfoOnly ? "(--info: no file written)" : output,
+            notes.Count);
+        if (options.Format != OutputFormat.Dmf)
+        {
+            throw new ConversionException(ExitCode.UsageError, $"{FormatUnavailable(options.Format)} Only the WAV render was written: {wav}");
+        }
+
+        return ExitCode.Success;
+    }
+
+    /// <summary>Plans the DMF's timing, builds it, prints report section 3 and writes the file (unless <c>--info</c>).</summary>
+    private static void WriteDmf(ConversionOptions options, string output, Song song, GenesisPlan plan, ConversionNotes notes, ILogger logger)
+    {
         DmfTimingPlan timing = DmfTimingPlanner.Plan(plan, options.AmigaTickRateScale, options.OutputRegion, notes);
         logger.Debug(
             "DMF timing: {TickRateHz} Hz, {TicksPerSourceTick} DMF ticks per MOD tick, length off by {LengthError:P2}",
@@ -80,14 +120,41 @@ internal static class ConversionCommand
         {
             WriteOutput(output, bytes, options.Force);
         }
-
-        logger.Information(
-            "{Input} -> {Output} ({NoteCount} conversion notes)",
-            Path.GetFileName(input),
-            options.InfoOnly ? "(--info: no file written)" : output,
-            notes.Count);
-        return ExitCode.Success;
     }
+
+    /// <summary>
+    /// Plays the song with the tick player, renders the plan on the Genesis model with the format's PCM driver and writes
+    /// the WAV (<c>--render-wav</c>; written with <c>--info</c> too), saying how long the render took.
+    /// </summary>
+    private static void RenderWav(ConversionOptions options, string wav, ModModule module, Song song, GenesisPlan plan, ConversionNotes notes, ILogger logger)
+    {
+        Playback playback = ModTickPlayer.Play(module, options.AmigaClockHz, options.AmigaTickRateScale, notes);
+        PcmDriver driver = options.Format switch
+        {
+            OutputFormat.Xgm => PcmDriver.Xgm,
+            OutputFormat.Xgm2 => PcmDriver.Xgm2,
+            _ => PcmDriver.Dmf,
+        };
+        Stopwatch clock = Stopwatch.StartNew();
+        StereoAudio audio = GenesisRenderer.Render(plan, song, playback, new GenesisRenderOptions(driver, options.OutputRegion, RenderWavRate, options.Resampler), notes);
+        clock.Stop();
+        int clipped = WavEncoder.ClippedSamples(audio);
+        if (clipped > 0)
+        {
+            notes.Add("The WAV render goes past full scale on {Count} samples, which are clipped", clipped);
+        }
+
+        WriteOutput(wav, WavEncoder.Encode(audio), options.Force);
+        logger.Information(
+            "Rendered {Seconds:0.0} s of Genesis sound ({Driver} PCM) in {Elapsed:0.0} s: {Wav}",
+            audio.Seconds,
+            driver,
+            clock.Elapsed.TotalSeconds,
+            wav);
+    }
+
+    /// <summary>The <c>--render-wav</c> file's sample rate.</summary>
+    private const int RenderWavRate = 44_100;
 
     /// <summary>
     /// Only DMF can be written yet (XGM2 is plan M10, XGM M11). Runs after report sections 1–2, so they are printed for
@@ -105,11 +172,19 @@ internal static class ConversionCommand
             logger.Information(Xgm2ExtensionNote);
         }
 
-        string name = options.Format == OutputFormat.Xgm2 ? "xgm2" : "xgm";
-        throw new ConversionException(
-            ExitCode.UsageError,
-            $"--format {name} isn't available yet: this version writes DMF only (XGM2 comes with plan M10, XGM with M11).");
+        if (options.RenderWav)
+        {
+            // The renderer has the format's PCM driver already: the WAV is made, then the run fails for the missing writer.
+            logger.Information("{Message:l} With --render-wav, the Genesis render is still made.", FormatUnavailable(options.Format));
+            return;
+        }
+
+        throw new ConversionException(ExitCode.UsageError, FormatUnavailable(options.Format));
     }
+
+    /// <summary>Why <paramref name="format"/> can't be written yet.</summary>
+    private static string FormatUnavailable(OutputFormat format) =>
+        $"--format {(format == OutputFormat.Xgm2 ? "xgm2" : "xgm")} isn't available yet: this version writes DMF only (XGM2 comes with plan M10, XGM with M11).";
 
     /// <summary>The line every <c>--format xgm2</c> run prints, verbatim (docs/cli.md#console-output).</summary>
     private const string Xgm2ExtensionNote = "NOTE: SGDK expects XGM2 files to use the .XGM file extension.";

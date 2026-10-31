@@ -159,6 +159,9 @@ internal static class DmfSongBuilder
     private static DmfSampleSource SampleSource(DacVariant variant, GenesisPlan plan) =>
         new(plan.DacSamples[variant.Dac].Sample, variant.Offset, variant.VolumeSteps * DmfPatternTranslator.DacVolumeStepDb);
 
+    /// <summary>The rate DefleMask plays a DAC sample of rate <paramref name="rateHz"/> at: its rate code's (<see cref="RateCodeFor"/>).</summary>
+    public static int DacRateHz(double rateHz) => RatesHz[RateCodeFor(rateHz)];
+
     /// <summary>The rate code a sample playing at <paramref name="rateHz"/> is stored at: the lowest rate that loses nothing, at most 32 kHz.</summary>
     public static int RateCodeFor(double rateHz)
     {

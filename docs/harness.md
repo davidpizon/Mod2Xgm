@@ -24,6 +24,10 @@ For each MOD (the corpus in `tests/data/corpus/` by default):
      conversion. The report then says *stale* if the converter has changed since the export.
    - **mod-renderer**: the converter's own MOD renderer (plan T7.1) plays the *original* MOD, not the conversion, as a
      check that the optimizer's reference sounds like libopenmpt ([below](#in-app-mod-renderer)).
+   - **genesis**: the converter's own Genesis renderer (plan T7.5, [ADR 0059](adr/0059-genesis-renderer.md)) plays the
+     conversion's plan on the chip models with the DMF's DAC, in OpenMPT's tick lengths, so it is scored without
+     alignment like `mod-renderer`. The log gives each song's render time (`genesis rendered 70.4 s in 2.05 s (34x real
+     time)`); the report leaves it out, so reports don't depend on the machine.
    - Emulator captures of XGM/XGM2 ROMs join here when those writers exist (plans M10/M11).
 5. **Scores.** Each rendering is resampled to the scoring rate if needed, mixed to mono and compared with the reference
    by `SongScorer` ([ADR 0042](adr/0042-scoring-metrics.md)): log-mel distance (dB), MFCC distance, note-start

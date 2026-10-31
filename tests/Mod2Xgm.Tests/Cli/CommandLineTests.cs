@@ -350,4 +350,21 @@ public sealed class CommandLineTests
         Assert.Equal(ExitCode.UsageError, result.Code);
         Assert.Contains($"{option}: Sample '40' is out of range", result.Error, StringComparison.Ordinal);
     }
+
+    /// <summary><c>--render-wav</c> is off by default; given alone it asks for the default path, given a value it takes that path.</summary>
+    [Fact]
+    public void RenderWavTakesAnOptionalPath()
+    {
+        ConversionOptions none = Assert.IsType<ConversionOptions>(Run("song.mod").Options);
+        ConversionOptions bare = Assert.IsType<ConversionOptions>(Run("song.mod", "--render-wav").Options);
+        ConversionOptions path = Assert.IsType<ConversionOptions>(Run("--render-wav", "out.wav", "song.mod").Options);
+
+        Assert.False(none.RenderWav);
+        Assert.True(bare.RenderWav);
+        Assert.Null(bare.RenderWavPath);
+        Assert.Equal("song.mod", bare.InputPath);
+        Assert.True(path.RenderWav);
+        Assert.Equal("out.wav", path.RenderWavPath);
+        Assert.Equal("song.mod", path.InputPath);
+    }
 }

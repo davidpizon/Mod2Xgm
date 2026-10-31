@@ -55,4 +55,16 @@ public sealed class OutputPathsTests
         Assert.True(OutputPaths.SameFile(file, Path.Combine(temp.Path, ".", "a.mod")));
         Assert.False(OutputPaths.SameFile(file, temp.Combine("b.mod")));
     }
+
+    /// <summary>The <c>--render-wav</c> file goes next to the output as <c>name.genesis.wav</c>, or where the option says.</summary>
+    [Fact]
+    public void RenderWavIsNextToTheOutputUnlessGiven()
+    {
+        using TempDirectory temp = new();
+        ConversionOptions options = new() { InputPath = temp.Combine("song.mod"), RenderWav = true };
+        ConversionOptions given = options with { RenderWavPath = temp.Combine("x.wav") };
+
+        Assert.Equal(temp.Combine("out.genesis.wav"), OutputPaths.ResolveRenderWav(options, temp.Combine("out.dmf")));
+        Assert.Equal(temp.Combine("x.wav"), OutputPaths.ResolveRenderWav(given, temp.Combine("out.dmf")));
+    }
 }
