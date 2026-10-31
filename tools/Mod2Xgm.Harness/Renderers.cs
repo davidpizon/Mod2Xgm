@@ -1,5 +1,7 @@
 using System.Diagnostics;
 using System.Globalization;
+using Mod2Xgm.Cli;
+using Mod2Xgm.Mapping;
 using Mod2Xgm.Mod;
 using Mod2Xgm.Model;
 using Mod2Xgm.Render;
@@ -168,6 +170,49 @@ internal sealed class ModRendererCheck(int sampleRate) : ICandidateRenderer
         Playback playback = ModTickPlayer.Play(module, AmigaPitch.PalClockHz, 1.0, silent);
         ModRenderOptions options = new(sampleRate) { TickDurations = OpenMptTiming.TickDurations(playback, sampleRate, tempoOnItsTick: false) };
         return new CandidateRender(ModRenderer.Render(model, playback, options), null, InReferenceTime: true);
+    }
+}
+
+/// <summary>
+/// The converter's own Genesis renderer (plan T7.5, docs/adr/0059-genesis-renderer.md) playing the conversion's plan with
+/// the DMF's DAC: the steps of the default conversion, then the tick player's playback with OpenMPT's tick lengths at
+/// the render rate (as <see cref="ModRendererCheck"/>), so it keeps the reference's time and the score measures the
+/// sound. How fast it rendered goes to the log, not the reports, which never depend on the machine.
+/// </summary>
+/// <param name="sampleRate">The rate to render at: the harness's scoring rate.</param>
+/// <param name="logger">Where the render's speed is logged.</param>
+internal sealed class GenesisRendererCheck(int sampleRate, Serilog.ILogger logger) : ICandidateRenderer
+{
+    /// <summary>The renderer's name in the reports.</summary>
+    public const string RendererName = "genesis";
+
+    /// <inheritdoc />
+    public string Name => RendererName;
+
+    /// <inheritdoc/>
+    public CandidateRender Render(SongFiles song)
+    {
+        ArgumentNullException.ThrowIfNull(song);
+        ConversionOptions options = new() { InputPath = song.ModPath };
+        ConversionNotes silent = new(Logger.None);
+        ModModule module = ModReader.Read(File.ReadAllBytes(song.ModPath), silent, options.Player);
+        Song model = ModToSong.Convert(module, options.AmigaClockHz, silent);
+        GenesisPlan plan = new SimpleMapper().Map(model, MappingOptions.From(options), silent);
+        Playback playback = ModTickPlayer.Play(module, options.AmigaClockHz, options.AmigaTickRateScale, silent);
+        GenesisRenderOptions render = new(PcmDriver.Dmf, options.OutputRegion, sampleRate, options.Resampler)
+        {
+            TickDurations = OpenMptTiming.TickDurations(playback, sampleRate, tempoOnItsTick: false),
+        };
+        Stopwatch clock = Stopwatch.StartNew();
+        StereoAudio audio = GenesisRenderer.Render(plan, model, playback, render, silent);
+        clock.Stop();
+        logger.Information(
+            "{Song}: genesis rendered {Seconds:0.0} s in {Elapsed:0.00} s ({Speed:0}x real time)",
+            song.Name,
+            audio.Seconds,
+            clock.Elapsed.TotalSeconds,
+            audio.Seconds / Math.Max(clock.Elapsed.TotalSeconds, 1e-6));
+        return new CandidateRender(audio, null, InReferenceTime: true);
     }
 }
 

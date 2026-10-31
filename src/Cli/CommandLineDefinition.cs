@@ -114,6 +114,12 @@ internal sealed class CommandLineDefinition
         Description = "PCM channels to leave free for game sound effects (XGM up to 4, XGM2 up to 3).",
     };
 
+    public Option<string?> RenderWav { get; } = new("--render-wav")
+    {
+        Description = "Also write a WAV of the Genesis playing the conversion (default: next to the output, as name.genesis.wav).",
+        Arity = ArgumentArity.ZeroOrOne,
+    };
+
     public Option<bool> Info { get; } = new("--info")
     {
         Description = "Dry run: print the report and conversion notes but write no file.",
@@ -157,6 +163,7 @@ internal sealed class CommandLineDefinition
             Seed,
             NoCache,
             ReserveSfxChannels,
+            RenderWav,
             Info,
             Force,
             Verbose,

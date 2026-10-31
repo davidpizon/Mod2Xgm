@@ -455,4 +455,66 @@ public sealed class ConversionCommandTests
             File.SetAttributes(output, FileAttributes.Normal);
         }
     }
+
+    /// <summary><c>--render-wav</c> writes the DMF and, next to it, a WAV of the Genesis render, and says how long the render took.</summary>
+    [Fact]
+    public void RenderWavWritesAWavNextToTheOutput()
+    {
+        using TempDirectory temp = new();
+        CollectingSink sink = new();
+
+        ExitCode code = ConversionCommand.Execute(new() { InputPath = temp.CreateFile("song.mod"), RenderWav = true }, sink.CreateLogger());
+
+        Assert.Equal(ExitCode.Success, code);
+        Assert.True(File.Exists(temp.Combine("song.dmf")));
+        byte[] wav = File.ReadAllBytes(temp.Combine("song.genesis.wav"));
+        Assert.Equal("RIFF", System.Text.Encoding.ASCII.GetString(wav, 0, 4));
+        Assert.Contains(sink.Messages(LogEventLevel.Information), m => m.StartsWith("Rendered ", StringComparison.Ordinal) && m.Contains("Dmf PCM", StringComparison.Ordinal));
+    }
+
+    /// <summary>With <c>--info</c> only the WAV is written, at the path given.</summary>
+    [Fact]
+    public void RenderWavWithInfoWritesOnlyTheWav()
+    {
+        using TempDirectory temp = new();
+
+        ConversionCommand.Execute(new() { InputPath = temp.CreateFile("song.mod"), InfoOnly = true, RenderWav = true, RenderWavPath = temp.Combine("x.wav") });
+
+        Assert.False(File.Exists(temp.Combine("song.dmf")));
+        Assert.True(File.Exists(temp.Combine("x.wav")));
+    }
+
+    /// <summary>XGM and XGM2 can't be written yet, but their drivers can be heard: the WAV is written, no song file, and the run still fails for the writer.</summary>
+    [Theory]
+    [InlineData(nameof(OutputFormat.Xgm), "xgm", "Xgm PCM")]
+    [InlineData(nameof(OutputFormat.Xgm2), "xgm2", "Xgm2 PCM")]
+    public void RenderWavPlaysTheXgmDrivers(string format, string extension, string driver)
+    {
+        using TempDirectory temp = new();
+        CollectingSink sink = new();
+        string input = temp.CreateFile("song.mod");
+        temp.CreateFile("song." + extension);
+        ConversionOptions options = new() { InputPath = input, Format = Enum.Parse<OutputFormat>(format), RenderWav = true };
+
+        ConversionException error = Assert.Throws<ConversionException>(() => ConversionCommand.Execute(options, sink.CreateLogger()));
+
+        Assert.Equal(ExitCode.UsageError, error.Code);
+        Assert.Contains("Only the WAV render was written", error.Message, StringComparison.Ordinal);
+        Assert.True(File.Exists(temp.Combine("song.genesis.wav")));
+        Assert.Contains(sink.Messages(LogEventLevel.Information), m => m.Contains(driver, StringComparison.Ordinal));
+    }
+
+    /// <summary>The WAV follows the output file's rules: no overwrite without <c>--force</c>, never the input, never the song file itself.</summary>
+    [Fact]
+    public void RenderWavFollowsTheOutputRules()
+    {
+        using TempDirectory temp = new();
+        string input = temp.CreateFile("song.mod");
+        temp.CreateFile("song.genesis.wav");
+
+        Assert.Equal(ExitCode.OutputNotWritable, CodeOf(() => ConversionCommand.Execute(new() { InputPath = input, RenderWav = true })));
+        Assert.Equal(ExitCode.Success, ConversionCommand.Execute(new() { InputPath = input, RenderWav = true, Force = true }));
+        Assert.Equal(ExitCode.OutputNotWritable, CodeOf(() => ConversionCommand.Execute(new() { InputPath = input, RenderWav = true, RenderWavPath = input, Force = true })));
+        Assert.Equal(ExitCode.OutputNotWritable, CodeOf(() => ConversionCommand.Execute(new() { InputPath = input, RenderWav = true, RenderWavPath = temp.Combine("song.dmf"), Force = true })));
+    }
 }

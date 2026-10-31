@@ -72,6 +72,7 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0056](0056-ym3438-model.md) | YM3438 model: a bit-exact ymfm port, checked against Nuked-OPN2 (T7.2) | 2026-10-30 | Accepted |
 | [0057](0057-sn76489-model.md) | SN76489 model: a bit-exact port of MAME's Sega PSG, checked against Nuked-PSG (T7.3) | 2026-10-30 | Accepted |
 | [0058](0058-pcm-driver-models.md) | PCM driver models: XGM, XGM2 and the DMF DAC as DAC register streams, from the drivers' source (T7.4) | 2026-10-30 | Accepted |
+| [0059](0059-genesis-renderer.md) | Genesis renderer: the plan played on the chip models, with Furnace's levels (T7.5) | 2026-10-31 | Accepted |
 
 ## Open questions
 

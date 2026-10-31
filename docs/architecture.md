@@ -73,6 +73,13 @@ bytes for every YM3438 sample out (`IDacSource`): ordered mixing stuck at ±127,
 each driver's DAC on/off rule. The Genesis renderer (T7.5) writes them into `Ym3438`. Checked by tests built from the
 drivers' source; T7.9 checks them against the real drivers.
 
+**GenesisRenderer** (`src/Render`, plan T7.5, [ADR 0059](adr/0059-genesis-renderer.md)) — pure C#: plays a
+`GenesisPlan` on the three models above. The plan says which channel and voice play each note; the tick player's
+`Playback` gives pitch, volume and pan per tick; `GenesisPlanPlayer` turns them into register writes and driver plays
+at the start of each tick, `GenesisChips` runs and mixes the chips at Furnace's levels, and `ChipRateResampler` brings
+the result to 44.1 kHz. Voices are measured by `PlanVoicing` (`src/Mapping`), shared with the DMF translator. Used by
+`--render-wav`, the harness's `genesis` column and, later, the optimizer.
+
 **Song (IR)** (`src/Model`, plan T3.1) — Holds what any output needs, in format-neutral units, with 0-based numbering:
 
 - `Title`; `Channels` → starting pan, −1 left … +1 right (Amiga MODs: −1, +1, +1, −1)

@@ -32,22 +32,13 @@ internal sealed class DmfPatternTranslator
     private const double DacPitchToleranceCents = 10;
 
     /// <summary>Quieter than this many steps (45 dB) a DAC note is left silent.</summary>
-    private const int MaxDacVolumeSteps = 15;
+    public const int MaxDacVolumeSteps = 15;
 
     /// <summary>Highest FM octave DefleMask plays.</summary>
     private const int MaxOctave = 7;
 
     /// <summary>Note value for "note off" (docs/formats/dmf.md#8-patterns).</summary>
     private const int NoteOff = 100;
-
-    /// <summary>A-4 (440 Hz), counted in semitones from C-0.</summary>
-    private const int A4 = 57;
-
-    /// <summary>Concert pitch of A-4.</summary>
-    private const double A4Hz = 440;
-
-    /// <summary>Without a measured pitch, an FM note is placed this many semitones above the MOD note's name (ProTracker C-2 → C-4).</summary>
-    private const int FallbackShift = 24;
 
     /// <summary>ProTracker 2 keeps periods within 113–856 (docs/formats/mod.md).</summary>
     private const double MinPeriod = 113;
@@ -59,15 +50,6 @@ internal sealed class DmfPatternTranslator
 
     /// <summary>The octave PSG noise notes are written in: only the note within the octave picks the noise rate.</summary>
     private const int NoiseOctave = 3;
-
-    /// <summary>Noise brighter than this uses the highest fixed noise rate (note D); see <see cref="NoiseNote"/>.</summary>
-    private const double BrightNoise = 0.5;
-
-    /// <summary>Noise brighter than this (but not <see cref="BrightNoise"/>) uses the middle rate (note C#); darker noise the lowest (C).</summary>
-    private const double MiddleNoise = 0.25;
-
-    /// <summary>Pan beyond this from the centre plays on one side only: the Genesis has left, right or both, nothing between.</summary>
-    private const double PanSide = 1.0 / 3;
 
     // Effect codes (docs/formats/dmf.md#effects).
     private const int ArpeggioCode = 0x00;
@@ -118,9 +100,7 @@ internal sealed class DmfPatternTranslator
     private readonly int _rows;
     private readonly int _loopTarget;
     private readonly IReadOnlyDictionary<int, int> _noiseInstruments;
-    private readonly Dictionary<int, SamplePitch> _pitches = [];
-    private readonly Dictionary<int, int> _noiseNotes = [];
-    private readonly Dictionary<(int Sample, int Patch), (double Gain, bool Limited)> _fmLevels = [];
+    private readonly PlanVoicing _voicing;
 
     /// <summary>Prepares a translation of the first <paramref name="orders"/> orders of <paramref name="plan"/>.</summary>
     /// <param name="plan">The mapped song.</param>
@@ -139,6 +119,7 @@ internal sealed class DmfPatternTranslator
         _rows = plan.Patterns.Take(orders).Select(p => p.Count).DefaultIfEmpty(1).Max();
         _loopTarget = plan.LoopOrder is { } loop && loop < orders ? loop : 0;
         _noiseInstruments = noiseInstruments;
+        _voicing = new PlanVoicing(plan, song);
     }
 
     /// <summary>Rows in every DMF pattern: the longest of the plan's.</summary>
@@ -185,69 +166,8 @@ internal sealed class DmfPatternTranslator
 
     private static PlanRow EmptyRow { get; } = new([.. Enumerable.Repeat(PlanCell.Empty, GenesisPlan.ChannelCount)], []);
 
-    /// <summary>The pitch an FM note sounds at, in semitones from C-0 with a fraction; <paramref name="measured"/> says how it was found.</summary>
-    private double HeardSemitones(NotePitch note, int sample, out bool measured)
-    {
-        if (!_pitches.TryGetValue(sample, out SamplePitch pitch))
-        {
-            pitch = SamplePitch.Measure(_song.Samples[sample]);
-            _pitches[sample] = pitch;
-        }
-
-        if (pitch.FrequencyAt(note.PlaybackRateHz) is { } hz)
-        {
-            measured = true;
-            return A4 + (12 * Math.Log2(hz / A4Hz));
-        }
-
-        measured = false;
-        return note.Semitone + FallbackShift + (note.Cents / 100);
-    }
-
-    /// <summary>The note that picks a fixed noise rate for <paramref name="sample"/>: D (fastest) for bright noise, C# for middling, C (slowest) for dark.</summary>
-    private int NoiseNote(int sample)
-    {
-        if (!_noiseNotes.TryGetValue(sample, out int note))
-        {
-            double brightness = SampleTraits.Analyze(_song.Samples[sample]).Brightness;
-            note = brightness > BrightNoise ? 2 : brightness > MiddleNoise ? 1 : 0;
-            _noiseNotes[sample] = note;
-        }
-
-        return note;
-    }
-
-    /// <summary>
-    /// The factor on the MOD volume that plays <paramref name="sample"/> on patch <paramref name="patch"/> as loud as the
-    /// MOD does (ADR 0050): the sample's level over the patch's. It is at most the patch's ceiling, full volume or lower
-    /// where the carriers would add up past full scale; <c>Limited</c> says the sample is louder than that.
-    /// </summary>
-    private (double Gain, bool Limited) FmLevel(int sample, int patch)
-    {
-        if (!_fmLevels.TryGetValue((sample, patch), out (double Gain, bool Limited) level))
-        {
-            Sample played = _song.Samples[sample];
-            FmPatch fm = _plan.FmPatches[patch];
-            double rms = VoiceLevel.Fm(fm, sustained: played.Loop is not null).Rms;
-            double peak = VoiceLevel.Fm(fm, sustained: false).Peak;
-            level = Limit(rms > 0 ? VoiceLevel.Sample(played) / rms : 1, peak > 1 ? 1 / peak : 1);
-            _fmLevels[(sample, patch)] = level;
-        }
-
-        return level;
-    }
-
-    /// <summary>The factor on the MOD volume that plays noise sample <paramref name="sample"/> as loud as the MOD does, at most 1 (ADR 0050).</summary>
-    private (double Gain, bool Limited) NoiseLevel(int sample) => Limit(VoiceLevel.Loudest(_song.Samples[sample]) / VoiceLevel.PsgNoise, 1);
-
-    /// <summary>
-    /// <paramref name="gain"/> kept at or below <paramref name="ceiling"/>. A sample too loud for its voice keeps its
-    /// dynamics: its notes at full MOD volume play at the voice's loudest, softer ones in proportion.
-    /// </summary>
-    private static (double Gain, bool Limited) Limit(double gain, double ceiling) => (Math.Min(gain, ceiling), gain > ceiling);
-
     /// <summary>The <c>08xy</c> value for a pan of −1 (left) to +1 (right).</summary>
-    private static int PanCode(double pan) => pan < -PanSide ? PanLeft : pan > PanSide ? PanRight : PanBoth;
+    private static int PanCode(double pan) => PlanVoicing.Side(pan) switch { < 0 => PanLeft, > 0 => PanRight, _ => PanBoth };
 
     /// <summary>A note's semitone as a DMF note and octave: C is stored as note 12 of the octave below (docs/formats/dmf.md#8-patterns).</summary>
     private static (int Note, int Octave) NoteAndOctave(int semitone)
@@ -572,7 +492,7 @@ internal sealed class DmfPatternTranslator
             }
 
             CloseDacOn(channel, track);
-            double semitones = translator.HeardSemitones(note, sample, out bool measured);
+            double semitones = translator._voicing.HeardSemitones(note, sample, out bool measured);
             _fmSamples.TryAdd(sample, measured);
             if (cell.Effects.OfType<SetFineTune>().FirstOrDefault() is { } fineTune)
             {
@@ -604,7 +524,7 @@ internal sealed class DmfPatternTranslator
             // An instrument on a portamento row would restart the note in DefleMask (Furnace: newInsTriggersInPorta).
             draft.Instrument = glide ? -1 : voice.Index;
             double volume = cell.Volume ?? track.ModVolume;
-            (track.Gain, bool limited) = translator.FmLevel(sample, voice.Index);
+            (track.Gain, bool limited) = translator._voicing.FmLevel(sample, voice.Index);
             if (limited)
             {
                 Tally("{Count} FM notes play quieter than in the MOD: their sample is louder than its patch can play without clipping");
@@ -646,11 +566,11 @@ internal sealed class DmfPatternTranslator
                 track.NoiseMode = WhiteFixedNoise;
             }
 
-            int note = translator.NoiseNote(sample);
+            int note = translator._voicing.NoiseNote(sample);
             (draft.Note, draft.Octave) = NoteAndOctave((NoiseOctave * 12) + note);
             draft.Instrument = translator._noiseInstruments[sample];
             double volume = cell.Volume ?? track.ModVolume;
-            (track.Gain, bool limited) = translator.NoiseLevel(sample);
+            (track.Gain, bool limited) = translator._voicing.NoiseLevel(sample);
             if (limited)
             {
                 Tally("{Count} noise notes play quieter than in the MOD: their sample is louder than the PSG's noise at full volume");

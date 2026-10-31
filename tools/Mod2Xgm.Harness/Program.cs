@@ -148,7 +148,7 @@ internal static class Program
         ArgumentNullException.ThrowIfNull(options);
         LibOpenMpt.UseDirectory(options.LibOpenMptDirectory);
         OpenMptRenderer reference = new();
-        List<ICandidateRenderer> candidates = [new ModRendererCheck(options.SampleRate)];
+        List<ICandidateRenderer> candidates = [new ModRendererCheck(options.SampleRate), new GenesisRendererCheck(options.SampleRate, logger)];
         if (!options.NoFurnace)
         {
             if (FurnaceRenderer.Find(options.FurnacePath) is { } furnace)
