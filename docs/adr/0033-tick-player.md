@@ -1,6 +1,6 @@
 # ADR 0033: Tick player (T3.4)
 
-- **Status:** Accepted; amended by [ADR 0055](0055-notes-beyond-protracker-range.md) (notes beyond ProTracker's range)
+- **Status:** Accepted; amended by [ADR 0055](0055-notes-beyond-protracker-range.md) (notes beyond ProTracker's range) and [ADR 0060](0060-openmpt-pitch-and-loops.md) (pitch and the first pass of a loop follow OpenMPT)
 - **Date:** 2026-10-27
 
 ## Context

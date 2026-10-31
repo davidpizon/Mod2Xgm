@@ -48,8 +48,11 @@ pt2-clone reproduces it, reading the raw cells so every quirk carries over (Davi
 **`Playback`** (`src/Model/Playback.cs`): one pass through the song, every tick with its time, position and LED-filter
 state, and every channel's pitch, volume, pan and the sample parts Paula plays (the part that starts, the part that
 repeats); plus the loop point. The MOD renderer (T7.1) and the XGM writers read it; the DMF writer reads the `Song`.
-One departure from ProTracker: a song with notes beyond its three octaves plays them as OpenMPT does
-([ADR 0055](adr/0055-notes-beyond-protracker-range.md)).
+Two departures from ProTracker, both to sound like OpenMPT: a song with notes beyond its three octaves plays them as
+OpenMPT does ([ADR 0055](adr/0055-notes-beyond-protracker-range.md)), and every song's pitch (finetune, slides,
+arpeggio, vibrato, in quarter periods) and the first pass of a loop follow OpenMPT, measured with libopenmpt
+([ADR 0060](adr/0060-openmpt-pitch-and-loops.md)). The song model, and so the DMF, still tunes notes with
+ProTracker's tables.
 
 **ModRenderer** (`src/Render`, plan T7.1, [ADR 0054](adr/0054-mod-renderer.md)) — pure C#: mixes a `Playback` to
 stereo (`StereoAudio`) the way libopenmpt does by default: an 8-tap Kaiser sinc (`SincTable`, with OpenMPT's two

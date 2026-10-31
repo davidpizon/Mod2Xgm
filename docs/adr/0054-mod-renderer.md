@@ -1,6 +1,6 @@
 # ADR 0054: In-app MOD renderer (T7.1)
 
-- **Status:** Accepted
+- **Status:** Accepted; known differences closed by [ADR 0060](0060-openmpt-pitch-and-loops.md)
 - **Date:** 2026-10-30
 
 ## Context

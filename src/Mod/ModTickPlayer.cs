@@ -10,10 +10,14 @@ namespace Mod2Xgm.Mod;
 /// behavior match it exactly (David, 2026-10-27).
 /// <para>The song plays once through, ending the way pt2-clone's MOD2WAV export decides it: after the tick that would
 /// move to a row already played (or past the song's end), which becomes the loop point; or on <c>F00</c>.</para>
-/// <para>One departure, as OpenMPT does (docs/adr/0055-notes-beyond-protracker-range.md): a song with notes outside
-/// every ProTracker finetune row (period below 108 or above 907) was written in a tracker with more octaves, so those notes
-/// play at their own pitch, snapped to the nearest note from C-0 to B-5, and slides run from period 14 to 3424.
-/// ProTracker 2 would play silence or a stuck tone there.</para>
+/// <para>Pitch follows OpenMPT instead, measured with libopenmpt (docs/adr/0060-openmpt-pitch-and-loops.md): periods are
+/// kept in quarters, a finetuned note is its finetune's C-1 octave halved for each octave up, slides stop at the
+/// finetune's own top and bottom notes, vibrato uses OpenMPT's finer sine, and an arpeggio reads past B-3 the way OpenMPT
+/// does. A looping sample also ends at its loop end the first time through, as in OpenMPT.</para>
+/// <para>A song with notes outside every ProTracker finetune row (period below 108 or above 907) was written in a tracker
+/// with more octaves, so, as in OpenMPT (docs/adr/0055-notes-beyond-protracker-range.md), those notes play at their own
+/// pitch, snapped to the nearest note from C-0 to B-5, and slides run from period 14 to 3424. ProTracker 2 would play
+/// silence or a stuck tone there.</para>
 /// <para>Under Ultimate Soundtracker rules (<see cref="ModPlayer.UltimateSoundtracker"/>) the cells are first turned into
 /// ProTracker commands the way OpenMPT does (1xy and 0xy from 03 up → arpeggio, 2xy → slide up y or else down x, the
 /// rest dropped), samples have no finetune and start at their loop start, the speed stays 6 and the tempo comes from
@@ -55,8 +59,16 @@ internal static class ModTickPlayer
         private const int MinBpm = 32;
         private const int MaxBpm = 255;
         private const int MinPeriod = 113;
-        private const int MaxPeriod = 856;
         private const int TableStride = 37;
+
+        /// <summary>Periods are kept in quarters, as OpenMPT keeps a MOD's, so finetuned notes and their slides keep its fractions (ADR 0060).</summary>
+        private const int Quarters = 4;
+
+        /// <summary>C-1, ProTracker's lowest note, counted from C-0 (the index into <see cref="ExtendedPeriods"/>).</summary>
+        private const int BottomNote = 12;
+
+        /// <summary>B-3, ProTracker's top note, counted from C-0.</summary>
+        private const int TopNote = 47;
 
         // OpenMPT's limits for a MOD whose notes go beyond ProTracker's range (measured with libopenmpt, ADR 0055).
         private const int ExtendedMinPeriod = 14;
@@ -86,6 +98,16 @@ internal static class ModTickPlayer
             0xB4, 0xC5, 0xD4, 0xE0, 0xEB, 0xF4, 0xFA, 0xFD,
             0xFF, 0xFD, 0xFA, 0xF4, 0xEB, 0xE0, 0xD4, 0xC5,
             0xB4, 0xA1, 0x8D, 0x78, 0x61, 0x4A, 0x31, 0x18,
+        ];
+
+        /// <summary>
+        /// OpenMPT's vibrato sine, the first half of its 64 steps (peak 127; the second half is the same, negated): finer than
+        /// <see cref="VibratoTable"/>, measured with libopenmpt (ADR 0060).
+        /// </summary>
+        private static readonly sbyte[] OpenMptSine =
+        [
+            0, 12, 25, 37, 49, 60, 71, 81, 90, 98, 106, 112, 117, 122, 125, 126,
+            127, 126, 125, 122, 117, 112, 106, 98, 90, 81, 71, 60, 49, 37, 25, 12,
         ];
 
         /// <summary>
@@ -138,11 +160,8 @@ internal static class ModTickPlayer
         /// <summary>Notes beyond ProTracker's range play at their pitch (ADR 0055); the number of such cells, 0 when off.</summary>
         private readonly int _extendedNotes;
 
-        /// <summary>The smallest period slides reach and Paula plays: ProTracker's 113, or 14 with <see cref="_extendedNotes"/>.</summary>
+        /// <summary>The smallest period a note plays at: 113, or 14 with <see cref="_extendedNotes"/>.</summary>
         private readonly int _minPeriod;
-
-        /// <summary>The largest period slides reach: ProTracker's 856, or 3424 with <see cref="_extendedNotes"/>.</summary>
-        private readonly int _maxPeriod;
 
         public Replayer(ModModule module, double clockHz, double tickRateScale, ConversionNotes notes)
         {
@@ -159,22 +178,93 @@ internal static class ModTickPlayer
             _extendedNotes = module.Orders.Distinct()
                 .Sum(p => Enumerable.Range(0, Rows).Sum(row => Enumerable.Range(0, module.ChannelCount).Count(c => IsBeyondTable(module.Patterns[p][row, c].Period))));
             _minPeriod = _extendedNotes > 0 ? ExtendedMinPeriod : MinPeriod;
-            _maxPeriod = _extendedNotes > 0 ? ExtendedMaxPeriod : MaxPeriod;
         }
 
         /// <summary>True for a note period in no ProTracker finetune row.</summary>
         private static bool IsBeyondTable(int period) => period is > 0 and < LowestTablePeriod or > HighestTablePeriod;
 
         /// <summary>
-        /// A note beyond ProTracker's range as OpenMPT plays it: the nearest note of <see cref="ExtendedPeriods"/>, tuned by
-        /// <paramref name="fineTune"/> (0–15, 8–15 meaning −8 … −1) in eighths of a semitone.
+        /// The note a written period plays, counted from C-0: ProTracker's lookup (the first finetune-0 note not above it, B-3
+        /// at most) or, for a note beyond the range, OpenMPT's nearest note.
         /// </summary>
-        private static short ExtendedPeriod(int note, int fineTune)
+        private int NoteOf(int period)
         {
-            short nearest = ExtendedPeriods.MinBy(p => Math.Abs(p - note));
-            int signed = fineTune < 8 ? fineTune : fineTune - 16;
-            return (short)Math.Round(nearest * Math.Pow(2, -signed / 96.0));
+            if (_extendedNotes > 0 && IsBeyondTable(period))
+            {
+                short nearest = ExtendedPeriods.MinBy(p => Math.Abs(p - period));
+                return Array.IndexOf(ExtendedPeriods, nearest);
+            }
+
+            for (int i = 0; i < TopNote - BottomNote; i++)
+            {
+                if (period >= PeriodTable[i])
+                {
+                    return BottomNote + i;
+                }
+            }
+
+            return TopNote;
         }
+
+        /// <summary>
+        /// The period, in quarters, OpenMPT gives <paramref name="note"/> (counted from C-0) at <paramref name="fineTune"/>
+        /// (0–15, 8–15 meaning −8 … −1), before its limits: ProTracker's C-1 octave for that finetune, doubled for C-0 and
+        /// halved for each octave up, the quarters truncated. Finetune 0 reads <see cref="ExtendedPeriods"/> instead, except
+        /// B-3 in a song within ProTracker's range, which OpenMPT plays at 113¼ (all measured with libopenmpt, ADR 0060).
+        /// </summary>
+        private int NoteQuarters(int note, int fineTune)
+        {
+            if (fineTune == 0 && note < ExtendedPeriods.Length && (note != TopNote || _extendedNotes > 0))
+            {
+                return ExtendedPeriods[note] * Quarters;
+            }
+
+            return (PeriodTable[(fineTune * TableStride) + (note % 12)] * 2 * Quarters) >> (note / 12);
+        }
+
+        /// <summary>The period, in quarters, a note plays at: <see cref="NoteQuarters"/>, never below <see cref="_minPeriod"/>.</summary>
+        private int NotePeriod(int note, int fineTune) => Math.Max(NoteQuarters(note, fineTune), _minPeriod * Quarters);
+
+        /// <summary>
+        /// The period, in quarters, of the note <paramref name="semitones"/> above the channel's: OpenMPT's arpeggio and
+        /// glissando take the first note of the channel's finetune that is not above its period, so the period snaps to a note.
+        /// In a song within ProTracker's range a note past B-3 reads the finetune's notes again from C-1, 37 notes back (36
+        /// counts as C-1), as OpenMPT does. A period above every note stays as it is.
+        /// </summary>
+        private int SnappedPeriod(Voice ch, int semitones)
+        {
+            int first = _extendedNotes > 0 ? 0 : BottomNote;
+            int last = _extendedNotes > 0 ? ExtendedPeriods.Length - 1 : TopNote;
+            int baseNote = first;
+            while (baseNote <= last && ch.Period < NoteQuarters(baseNote, ch.FineTune))
+            {
+                baseNote++;
+            }
+
+            if (baseNote > last && semitones == 0)
+            {
+                return ch.Period;
+            }
+
+            int note = baseNote + semitones;
+            if (_extendedNotes == 0 && note > TopNote)
+            {
+                note = BottomNote + Math.Max(note - BottomNote - TableStride, 0);
+            }
+
+            return NotePeriod(note, ch.FineTune);
+        }
+
+        /// <summary>
+        /// The smallest period, in quarters, a slide reaches: 14 in a song beyond ProTracker's range, otherwise the B-3 of the
+        /// channel's finetune but not below 113 (OpenMPT's limits, measured; no ProTracker underflow).
+        /// </summary>
+        private int SlideMin(Voice ch) =>
+            _extendedNotes > 0 ? ExtendedMinPeriod * Quarters : Math.Max(MinPeriod * Quarters, NoteQuarters(TopNote, ch.FineTune));
+
+        /// <summary>The largest period, in quarters, a slide reaches: 3424, or within ProTracker's range the C-1 of the channel's finetune.</summary>
+        private int SlideMax(Voice ch) =>
+            _extendedNotes > 0 ? ExtendedMaxPeriod * Quarters : NoteQuarters(BottomNote, ch.FineTune);
 
         public Playback Run()
         {
@@ -263,8 +353,9 @@ internal static class ModTickPlayer
             {
                 Voice v = _voices[i];
 
-                // pt2_paula.c audxper/audxvol: period 0 is 65536, below 113 plays at 113; volume uses 7 bits, capped at 64.
-                int period = v.PerReg == 0 ? 65536 : Math.Max(v.PerReg, _minPeriod);
+                // pt2_paula.c audxper/audxvol: period 0 is 65536; volume uses 7 bits, capped at 64. Paula's floor of 113 is
+                // left out: OpenMPT limits notes and slides where they are set, and lets vibrato go past (ADR 0060).
+                double period = v.PerReg <= 0 ? 65536 : v.PerReg / (double)Quarters;
                 int volume = Math.Min(v.VolReg & 0x7F, 64);
                 channels[i] = new ChannelTick(
                     v.Playing,
@@ -450,7 +541,7 @@ internal static class ModTickPlayer
         {
             if (ch is { Note: 0, Cmd: 0 })
             {
-                ch.PerReg = (ushort)ch.Period;
+                ch.PerReg = ch.Period;
             }
 
             ModCell cell = AsPlayed(_module.Patterns[_modPattern][_row, ch.Index]);
@@ -467,8 +558,10 @@ internal static class ModTickPlayer
                 ch.Length = (ushort)(s.Length >> 1);
                 ch.RepLen = (ushort)(s.LoopLength >> 1);
 
+                // A looping sample ends at its loop end, as in OpenMPT; ProTracker plays a loop that starts at 0 to the
+                // sample's end once first (ADR 0060). A loop of one word is ProTracker's "no loop".
                 ushort repeat = (ushort)(s.LoopStart >> 1);
-                if (repeat > 0)
+                if (repeat > 0 || ch.RepLen > 1)
                 {
                     ch.LoopStart = ch.Start.Plus(repeat << 1);
                     ch.Length = (ushort)(repeat + ch.RepLen);
@@ -519,19 +612,8 @@ internal static class ModTickPlayer
 
         private void SetPeriod(Voice ch)
         {
-            int note = ch.Note & 0xFFF;
-            int i;
-            for (i = 0; i < TableStride; i++)
-            {
-                // periodTable[36] = 0, so i=36 is safe
-                if (note >= PeriodTable[i])
-                {
-                    break;
-                }
-            }
-
-            // yes it's safe if i=37 because of zero-padding
-            ch.Period = _extendedNotes > 0 && IsBeyondTable(note) ? ExtendedPeriod(note, ch.FineTune) : PeriodTable[(ch.FineTune * TableStride) + i];
+            // OpenMPT's period for the note, where ProTracker reads its finetune's table (ADR 0060).
+            ch.Period = NotePeriod(NoteOf(ch.Note & 0xFFF), ch.FineTune);
 
             if ((ch.Cmd & 0xFF0) != 0xED0)
             {
@@ -554,7 +636,7 @@ internal static class ModTickPlayer
                     ch.RepLen = 1;
                 }
 
-                ch.PerReg = (ushort)ch.Period;
+                ch.PerReg = ch.Period;
                 _dmaconTemp |= ch.DmaBit;
             }
 
@@ -594,7 +676,7 @@ internal static class ModTickPlayer
                 case 0xE: ECommands(ch); return;
             }
 
-            ch.PerReg = (ushort)ch.Period;
+            ch.PerReg = ch.Period;
             if (cmd == 0x7)
             {
                 Tremolo(ch);
@@ -628,7 +710,8 @@ internal static class ModTickPlayer
                 return;
             }
 
-            ch.PerReg = (ushort)ch.Period;
+            // An arpeggio plays its base note snapped to the table on its first tick too, as in OpenMPT (ADR 0060).
+            ch.PerReg = cmd == 0 && (ch.Cmd & 0xFF) != 0 ? SnappedPeriod(ch, 0) : ch.Period;
         }
 
         private void ECommands(Voice ch)
@@ -656,65 +739,30 @@ internal static class ModTickPlayer
 
         private void Arpeggio(Voice ch)
         {
-            int arpNote;
-            int arpTick = _tick % 3;
-            if (arpTick == 1)
+            int arpNote = (_tick % 3) switch
             {
-                arpNote = ch.Cmd >> 4 & 0xF;
-            }
-            else if (arpTick == 2)
-            {
-                arpNote = ch.Cmd & 0xF;
-            }
-            else
-            {
-                ch.PerReg = (ushort)ch.Period;
-                return;
-            }
+                1 => (ch.Cmd >> 4) & 0xF,
+                2 => ch.Cmd & 0xF,
+                _ => 0,
+            };
 
-            int row = ch.FineTune * TableStride;
-            if (_extendedNotes > 0 && ch.Period < PeriodTable[row + TableStride - 2])
-            {
-                // Above ProTracker's top note: arpeggio by semitones, as OpenMPT does.
-                ch.PerReg = (ushort)Math.Max(_minPeriod, Math.Round(ch.Period * Math.Pow(2, -arpNote / 12.0)));
-                return;
-            }
-
-            for (int baseNote = 0; baseNote < TableStride; baseNote++)
-            {
-                if (ch.Period >= PeriodTable[row + baseNote])
-                {
-                    ch.PerReg = (ushort)PeriodTable[row + baseNote + arpNote];
-                    break;
-                }
-            }
+            // OpenMPT's notes for the finetune, where ProTracker reads its table (and on into the next one, ADR 0060).
+            ch.PerReg = SnappedPeriod(ch, arpNote);
         }
 
         private void PortaUp(Voice ch)
         {
-            ch.Period = unchecked((short)(ch.Period - ((ch.Cmd & 0xFF) & _lowMask)));
+            // OpenMPT stops at the finetune's top note; ProTracker's underflow (a slide past 0 wraps) is gone (ADR 0060).
+            ch.Period = Math.Max(ch.Period - (((ch.Cmd & 0xFF) & _lowMask) * Quarters), SlideMin(ch));
             _lowMask = 0xFF;
-
-            // PT BUG: sign removed before comparison, underflow not clamped! OpenMPT's extended range clamps it (ADR 0055).
-            if ((_extendedNotes > 0 && ch.Period < _minPeriod) || (ch.Period & 0xFFF) < _minPeriod)
-            {
-                ch.Period = unchecked((short)((ch.Period & 0xF000) | _minPeriod));
-            }
-
-            ch.PerReg = (ushort)(ch.Period & 0xFFF);
+            ch.PerReg = ch.Period;
         }
 
         private void PortaDown(Voice ch)
         {
-            ch.Period = unchecked((short)(ch.Period + ((ch.Cmd & 0xFF) & _lowMask)));
+            ch.Period = Math.Min(ch.Period + (((ch.Cmd & 0xFF) & _lowMask) * Quarters), SlideMax(ch));
             _lowMask = 0xFF;
-
-            if ((ch.Period & 0xFFF) > _maxPeriod)
-            {
-                ch.Period = unchecked((short)((ch.Period & 0xF000) | _maxPeriod));
-            }
-
-            ch.PerReg = (ushort)(ch.Period & 0xFFF);
+            ch.PerReg = ch.Period;
         }
 
         private void FinePortaUp(Voice ch)
@@ -737,40 +785,12 @@ internal static class ModTickPlayer
 
         private void SetTonePorta(Voice ch)
         {
-            int note = ch.Note & 0xFFF;
-            int row = ch.FineTune * TableStride;
-            if (_extendedNotes > 0 && IsBeyondTable(note))
-            {
-                SetTonePortaDirection(ch, ExtendedPeriod(note, ch.FineTune));
-                return;
-            }
-
-            int i = 0;
-            while (true)
-            {
-                // portaPointer[36] = 0, so i=36 is safe
-                if (note >= PeriodTable[row + i])
-                {
-                    break;
-                }
-
-                if (++i >= TableStride)
-                {
-                    i = 35;
-                    break;
-                }
-            }
-
-            if ((ch.FineTune & 8) != 0 && i > 0)
-            {
-                i--;
-            }
-
-            SetTonePortaDirection(ch, PeriodTable[row + i]);
+            // OpenMPT slides to the note's own period (ProTracker's table lookup, with its finetune quirk, lands on the same note).
+            SetTonePortaDirection(ch, NotePeriod(NoteOf(ch.Note & 0xFFF), ch.FineTune));
         }
 
-        /// <summary>Sets where a tone portamento goes and which way.</summary>
-        private static void SetTonePortaDirection(Voice ch, short wanted)
+        /// <summary>Sets where a tone portamento goes, in quarters, and which way.</summary>
+        private static void SetTonePortaDirection(Voice ch, int wanted)
         {
             ch.WantedPeriod = wanted;
             ch.TonePortDirec = 0;
@@ -794,7 +814,7 @@ internal static class ModTickPlayer
 
             if (ch.TonePortDirec > 0)
             {
-                ch.Period = unchecked((short)(ch.Period - ch.TonePortSpeed));
+                ch.Period -= ch.TonePortSpeed * Quarters;
                 if (ch.Period <= ch.WantedPeriod)
                 {
                     ch.Period = ch.WantedPeriod;
@@ -803,7 +823,7 @@ internal static class ModTickPlayer
             }
             else
             {
-                ch.Period = unchecked((short)(ch.Period + ch.TonePortSpeed));
+                ch.Period += ch.TonePortSpeed * Quarters;
                 if (ch.Period >= ch.WantedPeriod)
                 {
                     ch.Period = ch.WantedPeriod;
@@ -811,31 +831,8 @@ internal static class ModTickPlayer
                 }
             }
 
-            if ((ch.GlissFunk & 0xF) == 0 || (_extendedNotes > 0 && ch.Period < PeriodTable[(ch.FineTune * TableStride) + TableStride - 2]))
-            {
-                // No glissando, or above ProTracker's top note where its table has no semitones to snap to.
-                ch.PerReg = (ushort)ch.Period;
-            }
-            else
-            {
-                int row = ch.FineTune * TableStride;
-                int i = 0;
-                while (true)
-                {
-                    if (ch.Period >= PeriodTable[row + i])
-                    {
-                        break;
-                    }
-
-                    if (++i >= TableStride)
-                    {
-                        i = 35;
-                        break;
-                    }
-                }
-
-                ch.PerReg = (ushort)PeriodTable[row + i];
-            }
+            // Glissando snaps to the finetune's notes, as OpenMPT's do, beyond ProTracker's range too (ADR 0060).
+            ch.PerReg = (ch.GlissFunk & 0xF) == 0 ? ch.Period : SnappedPeriod(ch, 0);
         }
 
         private void TonePortamento(Voice ch)
@@ -866,17 +863,22 @@ internal static class ModTickPlayer
 
         private static void Vibrato2(Voice ch)
         {
-            int vibratoPos = (ch.VibratoPos >> 2) & 0x1F;
-            int vibratoData = (ch.WaveControl & 3) switch
+            // OpenMPT's vibrato, measured (ADR 0060): 64 steps from -127 to 127, depth / 16 in quarter periods, rounded toward 0.
+            int pos = (ch.VibratoPos >> 2) & 0x3F;
+            int half = pos & 0x1F;
+            int value = (ch.WaveControl & 3) switch
             {
-                0 => VibratoTable[vibratoPos],
-                1 => ch.VibratoPos < 128 ? vibratoPos << 3 : 255 - (vibratoPos << 3),
-                _ => 255,
+                0 => OpenMptSine[half],
+                1 => pos < 32 ? half << 2 : (half << 2) - 127,
+                _ => 127,
             };
 
-            vibratoData = (vibratoData * (ch.VibratoCmd & 0xF)) >> 7;
-            vibratoData = ch.VibratoPos < 128 ? ch.Period + vibratoData : ch.Period - vibratoData;
-            ch.PerReg = unchecked((ushort)vibratoData);
+            if ((ch.WaveControl & 3) != 1 && pos >= 32)
+            {
+                value = -value;
+            }
+
+            ch.PerReg = Math.Max(ch.Period + (value * (ch.VibratoCmd & 0xF) / 16), 1);
 
             ch.VibratoPos = unchecked((byte)(ch.VibratoPos + ((ch.VibratoCmd >> 2) & 0x3C)));
         }
@@ -1092,7 +1094,7 @@ internal static class ModTickPlayer
             // DMA off, then on with the note's start and length; the loop takes effect after this part
             ch.Started = Block(ch.Start, ch.Length);
             ch.Playing = true;
-            ch.PerReg = (ushort)ch.Period;
+            ch.PerReg = ch.Period;
             ch.PtrReg = ch.LoopStart;
             ch.LenReg = ch.RepLen;
         }
@@ -1190,15 +1192,16 @@ internal static class ModTickPlayer
             public byte FineTune;
             public byte VibratoPos;
             public byte TremoloPos;
-            public short Period;
+            /// <summary>The note's period, in quarters (<see cref="Quarters"/>), as are <see cref="WantedPeriod"/> and <see cref="PerReg"/>.</summary>
+            public int Period;
             public short Note;
-            public short WantedPeriod;
+            public int WantedPeriod;
             public ushort Cmd;
             public ushort Length;
             public ushort RepLen;
 
             // Paula registers and what the snapshot reports.
-            public ushort PerReg;
+            public int PerReg;
             public ushort VolReg;
             public Pointer PtrReg = Pointer.Null;
             public ushort LenReg = 1;

@@ -31,6 +31,14 @@ public sealed class ModTickPlayerTests
     private static int PeriodAt(Playback playback, int tick, int channel = 0) =>
         (int)Math.Round(AmigaPitch.PeriodOf(At(playback, tick, channel).Pitch, AmigaPitch.PalClockHz));
 
+    /// <summary>The period a channel plays on a tick to the quarter, the unit OpenMPT keeps periods in (ADR 0060).</summary>
+    private static double QuarterPeriodAt(Playback playback, int tick, int channel = 0) =>
+        Math.Round(AmigaPitch.PeriodOf(At(playback, tick, channel).Pitch, AmigaPitch.PalClockHz) * 4) / 4;
+
+    /// <summary>Periods to the quarter on ticks <paramref name="first"/> to <paramref name="first"/> + <paramref name="count"/> − 1.</summary>
+    private static double[] QuarterPeriods(Playback playback, int first, int count, int channel = 0) =>
+        [.. Enumerable.Range(first, count).Select(t => QuarterPeriodAt(playback, t, channel))];
+
     /// <summary>ProTracker's CIA tick rate: 709 379 Hz / (1 773 447 / BPM + 1), so 125 BPM is a little under 50 Hz.</summary>
     [Fact]
     public void CiaTickRate()
@@ -220,15 +228,39 @@ public sealed class ModTickPlayerTests
         Assert.Equal(new SampleBlock(0, 256, 512), At(playback, 0).Next);
     }
 
-    /// <summary>The note is played from the finetune's period table (428 at finetune +1 is 425).</summary>
+    /// <summary>A loop that starts at 0 ends the first pass at its end too, as in OpenMPT; ProTracker played the whole sample once.</summary>
     [Fact]
-    public void FinetunePicksTheTable()
+    public void ALoopAtTheStartEndsAtItsEndTheFirstTime()
     {
         (Playback playback, _) = Play(new ModBuilder()
-            .WithSample(1, "lead", 1024, fineTune: 1)
+            .WithSample(1, "pad", 1024, loopStart: 0, loopLength: 512)
             .WithCell(0, row: 0, channel: 0, sample: 1, period: C2));
 
-        Assert.Equal(425, PeriodAt(playback, 0));
+        Assert.Equal(new SampleBlock(0, 0, 512), At(playback, 0).Started);
+        Assert.Equal(new SampleBlock(0, 0, 512), At(playback, 0).Next);
+    }
+
+    /// <summary>
+    /// A finetuned note plays OpenMPT's period, measured with libopenmpt (ADR 0060): its finetune's C-1 octave halved for
+    /// each octave up, to the quarter (C-3 at +1 is 850 ÷ 4 = 212.5, where ProTracker's table has 213), never below 113.
+    /// </summary>
+    [Theory]
+    [InlineData(C2, 1, 425.0)]
+    [InlineData(214, 1, 212.5)]
+    [InlineData(127, 1, 126.25)]
+    [InlineData(856, -8, 907.0)]
+    [InlineData(127, -8, 134.5)]
+    [InlineData(113, 0, 113.25)]
+    [InlineData(120, 0, 120.0)]
+    [InlineData(113, 7, 113.0)]
+    [InlineData(120, 7, 114.25)]
+    public void FinetunedNotesPlayOpenMptsPeriod(int written, int fineTune, double expected)
+    {
+        (Playback playback, _) = Play(new ModBuilder()
+            .WithSample(1, "lead", 1024, fineTune: fineTune)
+            .WithCell(0, row: 0, channel: 0, sample: 1, period: written));
+
+        Assert.Equal(expected, QuarterPeriodAt(playback, 0));
     }
 
     /// <summary>Cxx sets the volume and Axy slides it on every tick after the first.</summary>
@@ -253,14 +285,80 @@ public sealed class ModTickPlayerTests
         Assert.Equal(expected, Enumerable.Range(0, 6).Select(t => PeriodAt(playback, t)));
     }
 
-    /// <summary>1xx slides the period down by xx on every tick after the first, never below 113.</summary>
+    /// <summary>An arpeggio on a finetuned note plays OpenMPT's periods for the finetune, to the quarter (ADR 0060).</summary>
     [Fact]
-    public void PortamentoUpStopsAt113()
+    public void ArpeggioPlaysTheFinetunesNotes()
+    {
+        (Playback playback, _) = Play(new ModBuilder()
+            .WithSample(1, "lead", 1024, fineTune: 1)
+            .WithCell(0, row: 0, channel: 0, sample: 1, period: 214, effect: 0x0, parameter: 0x37));
+
+        Assert.Equal([212.5, 178.75, 141.75, 212.5], QuarterPeriods(playback, 0, 4));
+    }
+
+    /// <summary>
+    /// Past B-3 an arpeggio reads the same finetune's notes again from C-1, 37 notes back, as OpenMPT does (A-3 + 12 is
+    /// G#-1, + 7 is E-1, at finetune +1: 535 and 715); ProTracker read on into the next finetune's table.
+    /// </summary>
+    [Fact]
+    public void ArpeggioPastTheTopReadsTheFinetuneAgain()
+    {
+        (Playback playback, _) = Play(new ModBuilder()
+            .WithSample(1, "lead", 1024, fineTune: 1)
+            .WithCell(0, row: 0, channel: 0, sample: 1, period: 127, effect: 0x0, parameter: 0xC7));
+
+        Assert.Equal([126.25, 535, 715], QuarterPeriods(playback, 0, 3));
+    }
+
+    /// <summary>After a slide an arpeggio snaps its base to the next note up, on its first tick too; the slid period comes back after it.</summary>
+    [Fact]
+    public void ArpeggioSnapsASlidPeriodToANote()
+    {
+        (Playback playback, _) = Play(Song()
+            .WithCell(0, row: 0, channel: 0, sample: 1, period: 214, effect: 0x1, parameter: 0x01)
+            .WithCell(0, row: 1, channel: 0, sample: 0, period: 0, effect: 0x0, parameter: 0x37));
+
+        Assert.Equal([202, 170, 135, 202, 170, 135, 209], QuarterPeriods(playback, 6, 7));
+    }
+
+    /// <summary>1xx slides the period down by xx on every tick after the first and stops at B-3 (113¼ at finetune 0, as in OpenMPT).</summary>
+    [Fact]
+    public void PortamentoUpStopsAtTheTopNote()
     {
         (Playback playback, _) = Play(Song().WithCell(0, row: 0, channel: 0, sample: 1, period: 120, effect: 0x1, parameter: 0x04));
 
-        int[] expected = [120, 116, 113, 113];
-        Assert.Equal(expected, Enumerable.Range(0, 4).Select(t => PeriodAt(playback, t)));
+        Assert.Equal([120, 116, 113.25, 113.25], QuarterPeriods(playback, 0, 4));
+    }
+
+    /// <summary>
+    /// Slides stop at the finetune's own B-3 (not below 113) and C-1, and keep a note's quarter; a slide past 0 stops
+    /// instead of wrapping as in ProTracker (all measured with libopenmpt, ADR 0060).
+    /// </summary>
+    [Theory]
+    [InlineData(-8, 1, 0xFF, 120.0)]
+    [InlineData(-8, 2, 0xFF, 907.0)]
+    [InlineData(1, 1, 0xFF, 113.0)]
+    [InlineData(1, 2, 0xFF, 850.0)]
+    [InlineData(7, 2, 0xFF, 814.0)]
+    public void SlidesStopAtTheFinetunesLimits(int fineTune, int effect, int parameter, double expected)
+    {
+        (Playback playback, _) = Play(new ModBuilder()
+            .WithSample(1, "lead", 1024, fineTune: fineTune)
+            .WithCell(0, row: 0, channel: 0, sample: 1, period: 120, effect: effect, parameter: parameter)
+            .WithCell(0, row: 1, channel: 0, sample: 0, period: 0, effect: effect, parameter: parameter));
+
+        Assert.Equal(expected, QuarterPeriodAt(playback, 11));
+    }
+
+    /// <summary>A slide keeps the quarter of a finetuned note: A-3 at +1 is 126¼, then 125¼, 124¼.</summary>
+    [Fact]
+    public void SlidesKeepTheQuarter()
+    {
+        (Playback playback, _) = Play(new ModBuilder()
+            .WithSample(1, "lead", 1024, fineTune: 1)
+            .WithCell(0, row: 0, channel: 0, sample: 1, period: 127, effect: 0x1, parameter: 0x01));
+
+        Assert.Equal([126.25, 125.25, 124.25], QuarterPeriods(playback, 0, 3));
     }
 
     /// <summary>3xx slides toward the new note by xx a tick without restarting the sample, and stops on it.</summary>
@@ -276,15 +374,40 @@ public sealed class ModTickPlayerTests
         Assert.Null(At(playback, 6).Started);
     }
 
-    /// <summary>4xy moves the period by the sine table × depth ÷ 128, starting at 0 on the note.</summary>
+    /// <summary>
+    /// 4xy moves the period by OpenMPT's 64-step sine × depth ÷ 16 in quarters, rounded toward 0, starting at 0 on the
+    /// note: 12, 25, 37, 49 × 15 ÷ 16 → 11, 23, 34, 45 quarters (ADR 0060).
+    /// </summary>
     [Fact]
-    public void VibratoFollowsTheSineTable()
+    public void VibratoFollowsOpenMptsSine()
     {
-        (Playback playback, _) = Play(Song().WithCell(0, row: 0, channel: 0, sample: 1, period: C2, effect: 0x4, parameter: 0x8F));
+        (Playback playback, _) = Play(Song().WithCell(0, row: 0, channel: 0, sample: 1, period: 214, effect: 0x4, parameter: 0x1F));
 
-        // pos 0 → +0; pos advances by (0x8F >> 2) & 0x3C = 32 → table[8] = 0xB4 → 180 × 15 >> 7 = 21.
-        Assert.Equal(428, PeriodAt(playback, 1));
-        Assert.Equal(428 + 21, PeriodAt(playback, 2));
+        Assert.Equal([214, 214, 216.75, 219.75, 222.5, 225.25], QuarterPeriods(playback, 0, 6));
+    }
+
+    /// <summary>Vibrato's ramp and square waves (E4x) use the same steps: the ramp rises by 4 a step, the square is ±127.</summary>
+    [Theory]
+    [InlineData(1, new[] { 214, 214, 215.75, 217.75, 219.5, 221.5 })]
+    [InlineData(2, new[] { 214, 243.75, 243.75, 243.75, 243.75, 243.75 })]
+    public void VibratoWavesUseOpenMptsSteps(int wave, double[] expected)
+    {
+        (Playback playback, _) = Play(Song()
+            .WithCell(0, row: 0, channel: 0, sample: 0, period: 0, effect: 0xE, parameter: 0x40 | wave)
+            .WithCell(0, row: 1, channel: 0, sample: 1, period: 214, effect: 0x4, parameter: 0x2F));
+
+        Assert.Equal(expected, QuarterPeriods(playback, 6, 6));
+    }
+
+    /// <summary>Vibrato isn't held at 113 the way Paula's period is: on B-3 it dips to 84¾, as in OpenMPT.</summary>
+    [Fact]
+    public void VibratoGoesPastTheTopNote()
+    {
+        (Playback playback, _) = Play(Song()
+            .WithCell(0, row: 0, channel: 0, sample: 0, period: 0, effect: 0xF, parameter: 0x0F)
+            .WithCell(0, row: 1, channel: 0, sample: 1, period: 113, effect: 0x4, parameter: 0xFF));
+
+        Assert.Equal(84.75, QuarterPeriodAt(playback, 15 + 4));
     }
 
     /// <summary>9xx starts the sample xx × 256 frames in.</summary>
@@ -382,15 +505,20 @@ public sealed class ModTickPlayerTests
         Assert.Contains(notes.Messages, m => m.Contains("2 notes lie beyond ProTracker's range", StringComparison.Ordinal));
     }
 
-    /// <summary>Beyond the range, finetune tunes by eighths of a semitone: C-0 at −8 is 1712 × 2^(8/96) ≈ 1814.</summary>
-    [Fact]
-    public void NotesBeyondTheRangeTakeFinetune()
+    /// <summary>
+    /// Beyond the range, finetune follows the same rule as within it (ADR 0060): C-0 at −8 is C-1's 907 doubled, 1814;
+    /// A#-4 (56) at +1 is ProTracker's B-1 at +1, 450, ÷ 8 = 56.25.
+    /// </summary>
+    [Theory]
+    [InlineData(1712, -8, 1814.0)]
+    [InlineData(56, 1, 56.25)]
+    public void NotesBeyondTheRangeTakeFinetune(int written, int fineTune, double expected)
     {
         (Playback playback, _) = Play(new ModBuilder()
-            .WithSample(1, "lead", 1024, fineTune: -8)
-            .WithCell(0, row: 0, channel: 0, sample: 1, period: 1712));
+            .WithSample(1, "lead", 1024, fineTune: fineTune)
+            .WithCell(0, row: 0, channel: 0, sample: 1, period: written));
 
-        Assert.Equal(1814, PeriodAt(playback, 0));
+        Assert.Equal(expected, QuarterPeriodAt(playback, 0));
     }
 
     /// <summary>
@@ -419,16 +547,28 @@ public sealed class ModTickPlayerTests
         Assert.DoesNotContain(notes.Messages, m => m.Contains("beyond ProTracker's range", StringComparison.Ordinal));
     }
 
-    /// <summary>Above ProTracker's top note an arpeggio moves by semitone ratios: 56 → 47 (+3) → 37 (+7).</summary>
+    /// <summary>Above ProTracker's top note an arpeggio moves along OpenMPT's six-octave table: 56 → 47 (+3) → 37 (+7).</summary>
     [Fact]
-    public void ArpeggioBeyondTheRangeUsesSemitones()
+    public void ArpeggioBeyondTheRangeUsesOpenMptsTable()
     {
         (Playback playback, _) = Play(Song().WithCell(0, row: 0, channel: 0, sample: 1, period: 56, effect: 0x0, parameter: 0x37));
 
         Assert.Equal([56, 47, 37, 56], Enumerable.Range(0, 4).Select(t => PeriodAt(playback, t)));
     }
 
-    /// <summary>A tone portamento reaches a note beyond the range, and glissando doesn't snap it to ProTracker's table there.</summary>
+    /// <summary>Past B-5 an arpeggio goes on up by the same rule (G#-5 + 7 is 22.5), and stops at period 14.</summary>
+    [Fact]
+    public void ArpeggioPastTheSixOctavesGoesOn()
+    {
+        (Playback playback, _) = Play(Song()
+            .WithCell(0, row: 0, channel: 0, sample: 1, period: 33, effect: 0x0, parameter: 0x37)
+            .WithCell(0, row: 0, channel: 1, sample: 1, period: 30, effect: 0x0, parameter: 0x1F));
+
+        Assert.Equal([33, 28, 22.5], QuarterPeriods(playback, 0, 3));
+        Assert.Equal([30, 28, 14], QuarterPeriods(playback, 0, 3, channel: 1));
+    }
+
+    /// <summary>A tone portamento reaches a note beyond the range, and glissando snaps it to OpenMPT's notes there (101, 85, 71).</summary>
     [Fact]
     public void TonePortamentoReachesNotesBeyondTheRange()
     {
@@ -436,7 +576,19 @@ public sealed class ModTickPlayerTests
             .WithCell(0, row: 0, channel: 0, sample: 1, period: 120, effect: 0xE, parameter: 0x31)
             .WithCell(0, row: 1, channel: 0, sample: 0, period: 56, effect: 0x3, parameter: 0x10));
 
-        Assert.Equal([120, 104, 88, 72, 56, 56], Enumerable.Range(6, 6).Select(t => PeriodAt(playback, t)));
+        Assert.Equal([120, 101, 85, 71, 56, 56], Enumerable.Range(6, 6).Select(t => PeriodAt(playback, t)));
+    }
+
+    /// <summary>A tone portamento on a finetuned note slides to OpenMPT's period for the note (C-3 at −3: 218.75).</summary>
+    [Fact]
+    public void TonePortamentoSlidesToTheFinetunesNote()
+    {
+        (Playback playback, _) = Play(new ModBuilder()
+            .WithSample(1, "lead", 1024, fineTune: -3)
+            .WithCell(0, row: 0, channel: 0, sample: 1, period: C2)
+            .WithCell(0, row: 1, channel: 0, sample: 0, period: 214, effect: 0x3, parameter: 0xFF));
+
+        Assert.Equal([437.5, 218.75, 218.75], QuarterPeriods(playback, 6, 3));
     }
 
     /// <summary>
@@ -455,8 +607,8 @@ public sealed class ModTickPlayerTests
         Assert.Equal(Ticks64Rows, playback.Ticks.Count);
         Assert.Equal(Ticks64Rows / (bpm * 2 / 5), playback.DurationSeconds, 1e-9);
         Assert.Equal(360, PeriodAt(playback, 1));
-        // The sound before the loop is skipped; with its loop at the start, the sample plays to its end once, then loops.
-        Assert.Equal(new SampleBlock(0, 0, 768), At(playback, 0).Started);
+        // The sound before the loop is skipped; with its loop now at the start, the sample ends at the loop end (OpenMPT).
+        Assert.Equal(new SampleBlock(0, 0, 512), At(playback, 0).Started);
         Assert.Equal(new SampleBlock(0, 0, 512), At(playback, 0).Next);
     }
 
