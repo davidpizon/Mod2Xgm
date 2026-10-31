@@ -58,7 +58,7 @@ internal sealed class FmChannel
     /// <summary>
     /// Passes a key on/off write to the operators: bit <i>n</i> of <paramref name="states"/> is operator <i>n</i>+1.
     /// Operators 2–4 take it at the next sample; operator 1 a sample later, because the chip latches the write into
-    /// operator 1's slot only on the next pass (Nuked-OPN2; ymfm keys all four at once, docs/adr/0063-ym3438-chip-differences.md).
+    /// operator 1's slot only on the next pass (Nuked-OPN2; ymfm keys all four at once, docs/adr/0064-ym3438-chip-differences.md).
     /// </summary>
     public void KeyOnOff(uint states)
     {
@@ -144,7 +144,7 @@ internal sealed class FmChannel
 
         // The chip computes the operators in slot order, O1, O3, O2, O4, so operator 3 hears operators 1 and 2 as they
         // were a sample ago (MAME's "MEM"; Nuked-OPN2), and so does operator 4 hear operator 2 in algorithm 3. ymfm uses
-        // this sample's values (docs/adr/0063-ym3438-chip-differences.md).
+        // this sample's values (docs/adr/0064-ym3438-chip-differences.md).
         Span<short> delayed = stackalloc short[8];
         delayed[1] = _feedback[1];
         delayed[2] = _op2Previous;
@@ -163,7 +163,7 @@ internal sealed class FmChannel
         int op4Value = _op[3].ComputeVolume(_op[3].Phase + (uint)opmod, amOffset);
 
         // The chip adds the carriers in slot order, O1, O3, O2, O4, clipping after each one (Nuked-OPN2); ymfm starts
-        // from O4 and clips one step wider, which sounds louder when loud carriers saturate (docs/adr/0063-ym3438-chip-differences.md).
+        // from O4 and clips one step wider, which sounds louder when loud carriers saturate (docs/adr/0064-ym3438-chip-differences.md).
         int clipMin = -clipMax - 1;
         int result = 0;
         if (FmTables.Bitfield(algorithmOps, 7) != 0)

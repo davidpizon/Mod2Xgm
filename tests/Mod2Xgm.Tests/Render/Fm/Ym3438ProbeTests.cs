@@ -9,7 +9,7 @@ namespace Mod2Xgm.Tests.Render.Fm;
 /// Nuked-OPN2 play (plan T7.2, tests/golden/ym3438/README.md). The reference outputs come from
 /// <c>tools/ym3438-reference/run.sh</c>; run it again after changing a probe (with <c>UPDATE_GOLDEN=1</c> first, to
 /// rewrite the scripts). The port is ymfm except where it models the chip as Nuked-OPN2 does
-/// (docs/adr/0063-ym3438-chip-differences.md): there it must come closer to Nuked, elsewhere stay exactly ymfm.
+/// (docs/adr/0064-ym3438-chip-differences.md): there it must come closer to Nuked, elsewhere stay exactly ymfm.
 /// </summary>
 public sealed class Ym3438ProbeTests
 {
@@ -21,7 +21,7 @@ public sealed class Ym3438ProbeTests
 
     /// <summary>
     /// Probes whose sound stays further from Nuked-OPN2 for a reason the model can't remove: their own bar, a little above
-    /// what was measured, so the difference can't grow unseen (docs/adr/0063-ym3438-chip-differences.md#what-is-left).
+    /// what was measured, so the difference can't grow unseen (docs/adr/0064-ym3438-chip-differences.md#what-is-left).
     /// </summary>
     private static readonly Dictionary<string, (double BarDb, string Difference)> KnownDifferences = new()
     {
@@ -30,7 +30,7 @@ public sealed class Ym3438ProbeTests
     };
 
     /// <summary>
-    /// The chip's differences from ymfm that the port models (docs/adr/0063-ym3438-chip-differences.md), each with the
+    /// The chip's differences from ymfm that the port models (docs/adr/0064-ym3438-chip-differences.md), each with the
     /// probes it changes: measured by turning each off in turn, when these and only these probes changed.
     /// </summary>
     private static readonly Dictionary<string, string[]> ChipDifferences = new()

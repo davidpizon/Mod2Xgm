@@ -1,6 +1,6 @@
 # YM3438 probe: modulation-order
 # Strong modulators in the algorithms where an operator hears another from the slot before (0, 1, 2, 3, 5),
-# each note started from silence (operator 1 keys a sample after the others; ADR 0063).
+# each note started from silence (operator 1 keys a sample after the others; ADR 0064).
 w 0 b0 28
 w 0 30 01
 w 0 40 0c

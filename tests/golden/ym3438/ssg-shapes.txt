@@ -1,6 +1,6 @@
 # YM3438 probe: ssg-shapes
 # SSG-EG shapes 0-7 on a carrier with fast decays, held long enough to repeat and turn several times, released
-# at the fastest rate into silence (the turn and repeat timing; ADR 0063).
+# at the fastest rate into silence (the turn and repeat timing; ADR 0064).
 w 0 b0 07
 w 0 30 01
 w 0 40 7f

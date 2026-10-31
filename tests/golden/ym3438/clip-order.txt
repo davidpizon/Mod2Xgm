@@ -1,6 +1,6 @@
 # YM3438 probe: clip-order
 # Carriers loud enough to clip channel 1 at the 9-bit limit, at different multiples so their sum crosses it
-# on the way up and down: algorithm 7 with feedback, then 6 and 4 (the chip clips after each carrier; ADR 0063).
+# on the way up and down: algorithm 7 with feedback, then 6 and 4 (the chip clips after each carrier; ADR 0064).
 w 0 b0 1f
 w 0 30 01
 w 0 40 00

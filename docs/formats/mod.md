@@ -9,7 +9,7 @@ Read the 4-byte tag at offset **1080** (`0x438`):
 | Tag | Channels | Samples | v1 |
 |---|---|---|---|
 | `M.K.`, `M!K!`, `FLT4`, `4CHN` | 4 | 31 | supported |
-| `6CHN`, `8CHN`, `FLT8`, `CD81`, `OKTA`, `xxCH` | 6–32 | 31 | **rejected** (exit 3, names the tag) |
+| `6CHN`, `8CHN`, `FLT8`, `CD81`, `OKTA`, `xxCH` | 6–32 | 31 | **rejected** (exit 3, names the tag); accepted from M14 ([ADR 0063](../adr/0063-multichannel-mod-xm-it-input.md)) |
 | `N.T.`, `M&K!`, `FEST`, `LARD`, `NSMS` | 4 | 31 | **rejected for now** (exit 3, names the tag and tracker) |
 | anything else | 4 | **15** (Soundtracker) | supported, see below |
 

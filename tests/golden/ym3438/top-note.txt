@@ -1,6 +1,6 @@
 # YM3438 probe: top-note
 # The top of the range (block 7, F-number $7FF) on operator 4 alone with each detune 0-7, multiple 1 and 15
-# in turn (where ADR 0056 expected the detune to overflow; ADR 0063).
+# in turn (where ADR 0056 expected the detune to overflow; ADR 0064).
 w 0 b0 07
 w 0 30 01
 w 0 40 7f

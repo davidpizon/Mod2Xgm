@@ -2,7 +2,7 @@
 
 Register-write scripts that check the converter's YM3438 model (`src/Render/Fm/`, plan T7.2,
 [ADR 0056](../../../docs/adr/0056-ym3438-model.md); the chip's differences from ymfm, plan T7.7,
-[ADR 0063](../../../docs/adr/0063-ym3438-chip-differences.md)), and what ymfm and Nuked-OPN2 play for each.
+[ADR 0064](../../../docs/adr/0064-ym3438-chip-differences.md)), and what ymfm and Nuked-OPN2 play for each.
 
 | Probe | What it plays |
 |---|---|
@@ -17,11 +17,11 @@ Register-write scripts that check the converter's YM3438 model (`src/Render/Fm/`
 | `dac` | A 9-bit sawtooth on the DAC (bit 0 through `$2C`) with an FM note, then the DAC off |
 | `six-channels` | All six channels of full-level carriers, so each clips; panned left, right, both and none |
 | `write-quirks` | The F-number latch, changes during a note, a key-on without a key-off, single operators, key-ons to the missing channel 3 |
-| `clip-order` | Carriers loud enough to clip channel 1, at different multiples, in algorithms 7, 6 and 4 (ADR 0063) |
-| `modulation-order` | Strong modulators in algorithms 0, 1, 2, 3 and 5, each note from silence (ADR 0063) |
-| `ssg-shapes` | SSG-EG shapes 0–7 with fast decays, held long enough to turn several times, released into silence (ADR 0063) |
-| `top-note` | Block 7, F-number `$7FF` on one operator with each detune, multiples 1 and 15 (ADR 0063) |
-| `envelope-rates` | Decay rates 20–31 after the instant attack, long enough for the envelope timer to wrap (ADR 0063) |
+| `clip-order` | Carriers loud enough to clip channel 1, at different multiples, in algorithms 7, 6 and 4 (ADR 0064) |
+| `modulation-order` | Strong modulators in algorithms 0, 1, 2, 3 and 5, each note from silence (ADR 0064) |
+| `ssg-shapes` | SSG-EG shapes 0–7 with fast decays, held long enough to turn several times, released into silence (ADR 0064) |
+| `top-note` | Block 7, F-number `$7FF` on one operator with each detune, multiples 1 and 15 (ADR 0064) |
+| `envelope-rates` | Decay rates 20–31 after the instant attack, long enough for the envelope timer to wrap (ADR 0064) |
 
 ## Files
 
@@ -45,7 +45,7 @@ Both outputs are gzipped little-endian int32 pairs (left, right), one pair per s
   delay of Nuked's pipeline and within half a Nuked step. The probes that sound several channels are left out: Nuked's
   writes take time, so their channels start apart.
 - The port is within a log-mel distance of Nuked-OPN2: 0.6 dB, or a probe's own bar for what the model can't remove
-  ([ADR 0063](../../../docs/adr/0063-ym3438-chip-differences.md#what-is-left)). Nuked's output is scaled by 128/18 to
+  ([ADR 0064](../../../docs/adr/0064-ym3438-chip-differences.md#what-is-left)). Nuked's output is scaled by 128/18 to
   match ymfm's 128/6.
 - Every probe renders within a minute, so a change that loops forever fails instead of hanging the run.
 

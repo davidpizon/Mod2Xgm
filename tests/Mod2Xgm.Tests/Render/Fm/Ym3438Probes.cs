@@ -284,7 +284,7 @@ internal static class Ym3438Probes
         Ym3438Script script = new(
             "clip-order",
             "Carriers loud enough to clip channel 1 at the 9-bit limit, at different multiples so their sum crosses it\n" +
-            "on the way up and down: algorithm 7 with feedback, then 6 and 4 (the chip clips after each carrier; ADR 0063).");
+            "on the way up and down: algorithm 7 with feedback, then 6 and 4 (the chip clips after each carrier; ADR 0064).");
         int[] algorithms = [7, 6, 4];
         foreach (int algorithm in algorithms)
         {
@@ -304,7 +304,7 @@ internal static class Ym3438Probes
         Ym3438Script script = new(
             "modulation-order",
             "Strong modulators in the algorithms where an operator hears another from the slot before (0, 1, 2, 3, 5),\n" +
-            "each note started from silence (operator 1 keys a sample after the others; ADR 0063).");
+            "each note started from silence (operator 1 keys a sample after the others; ADR 0064).");
         int[] algorithms = [0, 1, 2, 3, 5];
         foreach (int algorithm in algorithms)
         {
@@ -324,7 +324,7 @@ internal static class Ym3438Probes
         Ym3438Script script = new(
             "ssg-shapes",
             "SSG-EG shapes 0-7 on a carrier with fast decays, held long enough to repeat and turn several times, released\n" +
-            "at the fastest rate into silence (the turn and repeat timing; ADR 0063).");
+            "at the fastest rate into silence (the turn and repeat timing; ADR 0064).");
         for (int shape = 0; shape < 8; shape++)
         {
             script.Patch(0, 7, 0, FmOp.Silent, FmOp.Silent, FmOp.Silent, new FmOp(Ar: 31, Dr: 26, Sl: 6, Sr: 26, Rr: 15, Ssg: 8 | shape))
@@ -343,7 +343,7 @@ internal static class Ym3438Probes
         Ym3438Script script = new(
             "top-note",
             "The top of the range (block 7, F-number $7FF) on operator 4 alone with each detune 0-7, multiple 1 and 15\n" +
-            "in turn (where ADR 0056 expected the detune to overflow; ADR 0063).");
+            "in turn (where ADR 0056 expected the detune to overflow; ADR 0064).");
         for (int detune = 0; detune < 8; detune++)
         {
             script.Patch(0, 7, 0, FmOp.Silent, FmOp.Silent, FmOp.Silent, Carrier with { Dt = detune, Mul = detune % 2 == 0 ? 1 : 15, Rr = 15 })
@@ -362,7 +362,7 @@ internal static class Ym3438Probes
         Ym3438Script script = new(
             "envelope-rates",
             "Decay rates 20-31 in turn on a carrier with the instant attack, each from silence, long enough in all for the\n" +
-            "envelope timer to wrap (the key-on step, the timer's wrap and the fast rates' step order; ADR 0063).");
+            "envelope timer to wrap (the key-on step, the timer's wrap and the fast rates' step order; ADR 0064).");
         for (int rate = 20; rate < 32; rate++)
         {
             script.Patch(0, 7, 0, FmOp.Silent, FmOp.Silent, FmOp.Silent, new FmOp(Ar: 31, Dr: rate, Sl: 15, Rr: 15))

@@ -139,7 +139,7 @@ internal sealed class FmOperator
         // The sample whose attenuation reaches the midpoint already sounds with the inversion the turn will make; the
         // turn itself (restart, hold, phase reset) follows a sample later. At the quiet end of the alternating shapes
         // that is a full-level blip, at the loud end a silent sample (Nuked-OPN2; ymfm turns the inversion with the
-        // rest, a sample later, docs/adr/0063-ym3438-chip-differences.md). A released note never inverts.
+        // rest, a sample later, docs/adr/0064-ym3438-chip-differences.md). A released note never inverts.
         _ssgTurnInverted = _regs.OpSsgEgEnable(OpOffset) != 0 && _keyState != 0 && FmTables.Bitfield(_envAttenuation, 9) != 0
             ? (int)InvertedAfterTurn()
             : -1;
@@ -244,7 +244,7 @@ internal sealed class FmOperator
             // Hold: end inverted in shapes 3 and 5, and silence the others once past the attack. An inverted hold keeps
             // the attenuation where its last step left it, so only one that stopped exactly on the midpoint holds at
             // full level; one that stepped past it wraps to near silence (Nuked-OPN2; ymfm pins it to the midpoint,
-            // docs/adr/0063-ym3438-chip-differences.md).
+            // docs/adr/0064-ym3438-chip-differences.md).
             _ssgInverted = (byte)(FmTables.Bitfield(mode, 2) ^ FmTables.Bitfield(mode, 1));
             if (_envState != EnvelopeState.Attack && _ssgInverted == 0)
             {
@@ -298,7 +298,7 @@ internal sealed class FmOperator
         }
 
         // The sample a key on lands in only starts the attack (Nuked-OPN2; ymfm takes its first step at once,
-        // docs/adr/0063-ym3438-chip-differences.md).
+        // docs/adr/0064-ym3438-chip-differences.md).
         if (_keyedOn)
         {
             return;

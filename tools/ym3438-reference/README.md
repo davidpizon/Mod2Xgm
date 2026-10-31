@@ -24,7 +24,7 @@ use another compiler. The script downloads both projects at pinned commits into 
   where the script puts it: the address, one clock, the data, then 1 clock for system registers or 24 for `$28`,
   channel and operator registers. Setup writes before the first sample run in a pre-roll whose output is thrown
   away. The pre-roll starts a whole period of Nuked's 12-bit envelope timer, plus two samples, before the first sample:
-  the timer then wraps (from 4095 to 1, skipping 0; [ADR 0063](../../docs/adr/0063-ym3438-chip-differences.md)) on the
+  the timer then wraps (from 4095 to 1, skipping 0; [ADR 0064](../../docs/adr/0064-ym3438-chip-differences.md)) on the
   first sample, as ymfm's envelope counter leaves 0, and both models' envelopes step on the same samples from there.
 
 ## Licenses

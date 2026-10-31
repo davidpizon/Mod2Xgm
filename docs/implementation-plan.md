@@ -107,7 +107,7 @@
 | T7.4 ✅ | PCM driver models: DMF DAC, XGM (4 ch, 14 093 Hz), XGM2 (3 ch, 13 317 / 6 658 Hz), as `$2A`/`$2B` streams for the YM3438 ([ADR 0058](adr/0058-pcm-driver-models.md)) | Tests built from the drivers' source (David: captures move to T7.9) |
 | T7.5 ✅ | `GenesisRenderer`: plan → stereo WAV through T7.2–T7.4; `--render-wav` and the harness's `genesis` column ([ADR 0059](adr/0059-genesis-renderer.md)) | Renders corpus; performance budget recorded (David: measured, no target) |
 | T7.6 ✅ | Close the MOD renderer's known differences from OpenMPT ([ADR 0054](adr/0054-mod-renderer.md#known-differences)): finetune of in-range notes (measured: quarter periods, not 2^(−ft/96)), the first pass of a loop, the wandering offset in `sharpojects_cantpleaseeveryone` (it was finetune); slides, arpeggio and vibrato too ([ADR 0060](adr/0060-openmpt-pitch-and-loops.md)); the `jam_-_*` lead (1-word samples, [ADR 0062](adr/0062-one-word-samples.md)) | Each difference measured against libopenmpt, then fixed or recorded; the corpus's worst log-mel score goes down |
-| T7.7 ✅ | Close the YM3438 model's known differences from the chip ([ADR 0056](adr/0056-ym3438-model.md#known-differences-from-the-chip)): the order of the channel's clipping sum, the SSG-EG blip on alternating shapes, operators one slot at a time, detune overflow at the top (not a difference: it was operator 1's late key-on); found on the way, the SSG-EG inverted hold, the key-on sample's envelope step, the envelope timer's wrap and the fast rates' step order ([ADR 0063](adr/0063-ym3438-chip-differences.md)) | Each difference measured against Nuked-OPN2, then fixed or recorded; the port stays bit-exact with ymfm elsewhere; the probes' Nuked bars go down |
+| T7.7 ✅ | Close the YM3438 model's known differences from the chip ([ADR 0056](adr/0056-ym3438-model.md#known-differences-from-the-chip)): the order of the channel's clipping sum, the SSG-EG blip on alternating shapes, operators one slot at a time, detune overflow at the top (not a difference: it was operator 1's late key-on); found on the way, the SSG-EG inverted hold, the key-on sample's envelope step, the envelope timer's wrap and the fast rates' step order ([ADR 0064](adr/0064-ym3438-chip-differences.md)) | Each difference measured against Nuked-OPN2, then fixed or recorded; the port stays bit-exact with ymfm elsewhere; the probes' Nuked bars go down |
 | T7.8 | Close the SN76489 model's known differences from the chip ([ADR 0057](adr/0057-sn76489-model.md#known-differences-from-the-chip)): the volume levels at the quiet end, when a period change takes effect, the noise's timing after a restart, the power-on latch | Each difference measured against Nuked-PSG (and its source checked where marked **Verify**), then fixed or recorded; the port stays bit-exact with MAME elsewhere; the probes' Nuked bars go down |
 | T7.9 | Check the PCM driver models against SGDK's real drivers ([ADR 0058](adr/0058-pcm-driver-models.md#known-differences-from-the-drivers)): SGDK's Z80 code run in an emulated Z80 (a reference tool, like `tools/ym3438-reference`) or emulator captures of the SGDK player ROM (T10.2); the beat wobble, the start delay, when `$2B` changes, DefleMask's own DAC export | Each difference measured, then fixed or recorded; the models' tests keep passing or are updated from the measurement |
 | T7.10 | The DMF tunes finetuned notes as the tick player does (ADR 0060): the plan's notes take their pitch from the tick player's `Playback` ([ADR 0061](adr/0061-dmf-pitch-from-tick-player.md)); before, the DMF ignored the instrument's finetune | Finetuned FM and DAC notes planned at OpenMPT's pitch (tests); the corpus's `furnace` and `genesis` columns measured before and after |
@@ -167,6 +167,39 @@ a MOD. Programs VSCO-2 CE doesn't cover play on FM alone; hi-hats and ride on PS
 | T13.4 | Command line converts MIDI to DMF through the optimizer (voice stealing); sample options on MIDI → exit 1 | CLI tests; MIDI corpus opens in DefleMask and passes rescomp |
 | T13.5 | Harness for MIDI: MeltySynth + General MIDI SoundFont reference, timing and pitch against the events; freely licensed MIDI corpus | Scores recorded |
 
+### M14 — Multichannel MOD
+Design in [ADR 0063](adr/0063-multichannel-mod-xm-it-input.md): the first step toward IT. More channels than the
+Genesis has voices, with no new playback rules.
+
+| Task | Work | Acceptance |
+|---|---|---|
+| T14.1 | `ModReader` accepts `6CHN`, `8CHN`, `xxCH`, `FLT8` (split patterns joined), `CD81`, `OKTA`; tick player and renderer follow how OpenMPT plays them (panning, rules that differ from 4-channel ProTracker), measured with probe MODs; `docs/formats/mod.md` updated | Reader tests per tag; every measured rule recorded; renderer score against libopenmpt within the MOD bar |
+| T14.2 | Command line converts multichannel MOD through the optimizer (voice stealing); freely licensed multichannel corpus | Every stolen voice counted in a conversion note; corpus opens in DefleMask and passes rescomp; scores recorded |
+
+### M15 — XM input
+Design in [ADR 0063](adr/0063-multichannel-mod-xm-it-input.md): instruments, envelopes and the shared voice engine,
+which M16 builds on.
+
+| Task | Work | Acceptance |
+|---|---|---|
+| T15.1 | `XmReader` → `XmModule` (header, orders, packed patterns, instruments with note → sample map, envelopes, delta-coded 8/16-bit samples); `XmBuilder` test helper; `docs/formats/xm.md` with **Verify** markers; input detected by content; report sections 1–2 for XM (metadata, every sample numbered through the file with its instruments, every instrument name) | Field tests; corrupt files → exit 3 with offset |
+| T15.2 | Model: instruments with note → sample map, volume/panning envelopes with loop and sustain, fadeout, auto-vibrato, ping-pong loops, global volume, XM effects and volume column; `XmToSong` | Per-feature tests; no XM types in `src/Model` |
+| T15.3 | Shared voice/envelope engine + `XmTickPlayer`, ported from OpenMPT's XM playback rules (own ADR, `THIRD-PARTY-NOTICES.md`); linear and Amiga frequency tables | Probe XMs per effect and envelope feature measured against libopenmpt |
+| T15.4 | `ModRenderer`: ping-pong loops, 16-bit samples, envelopes per tick | Renderer score against libopenmpt within the MOD bar on probe XMs |
+| T15.5 | Command line converts XM: envelopes on FM (per tick in XGM/XGM2, per row in DMF), PSG volume macros, ping-pong unrolled; sample options numbered and range-checked per file; `--player` / `--input-region` on XM → exit 1; freely licensed XM corpus | CLI tests; corpus opens in DefleMask and passes rescomp; scores recorded |
+
+### M16 — IT input
+Design in [ADR 0063](adr/0063-multichannel-mod-xm-it-input.md): New Note Actions emulated, so a pattern channel can
+hold several voices.
+
+| Task | Work | Acceptance |
+|---|---|---|
+| T16.1 | `ItReader` → `ItModule` (header, orders, old and new instrument formats, samples, packed patterns, IT 2.14/2.15 sample decompression, stereo → mono, song message; OpenMPT's extension chunks skipped with a note); `ItBuilder` test helper; `docs/formats/it.md` with **Verify** markers; report sections 1–2 for IT (song message, samples, instruments) | Field tests; compressed samples round-trip through the builder; corrupt files → exit 3 with offset |
+| T16.2 | Model: `Playback` voices that may outnumber the song's channels; sustain loops, pitch/filter envelopes, channel volume, IT effects; `ItToSong`; `GenesisPlanPlayer`, renderer and mappers read voices | Per-feature tests; MOD and XM results unchanged |
+| T16.3 | `ItTickPlayer` on the shared engine: NNA, duplicate checks and actions, note fade, IT effect rules and compatibility behaviors, ported from OpenMPT; random variation from `--seed`, with a note | Probe ITs per feature measured against libopenmpt |
+| T16.4 | `ModRenderer`: IT resonant filter, sustain-loop release | Renderer score against libopenmpt within the MOD bar on probe ITs |
+| T16.5 | Command line converts IT: static filter baked into samples, changing filter approximated with a note, default Zxx filter macros only; voice stealing over background voices; sample options and usage errors as for XM; freely licensed IT corpus | CLI tests; corpus opens in DefleMask and passes rescomp; scores recorded |
+
 ## Dependencies
 
 ```mermaid
@@ -180,11 +213,12 @@ flowchart LR
     M7 --> M8
     M8 --> M9
     M9 --> M10 --> M11 --> M12
-    M9 --> M13
+    M9 --> M13 --> M14 --> M15 --> M16
 ```
 
 M4 can run in parallel with M3. M7 can start once M3's tick player lands; M8 needs M6 (scoring) and M7 (rendering).
-M13 starts once M9 is done ([ADR 0048](adr/0048-midi-input.md)).
+M13 starts once M9 is done ([ADR 0048](adr/0048-midi-input.md)). M14–M16 follow MIDI, each building on the one
+before ([ADR 0063](adr/0063-multichannel-mod-xm-it-input.md)); M14 needs only M9, so it could run alongside M13.
 
 ## Risks
 
@@ -201,6 +235,8 @@ M13 starts once M9 is done ([ADR 0048](adr/0048-midi-input.md)).
 | DefleMask WAV export may be manual | Harness accepts manual exports |
 | 128 KB budget forces heavy consolidation | Allocator weighs error vs cost; `--max-pcm-bytes` |
 | XGM v1 driver behavior not covered by the spec (CH3 / timers, PCM priority reset) | Probe ROMs in T11.1 before enabling |
+| XM/IT tick players differ from libopenmpt | Port OpenMPT's playback rules; probe files per feature (T15.3, T16.3, [ADR 0063](adr/0063-multichannel-mod-xm-it-input.md)) |
+| Dense XM/IT songs (many channels, 16-bit samples) far exceed the Genesis | Voice stealing and consolidation, each counted in conversion notes; scores recorded per song so the cost is visible |
 
 ## Plan review (outline critique applied)
 

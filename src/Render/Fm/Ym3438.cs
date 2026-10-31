@@ -4,7 +4,7 @@ namespace Mod2Xgm.Render.Fm;
 /// The Genesis FM chip as the YM3438 (the CMOS OPN2 in later Mega Drive / Genesis models): a C# port of ymfm's
 /// <c>ym3438</c> (<c>src/ymfm_opn.cpp</c> and <c>src/ymfm_fm.ipp</c>, commit 81aec25, BSD-3-Clause, THIRD-PARTY-NOTICES.md;
 /// plan T7.2, docs/adr/0056-ym3438-model.md), changed where the chip, as Nuked-OPN2 models it, differs: the clipping
-/// sum, operator timing, SSG-EG turns and holds, and the envelope timer (plan T7.7, docs/adr/0063-ym3438-chip-differences.md).
+/// sum, operator timing, SSG-EG turns and holds, and the envelope timer (plan T7.7, docs/adr/0064-ym3438-chip-differences.md).
 /// Tests check it sample for sample against ymfm where no difference reaches and against Nuked-OPN2 everywhere
 /// (tests/golden/ym3438/README.md).
 /// <para>The YM3438 has the YM2612's channels, registers and 9-bit DAC, but not its "ladder effect" (the extra step

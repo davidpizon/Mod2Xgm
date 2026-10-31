@@ -27,7 +27,7 @@ internal sealed class OpnRegisters
     /// <summary>The envelope generator steps once every this many samples.</summary>
     public const uint EgClockDivider = 3;
 
-    /// <summary>The width of the envelope timer that counts those steps (docs/adr/0063-ym3438-chip-differences.md).</summary>
+    /// <summary>The width of the envelope timer that counts those steps (docs/adr/0064-ym3438-chip-differences.md).</summary>
     public const int EgTimerBits = 12;
 
     /// <summary>Register bytes: two ports of 256.</summary>

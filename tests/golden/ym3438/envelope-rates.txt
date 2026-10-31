@@ -1,6 +1,6 @@
 # YM3438 probe: envelope-rates
 # Decay rates 20-31 in turn on a carrier with the instant attack, each from silence, long enough in all for the
-# envelope timer to wrap (the key-on step, the timer's wrap and the fast rates' step order; ADR 0063).
+# envelope timer to wrap (the key-on step, the timer's wrap and the fast rates' step order; ADR 0064).
 w 0 b0 07
 w 0 30 01
 w 0 40 7f

@@ -195,7 +195,7 @@ std::vector<int32_t> play_nuked(const std::vector<step> &steps)
 	std::vector<nuked_event> events = schedule(steps, first_clock);
 
 	// start the pre-roll a whole period of the envelope timer (12 bits, stepped every third sample) before the first
-	// sample, plus two samples: the timer then wraps (from 4095 to 1; it skips 0, docs/adr/0063-ym3438-chip-differences.md)
+	// sample, plus two samples: the timer then wraps (from 4095 to 1; it skips 0, docs/adr/0064-ym3438-chip-differences.md)
 	// on the first sample, as the port's counter leaves 0, and the two count together from there, with Nuked's envelope
 	// steps on the same samples as ymfm's (measured in plan T7.7: plain decays at every rate then match sample for sample)
 	const long long eg_period = 4096LL * 3 * 24;

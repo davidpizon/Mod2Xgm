@@ -1,4 +1,4 @@
-# ADR 0063: The YM3438 model follows the chip where ymfm differs, as Nuked-OPN2 has it (T7.7)
+# ADR 0064: The YM3438 model follows the chip where ymfm differs, as Nuked-OPN2 has it (T7.7)
 
 - **Status:** Accepted; closes the known differences of [ADR 0056](0056-ym3438-model.md#known-differences-from-the-chip)
 - **Date:** 2026-10-31

@@ -63,7 +63,7 @@ reference; the harness checks it against libopenmpt ([harness.md](harness.md#in-
 
 **Ym3438** (`src/Render/Fm`, plan T7.2, [ADR 0056](adr/0056-ym3438-model.md)) — pure C#: the FM chip as a C# port
 of ymfm's YM3438 (the clean chip, no ladder effect), changed where the chip, as Nuked-OPN2 models it, differs from ymfm
-(plan T7.7, [ADR 0063](adr/0063-ym3438-chip-differences.md)). Register writes in, one stereo sample per 144 master
+(plan T7.7, [ADR 0064](adr/0064-ym3438-chip-differences.md)). Register writes in, one stereo sample per 144 master
 clocks out; the Genesis renderer (T7.5) owns the clock and the mixing. Checked against ymfm and Nuked-OPN2 on
 register-write probes (`tests/golden/ym3438/`).
 
