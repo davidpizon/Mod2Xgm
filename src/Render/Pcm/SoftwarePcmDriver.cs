@@ -11,10 +11,10 @@ namespace Mod2Xgm.Render.Pcm;
 internal abstract class SoftwarePcmDriver : IDacSource
 {
     /// <summary>The highest priority a play can have (both drivers: 4 bits).</summary>
-    public const int MaxPriority = 15;
+    protected const int MaxPriority = 15;
 
     /// <summary>Sample addresses and sizes are multiples of 256 bytes (docs/formats/xgm.md), so a sample plays to its padding's end.</summary>
-    public const int SampleAlignment = 256;
+    private const int SampleAlignment = 256;
 
     /// <summary><c>$2B</c> with bit 7 set: the DAC replaces FM channel 6.</summary>
     protected const byte DacOn = 0x80;

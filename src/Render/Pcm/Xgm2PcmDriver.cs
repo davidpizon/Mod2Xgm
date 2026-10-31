@@ -13,7 +13,7 @@ namespace Mod2Xgm.Render.Pcm;
 internal sealed class Xgm2PcmDriver : SoftwarePcmDriver
 {
     /// <summary>XGM2's PCM channels.</summary>
-    public const int ChannelCount = 3;
+    private const int ChannelCount = 3;
 
     /// <summary>The priority of a music play with bit 3 of <c>$1x</c> clear (<c>drv_xgm2_ym_fct.i80</c>, <c>FM_playPCM</c>).</summary>
     public const int LowPriority = 7;

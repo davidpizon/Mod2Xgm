@@ -12,7 +12,7 @@ namespace Mod2Xgm.Render.Pcm;
 internal sealed class XgmPcmDriver : SoftwarePcmDriver
 {
     /// <summary>XGM's PCM channels.</summary>
-    public const int ChannelCount = 4;
+    private const int ChannelCount = 4;
 
     /// <summary>Master clocks per YM3438 sample: the chip runs at the master clock ÷ 7 and makes a sample every 144 of its clocks.</summary>
     private const int MasterClocksPerSample = 7 * 144;
