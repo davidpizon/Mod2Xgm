@@ -66,7 +66,9 @@ internal static class FmTables
 
     /// <summary>
     /// Envelope steps: for each 6-bit rate, eight 4-bit increments (one per step of the envelope counter), packed into
-    /// one value, lowest step in the lowest nibble.
+    /// one value, lowest step in the lowest nibble. Rates 48-63 take the larger steps where Nuked-OPN2 does (on counts
+    /// 0 mod 4 for rates 4n+1, even counts for 4n+2, all but 3 mod 4 for 4n+3); ymfm has the same steps in another order
+    /// (docs/adr/0064-ym3438-chip-differences.md).
     /// </summary>
     private static ReadOnlySpan<uint> IncrementTable =>
     [
@@ -82,9 +84,9 @@ internal static class FmTables
         0x10101010, 0x10111010, 0x11101110, 0x11111110, // 36-39
         0x10101010, 0x10111010, 0x11101110, 0x11111110, // 40-43
         0x10101010, 0x10111010, 0x11101110, 0x11111110, // 44-47
-        0x11111111, 0x21112111, 0x21212121, 0x22212221, // 48-51
-        0x22222222, 0x42224222, 0x42424242, 0x44424442, // 52-55
-        0x44444444, 0x84448444, 0x84848484, 0x88848884, // 56-59
+        0x11111111, 0x11121112, 0x12121212, 0x12221222, // 48-51
+        0x22222222, 0x22242224, 0x24242424, 0x24442444, // 52-55
+        0x44444444, 0x44484448, 0x48484848, 0x48884888, // 56-59
         0x88888888, 0x88888888, 0x88888888, 0x88888888, // 60-63
     ];
 

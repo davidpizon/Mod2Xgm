@@ -22,6 +22,11 @@ internal static class Ym3438Probes
         ["dac"] = Dac,
         ["six-channels"] = SixChannels,
         ["write-quirks"] = WriteQuirks,
+        ["clip-order"] = ClipOrder,
+        ["modulation-order"] = ModulationOrder,
+        ["ssg-shapes"] = SsgShapes,
+        ["top-note"] = TopNote,
+        ["envelope-rates"] = EnvelopeRates,
     };
 
     /// <summary>A carrier alone at full level: the plain sine.</summary>
@@ -273,4 +278,101 @@ internal static class Ym3438Probes
             .Seconds(0.02)
             .KeyOff(1)
             .Seconds(0.05);
+
+    private static Ym3438Script ClipOrder()
+    {
+        Ym3438Script script = new(
+            "clip-order",
+            "Carriers loud enough to clip channel 1 at the 9-bit limit, at different multiples so their sum crosses it\n" +
+            "on the way up and down: algorithm 7 with feedback, then 6 and 4 (the chip clips after each carrier; ADR 0064).");
+        int[] algorithms = [7, 6, 4];
+        foreach (int algorithm in algorithms)
+        {
+            script.Patch(0, algorithm, 3, Carrier, Carrier with { Mul = 2 }, Carrier with { Mul = 3, Tl = 4 }, Carrier with { Mul = 5, Tl = 2 })
+                .Note(0, 4, 220)
+                .Key(0)
+                .Seconds(0.08)
+                .KeyOff(0)
+                .Seconds(0.03);
+        }
+
+        return script;
+    }
+
+    private static Ym3438Script ModulationOrder()
+    {
+        Ym3438Script script = new(
+            "modulation-order",
+            "Strong modulators in the algorithms where an operator hears another from the slot before (0, 1, 2, 3, 5),\n" +
+            "each note started from silence (operator 1 keys a sample after the others; ADR 0064).");
+        int[] algorithms = [0, 1, 2, 3, 5];
+        foreach (int algorithm in algorithms)
+        {
+            script.Patch(0, algorithm, 5, new FmOp(Mul: 1, Tl: 12, Rr: 15), new FmOp(Mul: 3, Tl: 16, Rr: 15), new FmOp(Mul: 2, Tl: 14, Rr: 15), Carrier with { Rr = 15 })
+                .Note(0, 3, 196)
+                .Key(0)
+                .Seconds(0.06)
+                .KeyOff(0)
+                .Seconds(0.02);
+        }
+
+        return script;
+    }
+
+    private static Ym3438Script SsgShapes()
+    {
+        Ym3438Script script = new(
+            "ssg-shapes",
+            "SSG-EG shapes 0-7 on a carrier with fast decays, held long enough to repeat and turn several times, released\n" +
+            "at the fastest rate into silence (the turn and repeat timing; ADR 0064).");
+        for (int shape = 0; shape < 8; shape++)
+        {
+            script.Patch(0, 7, 0, FmOp.Silent, FmOp.Silent, FmOp.Silent, new FmOp(Ar: 31, Dr: 26, Sl: 6, Sr: 26, Rr: 15, Ssg: 8 | shape))
+                .Note(0, 4, 440)
+                .Key(0)
+                .Seconds(0.08)
+                .KeyOff(0)
+                .Seconds(0.01);
+        }
+
+        return script;
+    }
+
+    private static Ym3438Script TopNote()
+    {
+        Ym3438Script script = new(
+            "top-note",
+            "The top of the range (block 7, F-number $7FF) on operator 4 alone with each detune 0-7, multiple 1 and 15\n" +
+            "in turn (where ADR 0056 expected the detune to overflow; ADR 0064).");
+        for (int detune = 0; detune < 8; detune++)
+        {
+            script.Patch(0, 7, 0, FmOp.Silent, FmOp.Silent, FmOp.Silent, Carrier with { Dt = detune, Mul = detune % 2 == 0 ? 1 : 15, Rr = 15 })
+                .Frequency(0, 7, 0x7ff)
+                .Key(0)
+                .Seconds(0.03)
+                .KeyOff(0)
+                .Seconds(0.005);
+        }
+
+        return script;
+    }
+
+    private static Ym3438Script EnvelopeRates()
+    {
+        Ym3438Script script = new(
+            "envelope-rates",
+            "Decay rates 20-31 in turn on a carrier with the instant attack, each from silence, long enough in all for the\n" +
+            "envelope timer to wrap (the key-on step, the timer's wrap and the fast rates' step order; ADR 0064).");
+        for (int rate = 20; rate < 32; rate++)
+        {
+            script.Patch(0, 7, 0, FmOp.Silent, FmOp.Silent, FmOp.Silent, new FmOp(Ar: 31, Dr: rate, Sl: 15, Rr: 15))
+                .Note(0, 4, 440)
+                .Key(0)
+                .Seconds(0.028)
+                .KeyOff(0)
+                .Seconds(0.011);
+        }
+
+        return script;
+    }
 }

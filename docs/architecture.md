@@ -62,9 +62,10 @@ lengths can be given (`ModRenderOptions.TickDurations`) to render in OpenMPT's t
 reference; the harness checks it against libopenmpt ([harness.md](harness.md#in-app-mod-renderer)).
 
 **Ym3438** (`src/Render/Fm`, plan T7.2, [ADR 0056](adr/0056-ym3438-model.md)) — pure C#: the FM chip as a C# port
-of ymfm's YM3438 (the clean chip, no ladder effect), bit-exact with ymfm. Register writes in, one stereo sample per
-144 master clocks out; the Genesis renderer (T7.5) owns the clock and the mixing. Checked against ymfm and
-Nuked-OPN2 on register-write probes (`tests/golden/ym3438/`).
+of ymfm's YM3438 (the clean chip, no ladder effect), changed where the chip, as Nuked-OPN2 models it, differs from ymfm
+(plan T7.7, [ADR 0064](adr/0064-ym3438-chip-differences.md)). Register writes in, one stereo sample per 144 master
+clocks out; the Genesis renderer (T7.5) owns the clock and the mixing. Checked against ymfm and Nuked-OPN2 on
+register-write probes (`tests/golden/ym3438/`).
 
 **Sn76489** (`src/Render/Psg`, plan T7.3, [ADR 0057](adr/0057-sn76489-model.md)) — pure C#: the PSG as a C# port of
 MAME's Sega PSG (`segapsg`), bit-exact with MAME. Port writes in, one mono sample per 16 PSG clocks out (223.7 kHz on

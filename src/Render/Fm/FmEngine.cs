@@ -87,10 +87,25 @@ internal sealed class FmEngine
             _modifiedChannels = _prepareCount = 0;
         }
 
-        // The envelope counter's low 2 bits count samples up to the divider; the rest count envelope steps.
+        // Operator 1 takes a key on/off one sample after the others (FmChannel.KeyOnOff): prepare again next sample.
+        for (int chnum = 0; chnum < _channels.Length; chnum++)
+        {
+            if (_channels[chnum].PassDelayedKey())
+            {
+                _modifiedChannels |= 1u << chnum;
+            }
+        }
+
+        // The envelope counter's low 2 bits count samples up to the divider; the rest is the chip's 12-bit envelope timer.
+        // Its adder feeds the carry straight back, so it wraps from 4095 to 1, skipping 0 (Nuked-OPN2; ymfm counts on,
+        // docs/adr/0064-ym3438-chip-differences.md).
         if (FmTables.Bitfield(++_envCounter, 0, 2) == OpnRegisters.EgClockDivider)
         {
             _envCounter += 4 - OpnRegisters.EgClockDivider;
+            if (FmTables.Bitfield(_envCounter, 2, OpnRegisters.EgTimerBits) == 0)
+            {
+                _envCounter = 1u << 2;
+            }
         }
 
         int lfoRawPm = Registers.ClockNoiseAndLfo();

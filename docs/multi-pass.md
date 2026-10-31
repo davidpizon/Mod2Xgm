@@ -75,7 +75,8 @@ All in-process, no native libraries and no external programs:
   volume ramps; [ADR 0054](adr/0054-mod-renderer.md)), not like a real Amiga. Validated against libopenmpt renders in
   the harness ([harness.md](harness.md#in-app-mod-renderer)).
 - **YM2612 model** — C# port of **ymfm**'s YM3438, the clean chip without the ladder effect (`src/Render/Fm/`,
-  [ADR 0056](adr/0056-ym3438-model.md); BSD-3, notice in `THIRD-PARTY-NOTICES.md`).
+  [ADR 0056](adr/0056-ym3438-model.md); BSD-3, notice in `THIRD-PARTY-NOTICES.md`), with the chip's differences from
+  ymfm modeled as Nuked-OPN2 has them ([ADR 0064](adr/0064-ym3438-chip-differences.md)).
 - **SN76489 model** — C# port of **MAME**'s Sega PSG (`src/Render/Psg/`, [ADR 0057](adr/0057-sn76489-model.md);
   BSD-3, notice in `THIRD-PARTY-NOTICES.md`).
 - **PCM driver models** — SGDK's XGM (4 ch, 14 093 Hz) and XGM2 (3 ch, 13 317 / 6 658 Hz) software mixing and
