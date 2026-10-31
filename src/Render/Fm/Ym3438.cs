@@ -1,10 +1,12 @@
 namespace Mod2Xgm.Render.Fm;
 
 /// <summary>
-/// The Genesis FM chip as the YM3438 (the CMOS OPN2 in later Mega Drive / Genesis models), sample for sample what ymfm's
-/// <c>ym3438</c> plays (plan T7.2, docs/adr/0056-ym3438-model.md): a C# port of ymfm (<c>src/ymfm_opn.cpp</c> and
-/// <c>src/ymfm_fm.ipp</c>, commit 81aec25, BSD-3-Clause, THIRD-PARTY-NOTICES.md), checked bit-exact against ymfm and
-/// against Nuked-OPN2 by tests (tests/golden/ym3438/README.md).
+/// The Genesis FM chip as the YM3438 (the CMOS OPN2 in later Mega Drive / Genesis models): a C# port of ymfm's
+/// <c>ym3438</c> (<c>src/ymfm_opn.cpp</c> and <c>src/ymfm_fm.ipp</c>, commit 81aec25, BSD-3-Clause, THIRD-PARTY-NOTICES.md;
+/// plan T7.2, docs/adr/0056-ym3438-model.md), changed where the chip, as Nuked-OPN2 models it, differs: the clipping
+/// sum, operator timing, SSG-EG turns and holds, and the envelope timer (plan T7.7, docs/adr/0063-ym3438-chip-differences.md).
+/// Tests check it sample for sample against ymfm where no difference reaches and against Nuked-OPN2 everywhere
+/// (tests/golden/ym3438/README.md).
 /// <para>The YM3438 has the YM2612's channels, registers and 9-bit DAC, but not its "ladder effect" (the extra step
 /// around zero that makes quiet sounds crunchy on a Model 1).</para>
 /// <para>It makes one stereo sample every 144 master clocks (<see cref="SampleRateHz"/>: about 53.3 kHz on NTSC).
@@ -22,7 +24,7 @@ internal sealed class Ym3438
     private const int ClocksPerSample = 144;
 
     /// <summary>
-    /// The largest output value: six channels at the 9-bit clip (±256) scaled by 128 / 6; one step past
+    /// The largest output value: six channels at the bottom of the 9-bit clip (−256) scaled by 128 / 6; one step past
     /// <see cref="short.MaxValue"/>.
     /// </summary>
     public const int FullScale = 32_768;
@@ -39,10 +41,11 @@ internal sealed class Ym3438
     /// <summary>Channel 6's register offset: its panning also pans the DAC.</summary>
     private const uint Channel6Offset = 0x102;
 
-    /// <summary>Each channel's 9-bit output is the sum >> 5, clipped to ±256 (OPN2C).</summary>
+    /// <summary>Each channel's 9-bit output is the sum of its carriers, each >> 5, clipped to −256…255 after every carrier.</summary>
     private const int OutputShift = 5;
 
-    private const int OutputClip = 256;
+    /// <summary>The top of the 9-bit clip; the bottom is one further (Nuked-OPN2; ymfm uses ±256).</summary>
+    private const int OutputClip = 255;
 
     private readonly FmEngine _fm = new();
     private ushort _address;

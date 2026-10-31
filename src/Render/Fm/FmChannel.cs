@@ -27,6 +27,9 @@ internal sealed class FmChannel
     private readonly FmOperator[] _op;
     private readonly short[] _feedback = new short[2];
     private short _feedbackIn;
+    private short _op2Previous;
+    private uint _op1KeyPending;
+    private bool _op1KeyWaiting;
 
     /// <summary>Creates the channel at register offset <paramref name="choffs"/> with its four operators, in order O1–O4.</summary>
     public FmChannel(OpnRegisters regs, uint choffs, FmOperator[] operators)
@@ -48,15 +51,40 @@ internal sealed class FmChannel
     {
         _feedback[0] = _feedback[1] = 0;
         _feedbackIn = 0;
+        _op2Previous = 0;
+        _op1KeyWaiting = false;
     }
 
-    /// <summary>Passes a key on/off write to the operators: bit <i>n</i> of <paramref name="states"/> is operator <i>n</i>+1.</summary>
+    /// <summary>
+    /// Passes a key on/off write to the operators: bit <i>n</i> of <paramref name="states"/> is operator <i>n</i>+1.
+    /// Operators 2–4 take it at the next sample; operator 1 a sample later, because the chip latches the write into
+    /// operator 1's slot only on the next pass (Nuked-OPN2; ymfm keys all four at once, docs/adr/0063-ym3438-chip-differences.md).
+    /// </summary>
     public void KeyOnOff(uint states)
     {
-        for (int opnum = 0; opnum < _op.Length; opnum++)
+        for (int opnum = 1; opnum < _op.Length; opnum++)
         {
             _op[opnum].KeyOnOff(FmTables.Bitfield(states, opnum));
         }
+
+        _op1KeyPending = FmTables.Bitfield(states, 0);
+        _op1KeyWaiting = true;
+    }
+
+    /// <summary>
+    /// Hands a waiting key on/off to operator 1 once the sample that keyed the other operators has been prepared, so the
+    /// next <see cref="Prepare"/> applies it; true when it did, so the engine prepares the channel again.
+    /// </summary>
+    public bool PassDelayedKey()
+    {
+        if (!_op1KeyWaiting)
+        {
+            return false;
+        }
+
+        _op[0].KeyOnOff(_op1KeyPending);
+        _op1KeyWaiting = false;
+        return true;
     }
 
     /// <summary>Prepares every operator; true while any can still be heard.</summary>
@@ -100,13 +128,10 @@ internal sealed class FmChannel
             opmod = (_feedback[0] + _feedback[1]) >> (int)(10 - feedback);
         }
 
-        // Operator 1 is computed even when the channel is muted, so its feedback keeps going.
+        // Every operator is computed even when the channel is muted, as on the chip: operator 1's feedback and the
+        // delayed operator 2 keep going (ymfm stops after operator 1).
         _feedbackIn = (short)_op[0].ComputeVolume(_op[0].Phase + (uint)opmod, amOffset);
         int op1Value = _feedbackIn;
-        if (_regs.ChOutputAny(ChOffset) == 0)
-        {
-            return;
-        }
 
         uint algorithmOps = AlgorithmOps[(int)_regs.ChAlgorithm(ChOffset)];
         Span<short> opout = stackalloc short[8];
@@ -117,18 +142,38 @@ internal sealed class FmChannel
         opout[2] = (short)_op[1].ComputeVolume(_op[1].Phase + (uint)opmod, amOffset);
         opout[5] = (short)(opout[1] + opout[2]);
 
-        opmod = opout[(int)FmTables.Bitfield(algorithmOps, 1, 3)] >> 1;
+        // The chip computes the operators in slot order, O1, O3, O2, O4, so operator 3 hears operators 1 and 2 as they
+        // were a sample ago (MAME's "MEM"; Nuked-OPN2), and so does operator 4 hear operator 2 in algorithm 3. ymfm uses
+        // this sample's values (docs/adr/0063-ym3438-chip-differences.md).
+        Span<short> delayed = stackalloc short[8];
+        delayed[1] = _feedback[1];
+        delayed[2] = _op2Previous;
+        delayed[5] = (short)(_feedback[1] + _op2Previous);
+        opmod = delayed[(int)FmTables.Bitfield(algorithmOps, 1, 3)] >> 1;
         opout[3] = (short)_op[2].ComputeVolume(_op[2].Phase + (uint)opmod, amOffset);
         opout[6] = (short)(opout[1] + opout[3]);
-        opout[7] = (short)(opout[2] + opout[3]);
+        opout[7] = (short)(_op2Previous + opout[3]);
+        _op2Previous = opout[2];
+        if (_regs.ChOutputAny(ChOffset) == 0)
+        {
+            return;
+        }
 
         opmod = opout[(int)FmTables.Bitfield(algorithmOps, 4, 3)] >> 1;
-        int result = _op[3].ComputeVolume(_op[3].Phase + (uint)opmod, amOffset) >> rshift;
+        int op4Value = _op[3].ComputeVolume(_op[3].Phase + (uint)opmod, amOffset);
 
+        // The chip adds the carriers in slot order, O1, O3, O2, O4, clipping after each one (Nuked-OPN2); ymfm starts
+        // from O4 and clips one step wider, which sounds louder when loud carriers saturate (docs/adr/0063-ym3438-chip-differences.md).
         int clipMin = -clipMax - 1;
+        int result = 0;
         if (FmTables.Bitfield(algorithmOps, 7) != 0)
         {
             result = FmTables.Clamp(result + (opout[1] >> rshift), clipMin, clipMax);
+        }
+
+        if (FmTables.Bitfield(algorithmOps, 9) != 0)
+        {
+            result = FmTables.Clamp(result + (opout[3] >> rshift), clipMin, clipMax);
         }
 
         if (FmTables.Bitfield(algorithmOps, 8) != 0)
@@ -136,10 +181,7 @@ internal sealed class FmChannel
             result = FmTables.Clamp(result + (opout[2] >> rshift), clipMin, clipMax);
         }
 
-        if (FmTables.Bitfield(algorithmOps, 9) != 0)
-        {
-            result = FmTables.Clamp(result + (opout[3] >> rshift), clipMin, clipMax);
-        }
+        result = FmTables.Clamp(result + (op4Value >> rshift), clipMin, clipMax);
 
         if (_regs.ChOutput0(ChOffset) != 0)
         {

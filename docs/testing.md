@@ -23,8 +23,9 @@ Test projects live in **`tests/`**, one folder each (see [`tests/README.md`](../
    through `tests/Mod2Xgm.Tests/Golden.cs`, which finds the folder from the repo root and ignores CR/LF
    differences (Windows checkouts get CRLF). First goldens: console report sections 1–2 (`tests/golden/report/`).
    The YM3438 probes (plan T7.2, `tests/golden/ym3438/`, [ADR 0056](adr/0056-ym3438-model.md)) are register-write
-   scripts built by `Ym3438Probes`; the port must play each one exactly as ymfm does and within a log-mel bar of
-   Nuked-OPN2. Their reference outputs are made by `tools/ym3438-reference/run.sh`, as their README says.
+   scripts built by `Ym3438Probes`; the port must play each one exactly as ymfm does, except the probes a modeled chip
+   difference reaches ([ADR 0063](adr/0063-ym3438-chip-differences.md)), which must come closer to Nuked-OPN2 instead,
+   and every probe within a log-mel bar of Nuked-OPN2 (the one-channel probes also sample for sample). Their reference outputs are made by `tools/ym3438-reference/run.sh`, as their README says.
    The SN76489 probes (plan T7.3, `tests/golden/sn76489/`, [ADR 0057](adr/0057-sn76489-model.md)) work the same way:
    scripts built by `Sn76489Probes`, played exactly as MAME's Sega PSG plays them and within a log-mel bar of
    Nuked-PSG; their reference outputs are made by `tools/sn76489-reference/run.sh`.

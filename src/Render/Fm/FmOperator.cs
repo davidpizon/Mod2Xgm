@@ -62,6 +62,15 @@ internal sealed class FmOperator
     private byte _keyState;
     private byte _keyonLive;
 
+    /// <summary>The SSG-EG inversion this sample sounds with when a turn is due next sample, or -1 when none is.</summary>
+    private int _ssgTurnInverted = -1;
+
+    /// <summary>An SSG-EG repeat in shapes 0 and 4 holds the phase at 0 for the sample it happens in.</summary>
+    private bool _ssgPhaseRestart;
+
+    /// <summary>True in the sample a key on starts the attack, which takes no envelope step.</summary>
+    private bool _keyedOn;
+
     /// <summary>Creates the operator at register offset <paramref name="opoffs"/>.</summary>
     public FmOperator(OpnRegisters regs, uint opoffs)
     {
@@ -87,6 +96,9 @@ internal sealed class FmOperator
         _ssgInverted = 0;
         _keyState = 0;
         _keyonLive = 0;
+        _ssgTurnInverted = -1;
+        _ssgPhaseRestart = false;
+        _keyedOn = false;
     }
 
     /// <summary>Reads the registers into the cache and applies a pending key on or off.</summary>
@@ -103,6 +115,7 @@ internal sealed class FmOperator
     /// <param name="lfoRawPm">The LFO's vibrato value this sample.</param>
     public void Clock(uint envCounter, int lfoRawPm)
     {
+        _ssgPhaseRestart = false;
         if (_regs.OpSsgEgEnable(OpOffset) != 0)
         {
             ClockSsgEgState();
@@ -117,7 +130,20 @@ internal sealed class FmOperator
             ClockEnvelope(envCounter >> 2);
         }
 
-        ClockPhase(lfoRawPm);
+        // A restarted phase sounds at 0 for one sample before it steps (ymfm steps it at once).
+        if (!_ssgPhaseRestart)
+        {
+            ClockPhase(lfoRawPm);
+        }
+
+        // The sample whose attenuation reaches the midpoint already sounds with the inversion the turn will make; the
+        // turn itself (restart, hold, phase reset) follows a sample later. At the quiet end of the alternating shapes
+        // that is a full-level blip, at the loud end a silent sample (Nuked-OPN2; ymfm turns the inversion with the
+        // rest, a sample later, docs/adr/0063-ym3438-chip-differences.md). A released note never inverts.
+        _ssgTurnInverted = _regs.OpSsgEgEnable(OpOffset) != 0 && _keyState != 0 && FmTables.Bitfield(_envAttenuation, 9) != 0
+            ? (int)InvertedAfterTurn()
+            : -1;
+        _keyedOn = false;
     }
 
     /// <summary>The operator's output (14-bit signed) at <paramref name="phase"/> (phase plus modulation).</summary>
@@ -153,6 +179,7 @@ internal sealed class FmOperator
         // both to the SSG-EG code.
         if (!isRestart)
         {
+            _keyedOn = true;
             _ssgInverted = (byte)(_regs.OpSsgEgEnable(OpOffset) & FmTables.Bitfield(_regs.OpSsgEgMode(OpOffset), 2));
             _phase = 0;
         }
@@ -214,11 +241,14 @@ internal sealed class FmOperator
         uint mode = _regs.OpSsgEgMode(OpOffset);
         if (FmTables.Bitfield(mode, 0) != 0)
         {
-            // Hold: end inverted in shapes 3 and 5, and pin the attenuation once past the attack.
+            // Hold: end inverted in shapes 3 and 5, and silence the others once past the attack. An inverted hold keeps
+            // the attenuation where its last step left it, so only one that stopped exactly on the midpoint holds at
+            // full level; one that stepped past it wraps to near silence (Nuked-OPN2; ymfm pins it to the midpoint,
+            // docs/adr/0063-ym3438-chip-differences.md).
             _ssgInverted = (byte)(FmTables.Bitfield(mode, 2) ^ FmTables.Bitfield(mode, 1));
-            if (_envState != EnvelopeState.Attack)
+            if (_envState != EnvelopeState.Attack && _ssgInverted == 0)
             {
-                _envAttenuation = (ushort)(_ssgInverted != 0 ? 0x200 : 0x3ff);
+                _envAttenuation = 0x3ff;
             }
         }
         else
@@ -234,6 +264,7 @@ internal sealed class FmOperator
             if (FmTables.Bitfield(mode, 1) == 0)
             {
                 _phase = 0;
+                _ssgPhaseRestart = true;
             }
         }
 
@@ -241,6 +272,15 @@ internal sealed class FmOperator
         {
             _envAttenuation = 0x3ff;
         }
+    }
+
+    /// <summary>The inversion <see cref="ClockSsgEgState"/> leaves once the attenuation has passed the midpoint.</summary>
+    private uint InvertedAfterTurn()
+    {
+        uint mode = _regs.OpSsgEgMode(OpOffset);
+        return FmTables.Bitfield(mode, 0) != 0
+            ? FmTables.Bitfield(mode, 2) ^ FmTables.Bitfield(mode, 1)
+            : _ssgInverted ^ FmTables.Bitfield(mode, 1);
     }
 
     /// <summary>One envelope step at count <paramref name="envCounter"/>.</summary>
@@ -255,6 +295,13 @@ internal sealed class FmOperator
         if (_envState == EnvelopeState.Decay && _envAttenuation >= _cache.EgSustain)
         {
             _envState = EnvelopeState.Sustain;
+        }
+
+        // The sample a key on lands in only starts the attack (Nuked-OPN2; ymfm takes its first step at once,
+        // docs/adr/0063-ym3438-chip-differences.md).
+        if (_keyedOn)
+        {
+            return;
         }
 
         uint rate = _cache.EgRate[(int)_envState];
@@ -312,7 +359,7 @@ internal sealed class FmOperator
     private uint EnvelopeAttenuation(uint amOffset)
     {
         uint result = _envAttenuation;
-        if (_ssgInverted != 0)
+        if ((_ssgTurnInverted >= 0 ? _ssgTurnInverted : _ssgInverted) != 0)
         {
             result = (0x200 - result) & 0x3ff;
         }
