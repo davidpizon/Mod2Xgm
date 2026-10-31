@@ -23,6 +23,10 @@ internal static class ModReader
     private const int MaxVolume = 64;
     private const int MaxSampleBytes = 65536;
 
+    // docs/formats/mod.md#sample-header: OpenMPT loads a sample 1 word long as empty and doesn't read its 2 bytes, so
+    // the samples after it start 2 bytes earlier in the file (docs/adr/0062-one-word-samples.md).
+    private const int OneWordSampleBytes = 2;
+
     // docs/formats/mod.md#pitch: the lowest and highest periods any finetune produces (B-3 at +7, C-1 at −8).
     private const int MinPeriod = 108;
     private const int MaxPeriod = 907;
@@ -169,17 +173,25 @@ internal static class ModReader
         int offset = sampleDataOffset;
         int ambiguousLoops = 0;
         int byteLoops = 0;
+        List<int> oneWordSamples = [];
         foreach (SampleHeader header in headers)
         {
-            int available = Math.Clamp(data.Length - offset, 0, header.Length);
-            if (available < header.Length)
+            int stored = header.Length;
+            if (stored == OneWordSampleBytes)
+            {
+                stored = 0;
+                oneWordSamples.Add(header.Number);
+            }
+
+            int available = Math.Clamp(data.Length - offset, 0, stored);
+            if (available < stored)
             {
                 notes.Add(
                     "Sample {Sample} {Name}: the file ends early; kept {Kept} of {Length} bytes",
                     header.Number,
                     header.Name,
                     available,
-                    header.Length);
+                    stored);
             }
 
             int dataOffset = offset;
@@ -202,6 +214,15 @@ internal static class ModReader
                 Data = pcm,
                 DataOffset = dataOffset,
             });
+        }
+
+        if (oneWordSamples.Count > 0)
+        {
+            int shift = oneWordSamples.Count * OneWordSampleBytes;
+            notes.Add(
+                "Samples {Samples} are 1 word (2 bytes) long: read as empty and without their bytes, as OpenMPT reads them, so each later sample starts up to {Shift} bytes early in the file and the file's last {Shift} bytes go unread",
+                string.Join(", ", oneWordSamples.Select(n => n.ToString(CultureInfo.InvariantCulture))),
+                shift);
         }
 
         if (byteLoops > 0)

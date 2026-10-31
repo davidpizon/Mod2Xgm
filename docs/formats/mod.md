@@ -65,6 +65,7 @@ to the real file size; ties go to all entries.
 | Loop runs past the sample end | Loop shortened; conversion note |
 | Loop starts past the sample end | Loop removed; conversion note |
 | Loop length ≤ 2 bytes | No loop (ProTracker convention) |
+| Sample 1 word (2 bytes) long | Read as empty and its bytes left to the next sample, as OpenMPT does ([ADR 0062](../adr/0062-one-word-samples.md)); conversion note |
 | Names | Latin-1, cut at the first NUL, trailing spaces removed, leading spaces kept |
 
 15-sample layout: same but 15 headers, song length at 470, restart at 471, orders at 472, **no tag**,
@@ -82,6 +83,10 @@ patterns at 600.
 | 28 | 2 | Loop length in words; ≤ 1 means no loop |
 
 The first 2 bytes of each sample are traditionally ignored by the Amiga player for looping samples.
+
+**A sample 1 word long (2 bytes) is read as empty, without its bytes**, as OpenMPT reads it
+([ADR 0062](../adr/0062-one-word-samples.md)): the samples after it start 2 bytes earlier in the file for each such
+sample, and the file's last bytes go unread; one conversion note lists them. ProTracker reads the 2 bytes as stored.
 
 **Loop start in bytes (15-sample files only).** Ultimate Soundtracker stored the loop start in bytes. If a loop only
 fits inside the sample when its start is read in bytes, it's read that way, with a conversion note. If it fits

@@ -112,11 +112,11 @@ public sealed class ModReaderTests
     {
         ModModule module = Read(new ModBuilder()
             .WithSample(1, "a", 4, data: i => (sbyte)(-1 - i))
-            .WithSample(2, "b", 2, data: i => (sbyte)(100 + i))
+            .WithSample(2, "b", 4, data: i => (sbyte)(100 + i))
             .Build());
 
         Assert.Equal(new sbyte[] { -1, -2, -3, -4 }, module.Samples[0].Data);
-        Assert.Equal(new sbyte[] { 100, 101 }, module.Samples[1].Data);
+        Assert.Equal(new sbyte[] { 100, 101, 102, 103 }, module.Samples[1].Data);
     }
 
     /// <summary>Each sample's data offset points at its bytes in the file: right after the patterns, one after another.</summary>
@@ -125,7 +125,7 @@ public sealed class ModReaderTests
     {
         byte[] bytes = new ModBuilder()
             .WithSample(1, "a", 4, data: i => (sbyte)(-1 - i))
-            .WithSample(2, "b", 2, data: i => (sbyte)(100 + i))
+            .WithSample(2, "b", 4, data: i => (sbyte)(100 + i))
             .Build();
 
         ModModule module = Read(bytes);
@@ -133,6 +133,57 @@ public sealed class ModReaderTests
         Assert.Equal(1084 + 1024, module.Samples[0].DataOffset);
         Assert.Equal(module.Samples[0].DataOffset + 4, module.Samples[1].DataOffset);
         Assert.Equal(100, (sbyte)bytes[module.Samples[1].DataOffset]);
+    }
+
+    /// <summary>
+    /// A sample 1 word long is read as OpenMPT reads it: empty, without its 2 bytes, so the next sample starts on them
+    /// and every later sample starts 2 bytes early (docs/adr/0062-one-word-samples.md).
+    /// </summary>
+    [Fact]
+    public void OneWordSamplesAreReadAsEmptyWithoutTheirBytes()
+    {
+        byte[] bytes = new ModBuilder()
+            .WithSample(1, "a", 4, data: i => (sbyte)(10 + i))
+            .WithSample(2, "credits", 2, data: i => (sbyte)(90 + i))
+            .WithSample(3, "b", 4, data: i => (sbyte)(20 + i))
+            .WithSample(4, "c", 4, data: i => (sbyte)(30 + i))
+            .Build();
+
+        (ModModule module, ConversionNotes notes) = ReadWithNotes(bytes);
+
+        Assert.True(module.Samples[1].IsEmpty);
+        Assert.Equal("credits", module.Samples[1].Name);
+        Assert.Equal(new sbyte[] { 90, 91, 20, 21 }, module.Samples[2].Data);
+        Assert.Equal(new sbyte[] { 22, 23, 30, 31 }, module.Samples[3].Data);
+        Assert.Equal(module.Samples[0].DataOffset + 4, module.Samples[2].DataOffset);
+        Assert.Contains(notes.Messages, m => m.Contains("Samples 2 are 1 word (2 bytes) long", StringComparison.Ordinal));
+        Assert.Contains(notes.Messages, m => m.Contains("the file's last 2 bytes go unread", StringComparison.Ordinal));
+        Assert.DoesNotContain(notes.Messages, m => m.Contains("after the last sample's data", StringComparison.Ordinal));
+    }
+
+    /// <summary>Each 1-word sample moves the later samples 2 more bytes; the note lists them all.</summary>
+    [Fact]
+    public void OneWordSamplesAddUp()
+    {
+        byte[] bytes = new ModBuilder()
+            .WithSample(1, "x", 2, data: _ => 0)
+            .WithSample(2, "y", 2, data: _ => 0)
+            .WithSample(3, "b", 8, data: i => (sbyte)(20 + i))
+            .Build();
+
+        (ModModule module, ConversionNotes notes) = ReadWithNotes(bytes);
+
+        Assert.Equal(new sbyte[] { 0, 0, 0, 0, 20, 21, 22, 23 }, module.Samples[2].Data);
+        Assert.Contains(notes.Messages, m => m.Contains("Samples 1, 2 are 1 word", StringComparison.Ordinal) && m.Contains("up to 4 bytes early", StringComparison.Ordinal));
+    }
+
+    /// <summary>Without 1-word samples nothing moves and no note is added.</summary>
+    [Fact]
+    public void OtherSamplesAddNoOneWordNote()
+    {
+        (_, ConversionNotes notes) = ReadWithNotes(new ModBuilder().WithSample(1, "a", 4).WithSample(2, "b", 0).Build());
+
+        Assert.DoesNotContain(notes.Messages, m => m.Contains("1 word", StringComparison.Ordinal));
     }
 
     [Fact]
