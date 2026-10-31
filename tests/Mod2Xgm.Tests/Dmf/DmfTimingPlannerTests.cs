@@ -308,8 +308,8 @@ public sealed class DmfTimingPlannerTests
 
         ModModule module = ModReader.Read(builder.Build(), new ConversionNotes(Logger.None));
         Song song = ModToSong.Convert(module, AmigaPitch.PalClockHz, new ConversionNotes(Logger.None));
-        GenesisPlan plan = new SimpleMapper().Map(song, MappingOptions.Default, new ConversionNotes(Logger.None));
         Playback playback = ModTickPlayer.Play(module, AmigaPitch.PalClockHz, 1.0, new ConversionNotes(Logger.None));
+        GenesisPlan plan = new SimpleMapper().Map(song, playback, MappingOptions.Default, new ConversionNotes(Logger.None));
 
         DmfTimingPlan timing = DmfTimingPlanner.Plan(plan, 1.0, Region.Pal, new ConversionNotes(Logger.None));
 

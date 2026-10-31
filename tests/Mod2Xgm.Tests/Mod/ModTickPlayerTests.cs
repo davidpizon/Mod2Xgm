@@ -263,6 +263,70 @@ public sealed class ModTickPlayerTests
         Assert.Equal(expected, QuarterPeriodAt(playback, 0));
     }
 
+    /// <summary>The period a written note is kept at in <see cref="Playback.NotePitches"/>, to the quarter, or null when it is missing.</summary>
+    private static double? NotePeriodAt(Playback playback, int order, int row, int channel = 0) =>
+        playback.NotePitches.TryGetValue(new NotePosition(order, row, channel), out NotePitch pitch)
+            ? Math.Round(AmigaPitch.PeriodOf(pitch, AmigaPitch.PalClockHz) * 4) / 4
+            : null;
+
+    /// <summary>
+    /// Each written note's pitch is kept with the playing instrument's finetune (ADR 0061), also when the cell names no
+    /// instrument; the mapper places the DMF's notes there.
+    /// </summary>
+    [Fact]
+    public void NotePitchesHaveTheInstrumentsFinetune()
+    {
+        (Playback playback, _) = Play(new ModBuilder()
+            .WithSample(1, "lead", 1024, fineTune: 1)
+            .WithCell(0, row: 0, channel: 0, sample: 1, period: 214)
+            .WithCell(0, row: 1, channel: 0, sample: 0, period: C2)
+            .WithCell(0, row: 2, channel: 1, sample: 1, period: 127));
+
+        Assert.Equal(212.5, NotePeriodAt(playback, 0, 0));
+        Assert.Equal(425, NotePeriodAt(playback, 0, 1));
+        Assert.Equal(126.25, NotePeriodAt(playback, 0, 2, channel: 1));
+        Assert.Null(NotePeriodAt(playback, 0, 3));
+    }
+
+    /// <summary>An E5x on the note's row tunes that note; a tone portamento's note is kept as its target.</summary>
+    [Fact]
+    public void NotePitchesFollowFineTuneEffectsAndPortamentoTargets()
+    {
+        (Playback playback, _) = Play(new ModBuilder()
+            .WithSample(1, "lead", 1024)
+            .WithCell(0, row: 0, channel: 0, sample: 1, period: 214, effect: 0xE, parameter: 0x51)
+            .WithCell(0, row: 1, channel: 0, sample: 0, period: C2)
+            .WithCell(0, row: 2, channel: 0, sample: 0, period: 856, effect: 0x3, parameter: 0x01)
+            .WithCell(0, row: 3, channel: 1, sample: 1, period: C2, effect: 0xE, parameter: 0x58));
+
+        Assert.Equal(212.5, NotePeriodAt(playback, 0, 0));
+        Assert.Equal(425, NotePeriodAt(playback, 0, 1));
+        Assert.Equal(850, NotePeriodAt(playback, 0, 2));
+        Assert.Equal(453.5, NotePeriodAt(playback, 0, 3, channel: 1));
+    }
+
+    /// <summary>
+    /// A row played again (E6x) keeps the pitch of its first time, though the second time it plays at another finetune;
+    /// rows the song never reaches have none.
+    /// </summary>
+    [Fact]
+    public void NotePitchesKeepTheFirstTimeARowPlays()
+    {
+        (Playback playback, _) = Play(new ModBuilder()
+            .WithSample(1, "lead", 1024)
+            .WithSample(2, "bass", 1024, fineTune: -8)
+            .WithCell(0, row: 0, channel: 0, sample: 1, period: 0)
+            .WithCell(0, row: 1, channel: 0, sample: 0, period: C2, effect: 0xE, parameter: 0x60)
+            .WithCell(0, row: 2, channel: 0, sample: 2, period: 0, effect: 0xE, parameter: 0x61)
+            .WithCell(0, row: 3, channel: 0, sample: 0, period: 0, effect: 0xF, parameter: 0x00)
+            .WithCell(1, row: 0, channel: 0, sample: 1, period: C2)
+            .WithOrders(0, 1));
+
+        Assert.Equal(453.5, QuarterPeriodAt(playback, 3 * 6));
+        Assert.Equal(C2, NotePeriodAt(playback, 0, 1));
+        Assert.Null(NotePeriodAt(playback, 1, 0));
+    }
+
     /// <summary>Cxx sets the volume and Axy slides it on every tick after the first.</summary>
     [Fact]
     public void VolumeSlidesEveryTickAfterTheFirst()

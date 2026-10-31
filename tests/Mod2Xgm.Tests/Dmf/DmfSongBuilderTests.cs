@@ -38,10 +38,10 @@ public sealed class DmfSongBuilderTests
     private static readonly GenesisChannel Psg1 = GenesisChannel.Psg1;
     private static readonly GenesisChannel Noise = GenesisChannel.Psg4;
 
-    /// <summary>A song with a looped lead (FM), a one-shot drum (DAC) and a noise hit, plus the given cells.</summary>
-    private static ModBuilder Song() =>
+    /// <summary>A song with a looped lead (FM) at finetune <paramref name="leadFineTune"/>, a one-shot drum (DAC) and a noise hit, plus the given cells.</summary>
+    private static ModBuilder Song(int leadFineTune = 0) =>
         new ModBuilder()
-            .WithSample(Lead, "lead", LeadCycle, loopStart: 0, loopLength: LeadCycle, data: i => (sbyte)Math.Round(100 * Math.Sin(2 * Math.PI * i / LeadCycle)))
+            .WithSample(Lead, "lead", LeadCycle, loopStart: 0, loopLength: LeadCycle, fineTune: leadFineTune, data: i => (sbyte)Math.Round(100 * Math.Sin(2 * Math.PI * i / LeadCycle)))
             .WithSample(Drum, "drum", 4000, data: i => (sbyte)Math.Round(100 * Math.Sin(2 * Math.PI * i / 40) * Math.Exp(-i / 800.0)))
             .WithSample(Hat, "hat", HatData.Length, data: i => HatData[i]);
 
@@ -68,6 +68,39 @@ public sealed class DmfSongBuilderTests
         Assert.InRange(fine, 0x80 - 24, 0x80 - 20);
         Assert.Contains(result.Notes, n => n.Contains("\"lead\": its FM notes are placed at the pitch measured", StringComparison.Ordinal));
     }
+
+    /// <summary>
+    /// A finetuned FM note sounds where the tick player plays it (ADR 0061): at +1, C-2 plays period 425, 12.2 cents up
+    /// from 428; at −8 it plays 453.5, 100.2 cents down, so the note below with almost the same E5xx.
+    /// </summary>
+    [Fact]
+    public void FinetunedFmNotesArePlacedAtTheTickPlayersPitch()
+    {
+        DmfConversion.Result plain = Convert(Song().WithCell(0, 0, 0, Lead, C2));
+        DmfConversion.Result up = Convert(Song(leadFineTune: 1).WithCell(0, 0, 0, Lead, C2));
+        DmfConversion.Result down = Convert(Song(leadFineTune: -8).WithCell(0, 0, 0, Lead, C2));
+
+        int plainFine = FinePitch(plain);
+        Assert.Equal((12, 3), (up.Cell(Fm1, 0).Note, up.Cell(Fm1, 0).Octave));
+        Assert.InRange(FinePitch(up) - plainFine, 15, 16);
+        Assert.Equal((11, 3), (down.Cell(Fm1, 0).Note, down.Cell(Fm1, 0).Octave));
+        Assert.InRange(FinePitch(down) - plainFine, -1, 0);
+    }
+
+    /// <summary>An E5x on the note's row tunes the note once: E51 at finetune 0 sounds the same as finetune +1.</summary>
+    [Fact]
+    public void E5xOnTheNotesRowTunesItOnce()
+    {
+        DmfConversion.Result written = Convert(Song().WithCell(0, 0, 0, Lead, C2, 0xE, 0x51));
+        DmfConversion.Result sample = Convert(Song(leadFineTune: 1).WithCell(0, 0, 0, Lead, C2));
+
+        Assert.Equal(FinePitch(sample), FinePitch(written));
+        Assert.Equal(sample.Cell(Fm1, 0).Note, written.Cell(Fm1, 0).Note);
+        Assert.DoesNotContain(written.Notes, n => n.Contains("finetune (E5x)", StringComparison.Ordinal));
+    }
+
+    /// <summary>The E5xx value of the FM note on channel 1, row 0.</summary>
+    private static int FinePitch(DmfConversion.Result result) => result.Effects(Fm1, 0).Single(e => e.Code == 0xE5).Value;
 
     /// <summary>The same sample an octave up (C-3) is an FM note an octave up.</summary>
     [Fact]

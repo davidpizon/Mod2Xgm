@@ -25,9 +25,10 @@ internal sealed class SimpleMapper : IChannelMapper
     private const int MappedChannels = 5;
 
     /// <inheritdoc />
-    public GenesisPlan Map(Song song, MappingOptions options, ConversionNotes notes)
+    public GenesisPlan Map(Song song, Playback playback, MappingOptions options, ConversionNotes notes)
     {
         ArgumentNullException.ThrowIfNull(song);
+        ArgumentNullException.ThrowIfNull(playback);
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(notes);
         if (options is { UseDac: false, RequireDac.Count: > 0 })
@@ -35,7 +36,7 @@ internal sealed class SimpleMapper : IChannelMapper
             throw new ArgumentException("--no-dac and --require-dac can't both be given.", nameof(options));
         }
 
-        Run run = new(song, options, notes);
+        Run run = new(song, playback, options, notes);
         return run.Execute();
     }
 
@@ -78,6 +79,7 @@ internal sealed class SimpleMapper : IChannelMapper
     private sealed class Run
     {
         private readonly Song _song;
+        private readonly Playback _playback;
         private readonly MappingOptions _options;
         private readonly ConversionNotes _notes;
         private readonly Route[] _routes;
@@ -104,9 +106,10 @@ internal sealed class SimpleMapper : IChannelMapper
         private int _dacSource = -1;
         private int _noiseSource = -1;
 
-        public Run(Song song, MappingOptions options, ConversionNotes notes)
+        public Run(Song song, Playback playback, MappingOptions options, ConversionNotes notes)
         {
             _song = song;
+            _playback = playback;
             _options = options;
             _notes = notes;
             _routes = [.. song.Instruments.Select(Classify)];
@@ -118,10 +121,16 @@ internal sealed class SimpleMapper : IChannelMapper
         public GenesisPlan Execute()
         {
             List<IReadOnlyList<PlanRow>> patterns = [];
-            foreach (int order in _song.Orders)
+            for (int order = 0; order < _song.Orders.Count; order++)
             {
-                Pattern pattern = _song.Patterns[order];
-                patterns.Add([.. pattern.Rows.Select(MapRow)]);
+                Pattern pattern = _song.Patterns[_song.Orders[order]];
+                PlanRow[] rows = new PlanRow[pattern.Rows.Count];
+                for (int r = 0; r < rows.Length; r++)
+                {
+                    rows[r] = MapRow(pattern.Rows[r], order, r);
+                }
+
+                patterns.Add(rows);
             }
 
             ReportTallies();
@@ -181,7 +190,7 @@ internal sealed class SimpleMapper : IChannelMapper
             return new Route(Primary.Fm, patch, false, false, new Why("Sample {Sample}: the DAC is off (--no-dac), so it is played by the {Patch} FM patch", [label, patch.Name]));
         }
 
-        private PlanRow MapRow(Row row)
+        private PlanRow MapRow(Row row, int order, int rowIndex)
         {
             List<Effect> flow = [];
             List<Effect>[] effects = [.. Enumerable.Range(0, GenesisPlan.ChannelCount).Select(_ => new List<Effect>())];
@@ -219,8 +228,9 @@ internal sealed class SimpleMapper : IChannelMapper
                     volumeSet = true;
                 }
 
-                if (cell.Note is { } note)
+                if (cell.Note is { } written)
                 {
+                    NotePitch note = PlayedPitch(written, new NotePosition(order, rowIndex, c), _instrument[c]);
                     if (_instrument[c] < 0)
                     {
                         _noInstrument++;
@@ -265,6 +275,23 @@ internal sealed class SimpleMapper : IChannelMapper
 
             PlanCell[] result = [.. planned.Select((cell, i) => effects[i].Count == 0 ? cell : cell with { Effects = effects[i], Source = cell.Source ?? source[i] })];
             return new PlanRow(result, flow);
+        }
+
+        /// <summary>
+        /// The pitch a note is planned at: the tick player's, finetune included (ADR 0061). A row the song never plays has
+        /// none, so its note is the written one moved by the instrument's finetune, to agree with the notes that play.
+        /// </summary>
+        private NotePitch PlayedPitch(NotePitch written, NotePosition position, int instrument)
+        {
+            if (_playback.NotePitches.TryGetValue(position, out NotePitch played))
+            {
+                return played;
+            }
+
+            double cents = instrument < 0 ? 0 : _song.Instruments[instrument].FineTuneCents;
+            double semitones = written.Semitone + ((written.Cents + cents) / 100);
+            int semitone = (int)Math.Floor(semitones + 0.5);
+            return new NotePitch(semitone, (semitones - semitone) * 100, written.PlaybackRateHz * Math.Pow(2, cents / 1200));
         }
 
         /// <summary>Gives every candidate a channel, settling the shared ones.</summary>

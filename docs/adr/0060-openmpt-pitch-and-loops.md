@@ -1,6 +1,6 @@
 # ADR 0060: The tick player's pitch and loops follow OpenMPT (T7.6)
 
-- **Status:** Accepted; amends [ADR 0033](0033-tick-player.md); supersedes parts of [ADR 0055](0055-notes-beyond-protracker-range.md)
+- **Status:** Accepted; amends [ADR 0033](0033-tick-player.md); supersedes parts of [ADR 0055](0055-notes-beyond-protracker-range.md); "the song model and the DMF keep ProTracker's tables" superseded by [ADR 0061](0061-dmf-pitch-from-tick-player.md)
 - **Date:** 2026-10-31
 
 ## Context

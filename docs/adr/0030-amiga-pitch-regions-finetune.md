@@ -1,6 +1,6 @@
 # ADR 0030: Amiga pitch: period → note + cents, finetune, PAL/NTSC clock (T3.2)
 
-- **Status:** Accepted
+- **Status:** Accepted; finetune parts superseded by [ADR 0060](0060-openmpt-pitch-and-loops.md) (OpenMPT's periods) and [ADR 0061](0061-dmf-pitch-from-tick-player.md) (the DMF's pitch)
 - **Date:** 2026-10-27
 
 ## Context

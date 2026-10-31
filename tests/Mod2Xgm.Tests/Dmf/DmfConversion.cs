@@ -39,7 +39,8 @@ internal static class DmfConversion
         ConversionNotes notes = new(sink.CreateLogger());
         ModModule module = ModReader.Read(mod, notes);
         Song song = ModToSong.Convert(module, AmigaPitch.PalClockHz, notes);
-        GenesisPlan plan = new SimpleMapper().Map(song, options ?? MappingOptions.Default, notes);
+        Playback playback = ModTickPlayer.Play(module, AmigaPitch.PalClockHz, 1.0, notes);
+        GenesisPlan plan = new SimpleMapper().Map(song, playback, options ?? MappingOptions.Default, notes);
         plan = transform?.Invoke(plan) ?? plan;
         DmfTimingPlan timing = DmfTimingPlanner.Plan(plan, 1.0, Region.Pal, notes);
         DmfSong built = DmfSongBuilder.Build(plan, song, timing, new DmfBuildSettings(AmigaPitch.PalClockHz, ResamplingMode.Smooth), notes);

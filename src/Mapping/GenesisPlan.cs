@@ -58,7 +58,7 @@ internal enum VoiceKind
 internal readonly record struct PlanVoice(VoiceKind Kind, int Index);
 
 /// <summary>What one Genesis channel does on one row.</summary>
-/// <param name="Note">The note started on this row, or <c>null</c> for none.</param>
+/// <param name="Note">The note started on this row, at the pitch the tick player plays it (finetune included, ADR 0061), or <c>null</c> for none.</param>
 /// <param name="Voice">The sound of <paramref name="Note"/>; <c>null</c> when there is no note.</param>
 /// <param name="Volume">Volume set on this row, 0–1, or <c>null</c> to leave it. A note carries its starting volume.</param>
 /// <param name="NoteOff">True when the sound on this channel must stop (a note of the same MOD channel moved elsewhere).</param>

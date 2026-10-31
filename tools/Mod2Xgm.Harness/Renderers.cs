@@ -198,8 +198,8 @@ internal sealed class GenesisRendererCheck(int sampleRate, Serilog.ILogger logge
         ConversionNotes silent = new(Logger.None);
         ModModule module = ModReader.Read(File.ReadAllBytes(song.ModPath), silent, options.Player);
         Song model = ModToSong.Convert(module, options.AmigaClockHz, silent);
-        GenesisPlan plan = new SimpleMapper().Map(model, MappingOptions.From(options), silent);
         Playback playback = ModTickPlayer.Play(module, options.AmigaClockHz, options.AmigaTickRateScale, silent);
+        GenesisPlan plan = new SimpleMapper().Map(model, playback, MappingOptions.From(options), silent);
         GenesisRenderOptions render = new(PcmDriver.Dmf, options.OutputRegion, sampleRate, options.Resampler)
         {
             TickDurations = OpenMptTiming.TickDurations(playback, sampleRate, tempoOnItsTick: false),

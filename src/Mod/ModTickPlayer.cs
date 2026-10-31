@@ -130,6 +130,9 @@ internal static class ModTickPlayer
         /// <summary>The tick each row was first played on (−1: never), for the loop point; never cleared.</summary>
         private readonly int[] _firstTickOfRow = new int[MaxOrders * Rows];
 
+        /// <summary>The pitch of every written note the first time its row plays (<see cref="Playback.NotePitches"/>).</summary>
+        private readonly Dictionary<NotePosition, NotePitch> _notePitches = [];
+
         // Replayer state (pt2_replayer.c globals and module_t).
         private bool _posJumpAssert;
         private bool _pBreakFlag;
@@ -338,7 +341,7 @@ internal static class ModTickPlayer
                 _notes.Add("The song uses EFx (invert loop), which rewrites a sample while it plays; not reproduced");
             }
 
-            return new Playback(ticks, end == PlaybackEnd.Loops ? loopTick : null, end);
+            return new Playback(ticks, end == PlaybackEnd.Loops ? loopTick : null, end) { NotePitches = _notePitches };
         }
 
         /// <summary>Ticks per second at the current tempo, scaled for the source Amiga's region.</summary>
@@ -580,6 +583,7 @@ internal static class ModTickPlayer
 
             if ((ch.Note & 0xFFF) > 0)
             {
+                RecordNotePitch(ch);
                 if ((ch.Cmd & 0xFF0) == 0xE50)
                 {
                     ch.FineTune = (byte)(ch.Cmd & 0xF);
@@ -608,6 +612,17 @@ internal static class ModTickPlayer
             {
                 CheckMoreEffects(ch);
             }
+        }
+
+        /// <summary>
+        /// Keeps the pitch the channel's new note plays at, the first time its row plays: OpenMPT's period for the note at
+        /// the channel's finetune, or the row's <c>E5x</c> (the target, on a tone portamento row).
+        /// </summary>
+        private void RecordNotePitch(Voice ch)
+        {
+            int fineTune = (ch.Cmd & 0xFF0) == 0xE50 ? ch.Cmd & 0xF : ch.FineTune;
+            double period = NotePeriod(NoteOf(ch.Note & 0xFFF), fineTune) / (double)Quarters;
+            _notePitches.TryAdd(new NotePosition(_modPos, _row, ch.Index), AmigaPitch.FromPeriod(period, _clockHz));
         }
 
         private void SetPeriod(Voice ch)

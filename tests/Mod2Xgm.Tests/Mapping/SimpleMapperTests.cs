@@ -46,12 +46,13 @@ public sealed class SimpleMapperTests
         return new Song("test", [.. Enumerable.Repeat(new Channel(0), channels)], [.. Enumerable.Range(0, built.Length)], null, built, instruments, samples, new Timing(6, 125));
     }
 
-    private static (GenesisPlan Plan, List<string> Notes) Map(Song song, MappingOptions? options = null)
+    /// <summary>Maps <paramref name="song"/>; without <paramref name="playback"/> (no tick player for a song built in code) every note is treated as never played.</summary>
+    private static (GenesisPlan Plan, List<string> Notes) Map(Song song, MappingOptions? options = null, Playback? playback = null)
     {
         CollectingSink sink = new();
         ConversionNotes notes = new(sink.CreateLogger());
         IChannelMapper mapper = new SimpleMapper();
-        GenesisPlan plan = mapper.Map(song, options ?? MappingOptions.Default, notes);
+        GenesisPlan plan = mapper.Map(song, playback ?? new Playback([], null, PlaybackEnd.Stops), options ?? MappingOptions.Default, notes);
         return (plan, [.. notes.Messages]);
     }
 
@@ -60,6 +61,44 @@ public sealed class SimpleMapperTests
 
     private static MappingOptions Options(int[]? requireFm = null, int[]? requireDac = null, int[]? requirePsg = null, bool useDac = true) =>
         new(new HashSet<int>(requireFm ?? []), new HashSet<int>(requireDac ?? []), new HashSet<int>(requirePsg ?? []), useDac);
+
+    /// <summary>
+    /// A note is placed at the pitch the tick player plays it at (ADR 0061: the instrument's finetune is in it), on every
+    /// order entry of its own; a note the playback doesn't have keeps its written pitch.
+    /// </summary>
+    [Fact]
+    public void NotesTakeTheTickPlayersPitch()
+    {
+        NotePitch tuned = new(47, 0.2, 7821.2);
+        Playback playback = new([], null, PlaybackEnd.Stops)
+        {
+            NotePitches = new Dictionary<NotePosition, NotePitch> { [new NotePosition(1, 0, 3)] = tuned, [new NotePosition(0, 0, 1)] = tuned },
+        };
+
+        (GenesisPlan plan, _) = Map(Build([[RowOf(Cell.Empty, Play(Organ), Cell.Empty, Play(Kick))], [RowOf(Cell.Empty, Cell.Empty, Cell.Empty, Play(Kick))]]), playback: playback);
+
+        Assert.Equal(tuned, CellAt(plan, GenesisChannel.Fm2).Note);
+        Assert.Equal(Note(), CellAt(plan, GenesisChannel.Fm6).Note);
+        Assert.Equal(tuned, CellAt(plan, GenesisChannel.Fm6, order: 1).Note);
+    }
+
+    /// <summary>
+    /// A note on a row the song never plays (the playback has no pitch for it) is moved by its instrument's finetune, so
+    /// it agrees with the notes that play: −100 cents is a semitone down at a rate 2^(−1/12) lower.
+    /// </summary>
+    [Fact]
+    public void UnplayedNotesTakeTheInstrumentsFinetune()
+    {
+        Song song = Build([[RowOf(Cell.Empty, Play(Organ))]]);
+        song = new Song(song.Title, song.Channels, song.Orders, song.LoopOrder, song.Patterns, [song.Instruments[0] with { FineTuneCents = -100 }, .. song.Instruments.Skip(1)], song.Samples, song.Timing);
+
+        (GenesisPlan plan, _) = Map(song);
+
+        NotePitch note = Assert.NotNull(CellAt(plan, GenesisChannel.Fm2).Note);
+        Assert.Equal(47, note.Semitone);
+        Assert.Equal(0, note.Cents, 1e-9);
+        Assert.Equal(8287 * Math.Pow(2, -1 / 12.0), note.PlaybackRateHz, 1e-9);
+    }
 
     /// <summary>The plan's columns follow DMF channel order, which the mapper relies on when it turns a MOD channel number into a column.</summary>
     [Fact]
