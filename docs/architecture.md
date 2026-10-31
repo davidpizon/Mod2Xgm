@@ -68,7 +68,8 @@ clocks out; the Genesis renderer (T7.5) owns the clock and the mixing. Checked a
 register-write probes (`tests/golden/ym3438/`).
 
 **Sn76489** (`src/Render/Psg`, plan T7.3, [ADR 0057](adr/0057-sn76489-model.md)) — pure C#: the PSG as a C# port of
-MAME's Sega PSG (`segapsg`), bit-exact with MAME. Port writes in, one mono sample per 16 PSG clocks out (223.7 kHz on
+MAME's Sega PSG (`segapsg`), changed where MAME differs from the chip as Nuked-PSG models it ([ADR 0065](adr/0065-sn76489-chip-differences.md):
+the counters and the noise's timing) and bit-exact with MAME elsewhere. Port writes in, one mono sample per 16 PSG clocks out (223.7 kHz on
 NTSC); the Genesis renderer (T7.5) owns the clock, resampling and the mix with the FM chip. Checked against MAME and
 Nuked-PSG on write probes (`tests/golden/sn76489/`).
 

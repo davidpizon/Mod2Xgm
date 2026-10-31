@@ -27,8 +27,9 @@ Test projects live in **`tests/`**, one folder each (see [`tests/README.md`](../
    difference reaches ([ADR 0064](adr/0064-ym3438-chip-differences.md)), which must come closer to Nuked-OPN2 instead,
    and every probe within a log-mel bar of Nuked-OPN2 (the one-channel probes also sample for sample). Their reference outputs are made by `tools/ym3438-reference/run.sh`, as their README says.
    The SN76489 probes (plan T7.3, `tests/golden/sn76489/`, [ADR 0057](adr/0057-sn76489-model.md)) work the same way:
-   scripts built by `Sn76489Probes`, played exactly as MAME's Sega PSG plays them and within a log-mel bar of
-   Nuked-PSG; their reference outputs are made by `tools/sn76489-reference/run.sh`.
+   scripts built by `Sn76489Probes`, played exactly as MAME's Sega PSG plays them, except the probes a modeled chip
+   difference reaches ([ADR 0065](adr/0065-sn76489-chip-differences.md)), which must come closer to Nuked-PSG instead,
+   and every probe within a log-mel bar of Nuked-PSG; their reference outputs are made by `tools/sn76489-reference/run.sh`.
 5. **CLI tests** — argument parsing (incl. `--ignore-samples` lists, ranges, hex), output naming, exit
    codes, no overwrite without `--force`, console report content (metadata, empty-slot names, statuses).
 

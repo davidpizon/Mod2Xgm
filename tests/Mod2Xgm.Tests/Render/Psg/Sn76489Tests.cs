@@ -102,6 +102,81 @@ public sealed class Sn76489Tests
         Assert.Equal(Play(With(0x83, 0x08, 0x90), 4000), Play(With(0x8e, 0x0f, 0x08, 0x83, 0x90), 4000));
     }
 
+    /// <summary>
+    /// A shorter period written during a half-wave flips the tone at once when the count is already past it, then every
+    /// new period (docs/adr/0065-sn76489-chip-differences.md, difference 2; MAME would first count down the old period's
+    /// remaining 150 samples).
+    /// </summary>
+    [Fact]
+    public void AShorterPeriodFlipsAtOnce()
+    {
+        // Period 200 flips at sample 200 and has counted 51 more when period 20 is written; 51 ≥ 20, so the next
+        // sample shows the flip, and then every 20.
+        Sn76489 chip = With(0x88, 0x0c, 0x90);
+        Assert.Equal([200], Edges(Play(chip, 250)));
+        chip.Write(0x84);
+        chip.Write(0x01);
+        Assert.Equal([1, 21, 41], Edges(Play(chip, 50)));
+    }
+
+    /// <summary>
+    /// A longer period written during a half-wave stretches it: the count goes on from where it got to, up to the new
+    /// period (docs/adr/0065-sn76489-chip-differences.md, difference 2; MAME would flip after the old period's 50).
+    /// </summary>
+    [Fact]
+    public void ALongerPeriodStretchesTheHalfWave()
+    {
+        // Period 100 flips at sample 100 and has counted to 51 when period 300 is written: 249 more steps reach 300,
+        // so the flip shows 250 samples later, and then every 300.
+        Sn76489 chip = With(0x84, 0x06, 0x90);
+        Assert.Equal([100], Edges(Play(chip, 150)));
+        chip.Write(0x8c);
+        chip.Write(0x12);
+        Assert.Equal([250, 550], Edges(Play(chip, 600)));
+    }
+
+    /// <summary>
+    /// A write to the noise register empties the shift register on the next sample, so a high noise output goes low at
+    /// once and stays low until the first 1 is shifted through, 15 shifts later (docs/adr/0065-sn76489-chip-differences.md,
+    /// difference 3; MAME would keep the high bit until its next shift).
+    /// </summary>
+    [Fact]
+    public void ANoiseWriteSilencesTheNoiseAtOnce()
+    {
+        Sn76489 chip = With(0xe4, 0xf0);
+        int high = Array.FindIndex(Play(With(0xe4, 0xf0), 4096), s => s != 0);
+        Assert.True(high > 0);
+        Assert.NotEqual(0, Play(chip, high + 1)[high]);
+        chip.Write(0xe4);
+
+        // 15 shifts of 32 samples, less up to one shift for where the rate counter stands.
+        Assert.All(Play(chip, (14 * 32) - 1), s => Assert.Equal(0, s));
+    }
+
+    /// <summary>
+    /// At rate 3 the noise shifts on tone 3's rising edges, in step with it, so the noise output changes only on samples
+    /// where tone 3 goes high (docs/adr/0065-sn76489-chip-differences.md, difference 3; MAME counts twice tone 3's period
+    /// on a counter of its own).
+    /// </summary>
+    [Fact]
+    public void Rate3ShiftsOnTone3sRise()
+    {
+        // The same writes on two chips, one with only tone 3 audible and one with only the noise; the noise runs at
+        // rate 0 first and switches to tone 3 at an odd moment, where a counter of its own would be out of step.
+        Sn76489 toneChip = With(0xc5, 0x00, 0xd0, 0xff, 0xe4);
+        Sn76489 noiseChip = With(0xc5, 0x00, 0xdf, 0xf0, 0xe4);
+        Play(toneChip, 77);
+        Play(noiseChip, 77);
+        toneChip.Write(0xe3);
+        noiseChip.Write(0xe3);
+        int[] tone3 = Play(toneChip, 4096);
+        int[] noise = Play(noiseChip, 4096);
+        HashSet<int> rises = [.. Edges(tone3).Where(i => tone3[i] != 0)];
+        List<int> noiseEdges = Edges(noise);
+        Assert.NotEmpty(noiseEdges);
+        Assert.All(noiseEdges, i => Assert.Contains(i, rises));
+    }
+
     /// <summary>A data byte after a volume latch sets that volume.</summary>
     [Fact]
     public void ADataByteAfterAVolumeLatchSetsTheVolume() =>
