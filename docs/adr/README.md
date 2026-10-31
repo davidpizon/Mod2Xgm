@@ -73,8 +73,9 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0057](0057-sn76489-model.md) | SN76489 model: a bit-exact port of MAME's Sega PSG, checked against Nuked-PSG (T7.3) | 2026-10-30 | Accepted |
 | [0058](0058-pcm-driver-models.md) | PCM driver models: XGM, XGM2 and the DMF DAC as DAC register streams, from the drivers' source (T7.4) | 2026-10-30 | Accepted |
 | [0059](0059-genesis-renderer.md) | Genesis renderer: the plan played on the chip models, with Furnace's levels (T7.5) | 2026-10-31 | Accepted |
-| [0060](0060-openmpt-pitch-and-loops.md) | The tick player's pitch and loops follow OpenMPT, measured (T7.6) | 2026-10-31 | Accepted; amends 0033, supersedes parts of 0055; one consequence superseded by [ADR 0061](0061-dmf-pitch-from-tick-player.md) |
+| [0060](0060-openmpt-pitch-and-loops.md) | The tick player's pitch and loops follow OpenMPT, measured (T7.6) | 2026-10-31 | Accepted; amends 0033, supersedes parts of 0055; one consequence superseded by [ADR 0061](0061-dmf-pitch-from-tick-player.md); `jam_-_*` lead closed by [ADR 0062](0062-one-word-samples.md) |
 | [0061](0061-dmf-pitch-from-tick-player.md) | The DMF's notes take their pitch from the tick player (T7.10) | 2026-10-31 | Accepted; supersedes parts of 0030 and 0060 |
+| [0062](0062-one-word-samples.md) | A sample 1 word long is read as OpenMPT reads it: empty, its bytes left to the next sample | 2026-10-31 | Accepted; amends 0060 |
 
 ## Open questions
 

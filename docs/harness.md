@@ -85,17 +85,19 @@ Two things make the check measure the sound and not the clock:
   4.33 dB), and it moves in steps of 256 samples, which hid the first-tick offset above.
 
 On the corpus (2026-10-31, after the tick player's pitch and loops moved to OpenMPT's,
-[ADR 0060](adr/0060-openmpt-pitch-and-loops.md)), worst song per rate:
+[ADR 0060](adr/0060-openmpt-pitch-and-loops.md), and 1-word samples are read as OpenMPT reads them,
+[ADR 0062](adr/0062-one-word-samples.md)), worst song per rate:
 
 | Rate | Worst song | Log-mel (dB) | Before ADR 0060 |
 |---|---|---|---|
-| 44.1 kHz | `jam_-_latenightcoffee` | 0.62 | 0.85 (`drozerix_-_ai_renaissance`) |
+| 44.1 kHz | `soundtracker15` | 0.41 | 0.85 (`drozerix_-_ai_renaissance`) |
 | 22.05 kHz | `soundtracker15` | 0.62 | 0.76 (`soundtracker15`) |
 | 8 kHz | `10kdub` | 0.85 | 0.94 (`fx-poly1`) |
 
-The mean at 44.1 kHz went from 0.30 to 0.13 dB. The 1–3 ms offset that wandered through
+The mean at 44.1 kHz went from 0.30 to 0.08 dB. The 1–3 ms offset that wandered through
 `sharpojects_cantpleaseeveryone` was finetune (a long sample 2 cents fast); it now matches libopenmpt sample for sample.
-Still different (ADR 0060): a constant 0.11–0.25 ms lead in the `jam_-_*` songs, not yet explained.
+The constant 0.11–0.25 ms lead in `jam_-_heatwave_cruise` and `jam_-_latenightcoffee` was OpenMPT's loader skipping
+the bytes of their 1-word samples (ADR 0062); both now match sample for sample too (0.10 and 0.06 dB).
 
 ## Instrument balance
 
