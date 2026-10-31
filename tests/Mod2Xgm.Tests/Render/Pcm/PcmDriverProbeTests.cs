@@ -40,12 +40,6 @@ public sealed class PcmDriverProbeTests
 
     private const long XgmBlockMaster = 256 * XgmBeatMaster;
 
-    /// <summary>
-    /// How far a driver's byte may land from where the rule puts it: the drivers send some bytes up to 35 Z80 cycles
-    /// early or late (the beat wobble, docs/adr/0066-pcm-drivers-checked-against-sgdk.md): up to 0.98 of a YM3438 sample.
-    /// </summary>
-    private const long WobbleMaster = PcmDriverScript.MasterClocksPerSample;
-
     /// <summary>XGM2: how far the model's start may be from the driver's: its buffer's fill level moves the start ±23 beats.</summary>
     private const int Xgm2StartToleranceSamples = 30 * 4;
 
@@ -60,18 +54,18 @@ public sealed class PcmDriverProbeTests
         PcmDriverScript script = PcmDriverProbes.All["xgm-starts"]();
         List<DacWrite> capture = Capture("xgm-starts");
         long[] starts = DriverStarts(capture, script, PcmDriverProbes.XgmStartSpacing);
-        const long Tolerance = 2 * PcmDriverScript.MasterClocksPerSample; // the wobble and the estimate of the driver's beat
+        const long tolerance = 2 * PcmDriverScript.MasterClocksPerSample; // the wobble and the estimate of the driver's beat
 
         // The driver's own beat spacing (0.04 % longer than the model's: its cycle count with the bus waits), so its
         // blocks don't drift against the rule over the probe's five seconds.
-        List<DacWrite> beats = [.. capture.Where(w => w.Register == 0x2A && w.Master >= 0)];
+        List<DacWrite> beats = [.. capture.Where(w => w is { Register: 0x2A, Master: >= 0 })];
         double beat = (beats[^1].Master - beats[0].Master) / (double)(beats.Count - 1);
         double block = 256 * beat;
         for (int i = 0; i < starts.Length; i++)
         {
             double earliest = (FrameOf(i, PcmDriverProbes.XgmStartSpacing) * PcmDriverScript.MasterClocksPerFrame) + (Mod2Xgm.Render.Pcm.XgmPcmDriver.StartLeadBeats * beat);
             double predicted = starts[0] + (Math.Ceiling((earliest - starts[0]) / block) * block);
-            Assert.True(Math.Abs(starts[i] - predicted) <= Tolerance, $"sound {i + 1}: starts at {starts[i]}, the rule says {predicted:0} (master clocks)");
+            Assert.True(Math.Abs(starts[i] - predicted) <= tolerance, $"sound {i + 1}: starts at {starts[i]}, the rule says {predicted:0} (master clocks)");
         }
     }
 
@@ -119,7 +113,7 @@ public sealed class PcmDriverProbeTests
         byte[] data = script.Render().Data;
         int end = PcmDriverScript.SampleAt(untilFrame);
         List<byte> model = Runs(data.Take(end));
-        List<byte> driver = Runs(Capture(name).Where(w => w.Register == 0x2A && w.Master >= 0 && w.Master < end * PcmDriverScript.MasterClocksPerSample).Select(w => w.Value));
+        List<byte> driver = Runs(Capture(name).Where(w => w is { Register: 0x2A, Master: >= 0 } && w.Master < end * PcmDriverScript.MasterClocksPerSample).Select(w => w.Value));
         model = [.. model.SkipWhile(v => v == 0x80)];
         driver = [.. driver.SkipWhile(v => v == 0x80)];
         int length = Math.Min(model.Count, driver.Count) - 1;
@@ -139,7 +133,7 @@ public sealed class PcmDriverProbeTests
     public void BeatRateIsTheDriversAverage(string name)
     {
         PcmDriverScript script = PcmDriverProbes.All[name]();
-        List<DacWrite> beats = [.. Capture(name).Where(w => w.Register == 0x2A && w.Master >= 0)];
+        List<DacWrite> beats = [.. Capture(name).Where(w => w is { Register: 0x2A, Master: >= 0 })];
         double driverHz = 53_693_175.0 * (beats.Count - 1) / (beats[^1].Master - beats[0].Master);
         Assert.True(Math.Abs((driverHz / script.BeatRateHz) - 1) <= 0.002, $"{name}: driver {driverHz:0.0} Hz, model {script.BeatRateHz:0.0} Hz");
     }
@@ -151,11 +145,11 @@ public sealed class PcmDriverProbeTests
     [Fact]
     public void XgmClippingSlowsTheBeatAsTheDriverDoes()
     {
-        const int Frames = 12;
+        const int frames = 12;
         PcmDriverScript script = PcmDriverProbes.All["xgm-mix"]();
-        script.Render(Frames, out long model);
-        long end = Frames * PcmDriverScript.MasterClocksPerFrame;
-        long driver = Capture("xgm-mix").Count(w => w.Register == 0x2A && w.Master >= 0 && w.Master < end);
+        script.Render(frames, out long model);
+        long end = frames * PcmDriverScript.MasterClocksPerFrame;
+        long driver = Capture("xgm-mix").Count(w => w is { Register: 0x2A, Master: >= 0 } && w.Master < end);
         Assert.True(Math.Abs(((double)model / driver) - 1) <= 0.003, $"model {model} beats, driver {driver}");
     }
 
@@ -171,7 +165,7 @@ public sealed class PcmDriverProbeTests
     [InlineData("xgm2-half", 3.0)]
     public void TheBeatWobbleIsSmall(string name, double maxSamples)
     {
-        List<DacWrite> beats = [.. Capture(name).Where(w => w.Register == 0x2A && w.Master >= 0)];
+        List<DacWrite> beats = [.. Capture(name).Where(w => w is { Register: 0x2A, Master: >= 0 })];
         long[] intervals = [.. beats.Zip(beats.Skip(1), (a, b) => b.Master - a.Master).Order()];
         long usual = intervals[intervals.Length / 2];
         double worst = intervals.Max(i => Math.Abs(i - usual)) / (double)PcmDriverScript.MasterClocksPerSample;
@@ -203,7 +197,7 @@ public sealed class PcmDriverProbeTests
         PcmDriverScript script = PcmDriverProbes.All[name]();
         byte[] enable = script.Render().Enable;
         List<long> model = Changes(enable.Select((v, i) => (Master: i * PcmDriverScript.MasterClocksPerSample, On: v >= 0x80)));
-        List<long> driver = Changes(Capture(name).Where(w => w.Register == 0x2B && w.Master >= 0).Select(w => (w.Master, On: w.Value >= 0x80)));
+        List<long> driver = Changes(Capture(name).Where(w => w is { Register: 0x2B, Master: >= 0 }).Select(w => (w.Master, On: w.Value >= 0x80)));
         Assert.Equal(driver.Count, model.Count);
         for (int i = 0; i < model.Count; i++)
         {

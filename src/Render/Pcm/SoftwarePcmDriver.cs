@@ -14,7 +14,7 @@ namespace Mod2Xgm.Render.Pcm;
 internal abstract class SoftwarePcmDriver : IDacSource
 {
     /// <summary>The highest priority a play can have (both drivers: 4 bits).</summary>
-    protected const int MaxPriority = 15;
+    private const int MaxPriority = 15;
 
     /// <summary>Sample addresses and sizes are multiples of 256 bytes (docs/formats/xgm.md), so a sample plays to its padding's end.</summary>
     private const int SampleAlignment = 256;
@@ -33,7 +33,6 @@ internal abstract class SoftwarePcmDriver : IDacSource
     private readonly List<(long Beat, Action Apply)> _pending = [];
     private long _beat;
     private int _beatInBlock;
-    private bool _soundInBlock;
     private byte _data = DacZero;
     private byte _enable = DacOff;
 
@@ -144,10 +143,10 @@ internal abstract class SoftwarePcmDriver : IDacSource
     }
 
     /// <summary>
-    /// The driver's <c>$2B</c> rule at the end of a mixing block, given whether a channel is playing now and whether one
-    /// played during the block; the driver keeps its own counter.
+    /// The driver's <c>$2B</c> rule at the end of a mixing block, given whether a channel is playing now; the driver keeps
+    /// its own counter.
     /// </summary>
-    protected abstract byte DacEnableAfterBlock(bool playingNow, bool soundInBlock);
+    protected abstract byte DacEnableAfterBlock(bool playingNow);
 
     /// <summary>
     /// What a play does to the DAC enable before its first byte, standing in for the driver turning the DAC on while it
@@ -163,11 +162,15 @@ internal abstract class SoftwarePcmDriver : IDacSource
     }
 
     /// <summary>Starts <paramref name="sample"/> on <paramref name="channel"/> if <paramref name="priority"/> is at least the playing one's; true if it did.</summary>
+    /// <param name="channel">The PCM channel.</param>
+    /// <param name="sample">The sound: 8-bit signed, at least one byte.</param>
+    /// <param name="priority">0–15.</param>
+    /// <param name="halfSpeed">True to play every byte on two beats (XGM2).</param>
     /// <exception cref="ArgumentException"><paramref name="sample"/> is empty.</exception>
     /// <param name="repeatHead">Source bytes the sound plays from its start a second time once it has played them (XGM2's driver: <see cref="Xgm2PcmDriver"/>); 0 for none.</param>
     protected bool Start(int channel, sbyte[] sample, int priority, bool halfSpeed, int repeatHead = 0)
     {
-        CheckPlay(channel, sample, priority);
+        sample = CheckPlay(channel, sample, priority);
         Voice voice = VoiceAt(channel);
         if (priority < voice.Priority)
         {
@@ -181,14 +184,14 @@ internal abstract class SoftwarePcmDriver : IDacSource
         voice.SecondHalf = false;
         voice.RepeatHead = Math.Min(repeatHead, voice.Length);
         voice.Priority = priority;
-        _soundInBlock = true;
         TurnDacOn();
         return true;
     }
 
     /// <summary>Throws if a play's channel, sample or priority is out of range, so a buffered play fails when it is sent.</summary>
     /// <exception cref="ArgumentException"><paramref name="sample"/> is empty.</exception>
-    protected void CheckPlay(int channel, sbyte[] sample, int priority)
+    /// <returns><paramref name="sample"/>, checked.</returns>
+    protected sbyte[] CheckPlay(int channel, sbyte[] sample, int priority)
     {
         ArgumentNullException.ThrowIfNull(sample);
         if (sample.Length == 0)
@@ -198,6 +201,7 @@ internal abstract class SoftwarePcmDriver : IDacSource
 
         CheckPriority(priority);
         _ = VoiceAt(channel);
+        return sample;
     }
 
     /// <summary>Throws if <paramref name="priority"/> is not 0–15.</summary>
@@ -241,8 +245,7 @@ internal abstract class SoftwarePcmDriver : IDacSource
         {
             if (voice.Data is not null)
             {
-                _soundInBlock = true;
-                int sum = mix + voice.Next();
+                        int sum = mix + voice.Next();
                 if (sum is > sbyte.MaxValue or < sbyte.MinValue)
                 {
                     clips++;
@@ -264,8 +267,7 @@ internal abstract class SoftwarePcmDriver : IDacSource
 
         _beatInBlock = 0;
         bool playingNow = Array.Exists(_voices, v => v.Data is not null);
-        _enable = DacEnableAfterBlock(playingNow, _soundInBlock);
-        _soundInBlock = false;
+        _enable = DacEnableAfterBlock(playingNow);
     }
 
     /// <summary>One PCM channel: the sound it plays, where it is, and its priority.</summary>

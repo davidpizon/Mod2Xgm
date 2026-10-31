@@ -65,8 +65,8 @@ internal sealed class XgmPcmDriver : SoftwarePcmDriver
     /// <remarks>Buffered, the priority is checked when the play is heard, and the result is always true.</remarks>
     public bool Play(int channel, sbyte[] sample, int priority)
     {
-        CheckPlay(channel, sample, priority);
-        return Send(() => Start(channel, sample, priority, halfSpeed: false), isPlay: true);
+        sbyte[] data = CheckPlay(channel, sample, priority);
+        return Send(() => Start(channel, data, priority, halfSpeed: false), isPlay: true);
     }
 
     /// <summary>The music's <c>$5X 00</c>: stops <paramref name="channel"/> if <paramref name="priority"/> is at least the playing sound's. True if it did.</summary>
@@ -110,7 +110,7 @@ internal sealed class XgmPcmDriver : SoftwarePcmDriver
     }
 
     /// <inheritdoc/>
-    protected override byte DacEnableAfterBlock(bool playingNow, bool soundInBlock)
+    protected override byte DacEnableAfterBlock(bool playingNow)
     {
         if (playingNow)
         {

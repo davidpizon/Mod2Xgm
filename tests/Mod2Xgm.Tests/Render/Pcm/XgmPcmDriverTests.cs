@@ -248,7 +248,7 @@ public sealed class XgmPcmDriverTests
     [Fact]
     public void ClippingSlowsTheBeat()
     {
-        const int Samples = 100_000;
+        const int samples = 100_000;
         sbyte[] loud = [.. Enumerable.Repeat((sbyte)100, 32_768)];
         sbyte[] quiet = [.. Enumerable.Repeat((sbyte)10, 32_768)];
         long Beats(sbyte[] sample)
@@ -259,13 +259,13 @@ public sealed class XgmPcmDriverTests
                 driver.Play(c, sample, 0);
             }
 
-            DacCapture.Of(driver, Samples);
+            DacCapture.Of(driver, samples);
             return driver.BeatsSent;
         }
 
         long quietBeats = Beats(quiet);
         long loudBeats = Beats(loud);
-        Assert.Equal(Samples * 1008.0 / 3810, quietBeats, 1.0);
-        Assert.Equal(Samples * 1008.0 / (3810 + (3 * 165)), loudBeats, 2.0);
+        Assert.Equal(samples * 1008.0 / 3810, quietBeats, 1.0);
+        Assert.Equal(samples * 1008.0 / (3810 + (3 * 165)), loudBeats, 2.0);
     }
 }

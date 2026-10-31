@@ -1,5 +1,4 @@
 using Mod2Xgm.Audio;
-using Mod2Xgm.Render;
 using Mod2Xgm.Render.Fm;
 using Mod2Xgm.Render.Pcm;
 using Mod2Xgm.Scoring;
@@ -41,11 +40,11 @@ public sealed class DefleMaskDacExportTests
         float[] beep = samples[onset..Math.Min(samples.Length, onset + length)];
 
         // The model: the probe's sample, as DmfProbes builds it, on the DAC at 32 kHz.
-        const int RateHz = 32000;
-        short[] sine = [.. Enumerable.Range(0, (int)Math.Round(RateHz * 0.4)).Select(i => (short)Math.Round(16000 * Math.Sin(2 * Math.PI * 440 * i / RateHz)))];
+        const int rateHz = 32000;
+        short[] sine = [.. Enumerable.Range(0, (int)Math.Round(rateHz * 0.4)).Select(i => (short)Math.Round(16000 * Math.Sin(2 * Math.PI * 440 * i / rateHz)))];
         DmfDac dac = new(Ym3438.NtscClockHz);
         dac.SetDacMode(true);
-        dac.Play(sine, RateHz);
+        dac.Play(sine, rateHz);
         double ymRate = Ym3438.SampleRateHz(Ym3438.NtscClockHz);
         byte[] data = new byte[(int)(ymRate * 0.4)];
         dac.Generate(data, new byte[data.Length]);

@@ -71,9 +71,9 @@ internal sealed class Xgm2PcmDriver : SoftwarePcmDriver
     /// </remarks>
     public bool Play(int channel, sbyte[] sample, int priority, bool halfSpeed)
     {
-        CheckPlay(channel, sample, priority);
+        sbyte[] data = CheckPlay(channel, sample, priority);
         int repeat = Buffered ? (halfSpeed ? RepeatedBeats / 2 : RepeatedBeats) : 0;
-        return Send(() => Start(channel, sample, priority, halfSpeed, repeat), isPlay: true);
+        return Send(() => Start(channel, data, priority, halfSpeed, repeat), isPlay: true);
     }
 
     /// <summary>The music's <c>$1x 00</c>: stops <paramref name="channel"/>, whatever its priority.</summary>
@@ -113,7 +113,7 @@ internal sealed class Xgm2PcmDriver : SoftwarePcmDriver
     /// first block in which nothing plays, 29–77 beats after the last sound (its padding included) or a stop; the count
     /// <c>DAC_ENABLED_CNT</c> keeps it on only while a play is still on its way through the buffer.
     /// </remarks>
-    protected override byte DacEnableAfterBlock(bool playingNow, bool soundInBlock)
+    protected override byte DacEnableAfterBlock(bool playingNow)
     {
         if (playingNow)
         {

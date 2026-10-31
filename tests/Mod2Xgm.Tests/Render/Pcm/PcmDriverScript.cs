@@ -32,7 +32,7 @@ internal sealed class PcmDriverScript
     public const long MasterClocksPerSample = 7 * 144;
 
     /// <summary>Frames played after the script's, as the reference tool does, so sounds and the DAC enable can end.</summary>
-    public const int TailFrames = 12;
+    private const int TailFrames = 12;
 
     private readonly List<string> _lines = [];
     private readonly List<PcmDriverCommand> _current = [];
@@ -50,7 +50,7 @@ internal sealed class PcmDriverScript
     }
 
     /// <summary>The probe's name.</summary>
-    public string Name { get; }
+    private string Name { get; }
 
     /// <summary>What the probe checks.</summary>
     private string Description { get; }
