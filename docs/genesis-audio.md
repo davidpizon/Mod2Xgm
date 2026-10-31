@@ -19,7 +19,11 @@
 
 ## SN76489 (PSG)
 - 3 square tone channels (10-bit period) + 1 noise channel; 4-bit attenuation (2 dB steps).
-- Clock: NTSC 3 579 545 Hz, PAL 3 546 893 Hz.
+- Clock: NTSC 3 579 545 Hz, PAL 3 546 893 Hz. The counters step at clock ÷ 16 (223 722 Hz on NTSC).
+- It is Sega's copy inside the VDP, not TI's chip: a 16-bit noise shift register tapped at bits 0 and 3, a period of
+  0 that flips the output on every step like period 1 (TI's acts as `$400`), and every channel silent at power-on.
+  The in-app model is a port of MAME's Sega PSG ([ADR 0057](adr/0057-sn76489-model.md)), which lists where it
+  differs from the chip (volume levels at the quiet end, when a period change takes effect, noise timing).
 
 ## Timing
 - Frame rate: NTSC 60 Hz, PAL 50 Hz. XGM/XGM2 advance per frame.

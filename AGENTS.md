@@ -72,6 +72,7 @@ libraries for these.
 /tests/Mod2Xgm.Harness.Tests/ xUnit v3 tests for the accuracy harness
 /tools/Mod2Xgm.Harness/     accuracy harness: scores conversions against OpenMPT on the corpus (docs/harness.md)
 /tools/ym3438-reference/    C++ tool that makes the YM3438 reference outputs with ymfm and Nuked-OPN2 (ADR 0056)
+/tools/sn76489-reference/   C++ tool that makes the SN76489 reference outputs with MAME and Nuked-PSG (ADR 0057)
 /.vs/                       Visual Studio state — never edit or commit (git-ignored)
 ```
 
@@ -83,7 +84,7 @@ src/Mod/            MOD reader -> ModModule
 src/Model/          format-neutral song model (IR)
 src/Mapping/        IR -> Genesis channel plan (strategy interface) + SampleBudgeter (capacity/consolidation)
 src/Audio/          SampleProcessor: resampling (NWaves), bit-depth conversion, loop handling
-src/Render/         in-app MOD renderer + YM3438 (ymfm port, src/Render/Fm) / SN76489 / PCM driver models (pure C#)
+src/Render/         in-app MOD renderer + YM3438 (ymfm port, src/Render/Fm) / SN76489 (MAME port, src/Render/Psg) / PCM driver models (pure C#)
 src/Scoring/        spectral + onset metrics, shared with tools/Mod2Xgm.Harness
 src/Optimizer/      multi-pass candidates, allocation, refinement
 src/Dmf/            DMF writer
@@ -180,8 +181,10 @@ compiler, analyzer, trim/AOT, NuGet or MSBuild warning fails the build.
    Approved so far: **Serilog**, **Serilog.Sinks.Console**, **System.CommandLine**, **NWaves** (resampling, ADR 0038);
    test-only **xUnit v3**; harness-only **libopenmpt** (native, BSD-3, loaded at run time by `tools/Mod2Xgm.Harness`,
    never by the converter; ADR 0047) and **R128Net** (EBU R128 loudness, MIT, pure C#; on trial, ADR 0053); the
-   **ymfm** YM3438 core ported to C# (BSD-3, ADR 0056); and, only in `tools/ym3438-reference` (never shipped, no code
-   copied), ymfm's C++ and **Nuked-OPN2** (LGPL-2.1), built once to make the reference outputs (ADR 0056).
+   **ymfm** YM3438 core ported to C# (BSD-3, ADR 0056); **MAME**'s Sega PSG (`sn76496.cpp`) ported to C# (BSD-3,
+   ADR 0057); only in `tools/ym3438-reference` (never shipped, no code copied), ymfm's C++ and **Nuked-OPN2** (LGPL-2.1),
+   built once to make the reference outputs (ADR 0056); and, only in `tools/sn76489-reference` (never shipped, no code
+   copied), MAME's PSG C++ and **Nuked-PSG** (GPL-2.0+, David approved for this tool only), likewise (ADR 0057).
    The BCL still covers the basics: `ZLibStream` (DMF is zlib-compressed), `BinaryPrimitives` (endianness), `Span<T>`.
 3. **Local-only.** The tool never touches the network.
 4. **Never modify the input file.** Output goes next to the input unless `--output` is given. Do not

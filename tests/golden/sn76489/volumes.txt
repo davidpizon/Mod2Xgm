@@ -1,0 +1,36 @@
+# SN76489 probe: volumes
+# Tone 2 at 330 Hz through all sixteen volumes, 0 (loudest) to 15 (off).
+w a3
+w 15
+w b0
+s 6712
+w b1
+s 6712
+w b2
+s 6712
+w b3
+s 6712
+w b4
+s 6712
+w b5
+s 6712
+w b6
+s 6712
+w b7
+s 6712
+w b8
+s 6712
+w b9
+s 6712
+w ba
+s 6712
+w bb
+s 6712
+w bc
+s 6712
+w bd
+s 6712
+w be
+s 6712
+w bf
+s 6712

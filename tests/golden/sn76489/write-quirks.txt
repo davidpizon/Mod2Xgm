@@ -1,0 +1,27 @@
+# SN76489 probe: write-quirks
+# Data bytes (bit 7 clear) after each kind of latch: after a volume latch they set the volume, after the noise
+# latch they set the noise, after a period latch the high bits; a latch byte alone changes only the low 4 bits.
+w 8e
+w 0f
+w 90
+s 6712
+w 04
+s 6712
+w 08
+s 6712
+w 00
+s 6712
+w f2
+w e0
+s 6712
+w 05
+s 6712
+w ff
+w 80
+s 6712
+w 0a
+s 6712
+w 8f
+s 6712
+w 9f
+s 2237

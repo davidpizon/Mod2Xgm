@@ -1,0 +1,22 @@
+# SN76489 probe: white-noise
+# White noise at rates 0-2 (clock/512, /1024, /2048), then following tone 3 (muted) at
+# periods $010 and $200; then tone 3's period changed while the noise follows it.
+w f0
+w e4
+s 11186
+w e5
+s 11186
+w e6
+s 11186
+w c0
+w 01
+w e7
+s 11186
+w c0
+w 20
+s 11186
+w c0
+w 04
+s 11186
+w ff
+s 2237

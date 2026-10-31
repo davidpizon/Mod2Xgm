@@ -103,11 +103,12 @@
 |---|---|---|
 | T7.1 ✅ (PR #57) | MOD renderer on the tick player: OpenMPT's clean default sound, measured ([ADR 0054](adr/0054-mod-renderer.md)); notes beyond ProTracker's range as in OpenMPT ([ADR 0055](adr/0055-notes-beyond-protracker-range.md)) | Score vs openmpt123 render below a tight threshold on the corpus: ≤ 1.25 dB log-mel on every song ([harness.md](harness.md#in-app-mod-renderer)) |
 | T7.2 ✅ | YM2612 model: C# port of ymfm OPN2 (BSD-3 notice), the YM3438 only ([ADR 0056](adr/0056-ym3438-model.md)) | Matches ymfm reference output on test register streams (bit-exact or within tolerance); vs Nuked-OPN2 (David: replaces the BlastEm captures) |
-| T7.3 | SN76489 model | Tests vs reference captures |
+| T7.3 ✅ | SN76489 model: C# port of MAME's Sega PSG (BSD-3 notice) ([ADR 0057](adr/0057-sn76489-model.md)) | Matches MAME bit-exact on test write streams; vs Nuked-PSG (David: GPL approved for the test tool only) |
 | T7.4 | PCM driver models: DMF DAC, XGM (4 ch ~14 kHz), XGM2 (3 ch 13.3/6.65 kHz) | Tests vs emulator captures |
 | T7.5 | `GenesisRenderer`: plan → stereo WAV through T7.2–T7.4 | Renders corpus; performance budget recorded |
 | T7.6 | Close the MOD renderer's known differences from OpenMPT ([ADR 0054](adr/0054-mod-renderer.md#known-differences)): finetune of in-range notes (2^(−ft/96)), the first pass of a loop, the wandering offset in `sharpojects_cantpleaseeveryone` | Each difference measured against libopenmpt, then fixed or recorded; the corpus's worst log-mel score goes down |
 | T7.7 | Close the YM3438 model's known differences from the chip ([ADR 0056](adr/0056-ym3438-model.md#known-differences-from-the-chip)): the order of the channel's clipping sum, the SSG-EG blip on alternating shapes, operators one slot at a time, detune overflow at the top | Each difference measured against Nuked-OPN2, then fixed or recorded; the port stays bit-exact with ymfm elsewhere; the probes' Nuked bars go down |
+| T7.8 | Close the SN76489 model's known differences from the chip ([ADR 0057](adr/0057-sn76489-model.md#known-differences-from-the-chip)): the volume levels at the quiet end, when a period change takes effect, the noise's timing after a restart, the power-on latch | Each difference measured against Nuked-PSG (and its source checked where marked **Verify**), then fixed or recorded; the port stays bit-exact with MAME elsewhere; the probes' Nuked bars go down |
 
 ### M8 — Candidate generation
 | Task | Work | Acceptance |
@@ -190,6 +191,7 @@ M13 starts once M9 is done ([ADR 0048](adr/0048-midi-input.md)).
 | DMF spec gaps resolved wrongly | Probe files checked in DefleMask **and** through rescomp (T4.3) |
 | Furnace is GPL | Read only; nothing copied; sources noted |
 | ymfm port mismatches the real chip | Compare against ymfm reference output and Nuked-OPN2 (T7.2, [ADR 0056](adr/0056-ym3438-model.md)); close the known differences (T7.7) |
+| MAME's PSG mismatches the real chip | Compare against MAME and Nuked-PSG (T7.3, [ADR 0057](adr/0057-sn76489-model.md)); close the known differences (T7.8) |
 | FM fitting quality / speed | Library seeds, per-pitch-region patches, cache, time budget; harness decides |
 | Optimizer overfits the metric | Listening checks at each milestone sign-off |
 | Conversions get slow | `--quality fast`, time budget, patch cache, profiling in T12.2 |
