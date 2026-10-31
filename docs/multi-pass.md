@@ -78,7 +78,8 @@ All in-process, no native libraries and no external programs:
   [ADR 0056](adr/0056-ym3438-model.md); BSD-3, notice in `THIRD-PARTY-NOTICES.md`), with the chip's differences from
   ymfm modeled as Nuked-OPN2 has them ([ADR 0064](adr/0064-ym3438-chip-differences.md)).
 - **SN76489 model** — C# port of **MAME**'s Sega PSG (`src/Render/Psg/`, [ADR 0057](adr/0057-sn76489-model.md);
-  BSD-3, notice in `THIRD-PARTY-NOTICES.md`).
+  BSD-3, notice in `THIRD-PARTY-NOTICES.md`), with the chip's differences from MAME modeled as Nuked-PSG has them
+  ([ADR 0065](adr/0065-sn76489-chip-differences.md)).
 - **PCM driver models** — SGDK's XGM (4 ch, 14 093 Hz) and XGM2 (3 ch, 13 317 / 6 658 Hz) software mixing and
   DefleMask's DMF DAC, as the `$2A`/`$2B` bytes they put on the YM3438's DAC (`src/Render/Pcm/`,
   [ADR 0058](adr/0058-pcm-driver-models.md)).

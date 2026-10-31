@@ -30,10 +30,15 @@ output); Nuked's are 0 up to 32 768.
 ## The checks (`Sn76489ProbeTests`)
 
 - The checked-in script is the one `Sn76489Probes` builds.
-- The port plays every probe sample for sample as MAME does.
+- The port plays every probe sample for sample as MAME does, except the probes a chip difference the port models
+  reaches ([ADR 0065](../../../docs/adr/0065-sn76489-chip-differences.md)): `periods` and `write-quirks` (the tone
+  counters), `chord`, `white-noise`, `periodic-noise` and `write-quirks` (the noise's timing). Those must play
+  differently from MAME and come closer to Nuked-PSG than MAME does. A new difference needs its own entry in
+  `Sn76489ProbeTests.ChipDifferences`.
 - The port is within a log-mel distance of Nuked-PSG, after averaging every four samples: 0.3 dB, or a probe's own
-  bar where MAME is known to differ from the chip
-  ([ADR 0057](../../../docs/adr/0057-sn76489-model.md#known-differences-from-the-chip)).
+  bar where the port still differs from the chip on purpose: MAME's volume levels (`volumes`, `noise-restart`,
+  `chord`) and MAME's power-on latch (`power-on-latch`)
+  ([ADR 0065](../../../docs/adr/0065-sn76489-chip-differences.md#what-is-left)).
 
 ## Updating
 

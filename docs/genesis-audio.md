@@ -22,8 +22,14 @@
 - Clock: NTSC 3 579 545 Hz, PAL 3 546 893 Hz. The counters step at clock ÷ 16 (223 722 Hz on NTSC).
 - It is Sega's copy inside the VDP, not TI's chip: a 16-bit noise shift register tapped at bits 0 and 3, a period of
   0 that flips the output on every step like period 1 (TI's acts as `$400`), and every channel silent at power-on.
-  The in-app model is a port of MAME's Sega PSG ([ADR 0057](adr/0057-sn76489-model.md)), which lists where it
-  differs from the chip (volume levels at the quiet end, when a period change takes effect, noise timing).
+  The in-app model is a port of MAME's Sega PSG ([ADR 0057](adr/0057-sn76489-model.md)) that follows the chip, as
+  Nuked-PSG has it, where MAME differs ([ADR 0065](adr/0065-sn76489-chip-differences.md)):
+  - The counters count **up** and flip when the count reaches the period **as it is now**, so a shorter period flips
+    at once and a longer one stretches the half-wave in progress.
+  - A write to the noise register empties the shift register at once (the noise goes low). The noise shifts on the
+    **rise** of its rate flip-flop, or of tone 3's output at rate 3.
+  - Still open: the volume levels at the quiet end (MAME's exact 2 dB steps against Nuked-PSG's table, whose source
+    is unknown) and the register the latch points at after power-on.
 
 ## Timing
 - Frame rate: NTSC 60 Hz, PAL 50 Hz. XGM/XGM2 advance per frame.

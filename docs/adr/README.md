@@ -70,7 +70,7 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0054](0054-mod-renderer.md) | In-app MOD renderer: OpenMPT's clean sound, measured (T7.1) | 2026-10-30 | Accepted; known differences closed by [ADR 0060](0060-openmpt-pitch-and-loops.md) |
 | [0055](0055-notes-beyond-protracker-range.md) | Notes beyond ProTracker's range play as in OpenMPT | 2026-10-30 | Accepted; amends [ADR 0033](0033-tick-player.md); parts superseded by [ADR 0060](0060-openmpt-pitch-and-loops.md) |
 | [0056](0056-ym3438-model.md) | YM3438 model: a bit-exact ymfm port, checked against Nuked-OPN2 (T7.2) | 2026-10-30 | Accepted; known differences closed by [ADR 0064](0064-ym3438-chip-differences.md) |
-| [0057](0057-sn76489-model.md) | SN76489 model: a bit-exact port of MAME's Sega PSG, checked against Nuked-PSG (T7.3) | 2026-10-30 | Accepted |
+| [0057](0057-sn76489-model.md) | SN76489 model: a bit-exact port of MAME's Sega PSG, checked against Nuked-PSG (T7.3) | 2026-10-30 | Accepted; known differences closed or recorded by [ADR 0065](0065-sn76489-chip-differences.md) |
 | [0058](0058-pcm-driver-models.md) | PCM driver models: XGM, XGM2 and the DMF DAC as DAC register streams, from the drivers' source (T7.4) | 2026-10-30 | Accepted |
 | [0059](0059-genesis-renderer.md) | Genesis renderer: the plan played on the chip models, with Furnace's levels (T7.5) | 2026-10-31 | Accepted |
 | [0060](0060-openmpt-pitch-and-loops.md) | The tick player's pitch and loops follow OpenMPT, measured (T7.6) | 2026-10-31 | Accepted; amends 0033, supersedes parts of 0055; one consequence superseded by [ADR 0061](0061-dmf-pitch-from-tick-player.md); `jam_-_*` lead closed by [ADR 0062](0062-one-word-samples.md) |
@@ -78,6 +78,7 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0062](0062-one-word-samples.md) | A sample 1 word long is read as OpenMPT reads it: empty, its bytes left to the next sample | 2026-10-31 | Accepted; amends 0060 |
 | [0063](0063-multichannel-mod-xm-it-input.md) | Multichannel MOD, XM and IT input (M14–M16): OpenMPT's playback rules ported, NNA emulated, sample options as for MOD | 2026-10-31 | Accepted |
 | [0064](0064-ym3438-chip-differences.md) | The YM3438 model follows the chip where ymfm differs, as Nuked-OPN2 has it (T7.7) | 2026-10-31 | Accepted; closes the known differences of 0056 |
+| [0065](0065-sn76489-chip-differences.md) | The SN76489 model's counters and noise follow the chip where MAME differs, as Nuked-PSG has them; MAME's volume levels and power-on latch kept (T7.8) | 2026-10-31 | Accepted; closes or records the known differences of 0057 |
 
 ## Open questions
 
