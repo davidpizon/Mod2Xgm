@@ -84,17 +84,18 @@ Two things make the check measure the sound and not the clock:
   repeats, the alignment can line a bar up with the wrong repeat (`musix-cute-october`: 743 ms off at 22.05 kHz,
   4.33 dB), and it moves in steps of 256 samples, which hid the first-tick offset above.
 
-On the corpus (2026-10-30), worst song per rate:
+On the corpus (2026-10-31, after the tick player's pitch and loops moved to OpenMPT's,
+[ADR 0060](adr/0060-openmpt-pitch-and-loops.md)), worst song per rate:
 
-| Rate | Worst song | Log-mel (dB) |
-|---|---|---|
-| 44.1 kHz | `drozerix_-_ai_renaissance` | 0.85 |
-| 22.05 kHz | `soundtracker15` | 0.76 |
-| 8 kHz | `fx-poly1` | 0.94 |
+| Rate | Worst song | Log-mel (dB) | Before ADR 0060 |
+|---|---|---|---|
+| 44.1 kHz | `jam_-_latenightcoffee` | 0.62 | 0.85 (`drozerix_-_ai_renaissance`) |
+| 22.05 kHz | `soundtracker15` | 0.62 | 0.76 (`soundtracker15`) |
+| 8 kHz | `10kdub` | 0.85 | 0.94 (`fx-poly1`) |
 
-Still different (ADR 0054, plan T7.6): finetune of in-range notes (up to about 6 cents), the first pass of a loop, and a
-1–3 ms offset that wanders through `sharpojects_cantpleaseeveryone` (speed 3, tempo changes and jumps), whose cause is
-not known yet.
+The mean at 44.1 kHz went from 0.30 to 0.13 dB. The 1–3 ms offset that wandered through
+`sharpojects_cantpleaseeveryone` was finetune (a long sample 2 cents fast); it now matches libopenmpt sample for sample.
+Still different (ADR 0060): a constant 0.11–0.25 ms lead in the `jam_-_*` songs, not yet explained.
 
 ## Instrument balance
 

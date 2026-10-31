@@ -124,6 +124,13 @@ conversion note. Pattern cells keep the note **as written** (finetune 0); the ti
 instrument's finetune, since a cell often doesn't name its instrument. Tables: ProTracker 2.3 data via pt2-clone
 (BSD-3-Clause, [THIRD-PARTY-NOTICES.md](../../THIRD-PARTY-NOTICES.md)).
 
+The **tick player** plays finetune as **OpenMPT** does instead, measured with libopenmpt 0.8.9
+([ADR 0060](../adr/0060-openmpt-pitch-and-loops.md)): periods are kept in **quarters**; a finetuned note is its
+finetune's C-1 period (from the same tables) halved for each octave up, the quarters truncated (C-3 at +1 is
+850 ÷ 4 = 212.5, where ProTracker's table has 213); finetune 0 uses the table, except B-3, which plays at 113¼; no
+note plays below 113. That is up to about 7 cents from ProTracker's tables on most notes, and more on the top notes
+of positive finetunes, which ProTracker plays below 113.
+
 ## Timing
 
 Default speed 6 (ticks/row), BPM 125. Tick rate = `BPM × 2 / 5` Hz (50 Hz at 125) on a PAL Amiga. With

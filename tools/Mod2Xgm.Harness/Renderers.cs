@@ -146,7 +146,8 @@ internal sealed class ModRendererCheck(int sampleRate) : ICandidateRenderer
 
     /// <summary>
     /// The bar (plan T7.1): every song's whole-song log-mel distance to libopenmpt stays at or below this
-    /// (docs/adr/0054-mod-renderer.md; the corpus's worst song was 0.94 dB, at 8 kHz).
+    /// (docs/adr/0054-mod-renderer.md; the corpus's worst song was 0.94 dB at 8 kHz, and 0.85 dB after
+    /// docs/adr/0060-openmpt-pitch-and-loops.md).
     /// </summary>
     public const double MaxMelDistanceDb = 1.25;
 

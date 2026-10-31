@@ -67,12 +67,13 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0051](0051-instrument-balance-metric.md) | Instrument balance metric: per-sample stems, checked against listening | 2026-10-30 | Accepted |
 | [0052](0052-pre-mixed-pcm.md) | Pre-mixed PCM for repeated overlaps (T8.5) | 2026-10-30 | Accepted |
 | [0053](0053-r128-loudness-in-the-harness.md) | EBU R128 loudness in the harness (R128Net), checked against listening | 2026-10-30 | Proposed |
-| [0054](0054-mod-renderer.md) | In-app MOD renderer: OpenMPT's clean sound, measured (T7.1) | 2026-10-30 | Accepted |
-| [0055](0055-notes-beyond-protracker-range.md) | Notes beyond ProTracker's range play as in OpenMPT | 2026-10-30 | Accepted; amends [ADR 0033](0033-tick-player.md) |
+| [0054](0054-mod-renderer.md) | In-app MOD renderer: OpenMPT's clean sound, measured (T7.1) | 2026-10-30 | Accepted; known differences closed by [ADR 0060](0060-openmpt-pitch-and-loops.md) |
+| [0055](0055-notes-beyond-protracker-range.md) | Notes beyond ProTracker's range play as in OpenMPT | 2026-10-30 | Accepted; amends [ADR 0033](0033-tick-player.md); parts superseded by [ADR 0060](0060-openmpt-pitch-and-loops.md) |
 | [0056](0056-ym3438-model.md) | YM3438 model: a bit-exact ymfm port, checked against Nuked-OPN2 (T7.2) | 2026-10-30 | Accepted |
 | [0057](0057-sn76489-model.md) | SN76489 model: a bit-exact port of MAME's Sega PSG, checked against Nuked-PSG (T7.3) | 2026-10-30 | Accepted |
 | [0058](0058-pcm-driver-models.md) | PCM driver models: XGM, XGM2 and the DMF DAC as DAC register streams, from the drivers' source (T7.4) | 2026-10-30 | Accepted |
 | [0059](0059-genesis-renderer.md) | Genesis renderer: the plan played on the chip models, with Furnace's levels (T7.5) | 2026-10-31 | Accepted |
+| [0060](0060-openmpt-pitch-and-loops.md) | The tick player's pitch and loops follow OpenMPT, measured (T7.6) | 2026-10-31 | Accepted; amends 0033, supersedes parts of 0055 |
 
 ## Open questions
 

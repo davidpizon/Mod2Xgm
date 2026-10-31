@@ -1,6 +1,6 @@
 # ADR 0055: Notes beyond ProTracker's range
 
-- **Status:** Accepted; amends [ADR 0033](0033-tick-player.md)
+- **Status:** Accepted; amends [ADR 0033](0033-tick-player.md); "every other song is unchanged", the 2^(−finetune/96) tuning, the semitone arpeggio and the unsnapped glissando are superseded by [ADR 0060](0060-openmpt-pitch-and-loops.md)
 - **Date:** 2026-10-30
 
 ## Context
