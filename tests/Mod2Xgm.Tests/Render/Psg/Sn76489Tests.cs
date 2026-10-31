@@ -136,17 +136,14 @@ public sealed class Sn76489Tests
         Assert.All(rises.Zip(rises.Skip(1)), pair => Assert.Equal(samplesPerShift * 16, pair.Second - pair.First));
     }
 
-    /// <summary>At rate 3 the noise follows tone 3: one shift per two of its flips, also when tone 3's period changes later.</summary>
-    [Fact]
-    public void Rate3FollowsTone3()
+    /// <summary>At rate 3 the noise follows tone 3: one shift per two of its flips, whether tone 3's period or the rate is written first.</summary>
+    [Theory]
+    [InlineData(0xc5, 0x00, 0xe3, 0xf0)]
+    [InlineData(0xe3, 0xf0, 0xc5, 0x00)]
+    public void Rate3FollowsTone3(int first, int second, int third, int fourth)
     {
-        int[] output = Play(With(0xc0 | 0x5, 0x00, 0xe3, 0xf0), 10 * 16 * 3);
+        int[] output = Play(With(first, second, third, fourth), 10 * 16 * 3);
         List<int> rises = [.. Edges(output).Where(i => output[i] != 0)];
-        Assert.All(rises.Zip(rises.Skip(1)), pair => Assert.Equal(10 * 16, pair.Second - pair.First));
-
-        Sn76489 chip = With(0xe3, 0xf0, 0xc0 | 0x5, 0x00);
-        output = Play(chip, 10 * 16 * 3);
-        rises = [.. Edges(output).Where(i => output[i] != 0)];
         Assert.All(rises.Zip(rises.Skip(1)), pair => Assert.Equal(10 * 16, pair.Second - pair.First));
     }
 

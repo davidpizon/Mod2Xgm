@@ -40,9 +40,6 @@ internal sealed class Sn76489Script
     /// <summary>What the probe checks.</summary>
     private string Description { get; }
 
-    /// <summary>The steps, in order.</summary>
-    public IReadOnlyList<Sn76489Step> Steps => _steps;
-
     /// <summary>Reads a script's text back into steps (the name and description are not read back).</summary>
     /// <exception cref="FormatException">A line is neither a write, a run nor a comment.</exception>
     public static IReadOnlyList<Sn76489Step> Parse(string text)
@@ -129,7 +126,7 @@ internal sealed class Sn76489Script
     }
 
     /// <summary>Plays <paramref name="samples"/> samples.</summary>
-    public Sn76489Script Wait(int samples)
+    private Sn76489Script Wait(int samples)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(samples);
         _steps.Add(new Sn76489Step(0, samples));
