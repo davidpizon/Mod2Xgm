@@ -73,7 +73,7 @@ public sealed class FmStructureSearchTests
     [Fact]
     public void TheGeneticSearchIsRepeatable()
     {
-        FmTarget target = FmTargets.Of(FmTargets.Saw);
+        NoteTarget target = FmTargets.Of(FmTargets.Saw);
         FmEvaluator first = new(target);
         FmEvaluator second = new(target);
         FmEvaluator other = new(target);

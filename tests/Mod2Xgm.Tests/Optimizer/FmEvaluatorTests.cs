@@ -4,7 +4,7 @@ using Mod2Xgm.Optimizer;
 
 namespace Mod2Xgm.Tests.Optimizer;
 
-/// <summary>Tests for <see cref="FmEvaluator"/> and <see cref="FmTarget"/>: what a fit aims at and how close a note is.</summary>
+/// <summary>Tests for <see cref="FmEvaluator"/> and <see cref="NoteTarget"/>: what a fit aims at and how close a note is.</summary>
 public sealed class FmEvaluatorTests
 {
     /// <summary>Frames of a made-up spectrogram: a slope from 0 dB down, 8 bins wide.</summary>
@@ -15,9 +15,9 @@ public sealed class FmEvaluatorTests
     [Fact]
     public void TheDistanceIgnoresTheOverallLevel()
     {
-        Assert.Equal(0, FmEvaluator.Distance(Slope(10), Slope(10), 10).Db, 1e-9);
-        Assert.Equal(0, FmEvaluator.Distance(Slope(10), Slope(10, -12), 10).Db, 1e-6);
-        Assert.Equal(-12, FmEvaluator.Distance(Slope(10), Slope(10, 12), 10).OffsetDb, 1e-6);
+        Assert.Equal(0, NoteScorer.Distance(Slope(10), Slope(10), 10).Db, 1e-9);
+        Assert.Equal(0, NoteScorer.Distance(Slope(10), Slope(10, -12), 10).Db, 1e-6);
+        Assert.Equal(-12, NoteScorer.Distance(Slope(10), Slope(10, 12), 10).OffsetDb, 1e-6);
     }
 
     /// <summary>A silent note scores the whole range; a note that stops halfway scores worse than one that plays on.</summary>
@@ -26,8 +26,8 @@ public sealed class FmEvaluatorTests
     {
         float[][] silent = [.. Enumerable.Range(0, 10).Select(_ => Enumerable.Repeat((float)SampleAnalyzer.FloorDb, 8).ToArray())];
 
-        Assert.Equal(FmEvaluator.RangeDb, FmEvaluator.Distance(Slope(10), silent, 10).Db);
-        Assert.True(FmEvaluator.Distance(Slope(10), Slope(5), 10).Db > 1);
+        Assert.Equal(NoteScorer.RangeDb, NoteScorer.Distance(Slope(10), silent, 10).Db);
+        Assert.True(NoteScorer.Distance(Slope(10), Slope(5), 10).Db > 1);
     }
 
     /// <summary>A patch scores about 0 against its own sound, and a different patch scores worse on every measure.</summary>
@@ -36,8 +36,8 @@ public sealed class FmEvaluatorTests
     {
         FmEvaluator evaluator = new(FmTargets.Of(FmPatchLibrary.Lead));
 
-        FmScore same = evaluator.Judge(FmPatchLibrary.Lead, null);
-        FmScore other = evaluator.Judge(FmPatchLibrary.Organ, null);
+        NoteScore same = evaluator.Judge(FmPatchLibrary.Lead, null);
+        NoteScore other = evaluator.Judge(FmPatchLibrary.Organ, null);
 
         Assert.True(same.MelDb < 0.01, $"mel {same.MelDb}");
         Assert.True(same.HarmonicDb < 0.01, $"harmonic {same.HarmonicDb}");
@@ -82,12 +82,12 @@ public sealed class FmEvaluatorTests
     [Fact]
     public void TargetsFollowTheRegion()
     {
-        FmTarget pitched = FmTargets.Of(FmTargets.Saw);
+        NoteTarget pitched = FmTargets.Of(FmTargets.Saw);
         RegionSpectrum spectrum = pitched.Spectrum;
 
         Assert.Equal(FmTargets.C2 / 64, pitched.NoteHz, 0.1);
         Assert.Equal(pitched.NoteHz, pitched.FundamentalHz);
-        Assert.Equal(261.63, FmTarget.Of(new PitchRegion(FmTargets.C2, FmTargets.C2, FmTargets.C2, 1, null, spectrum))!.NoteHz, 0.01);
-        Assert.Null(FmTarget.Of(new PitchRegion(FmTargets.C2, FmTargets.C2, FmTargets.C2, 1, null, new RegionSpectrum(0.01, [], null))));
+        Assert.Equal(261.63, NoteTarget.Of(new PitchRegion(FmTargets.C2, FmTargets.C2, FmTargets.C2, 1, null, spectrum))!.NoteHz, 0.01);
+        Assert.Null(NoteTarget.Of(new PitchRegion(FmTargets.C2, FmTargets.C2, FmTargets.C2, 1, null, new RegionSpectrum(0.01, [], null))));
     }
 }

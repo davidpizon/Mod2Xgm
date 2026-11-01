@@ -36,6 +36,7 @@ namespace Mod2Xgm.Harness;
 /// Also fit FM patches to every sample the conversion analyzed, the song's samples at once
 /// (docs/adr/0069-fm-patch-fitting.md); <c>null</c> to skip.
 /// </param>
+/// <param name="psgFit">Also make the PSG candidates of every sample the conversion analyzed (docs/adr/0070-psg-candidates.md).</param>
 internal sealed class CorpusRun(
     string outputDirectory,
     int sampleRate,
@@ -45,7 +46,8 @@ internal sealed class CorpusRun(
     ILogger logger,
     double? clipSeconds = null,
     bool balance = false,
-    FmFitOptions? fmFit = null)
+    FmFitOptions? fmFit = null,
+    bool psgFit = false)
 {
     /// <summary>
     /// Measures every song in <paramref name="modPaths"/>, <paramref name="jobs"/> at a time; the results are in the
@@ -91,7 +93,7 @@ internal sealed class CorpusRun(
             }
 
             duration = CheckLength(song, mod, original.DurationSeconds, out IReadOnlyList<RowTiming> rows);
-            notes = Convert(song, out IReadOnlyList<SampleAnalysis> analyses);
+            notes = Convert(song, out IReadOnlyList<SampleAnalysis> analyses, out SongVoices? voices);
             AudioSignal referenceMono = original.Audio.ToMono();
             Loudness referenceLoudness = Loudness.Of(original.Audio);
             ReferenceStems? stems = balance && referenceClip is not null && candidates.Any(c => c is IDmfRenderer)
@@ -106,7 +108,7 @@ internal sealed class CorpusRun(
                 }
             }
 
-            return new SongResult(name, duration, notes, scores, null) { Samples = analyses, FmFits = FitFm(name, analyses) };
+            return new SongResult(name, duration, notes, scores, null) { Samples = analyses, FmFits = FitFm(name, analyses), PsgFits = FitPsg(name, analyses, voices) };
         }
         catch (Exception ex) when (ex is HarnessException or ConversionException or IOException)
         {
@@ -133,6 +135,21 @@ internal sealed class CorpusRun(
             song,
             fits.Sum(f => f.Regions.Count(r => r.FittedBeatsLibrary)),
             regions);
+        return fits;
+    }
+
+    /// <summary>The PSG candidates of every analyzed sample, in the analyses' order, made at once; none unless asked for.</summary>
+    private IReadOnlyList<PsgSampleFit> FitPsg(string song, IReadOnlyList<SampleAnalysis> analyses, SongVoices? voices)
+    {
+        if (!psgFit || voices is null)
+        {
+            return [];
+        }
+
+        logger.Information("{Song}: making PSG candidates for {Count} samples", song, analyses.Count);
+        PsgSampleFit[] fits = new PsgSampleFit[analyses.Count];
+        Parallel.For(0, analyses.Count, i => fits[i] = PsgFitter.Fit(analyses[i], voices));
+        PsgFitReport.Log(logger, fits);
         return fits;
     }
 
@@ -187,15 +204,16 @@ internal sealed class CorpusRun(
     /// number of conversion notes, and the conversion's own sample analysis in <paramref name="analyses"/>
     /// (<c>sample-analysis.csv</c>).
     /// </summary>
-    private int Convert(SongFiles song, out IReadOnlyList<SampleAnalysis> analyses)
+    private int Convert(SongFiles song, out IReadOnlyList<SampleAnalysis> analyses, out SongVoices? voices)
     {
         IReadOnlyList<SampleAnalysis> found = [];
+        SongVoices? counted = null;
         LogFileSink log = new();
         using (Logger songLogger = new LoggerConfiguration().MinimumLevel.Debug().WriteTo.Sink(log).CreateLogger())
         {
             try
             {
-                ConversionCommand.Execute(new ConversionOptions { InputPath = song.ModPath, OutputPath = song.DmfPath, Force = true }, songLogger, a => found = a);
+                ConversionCommand.Execute(new ConversionOptions { InputPath = song.ModPath, OutputPath = song.DmfPath, Force = true }, songLogger, (a, v) => (found, counted) = (a, v));
             }
             finally
             {
@@ -204,6 +222,7 @@ internal sealed class CorpusRun(
         }
 
         analyses = found;
+        voices = counted;
         logger.Information("{Song}: converted to {Dmf} ({Notes} conversion notes)", song.Name, song.DmfPath, log.Warnings);
         return log.Warnings;
     }

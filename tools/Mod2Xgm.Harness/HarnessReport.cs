@@ -36,6 +36,10 @@ internal static class HarnessReport
     public const string FmFitHeader =
         "song,sample,name,region,library,library_db,exhaustive_db,genetic_db,best,best_db,best_mfcc,best_harmonic_db,no_lfo_db,lfo_rate,patch,fitted_beats_library,renders,seconds";
 
+    /// <summary>Header of <c>psg-fit.csv</c>.</summary>
+    public const string PsgFitHeader =
+        "song,sample,name,region,most_at_once,sound,noise_rate,period,pitch_hz,cents_off,channels,room,mel_db,mfcc,harmonic_db,best,best_with_room";
+
     /// <summary>Header of <c>loudness.csv</c>.</summary>
     public const string LoudnessHeader =
         "song,renderer,span,reference_lufs,candidate_lufs,difference_lu,reference_lra_lu,candidate_lra_lu,reference_true_peak_dbtp,candidate_true_peak_dbtp";
@@ -264,6 +268,52 @@ internal static class HarnessReport
                         r.Renders.ToString(CultureInfo.InvariantCulture),
                         Number(r.Elapsed.TotalSeconds, "0.#"));
                     csv.Append('\n');
+                }
+            }
+        }
+
+        return csv.ToString();
+    }
+
+    /// <summary>
+    /// One line per song, sample, pitch region and PSG try (<c>--psg-fit</c>): the try's settings, its pitch, the channels
+    /// it takes and whether the song has room for it, its distances, and whether it is the region's closest, and its
+    /// closest with room (see <see cref="PsgFitHeader"/>).
+    /// </summary>
+    public static string PsgFitCsv(IReadOnlyList<SongResult> results)
+    {
+        ArgumentNullException.ThrowIfNull(results);
+        StringBuilder csv = new();
+        csv.Append(PsgFitHeader).Append('\n');
+        foreach (SongResult song in results)
+        {
+            foreach (PsgSampleFit fit in song.PsgFits)
+            {
+                foreach (PsgRegionFit r in fit.Regions)
+                {
+                    foreach (PsgCandidate c in r.Candidates)
+                    {
+                        csv.AppendJoin(
+                            ',',
+                            Csv(song.Song),
+                            (fit.Sample + 1).ToString(CultureInfo.InvariantCulture),
+                            Csv(fit.Name),
+                            (r.Region + 1).ToString(CultureInfo.InvariantCulture),
+                            fit.MostAtOnce.ToString(CultureInfo.InvariantCulture),
+                            PsgFitReport.SoundName(c.Setting.Sound),
+                            c.Setting.UsesNoise ? c.Setting.NoiseRate.ToString(CultureInfo.InvariantCulture) : string.Empty,
+                            c.Setting.UsesToneChannel ? c.Setting.Period.ToString(CultureInfo.InvariantCulture) : string.Empty,
+                            Number(c.Setting.PitchHz, "0.##"),
+                            Number(c.CentsOff, "0.#"),
+                            c.Setting.Channels.ToString(CultureInfo.InvariantCulture),
+                            PsgFitReport.RoomName(c.Room),
+                            Number(c.Score.MelDb, "0.###"),
+                            Number(c.Score.MfccDistance, "0.##"),
+                            Number(c.Score.HarmonicDb, "0.###"),
+                            ReferenceEquals(c, r.Best) ? "yes" : "no",
+                            ReferenceEquals(c, r.BestThatFits) ? "yes" : "no");
+                        csv.Append('\n');
+                    }
                 }
             }
         }

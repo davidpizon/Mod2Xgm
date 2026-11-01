@@ -132,7 +132,14 @@ fits an FM patch to each pitch region of a `SampleAnalysis`. `FmNoteRenderer` pl
 (`Render/FmVoice` loads the patch, shared with `GenesisPlanPlayer`) and `FmEvaluator` scores it against the region's
 harmonics and mel bands. `FmExhaustiveSearch` and `FmGeneticSearch` choose the algorithm and multiples (`FmStructure`),
 `FmLocalSearch` fits the levels, envelopes, SSG-EG and LFO, and `FmFitReport` logs the result. Nothing in the
-conversion uses it yet (M9); the harness runs it with `--fm-fit`.
+conversion uses it yet (M9); the harness runs it with `--fm-fit`. `NoteScorer` is the ruler both FM and PSG
+candidates are scored with, and `AnalysisResampler` brings either chip's output to the analysis rate.
+
+**PSG candidates** (`src/Optimizer`, plan T8.3, [ADR 0070](adr/0070-psg-candidates.md)) — part of pass 3: `PsgFitter`
+makes the PSG tries (`PsgSetting`) for each pitch region: a tone, noise at every rate in both modes, the tuned hiss and
+the buzz for low notes. `PsgNoteRenderer` plays one on the `Sn76489` model and `NoteScorer` scores it. Each try is
+marked with whether the song has room for it, from `Analysis/SongVoices` (how many notes the song sounds at once), and
+`PsgFitReport` logs them. Nothing in the conversion uses them yet (M9); the harness runs them with `--psg-fit`.
 
 **Scoring** (`src/Scoring`, plan T6.2, [ADR 0042](adr/0042-scoring-metrics.md)) — pure C#: says how close a rendering sounds to the
 original. `AudioSignal` (mono audio) → `Alignment` (constant lag from the note-start curves) → `SpectralMetrics`

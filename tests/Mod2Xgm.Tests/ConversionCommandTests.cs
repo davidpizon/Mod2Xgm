@@ -1,8 +1,10 @@
+using Mod2Xgm.Analysis;
 using Mod2Xgm.Cli;
 using Mod2Xgm.Dmf;
 using Mod2Xgm.Mod;
 using Mod2Xgm.Tests.Dmf;
 using Mod2Xgm.Tests.Mod;
+using Serilog.Core;
 using Serilog.Events;
 
 namespace Mod2Xgm.Tests;
@@ -296,6 +298,22 @@ public sealed class ConversionCommandTests
         ConversionCommand.Execute(new() { InputPath = temp.CreateFile("song.mod"), IgnoreSamples = new HashSet<int> { 1 } }, sink.CreateLogger());
 
         Assert.Contains(sink.Messages(LogEventLevel.Information), m => m.StartsWith(" 01  \"kick\"", StringComparison.Ordinal) && m.EndsWith("ignored", StringComparison.Ordinal));
+    }
+
+    /// <summary>The analysis hook gets every sample's analysis and how many notes the song sounds at once (the harness's PSG candidates use both).</summary>
+    [Fact]
+    public void TheAnalysisHookGetsTheVoices()
+    {
+        using TempDirectory temp = new();
+        byte[] mod = new ModBuilder().WithSample(1, "kick", 64).WithCell(0, row: 0, channel: 0, sample: 1, period: 428).WithCell(0, row: 0, channel: 1, sample: 1, period: 428).Build();
+        IReadOnlyList<SampleAnalysis>? analyses = null;
+        SongVoices? voices = null;
+
+        ConversionCommand.Execute(new() { InputPath = temp.CreateFile("song.mod", mod), InfoOnly = true }, Logger.None, (a, v) => (analyses, voices) = (a, v));
+
+        Assert.Equal([0], analyses!.Select(a => a.Sample));
+        Assert.Equal(2, voices!.MostAtOnce);
+        Assert.Equal(2, voices.MostAtOnceOf(0));
     }
 
     /// <summary>

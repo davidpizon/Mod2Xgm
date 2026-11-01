@@ -180,6 +180,7 @@ is over the renderer's bar, **2** the harness couldn't run
 | `--balance` | | With `--clip`: also measure each clip's [instrument balance](#instrument-balance) from stems, for Furnace, into `balance.csv`, `balance-instruments.csv` and a report section |
 | `--fm-fit` | | Also fit FM patches to every sample the conversion analyzed, every pitch region, with both structure searches ([ADR 0069](adr/0069-fm-patch-fitting.md)), into `fm-fit.csv`; a song's samples are fitted at once. Slow: minutes per region without a limit |
 | `--fm-max-renders <n>` | no limit | With `--fm-fit`: most notes each step of a region's fit renders (the structure search, and each level fit after it) |
+| `--psg-fit` | | Also make the PSG candidates of every sample the conversion analyzed, every pitch region ([ADR 0070](adr/0070-psg-candidates.md)), into `psg-fit.csv`; about a second per region |
 | `-j`, `--jobs` | half the processors, at most 4 | Songs measured at once (1–64). The reports list songs in the same order either way |
 | `-v`, `--verbose` | | Log every scoring step |
 
@@ -197,6 +198,7 @@ In the output folder:
 | `loudness.csv` | `song,renderer,span,reference_lufs,candidate_lufs,difference_lu,reference_lra_lu,candidate_lra_lu,reference_true_peak_dbtp,candidate_true_peak_dbtp`; `span` is `song`, or `clip` with `--clip` |
 | `sample-analysis.csv` | `song,sample,name,kind,percussive,tonal,noisy,period_frames,voiced_share,deviation_cents,drift_cents,peak_db,attack_ms,decay_ms,sustain_db,loop_frames,loop_cycles,regions,region_rates_hz,fundamentals_hz,notes`, one line per sample with sound ([ADR 0068](adr/0068-sample-analysis.md)); the last three list each pitch region, separated by spaces |
 | `fm-fit.csv` | With `--fm-fit`: `song,sample,name,region,library,library_db,exhaustive_db,genetic_db,best,best_db,best_mfcc,best_harmonic_db,no_lfo_db,lfo_rate,patch,fitted_beats_library,renders,seconds`, one line per pitch region ([ADR 0069](adr/0069-fm-patch-fitting.md)): the closest built-in patch, each search's fit, the best and its twin without the LFO (log-mel distances in dB), the best's settings, the notes rendered and the time taken |
+| `psg-fit.csv` | With `--psg-fit`: `song,sample,name,region,most_at_once,sound,noise_rate,period,pitch_hz,cents_off,channels,room,mel_db,mfcc,harmonic_db,best,best_with_room`, one line per PSG try ([ADR 0070](adr/0070-psg-candidates.md)): the most channels the song sounds the sample on at once, the try's sound (`tone`, `white`, `periodic`), noise rate and period, the pitch it plays and how far off the note, the channels it takes and whether the song has room for it, its distances, and whether it is the region's closest and its closest with room |
 | `durations.csv` | `song,tick_player_s,openmpt_rules_s,reference_s,difference_s,amiga_difference_s,one_tick_s,within_one_tick,first_row_off,stops_at_f00,conversion_notes,error` |
 | `dmf/`, `wav/` | The conversions and the renders; `dmf/stems/` holds the stem DMFs (their renders are deleted) |
 | `logs/` | Each conversion's console output (`song.log`) and its rows' times (`song.rows.csv`: `order,row,tick_player_s,openmpt_rules_s,reference_s,difference_s`) |

@@ -72,4 +72,11 @@ internal readonly record struct ChannelTick(bool Playing, NotePitch Pitch, doubl
 /// <param name="Sample">Index into <see cref="Song.Samples"/>, or <c>null</c> for silence (an empty sample slot).</param>
 /// <param name="StartFrame">First frame.</param>
 /// <param name="Frames">Number of frames; a stretch of 2 frames or fewer at a sample's start is how one-shot samples end (silence follows).</param>
-internal readonly record struct SampleBlock(int? Sample, int StartFrame, int Frames);
+internal readonly record struct SampleBlock(int? Sample, int StartFrame, int Frames)
+{
+    /// <summary>
+    /// True for a part that means silence: no sample, or the 2-frame stretch at a sample's start that ends a one-shot
+    /// sample on an Amiga (docs/architecture.md#layers); OpenMPT stops the note there too.
+    /// </summary>
+    public bool IsSilence => this is { Sample: null } or { Frames: <= 2, StartFrame: 0 } or { Frames: <= 0 };
+}

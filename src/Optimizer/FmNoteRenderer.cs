@@ -36,17 +36,11 @@ internal static class FmNoteRenderer
     /// <summary>Taps of the resampling filter: wide enough to fall from 19 kHz to silence before the analysis rate's 22 kHz.</summary>
     private const int Taps = 64;
 
-    /// <summary>Fractional positions the filter is tabulated at.</summary>
-    private const int Phases = 512;
-
-    /// <summary>The resampling filter's cutoff, below the analysis rate's half (22 050 Hz), so the chip's 22–27 kHz doesn't fold back.</summary>
-    private const double CutoffHz = 19_500;
-
     /// <summary>The chip's sample rate: an NTSC Genesis's.</summary>
     public static double ChipRateHz { get; } = Ym3438.SampleRateHz(Ym3438.NtscClockHz);
 
-    /// <summary>The resampling filter, <see cref="Taps"/> per phase, each phase summing to 1.</summary>
-    private static readonly float[] Kernel = BuildKernel();
+    /// <summary>Brings the chip's output to the analysis rate.</summary>
+    private static readonly AnalysisResampler Resampler = new(ChipRateHz, Taps);
 
     /// <summary>
     /// <paramref name="patch"/> held at <paramref name="hz"/> for <paramref name="seconds"/>, with the LFO at
@@ -80,72 +74,6 @@ internal static class FmNoteRenderer
         return ToAnalysisRate(mono);
     }
 
-    /// <summary>
-    /// <paramref name="input"/>, at <see cref="ChipRateHz"/>, at <see cref="SampleAnalyzer.AnalysisRateHz"/>: a
-    /// Blackman-windowed sinc low-pass read at each output point. The converter's resampler (NWaves, ADR 0038) is built
-    /// for output quality and takes most of a fit's time at this fixed ratio; this one is about 50 times faster and its
-    /// error stays far below the distances it serves (docs/adr/0069-fm-patch-fitting.md).
-    /// </summary>
-    internal static float[] ToAnalysisRate(float[] input)
-    {
-        ArgumentNullException.ThrowIfNull(input);
-        double step = ChipRateHz / SampleAnalyzer.AnalysisRateHz;
-        int length = (int)Math.Floor(input.Length / step);
-        float[] output = new float[length];
-        for (int j = 0; j < length; j++)
-        {
-            double x = j * step;
-            int i0 = (int)Math.Floor(x);
-            int phase = (int)Math.Round((x - i0) * Phases);
-            if (phase == Phases)
-            {
-                phase = 0;
-                i0++;
-            }
-
-            ReadOnlySpan<float> kernel = Kernel.AsSpan(phase * Taps, Taps);
-            int first = i0 - (Taps / 2) + 1;
-            double sum = 0;
-            for (int t = 0; t < Taps; t++)
-            {
-                int i = first + t;
-                if ((uint)i < (uint)input.Length)
-                {
-                    sum += kernel[t] * input[i];
-                }
-            }
-
-            output[j] = (float)sum;
-        }
-
-        return output;
-    }
-
-    /// <summary>The windowed sinc at each phase: tap <c>t</c> of phase <c>p</c> weighs the input <c>t − Taps/2 + 1 − p/Phases</c> samples from the output point.</summary>
-    private static float[] BuildKernel()
-    {
-        double cutoff = CutoffHz / ChipRateHz;
-        double half = Taps / 2.0;
-        float[] kernel = new float[Phases * Taps];
-        for (int p = 0; p < Phases; p++)
-        {
-            double fraction = (double)p / Phases;
-            double[] row = new double[Taps];
-            for (int t = 0; t < Taps; t++)
-            {
-                double d = t - half + 1 - fraction;
-                double sinc = d == 0 ? 1 : Math.Sin(2 * Math.PI * cutoff * d) / (2 * Math.PI * cutoff * d);
-                double window = Math.Abs(d) >= half ? 0 : 0.42 + (0.5 * Math.Cos(Math.PI * d / half)) + (0.08 * Math.Cos(2 * Math.PI * d / half));
-                row[t] = sinc * window;
-            }
-
-            double sum = row.Sum();
-            for (int t = 0; t < Taps; t++)
-            {
-                kernel[(p * Taps) + t] = (float)(row[t] / sum);
-            }
-        }
-
-        return kernel;
-    }
+    /// <summary><paramref name="input"/>, at <see cref="ChipRateHz"/>, at <see cref="SampleAnalyzer.AnalysisRateHz"/> (see <see cref="AnalysisResampler"/>).</summary>
+    internal static float[] ToAnalysisRate(float[] input) => Resampler.Resample(input);
 }

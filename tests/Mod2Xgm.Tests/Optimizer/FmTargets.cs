@@ -21,9 +21,9 @@ internal static class FmTargets
     public static SampleAnalysis Analyze(Sample sample) => SampleAnalyzer.Analyze(0, sample, [C2, C2]);
 
     /// <summary>The first region of <paramref name="sample"/> played at C-2, as the fitter's target.</summary>
-    public static FmTarget Of(Sample sample) => FmTarget.Of(Analyze(sample).Regions[0])!;
+    public static NoteTarget Of(Sample sample) => NoteTarget.Of(Analyze(sample).Regions[0])!;
 
     /// <summary>The sound of <paramref name="patch"/> held at <paramref name="hz"/>, measured as a region is: a target any patch can be judged against.</summary>
-    public static FmTarget Of(FmPatch patch, double hz = 220, int? lfoRate = null) =>
+    public static NoteTarget Of(FmPatch patch, double hz = 220, int? lfoRate = null) =>
         new(hz, hz, SampleAnalyzer.Spectrum(FmNoteRenderer.Render(patch, lfoRate, hz, SampleAnalyzer.RegionSeconds), hz));
 }

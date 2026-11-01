@@ -185,9 +185,9 @@ public sealed class HarnessReportTests
     [Fact]
     public void FmFitCsvHasOneLinePerRegion()
     {
-        FmFit library = new(FmPatchLibrary.Lead, null, FmFitSource.Library, new FmScore(7.1234, 90.5, 9.5));
-        FmFit exhaustive = new(FmPatchLibrary.Organ with { Name = "Fit 1.1" }, null, FmFitSource.Exhaustive, new FmScore(3.5, 40.25, 4.25));
-        FmFit genetic = new(FmPatchLibrary.Sine with { Fms = 2 }, 5, FmFitSource.Genetic, new FmScore(3, 35, 4));
+        FmFit library = new(FmPatchLibrary.Lead, null, FmFitSource.Library, new NoteScore(7.1234, 90.5, 9.5));
+        FmFit exhaustive = new(FmPatchLibrary.Organ with { Name = "Fit 1.1" }, null, FmFitSource.Exhaustive, new NoteScore(3.5, 40.25, 4.25));
+        FmFit genetic = new(FmPatchLibrary.Sine with { Fms = 2 }, 5, FmFitSource.Genetic, new NoteScore(3, 35, 4));
         FmRegionFit bass = new(0, library, exhaustive, genetic, genetic, exhaustive, 1234, TimeSpan.FromSeconds(12.34));
         FmRegionFit lib = new(1, library, null, null, library, library, 11, TimeSpan.FromSeconds(0.5));
         SongResult[] results = [Results[0] with { FmFits = [new FmSampleFit(0, "bass, low", [bass, lib])] }, Results[1]];
@@ -199,6 +199,26 @@ public sealed class HarnessReportTests
         Assert.Equal("alpha,1,\"bass, low\",2,Lead,7.123,,,library,7.123,90.5,9.5,7.123,,\"ALG 4 FB 5 MULT 1 1 2 2, no LFO\",no,11,0.5", lines[2]);
         Assert.Equal(string.Empty, lines[3]);
         Assert.Equal(HarnessReport.FmFitCsv(results), HarnessReport.FmFitCsv(results));
+    }
+
+    /// <summary>The PSG fit CSV has one line per song, sample, region and try: settings, pitch, channels, room, distances, and which is best (plan T8.3).</summary>
+    [Fact]
+    public void PsgFitCsvHasOneLinePerTry()
+    {
+        int[] loud = [0];
+        PsgCandidate tone = new(new PsgSetting(PsgSound.Tone, 0, 254, loud), new NoteScore(2.5, 20.25, 3.125), 1.25, PsgRoom.SampleTooOften);
+        PsgCandidate buzz = new(new PsgSetting(PsgSound.PeriodicNoise, PsgSetting.Tone3Rate, 16, loud), new NoteScore(4, 30, null), -3, PsgRoom.Fits);
+        PsgCandidate hiss = new(new PsgSetting(PsgSound.WhiteNoise, 1, 0, loud), new NoteScore(9, 50, null), null, PsgRoom.Fits);
+        PsgRegionFit region = new(0, [tone, buzz, hiss], 30, TimeSpan.FromSeconds(1));
+        SongResult[] results = [Results[0] with { PsgFits = [new PsgSampleFit(2, "lead, hi", 4, [region])] }, Results[1]];
+
+        string[] lines = HarnessReport.PsgFitCsv(results).Split('\n');
+
+        Assert.Equal(HarnessReport.PsgFitHeader, lines[0]);
+        Assert.Equal("alpha,3,\"lead, hi\",1,4,tone,,254,440.4,1.3,1,sample too often,2.5,20.25,3.125,yes,no", lines[1]);
+        Assert.Equal("alpha,3,\"lead, hi\",1,4,periodic,3,16,436.96,-3,2,fits,4,30,,no,yes", lines[2]);
+        Assert.Equal("alpha,3,\"lead, hi\",1,4,white,1,,,,1,fits,9,50,,no,no", lines[3]);
+        Assert.Equal(string.Empty, lines[4]);
     }
 
     /// <summary>The same results give the same files: the report holds no time or machine detail (plan T6.3).</summary>

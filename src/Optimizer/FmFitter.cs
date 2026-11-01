@@ -23,7 +23,7 @@ internal enum FmFitSource
 /// <param name="LfoRate">The LFO rate it was fitted with (0–7), or <c>null</c> when it doesn't use the LFO. The LFO is one setting for the whole chip, so plan M9 picks one rate per song and gives the other instruments their <see cref="FmRegionFit.NoLfo"/> twins.</param>
 /// <param name="Source">Which search found it.</param>
 /// <param name="Score">How close it sounds to the region.</param>
-internal sealed record FmFit(FmPatch Patch, int? LfoRate, FmFitSource Source, FmScore Score);
+internal sealed record FmFit(FmPatch Patch, int? LfoRate, FmFitSource Source, NoteScore Score);
 
 /// <summary>The fits for one pitch region of one sample (docs/adr/0069-fm-patch-fitting.md).</summary>
 /// <param name="Region">Index into <see cref="SampleAnalysis.Regions"/>.</param>
@@ -78,7 +78,7 @@ internal static class FmFitter
         {
             for (int r = 0; r < analysis.Regions.Count; r++)
             {
-                if (FmTarget.Of(analysis.Regions[r]) is { } target)
+                if (NoteTarget.Of(analysis.Regions[r]) is { } target)
                 {
                     regions.Add(FitRegion(r, target, options, PatchName(analysis.Sample, r)));
                 }
@@ -89,7 +89,7 @@ internal static class FmFitter
     }
 
     /// <summary>Fits one region's <paramref name="target"/>; fitted patches are called <paramref name="name"/>.</summary>
-    internal static FmRegionFit FitRegion(int region, FmTarget target, FmFitOptions options, string name)
+    internal static FmRegionFit FitRegion(int region, NoteTarget target, FmFitOptions options, string name)
     {
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(options);
