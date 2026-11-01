@@ -83,37 +83,27 @@ internal static class PsgFitter
     {
         ArgumentNullException.ThrowIfNull(target);
         Stopwatch clock = Stopwatch.StartNew();
-        NoteScorer scorer = new(target);
+        Judge judge = new(target, sampleAtOnce, songAtOnce);
         int[] volumes = Volumes(target.Spectrum);
-        int renders = 0;
         List<PsgCandidate> candidates = [];
-
-        PsgCandidate Judge(PsgSetting setting)
-        {
-            renders++;
-            NoteScore score = scorer.Score(PsgNoteRenderer.Render(setting, SampleAnalyzer.RegionSeconds));
-            double? cents = setting.PitchHz is { } hz ? 1200 * Math.Log2(hz / target.NoteHz) : null;
-            return new PsgCandidate(setting, score, cents, Room(setting, sampleAtOnce, songAtOnce));
-        }
-
         int period = PsgSetting.NearestPeriod(target.NoteHz);
         if (period <= PsgSetting.MaxPeriod)
         {
-            candidates.Add(Judge(new PsgSetting(PsgSound.Tone, 0, period, volumes)));
+            candidates.Add(judge.Of(new PsgSetting(PsgSound.Tone, 0, period, volumes)));
         }
 
         foreach (PsgSound sound in new[] { PsgSound.WhiteNoise, PsgSound.PeriodicNoise })
         {
             for (int rate = 0; rate < PsgSetting.Tone3Rate; rate++)
             {
-                candidates.Add(Judge(new PsgSetting(sound, rate, 0, volumes)));
+                candidates.Add(judge.Of(new PsgSetting(sound, rate, 0, volumes)));
             }
         }
 
-        candidates.Add(TunedHiss(volumes, Judge));
+        candidates.Add(TunedHiss(volumes, judge));
         int buzz = Math.Min(PsgSetting.MaxPeriod, PsgSetting.NearestPeriod(target.NoteHz * PsgSetting.PeriodicShifts));
-        candidates.Add(Judge(new PsgSetting(PsgSound.PeriodicNoise, PsgSetting.Tone3Rate, buzz, volumes)));
-        return new PsgRegionFit(region, candidates, renders, clock.Elapsed);
+        candidates.Add(judge.Of(new PsgSetting(PsgSound.PeriodicNoise, PsgSetting.Tone3Rate, buzz, volumes)));
+        return new PsgRegionFit(region, candidates, judge.Renders, clock.Elapsed);
     }
 
     /// <summary>
@@ -178,7 +168,7 @@ internal static class PsgFitter
     /// The hiss that follows tone channel 3, tuned: every period half an octave apart, then from the closest a step either
     /// way, halving the step down to a sixteenth of an octave.
     /// </summary>
-    private static PsgCandidate TunedHiss(int[] volumes, Func<PsgSetting, PsgCandidate> judge)
+    private static PsgCandidate TunedHiss(int[] volumes, Judge judge)
     {
         Dictionary<int, PsgCandidate> tried = [];
         PsgCandidate Try(int period)
@@ -186,7 +176,7 @@ internal static class PsgFitter
             period = Math.Clamp(period, 1, PsgSetting.MaxPeriod);
             if (!tried.TryGetValue(period, out PsgCandidate? known))
             {
-                known = judge(new PsgSetting(PsgSound.WhiteNoise, PsgSetting.Tone3Rate, period, volumes));
+                known = judge.Of(new PsgSetting(PsgSound.WhiteNoise, PsgSetting.Tone3Rate, period, volumes));
                 tried[period] = known;
             }
 
@@ -218,4 +208,22 @@ internal static class PsgFitter
 
     /// <summary>The closer of two tries; the first on a tie, so the search is the same every run.</summary>
     private static PsgCandidate Closer(PsgCandidate a, PsgCandidate b) => b.Score.MelDb < a.Score.MelDb ? b : a;
+
+    /// <summary>Renders, scores and marks the tries for one region, counting the renders.</summary>
+    private sealed class Judge(NoteTarget target, int sampleAtOnce, int songAtOnce)
+    {
+        private readonly NoteScorer _scorer = new(target);
+
+        /// <summary>Tries rendered so far.</summary>
+        public int Renders { get; private set; }
+
+        /// <summary><paramref name="setting"/> rendered, scored against the region and marked for room.</summary>
+        public PsgCandidate Of(PsgSetting setting)
+        {
+            Renders++;
+            NoteScore score = _scorer.Score(PsgNoteRenderer.Render(setting, SampleAnalyzer.RegionSeconds));
+            double? cents = setting.PitchHz is { } hz ? 1200 * Math.Log2(hz / target.NoteHz) : null;
+            return new PsgCandidate(setting, score, cents, Room(setting, sampleAtOnce, songAtOnce));
+        }
+    }
 }

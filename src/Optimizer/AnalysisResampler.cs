@@ -21,6 +21,9 @@ internal sealed class AnalysisResampler
 
     private readonly int _taps;
 
+    /// <summary>The rate <see cref="Resample"/> takes.</summary>
+    private readonly double _inputRateHz;
+
     /// <summary>
     /// A resampler from <paramref name="inputRateHz"/> with a filter <paramref name="taps"/> input samples long: enough
     /// that it falls from <see cref="CutoffHz"/> to silence before 22 kHz (the faster the input, the more taps that takes).
@@ -29,19 +32,16 @@ internal sealed class AnalysisResampler
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(inputRateHz, SampleAnalyzer.AnalysisRateHz);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(taps);
-        InputRateHz = inputRateHz;
+        _inputRateHz = inputRateHz;
         _taps = taps;
         _kernel = BuildKernel(inputRateHz, taps);
     }
 
-    /// <summary>The rate <see cref="Resample"/> takes.</summary>
-    public double InputRateHz { get; }
-
-    /// <summary><paramref name="input"/>, at <see cref="InputRateHz"/>, at <see cref="SampleAnalyzer.AnalysisRateHz"/>.</summary>
+    /// <summary><paramref name="input"/>, at the input rate, at <see cref="SampleAnalyzer.AnalysisRateHz"/>.</summary>
     public float[] Resample(float[] input)
     {
         ArgumentNullException.ThrowIfNull(input);
-        double step = InputRateHz / SampleAnalyzer.AnalysisRateHz;
+        double step = _inputRateHz / SampleAnalyzer.AnalysisRateHz;
         int length = (int)Math.Floor(input.Length / step);
         float[] output = new float[length];
         for (int j = 0; j < length; j++)

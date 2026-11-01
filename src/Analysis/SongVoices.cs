@@ -41,7 +41,7 @@ internal sealed record SongVoices(int MostAtOnce, IReadOnlyList<int> SampleMostA
                     left[c] = started.Frames;
                 }
 
-                if (channel.Playing && channel.Volume > 0 && part[c] is { IsSilence: false, Sample: { } sample })
+                if (channel is { Playing: true, Volume: > 0 } && part[c] is { IsSilence: false, Sample: { } sample })
                 {
                     now++;
                     if (sample < sampleNow.Length)

@@ -17,26 +17,26 @@ internal sealed class NoteScorer
 
     private readonly double[][] _mfccBasis;
 
+    /// <summary>The note the scores aim at.</summary>
+    private readonly NoteTarget _target;
+
     /// <summary>Scores notes against <paramref name="target"/>.</summary>
     public NoteScorer(NoteTarget target)
     {
         ArgumentNullException.ThrowIfNull(target);
-        Target = target;
+        _target = target;
         _mfccBasis = DctBasis(SampleAnalyzer.MelBands, MfccCount);
     }
-
-    /// <summary>The note the scores aim at.</summary>
-    public NoteTarget Target { get; }
 
     /// <summary>The full score of <paramref name="sound"/> (at <see cref="SampleAnalyzer.AnalysisRateHz"/>): mel bands and harmonics.</summary>
     public NoteScore Score(float[] sound)
     {
         ArgumentNullException.ThrowIfNull(sound);
-        RegionSpectrum spectrum = SampleAnalyzer.Spectrum(sound, Target.FundamentalHz);
-        int frames = Math.Max(Target.Spectrum.MelBandsDb.Count, spectrum.MelBandsDb.Count);
-        Comparison mel = Distance(Target.Spectrum.MelBandsDb, spectrum.MelBandsDb, frames);
-        double mfcc = Mfcc(Target.Spectrum.MelBandsDb, spectrum.MelBandsDb, frames, mel);
-        double? harmonic = Target.Spectrum.HarmonicsDb is { } target && spectrum.HarmonicsDb is { } rendered
+        RegionSpectrum spectrum = SampleAnalyzer.Spectrum(sound, _target.FundamentalHz);
+        int frames = Math.Max(_target.Spectrum.MelBandsDb.Count, spectrum.MelBandsDb.Count);
+        Comparison mel = Distance(_target.Spectrum.MelBandsDb, spectrum.MelBandsDb, frames);
+        double mfcc = Mfcc(_target.Spectrum.MelBandsDb, spectrum.MelBandsDb, frames, mel);
+        double? harmonic = _target.Spectrum.HarmonicsDb is { } target && spectrum.HarmonicsDb is { } rendered
             ? Distance(target, rendered, Math.Max(target.Count, rendered.Count)).Db
             : null;
         return new NoteScore(mel.Db, mfcc, harmonic);

@@ -34,7 +34,7 @@ internal static class PsgNoteRenderer
     private const byte NoiseWhite = 0x04;
 
     /// <summary>The chip's sample rate: an NTSC Genesis's.</summary>
-    public static double ChipRateHz { get; } = Sn76489.SampleRateHz(Sn76489.NtscClockHz);
+    private static double ChipRateHz { get; } = Sn76489.SampleRateHz(Sn76489.NtscClockHz);
 
     /// <summary>Brings the chip's output to the analysis rate.</summary>
     private static readonly AnalysisResampler Resampler = new(ChipRateHz, Taps);

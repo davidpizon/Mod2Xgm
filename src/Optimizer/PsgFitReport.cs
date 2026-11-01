@@ -30,7 +30,7 @@ internal static class PsgFitReport
     }
 
     /// <summary>A try's settings and distance, e.g. "periodic noise, rate 3, period 254, 1.2 cents off: 14.20 dB".</summary>
-    public static string Describe(PsgCandidate candidate)
+    private static string Describe(PsgCandidate candidate)
     {
         ArgumentNullException.ThrowIfNull(candidate);
         string cents = candidate.CentsOff is { } c ? Format($", {c:0.#} cents off") : string.Empty;
