@@ -1,4 +1,5 @@
 using Mod2Xgm.Dmf;
+using Mod2Xgm.Render.Psg;
 
 namespace Mod2Xgm.Tests.Dmf;
 
@@ -14,19 +15,25 @@ public sealed class DmfUnitsTests
     [InlineData(1e-9, 0)]
     public void FmVolumeIsInThreeQuarterDecibelSteps(double volume, int expected) => Assert.Equal(expected, DmfUnits.FmVolume(volume));
 
-    /// <summary>PSG volume is 2 dB a step from F: half volume is 3 steps down.</summary>
+    /// <summary>
+    /// PSG volume is the chip's nearest level counted down from F (docs/adr/0067-psg-volume-levels.md): half volume
+    /// (−6.02 dB) is C (−6.28 dB) rather than D (−4.12 dB); below half the quietest level is 0.
+    /// </summary>
     [Theory]
     [InlineData(1.0, 0xF)]
-    [InlineData(0.5, 0xF - 3)]
+    [InlineData(0.5, 0xC)]
+    [InlineData(0.0089 * 0.6, 1)]
+    [InlineData(0.0089 * 0.4, 0)]
     [InlineData(0.0, 0)]
-    public void PsgVolumeIsInTwoDecibelSteps(double volume, int expected) => Assert.Equal(expected, DmfUnits.PsgVolume(volume));
+    public void PsgVolumeIsTheNearestChipLevel(double volume, int expected) => Assert.Equal(expected, DmfUnits.PsgVolume(volume));
 
-    /// <summary>The exact steps for a channel kind are unrounded and kept in range.</summary>
+    /// <summary>The exact steps for a channel kind are unrounded and kept in range; on the PSG, the chip's levels are whole steps.</summary>
     [Fact]
     public void ExactVolumeIsUnrounded()
     {
         Assert.Equal(0x7F - 8.03, DmfUnits.ExactVolume(0.5, psg: false), 0.01);
-        Assert.Equal(0xF - 3.01, DmfUnits.ExactVolume(0.5, psg: true), 0.01);
+        Assert.Equal(0xF - 2.88, DmfUnits.ExactVolume(0.5, psg: true), 0.01);
+        Assert.Equal(0xF - 3, DmfUnits.ExactVolume(PsgLevels.Gain(3), psg: true), 1e-9);
         Assert.Equal(0x7F, DmfUnits.ExactVolume(2, psg: false));
     }
 
@@ -70,13 +77,5 @@ public sealed class DmfUnitsTests
     {
         Assert.Equal(digit, DmfUnits.Digit(value));
         Assert.Equal(byteValue, DmfUnits.ByteValue(value));
-    }
-
-    /// <summary>Decibels become steps of 0.75 dB on FM and 2 dB on the PSG.</summary>
-    [Fact]
-    public void DecibelsToSteps()
-    {
-        Assert.Equal(8, DmfUnits.DbToSteps(6, psg: false), 1e-9);
-        Assert.Equal(3, DmfUnits.DbToSteps(6, psg: true), 1e-9);
     }
 }

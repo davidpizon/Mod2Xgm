@@ -1,3 +1,5 @@
+using Mod2Xgm.Render.Psg;
+
 namespace Mod2Xgm.Dmf;
 
 /// <summary>
@@ -21,9 +23,6 @@ internal static class DmfUnits
 
     /// <summary>One FM volume step: the volume lowers the carriers' total level, 0.75 dB a step (docs/genesis-audio.md).</summary>
     private const double FmStepDb = 0.75;
-
-    /// <summary>One PSG volume step: the SN76489's attenuator steps 2 dB.</summary>
-    private const double PsgStepDb = 2.0;
 
     /// <summary>A volume slide moves the volume by its digit / 4 per tick (Furnace: speed × 64 in units of 1/256).</summary>
     public const double VolumeSlideStep = 0.25;
@@ -55,8 +54,11 @@ internal static class DmfUnits
     /// <summary>The FM volume (0–7F) that sounds like linear volume <paramref name="volume"/> (0–1).</summary>
     public static int FmVolume(double volume) => Steps(volume, MaxFmVolume, FmStepDb);
 
-    /// <summary>The PSG volume (0–F) that sounds like linear volume <paramref name="volume"/> (0–1).</summary>
-    public static int PsgVolume(double volume) => Steps(volume, MaxPsgVolume, PsgStepDb);
+    /// <summary>
+    /// The PSG volume (0–F) that sounds like linear volume <paramref name="volume"/> (0–1): the nearest of the chip's
+    /// levels, which are not even steps (<see cref="PsgLevels"/>, docs/adr/0067-psg-volume-levels.md).
+    /// </summary>
+    public static int PsgVolume(double volume) => MaxPsgVolume - PsgLevels.Nearest(volume);
 
     /// <summary>
     /// The volume-column value for <paramref name="volume"/>, unrounded: full volume is <paramref name="max"/>, and each
@@ -65,9 +67,12 @@ internal static class DmfUnits
     private static double ExactSteps(double volume, int max, double stepDb) =>
         volume <= 0 ? 0 : Math.Clamp(max + (20 * Math.Log10(volume) / stepDb), 0, max);
 
-    /// <summary>The volume steps of <paramref name="volume"/> on an FM (<paramref name="psg"/> false) or PSG channel, unrounded.</summary>
+    /// <summary>
+    /// The volume steps of <paramref name="volume"/> on an FM (<paramref name="psg"/> false) or PSG channel, unrounded; on
+    /// the PSG, evenly in decibels between two of its levels (<see cref="PsgLevels.Attenuation"/>).
+    /// </summary>
     public static double ExactVolume(double volume, bool psg) =>
-        psg ? ExactSteps(volume, MaxPsgVolume, PsgStepDb) : ExactSteps(volume, MaxFmVolume, FmStepDb);
+        psg ? MaxPsgVolume - PsgLevels.Attenuation(volume) : ExactSteps(volume, MaxFmVolume, FmStepDb);
 
     /// <summary>The FM F-number of a pitch, <paramref name="semitones"/> from C-0 (only the place within the octave matters).</summary>
     public static double Fnum(double semitones)
@@ -87,9 +92,6 @@ internal static class DmfUnits
     /// <summary>Semitones between an Amiga period and the same period moved <paramref name="periodStep"/> lower (a higher pitch).</summary>
     public static double Semitones(double period, double periodStep) =>
         period - periodStep <= 0 ? 0 : 12 * Math.Log2(period / (period - periodStep));
-
-    /// <summary>The steps of decibel difference <paramref name="db"/> on an FM or PSG channel.</summary>
-    public static double DbToSteps(double db, bool psg) => db / (psg ? PsgStepDb : FmStepDb);
 
     /// <summary>A digit, rounded and kept within 1–15 (0 stays 0).</summary>
     public static int Digit(double value) => value <= 0 ? 0 : Math.Clamp((int)Math.Round(value, MidpointRounding.AwayFromZero), 1, 15);

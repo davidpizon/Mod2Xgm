@@ -573,6 +573,13 @@ internal sealed class DmfPatternTranslator
             }
 
             draft.Volume = DmfUnits.PsgVolume(track.Level(volume));
+            if (draft.Volume < DmfUnits.MaxPsgVolume)
+            {
+                // DefleMask adds the volume to the instrument's fade in steps, and the PSG's steps are not even in
+                // decibels (docs/adr/0067-psg-volume-levels.md), so the fade's quiet end comes out quieter than the sample's.
+                Tally("{Count} noise notes play below full volume, where DefleMask adds the volume to their fade in the PSG's uneven steps: their fades end quieter than in the MOD");
+            }
+
             track.Kind = VoiceKind.PsgNoise;
             track.Sounding = true;
             track.ModVolume = volume;
@@ -978,8 +985,10 @@ internal sealed class DmfPatternTranslator
             double top = Math.Min(1, track.ModVolume + peak);
             double bottom = Math.Max(1.0 / 64, track.ModVolume - peak);
             int x = DmfUnits.Digit(DmfUnits.TremoloSteps * cycles * (row.Speed - 1) / row.Ticks);
-            double swingDb = 20 * Math.Log10(top / bottom);
-            int y = DmfUnits.Digit(psg ? DmfUnits.DbToSteps(swingDb, psg: true) : swingDb / DmfUnits.TremoloDbPerDepth);
+            // On the PSG the depth is volume steps, which are not even in decibels: count them between the two levels.
+            int y = DmfUnits.Digit(psg
+                ? DmfUnits.ExactVolume(track.Level(top), psg: true) - DmfUnits.ExactVolume(track.Level(bottom), psg: true)
+                : 20 * Math.Log10(top / bottom) / DmfUnits.TremoloDbPerDepth);
             if (x > 0 && y > 0)
             {
                 Issue(new DmfEffect(TremoloCode, (x << 4) | y), LevelPriority, track, effects, issued);

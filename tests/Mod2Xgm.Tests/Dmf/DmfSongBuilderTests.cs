@@ -486,8 +486,9 @@ public sealed class DmfSongBuilderTests
     }
 
     /// <summary>
-    /// A noise instrument's volume macro follows its sample's loudness tick by tick in 2 dB steps: a hit that fades by 6 dB
-    /// a tick goes F, C, 9 … and ends at 0; a looped sample holds its level instead.
+    /// A noise instrument's volume macro follows its sample's loudness tick by tick at the chip's nearest levels, whose
+    /// steps grow towards the quiet end (docs/adr/0067-psg-volume-levels.md): a hit that fades by about 6 dB a tick goes
+    /// F, C, 9, 7, 4 (where even 2 dB steps would give 3) and ends at 0; a looped sample holds its level instead.
     /// </summary>
     [Fact]
     public void NoiseInstrumentsFadeLikeTheirSample()
@@ -498,7 +499,7 @@ public sealed class DmfSongBuilderTests
         DmfInstrument fade = DmfSongBuilder.NoiseInstrument(new Mod2Xgm.Model.Sample("fade", fading, null), framesPerTick * 50, 50);
         DmfInstrument held = DmfSongBuilder.NoiseInstrument(new Mod2Xgm.Model.Sample("held", fading, new Mod2Xgm.Model.SampleLoop(0, framesPerTick)), framesPerTick * 50, 50);
 
-        Assert.Equal([15, 12, 9, 6, 3, 0], fade.Std!.Volume.Values);
+        Assert.Equal([15, 12, 9, 7, 4, 0], fade.Std!.Volume.Values);
         Assert.Equal([15], held.Std!.Volume.Values);
     }
 

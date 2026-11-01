@@ -66,3 +66,6 @@ ffmpeg -i in.wav -ac 1 -ar 22050 -c:a pcm_s16le out.wav
   note is silent, and `03xx` re-written without a note freezes the glide. Both are now avoided, and the probes were
   exported again (docs/formats/dmf.md#effect-units).
 - David's listening: not done yet.
+- 2026-10-31: `noise` changed with the PSG's volume levels ([ADR 0067](../../../docs/adr/0067-psg-volume-levels.md)):
+  its fade now ends more gently. `wav/noise.furnace.wav` was rendered again; `wav/noise.deflemask.wav` is still the
+  export of the old file (DefleMask's export is by hand).
