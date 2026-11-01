@@ -227,9 +227,9 @@ public sealed class HarnessReportTests
     {
         PcmCopy big = new(8287, 13_317, false, 1000, false, 1607, 1792);
         PcmCopy small = big with { HalfSpeed = true, PlayRateHz = 6658.5, Points = 804, Bytes = 1024 };
-        PcmOption full = new(PcmSavings.None, [new PcmPitch(8287, 3, 0.5, big, new NoteScore(1.25, 9, 2.5), 0)], PcmRoom.Fits);
-        PcmOption half = new(PcmSavings.HalfSpeed, [new PcmPitch(8287, 3, 0.5, small, new NoteScore(4.5, 20, null), 0)], PcmRoom.SampleTooOften);
-        PcmBaked baked = new(2, 8287, 256, 0.96, 12_800, new NoteScore(2, 10, null), new NoteScore(6.125, 30, null));
+        PcmOption full = new(PcmSavings.None, [new PcmPitch(8287, 3, big, new NoteScore(1.25, 9, 2.5), 0)], PcmRoom.Fits);
+        PcmOption half = new(PcmSavings.HalfSpeed, [new PcmPitch(8287, 3, small, new NoteScore(4.5, 20, null), 0)], PcmRoom.SampleTooOften);
+        PcmBaked baked = new(2, 256, 0.96, 12_800, new NoteScore(2, 10, null), new NoteScore(6.125, 30, null));
         PcmSampleFit fit = new(1, "bass, low", PcmTarget.Xgm2, 2, [full, half], [baked], 3, 4, TimeSpan.FromSeconds(1));
         SongResult[] results = [Results[0] with { PcmFits = [fit] }, Results[1]];
 

@@ -14,7 +14,5 @@ namespace Mod2Xgm.Analysis;
 internal sealed record SongAnalysis(Song Song, Playback Playback, IReadOnlyList<SampleAnalysis> Samples, SongVoices Voices)
 {
     /// <summary>Every note the song plays (<see cref="SongNote.Find"/>), found once on first use.</summary>
-    public IReadOnlyList<SongNote> Notes => _notes ??= SongNote.Find(Song, Playback);
-
-    private IReadOnlyList<SongNote>? _notes;
+    public IReadOnlyList<SongNote> Notes => field ??= SongNote.Find(Song, Playback);
 }

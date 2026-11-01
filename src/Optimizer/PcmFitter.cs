@@ -24,11 +24,10 @@ internal sealed record PcmCopy(double SourceRateHz, double PlayRateHz, bool Half
 /// <summary>One pitch the song starts a sample at, and the copy that plays it.</summary>
 /// <param name="RateHz">The playback rate the notes start at.</param>
 /// <param name="Notes">Notes the song starts at it (0 for the one copy of a sample the song never plays).</param>
-/// <param name="HoldSeconds">The longest any of them sounds.</param>
 /// <param name="Copy">The copy that plays them.</param>
 /// <param name="Score">How close the copy sounds to the sample at this pitch, by the FM fits' ruler (<see cref="NoteScorer"/>).</param>
 /// <param name="CentsOff">How far the copy's pitch is from the notes' (a copy shared by <see cref="PcmSavings.Semitones"/>), in cents.</param>
-internal sealed record PcmPitch(double RateHz, int Notes, double HoldSeconds, PcmCopy Copy, NoteScore Score, double CentsOff);
+internal sealed record PcmPitch(double RateHz, int Notes, PcmCopy Copy, NoteScore Score, double CentsOff);
 
 /// <summary>Whether a set of copies fits the target's hard caps (docs/sample-capacity.md#limits-per-target).</summary>
 internal enum PcmRoom
@@ -76,13 +75,12 @@ internal sealed record PcmOption(PcmSavings Savings, IReadOnlyList<PcmPitch> Pit
 /// of its own by the MOD renderer, effects and all; only for notes the song plays the same way at least twice.
 /// </summary>
 /// <param name="Notes">Notes the song plays this way.</param>
-/// <param name="RateHz">The rate they start at.</param>
 /// <param name="StartFrame">The frame they start from.</param>
 /// <param name="Seconds">How long the baked sample is.</param>
 /// <param name="Bytes">What it costs.</param>
 /// <param name="Score">How close it sounds to the notes, by the same ruler.</param>
 /// <param name="PlainScore">How close the plain copy at their starting pitch, from frame 0 and without the effects, sounds to them.</param>
-internal sealed record PcmBaked(int Notes, double RateHz, int StartFrame, double Seconds, int Bytes, NoteScore Score, NoteScore PlainScore);
+internal sealed record PcmBaked(int Notes, int StartFrame, double Seconds, int Bytes, NoteScore Score, NoteScore PlainScore);
 
 /// <summary>The PCM candidates of one sample for one target.</summary>
 /// <param name="Sample">Index into <c>Song.Samples</c>.</param>
@@ -112,10 +110,10 @@ internal sealed record PcmSampleFit(int Sample, string Name, PcmTarget Target, i
 internal static class PcmFitter
 {
     /// <summary>A looped copy plays its loop out at least this long (as the DMF writer's copies, docs/adr/0044-dmf-effects-and-song-grid.md).</summary>
-    internal const double MinLoopSeconds = 0.5;
+    private const double MinLoopSeconds = 0.5;
 
     /// <summary>A copy, or a baked note, plays at most this long (as the DMF writer's copies).</summary>
-    internal const double MaxLoopSeconds = 10;
+    private const double MaxLoopSeconds = 10;
 
     /// <summary>Scores look at least this much of a note: about two of the scorer's spectrum frames.</summary>
     private const double MinScoreSeconds = 0.1;
@@ -312,7 +310,7 @@ internal static class PcmFitter
                 PcmCopy copy = Copy(rate, hold, longest, half, shortLoops, trim);
                 double seconds = ScoreSeconds(p.HoldSeconds);
                 NoteScore score = Scorer(p.RateHz, seconds, p.HoldSeconds).Score(Render(copy, seconds));
-                scored.Add(new PcmPitch(p.RateHz, p.Notes, p.HoldSeconds, copy, score, 1200 * Math.Log2(rate / p.RateHz)));
+                scored.Add(new PcmPitch(p.RateHz, p.Notes, copy, score, 1200 * Math.Log2(rate / p.RateHz)));
             }
 
             PcmRoom room = atOnce > PcmTargets.Voices(target) ? PcmRoom.SampleTooOften : PcmRoom.Fits;
@@ -346,7 +344,7 @@ internal static class PcmFitter
             NoteScore score = scorer.Score(Head(PcmNoteRenderer.Render(target, bakedCopy, playRate, false, scoreSeconds), scoreSeconds));
             PcmCopy plain = Copy(note.RateHz, note.Seconds, note.Seconds, false, false, false);
             NoteScore plainScore = scorer.Score(Render(plain, scoreSeconds));
-            return new PcmBaked(count, note.RateHz, note.StartFrame, seconds, PcmTargets.Bytes(target, bakedCopy.Length), score, plainScore);
+            return new PcmBaked(count, note.StartFrame, seconds, PcmTargets.Bytes(target, bakedCopy.Length), score, plainScore);
         }
 
         /// <summary>For <see cref="PcmSavings.Semitones"/>: each pitch's copy is its semitone's most played pitch (the lowest of equals), held as long as any.</summary>
