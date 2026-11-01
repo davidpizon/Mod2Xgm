@@ -31,7 +31,7 @@ public sealed class SampleAnalysisReportTests
         Assert.Equal(
             [
                 "Sample 1 \"bass\": plucked tone (percussive 0.75, tonal 0.98, noisy 0.02); a cycle of 64.0 frames, 97 % voiced, ±3 cents, drifting -12 cents; "
-                    + "peak -6.0 dBFS, attack 5 ms, 20 dB down after 250 ms, holds at -20.5 dB (at 8287 Hz); loops 64 frames from 100 (1.0 cycles)",
+                    + "peak -6.0 dBFS, attack 5 ms, 20 dB down after 250 ms, holds at -20.5 dB (at 8287 Hz); loops 64 frames from 100 at -20.5 dB (1.0 cycles)",
                 "Sample 1 \"bass\": 2 pitch regions: 8287 Hz (4 notes, analyzed at 8287 Hz, sounding 129.5 Hz with 12 harmonics); "
                     + "16574–20000 Hz (2 notes, analyzed at 18000 Hz, sounding 281.2 Hz with 12 harmonics)",
             ],

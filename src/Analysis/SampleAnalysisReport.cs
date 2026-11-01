@@ -59,12 +59,13 @@ internal static class SampleAnalysisReport
     }
 
     private static string LoopText(LoopAnalysis? loop) => loop is { } l
-        ? Format($"loops {l.Length} frames from {l.Start}{(l.Cycles is { } c ? Format($" ({c:0.0} cycles)") : string.Empty)}")
+        ? Format($"loops {l.Length} frames from {l.Start} at {l.LevelDb:0.0} dB{(l.Cycles is { } c ? Format($" ({c:0.0} cycles)") : string.Empty)}")
         : "no loop";
 
     private static string RegionText(PitchRegion r)
     {
-        string range = r.LowRateHz == r.HighRateHz ? Format($"{r.RateHz:0} Hz") : Format($"{r.LowRateHz:0}–{r.HighRateHz:0} Hz");
+        // Rates print as whole hertz, so a region narrower than half a hertz prints as one rate.
+        string range = r.HighRateHz - r.LowRateHz < 0.5 ? Format($"{r.RateHz:0} Hz") : Format($"{r.LowRateHz:0}–{r.HighRateHz:0} Hz");
         string pitch = r.FundamentalHz is { } f
             ? Format($", sounding {f:0.0} Hz with {r.Spectrum.HarmonicsDb?.FirstOrDefault()?.Length ?? 0} harmonics")
             : string.Empty;
