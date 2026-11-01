@@ -84,6 +84,7 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0068](0068-sample-analysis.md) | Sample analysis: three scores, pitch stability, envelope, loop and a spectrum per pitch region (T8.1) | 2026-10-31 | Accepted |
 | [0069](0069-fm-patch-fitting.md) | FM patch fitting: both structure searches, local search on the grid, an LFO twin per fit (T8.2) | 2026-10-31 | Accepted |
 | [0070](0070-psg-candidates.md) | PSG candidates: a tone, eight noise tries and a buzz for low notes, scored like FM, marked for room (T8.3) | 2026-11-01 | Accepted |
+| [0071](0071-pcm-candidates.md) | PCM candidates: a copy per pitch played, every combination of four savings, baked notes for repeated effects (T8.4) | 2026-11-01 | Accepted |
 
 ## Open questions
 

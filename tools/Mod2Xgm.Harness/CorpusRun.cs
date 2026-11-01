@@ -37,6 +37,7 @@ namespace Mod2Xgm.Harness;
 /// (docs/adr/0069-fm-patch-fitting.md); <c>null</c> to skip.
 /// </param>
 /// <param name="psgFit">Also make the PSG candidates of every sample the conversion analyzed (docs/adr/0070-psg-candidates.md).</param>
+/// <param name="pcmFit">Also make the PCM candidates of every sample the conversion analyzed, for every target (docs/adr/0071-pcm-candidates.md).</param>
 internal sealed class CorpusRun(
     string outputDirectory,
     int sampleRate,
@@ -47,7 +48,8 @@ internal sealed class CorpusRun(
     double? clipSeconds = null,
     bool balance = false,
     FmFitOptions? fmFit = null,
-    bool psgFit = false)
+    bool psgFit = false,
+    bool pcmFit = false)
 {
     /// <summary>
     /// Measures every song in <paramref name="modPaths"/>, <paramref name="jobs"/> at a time; the results are in the
@@ -93,7 +95,8 @@ internal sealed class CorpusRun(
             }
 
             duration = CheckLength(song, mod, original.DurationSeconds, out IReadOnlyList<RowTiming> rows);
-            notes = Convert(song, out IReadOnlyList<SampleAnalysis> analyses, out SongVoices? voices);
+            notes = Convert(song, out SongAnalysis? analysis);
+            IReadOnlyList<SampleAnalysis> analyses = analysis?.Samples ?? [];
             AudioSignal referenceMono = original.Audio.ToMono();
             Loudness referenceLoudness = Loudness.Of(original.Audio);
             ReferenceStems? stems = balance && referenceClip is not null && candidates.Any(c => c is IDmfRenderer)
@@ -108,7 +111,7 @@ internal sealed class CorpusRun(
                 }
             }
 
-            return new SongResult(name, duration, notes, scores, null) { Samples = analyses, FmFits = FitFm(name, analyses), PsgFits = FitPsg(name, analyses, voices) };
+            return new SongResult(name, duration, notes, scores, null) { Samples = analyses, FmFits = FitFm(name, analyses), PsgFits = FitPsg(name, analyses, analysis?.Voices), PcmFits = FitPcm(name, analysis) };
         }
         catch (Exception ex) when (ex is HarnessException or ConversionException or IOException)
         {
@@ -150,6 +153,23 @@ internal sealed class CorpusRun(
         PsgSampleFit[] fits = new PsgSampleFit[analyses.Count];
         Parallel.For(0, analyses.Count, i => fits[i] = PsgFitter.Fit(analyses[i], voices));
         PsgFitReport.Log(logger, fits);
+        return fits;
+    }
+
+    /// <summary>The PCM candidates of every analyzed sample for every target, target by target in the analyses' order, made at once; none unless asked for.</summary>
+    private IReadOnlyList<PcmSampleFit> FitPcm(string song, SongAnalysis? analysis)
+    {
+        if (!pcmFit || analysis is null)
+        {
+            return [];
+        }
+
+        logger.Information("{Song}: making PCM candidates for {Count} samples", song, analysis.Samples.Count);
+        IReadOnlyList<PcmTarget> targets = PcmTargets.All;
+        int count = analysis.Samples.Count;
+        PcmSampleFit[] fits = new PcmSampleFit[targets.Count * count];
+        Parallel.For(0, fits.Length, i => fits[i] = PcmFitter.Fit(analysis, analysis.Samples[i % count], targets[i / count]));
+        PcmFitReport.Log(logger, fits);
         return fits;
     }
 
@@ -201,19 +221,18 @@ internal sealed class CorpusRun(
 
     /// <summary>
     /// Converts the MOD with the default options, its whole console output going to <c>logs/name.log</c>; returns the
-    /// number of conversion notes, and the conversion's own sample analysis in <paramref name="analyses"/>
-    /// (<c>sample-analysis.csv</c>).
+    /// number of conversion notes, and the conversion's own analysis of the song in <paramref name="analysis"/>
+    /// (<c>sample-analysis.csv</c> and the candidates), or <c>null</c> when it stopped before analyzing.
     /// </summary>
-    private int Convert(SongFiles song, out IReadOnlyList<SampleAnalysis> analyses, out SongVoices? voices)
+    private int Convert(SongFiles song, out SongAnalysis? analysis)
     {
-        IReadOnlyList<SampleAnalysis> found = [];
-        SongVoices? counted = null;
+        SongAnalysis? found = null;
         LogFileSink log = new();
         using (Logger songLogger = new LoggerConfiguration().MinimumLevel.Debug().WriteTo.Sink(log).CreateLogger())
         {
             try
             {
-                ConversionCommand.Execute(new ConversionOptions { InputPath = song.ModPath, OutputPath = song.DmfPath, Force = true }, songLogger, (a, v) => (found, counted) = (a, v));
+                ConversionCommand.Execute(new ConversionOptions { InputPath = song.ModPath, OutputPath = song.DmfPath, Force = true }, songLogger, a => found = a);
             }
             finally
             {
@@ -221,8 +240,7 @@ internal sealed class CorpusRun(
             }
         }
 
-        analyses = found;
-        voices = counted;
+        analysis = found;
         logger.Information("{Song}: converted to {Dmf} ({Notes} conversion notes)", song.Name, song.DmfPath, log.Warnings);
         return log.Warnings;
     }
