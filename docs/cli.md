@@ -32,7 +32,7 @@ mod2xgm <input.mod> [options]
 | `--render-wav [path]` | off | Also write a WAV of a Genesis playing the conversion: 16-bit stereo, 44.1 kHz, rendered in-app on the chip models with the output format's PCM driver ([ADR 0059](adr/0059-genesis-renderer.md)). Without a path it goes next to the output as `song.genesis.wav`. Same checks as the output file (see [Output naming](#output-naming)). Works with `--info` (only the WAV is written). With `--format xgm`/`xgm2` the WAV is written but no song file, and the exit code stays 1. Put it **after** the input or give a path: `mod2xgm --render-wav song.mod` takes `song.mod` as the WAV's path. |
 | `--info` | off | Dry run: read, report and convert in memory (all report sections and conversion notes), but write no output file. |
 | `--force` | off | Overwrite an existing output file. |
-| `-v, --verbose` | off | Also print `Debug`-level detail (per-channel mapping, sample processing). |
+| `-v, --verbose` | off | Also print `Debug`-level detail (per-channel mapping, sample processing, and each sample's analysis: [ADR 0068](adr/0068-sample-analysis.md)). |
 | `-h, --help` | | Usage. |
 | `--version` | | Version. |
 
@@ -215,8 +215,9 @@ as part of the message template.
 
 Logged with Serilog (console sink, invariant culture):
 
-- stdout: `Information` (and `Debug` with `--verbose`: the effective options, ignored samples, and later
-  per-stage detail). The run ends with a summary such as `song.mod -> C:\music\song.dmf (12 conversion notes)`.
+- stdout: `Information` (and `Debug` with `--verbose`: the effective options, ignored samples, two
+  lines of sample analysis per sample — its label and scores, pitch, envelope and loop, then its pitch regions — and
+  later per-stage detail). The run ends with a summary such as `song.mod -> C:\music\song.dmf (12 conversion notes)`.
 - stderr: every **conversion note** at `Warning` level (always shown), including the **capacity warning**
   when the samples exceed what XGM/XGM2 (or DMF) can hold — see [sample-capacity.md](sample-capacity.md) —
   plus `Error` / `Fatal`.

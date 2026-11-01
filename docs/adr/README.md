@@ -80,6 +80,7 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0064](0064-ym3438-chip-differences.md) | The YM3438 model follows the chip where ymfm differs, as Nuked-OPN2 has it (T7.7) | 2026-10-31 | Accepted; closes the known differences of 0056 |
 | [0065](0065-sn76489-chip-differences.md) | The SN76489 model's counters and noise follow the chip where MAME differs, as Nuked-PSG has them; MAME's volume levels and power-on latch kept (T7.8) | 2026-10-31 | Accepted; closes or records the known differences of 0057 |
 | [0066](0066-pcm-drivers-checked-against-sgdk.md) | The PCM driver models follow SGDK's real XGM and XGM2 drivers, run on an emulated Z80 (T7.9) | 2026-10-31 | Accepted; closes the known differences of 0058 |
+| [0068](0068-sample-analysis.md) | Sample analysis: three scores, pitch stability, envelope, loop and a spectrum per pitch region (T8.1) | 2026-10-31 | Accepted |
 
 ## Open questions
 

@@ -193,6 +193,7 @@ In the output folder:
 | `balance.csv` | With `--balance`: `song,renderer,balance_db,static_db,mix_relative_db,gain_db,stems,reference_sum_error_db,candidate_sum_error_db` |
 | `balance-instruments.csv` | With `--balance`: `song,renderer,sample,name,voices,offset_db,distance_db,frames,reference_level_db,r128_offset_lu`, one line per stem |
 | `loudness.csv` | `song,renderer,span,reference_lufs,candidate_lufs,difference_lu,reference_lra_lu,candidate_lra_lu,reference_true_peak_dbtp,candidate_true_peak_dbtp`; `span` is `song`, or `clip` with `--clip` |
+| `sample-analysis.csv` | `song,sample,name,kind,percussive,tonal,noisy,period_frames,voiced_share,deviation_cents,drift_cents,peak_db,attack_ms,decay_ms,sustain_db,loop_frames,loop_cycles,regions,region_rates_hz,fundamentals_hz,notes`, one line per sample with sound ([ADR 0068](adr/0068-sample-analysis.md)); the last three list each pitch region, separated by spaces |
 | `durations.csv` | `song,tick_player_s,openmpt_rules_s,reference_s,difference_s,amiga_difference_s,one_tick_s,within_one_tick,first_row_off,stops_at_f00,conversion_notes,error` |
 | `dmf/`, `wav/` | The conversions and the renders; `dmf/stems/` holds the stem DMFs (their renders are deleted) |
 | `logs/` | Each conversion's console output (`song.log`) and its rows' times (`song.rows.csv`: `order,row,tick_player_s,openmpt_rules_s,reference_s,difference_s`) |

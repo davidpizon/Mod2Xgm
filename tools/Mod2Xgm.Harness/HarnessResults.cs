@@ -1,3 +1,4 @@
+using Mod2Xgm.Analysis;
 using Mod2Xgm.Mod;
 using Mod2Xgm.Model;
 using Mod2Xgm.Scoring;
@@ -215,4 +216,8 @@ internal sealed record BalanceResult(
 /// <param name="ConversionNotes">How many conversion notes the conversion logged.</param>
 /// <param name="Scores">One entry per renderer that had something for this song.</param>
 /// <param name="Error">Why the song couldn't be measured, or <c>null</c>.</param>
-internal sealed record SongResult(string Song, DurationCheck? Duration, int ConversionNotes, IReadOnlyList<CandidateScore> Scores, string? Error);
+internal sealed record SongResult(string Song, DurationCheck? Duration, int ConversionNotes, IReadOnlyList<CandidateScore> Scores, string? Error)
+{
+    /// <summary>The analysis of every sample the song has (docs/adr/0068-sample-analysis.md); empty when the song failed before it.</summary>
+    public IReadOnlyList<SampleAnalysis> Samples { get; init; } = [];
+}

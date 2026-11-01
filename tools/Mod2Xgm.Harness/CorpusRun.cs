@@ -1,4 +1,5 @@
 using System.Globalization;
+using Mod2Xgm.Analysis;
 using Mod2Xgm.Cli;
 using Mod2Xgm.Mod;
 using Mod2Xgm.Model;
@@ -83,7 +84,7 @@ internal sealed class CorpusRun(
                 WavFile.Write(Path.Combine(song.WavDirectory, name + ".reference.clip.wav"), referenceClip);
             }
 
-            duration = CheckLength(song, mod, original.DurationSeconds, out IReadOnlyList<RowTiming> rows);
+            duration = CheckLength(song, mod, original.DurationSeconds, out IReadOnlyList<RowTiming> rows, out IReadOnlyList<SampleAnalysis> analyses);
             notes = Convert(song);
             AudioSignal referenceMono = original.Audio.ToMono();
             Loudness referenceLoudness = Loudness.Of(original.Audio);
@@ -99,7 +100,7 @@ internal sealed class CorpusRun(
                 }
             }
 
-            return new SongResult(name, duration, notes, scores, null);
+            return new SongResult(name, duration, notes, scores, null) { Samples = analyses };
         }
         catch (Exception ex) when (ex is HarnessException or ConversionException or IOException)
         {
@@ -110,13 +111,15 @@ internal sealed class CorpusRun(
 
     /// <summary>
     /// Plays the song with the converter's tick player (PAL, the reference's assumption too), compares when each row
-    /// starts with the reference (every row to <c>logs/name.rows.csv</c>) and checks the length.
+    /// starts with the reference (every row to <c>logs/name.rows.csv</c>) and checks the length; analyzes every sample on
+    /// the way (<c>sample-analysis.csv</c>).
     /// </summary>
-    private DurationCheck CheckLength(SongFiles song, byte[] mod, double referenceSeconds, out IReadOnlyList<RowTiming> rows)
+    private DurationCheck CheckLength(SongFiles song, byte[] mod, double referenceSeconds, out IReadOnlyList<RowTiming> rows, out IReadOnlyList<SampleAnalysis> analyses)
     {
         ConversionNotes silent = new(Logger.None);
         ModModule module = ModReader.Read(mod, silent);
         Playback playback = ModTickPlayer.Play(module, AmigaPitch.PalClockHz, 1.0, silent);
+        analyses = SampleAnalyzer.AnalyzeSong(ModToSong.Convert(module, AmigaPitch.PalClockHz, silent), playback, new HashSet<int>());
         rows = DurationCheck.Rows(playback, r => reference.RowTimes(mod, r));
         System.Text.StringBuilder csv = new("order,row,tick_player_s,openmpt_rules_s,reference_s,difference_s\n");
         foreach (RowTiming row in rows)

@@ -1,3 +1,4 @@
+using Mod2Xgm.Analysis;
 using Mod2Xgm.Model;
 
 namespace Mod2Xgm.Mapping;
@@ -7,7 +8,7 @@ namespace Mod2Xgm.Mapping;
 /// cycle of its tone lasts. A MOD note only says how fast the sample is played; what that sounds like depends on the
 /// recording (a 32-frame loop sounds five octaves above a 1024-frame one), and an FM channel needs the pitch heard.
 /// <para>The repeating part (the loop, else the sound after its first frames) is searched for the shortest lag at which it
-/// matches itself, with the YIN difference function (de Cheveigné and Kawahara, 2002). A sample with no clear repeat
+/// matches itself, with the YIN difference function (de Cheveigné and Kawahara, 2002; <see cref="Yin"/>). A sample with no clear repeat
 /// (noise, a drum) has no pitch.</para>
 /// </summary>
 /// <param name="PeriodFrames">Frames per cycle, with sub-frame precision, or <c>null</c> when the sample has no clear pitch.</param>
@@ -42,45 +43,8 @@ internal readonly record struct SamplePitch(double? PeriodFrames)
         }
 
         int maxLag = Math.Min(MaxLag, window.Length - WindowFrames);
-        double[] difference = new double[maxLag + 1];
-        for (int lag = 1; lag <= maxLag; lag++)
-        {
-            double sum = 0;
-            for (int i = 0; i < WindowFrames; i++)
-            {
-                double step = window[i] - window[i + lag];
-                sum += step * step;
-            }
-
-            difference[lag] = sum;
-        }
-
-        // Cumulative mean normalized difference: 1 on average, near 0 at a lag that repeats the sound.
-        double[] normalized = new double[maxLag + 1];
-        normalized[0] = 1;
-        double running = 0;
-        for (int lag = 1; lag <= maxLag; lag++)
-        {
-            running += difference[lag];
-            normalized[lag] = running <= 0 ? 1 : difference[lag] * lag / running;
-        }
-
-        for (int lag = MinLag; lag < maxLag; lag++)
-        {
-            if (normalized[lag] >= Threshold)
-            {
-                continue;
-            }
-
-            while (lag + 1 < maxLag && normalized[lag + 1] < normalized[lag])
-            {
-                lag++;
-            }
-
-            return new SamplePitch(Refine(normalized, lag));
-        }
-
-        return new SamplePitch(null);
+        double[] normalized = Yin.Normalized(window, WindowFrames, maxLag);
+        return new SamplePitch(Yin.FirstDip(normalized, MinLag, Threshold));
     }
 
     /// <summary>
@@ -112,20 +76,5 @@ internal readonly record struct SamplePitch(double? PeriodFrames)
         }
 
         return window.Any(v => v != 0) ? window : null;
-    }
-
-    /// <summary>The minimum between whole lags, from a parabola through <paramref name="lag"/> and its neighbours.</summary>
-    private static double Refine(double[] normalized, int lag)
-    {
-        if (lag <= 0 || lag + 1 >= normalized.Length)
-        {
-            return lag;
-        }
-
-        double before = normalized[lag - 1];
-        double at = normalized[lag];
-        double after = normalized[lag + 1];
-        double curve = before - (2 * at) + after;
-        return curve <= 0 ? lag : lag + ((before - after) / (2 * curve));
     }
 }

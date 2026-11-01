@@ -121,6 +121,12 @@ instrument and volume the channel carried in), ten columns per row (FM1–5, FM6
 samples the notes use, and per-row song-wide effects (`Flow`). `SampleTraits` (brightness, noise) and `FmPatchLibrary`
 (five placeholder patches) are its stand-ins until scoring (M6) and fitting (M8).
 
+**Sample analysis** (`src/Analysis`, plan T8.1, [ADR 0068](adr/0068-sample-analysis.md)) — pass 2 of the optimizer:
+`SampleAnalyzer` measures each sample once, giving `SampleAnalysis`. That holds percussive, tonal and noisy scores (0–1)
+and a label, pitch stability (YIN, `Yin`, shared with `SamplePitch`), the amplitude envelope, the loop, and per pitch
+region (the notes the song plays, at most an octave wide, at most 3) 64 mel bands and up to 64 harmonics. Nothing uses
+it yet; `--verbose` logs it (`SampleAnalysisReport`) and the harness writes `sample-analysis.csv`.
+
 **Scoring** (`src/Scoring`, plan T6.2, [ADR 0042](adr/0042-scoring-metrics.md)) — pure C#: says how close a rendering sounds to the
 original. `AudioSignal` (mono audio) → `Alignment` (constant lag from the note-start curves) → `SpectralMetrics`
 (multi-resolution log-mel distance, MFCC distance on `MelAnalyzer`/`FftPlan`) and `OnsetMetrics` (note-start precision,

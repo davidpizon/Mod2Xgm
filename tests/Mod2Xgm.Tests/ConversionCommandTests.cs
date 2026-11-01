@@ -182,6 +182,20 @@ public sealed class ConversionCommandTests
         Assert.Contains(debug, m => m.Contains("Samples required as PSG \"5\"", StringComparison.Ordinal));
     }
 
+    /// <summary>With <c>--verbose</c> (Debug), the conversion logs each sample's analysis: its label, then its pitch regions.</summary>
+    [Fact]
+    public void VerboseLogsTheSampleAnalysis()
+    {
+        using TempDirectory temp = new();
+        CollectingSink sink = new();
+
+        ConversionCommand.Execute(new() { InputPath = temp.CreateFile("song.mod") }, sink.CreateLogger(LogEventLevel.Debug));
+
+        string[] debug = [.. sink.Messages(LogEventLevel.Debug)];
+        Assert.Contains(debug, m => m.StartsWith("Sample 1 \"kick\": ", StringComparison.Ordinal) && m.Contains("percussive", StringComparison.Ordinal));
+        Assert.Contains(debug, m => m.StartsWith("Sample 1 \"kick\": 1 pitch regions: ", StringComparison.Ordinal));
+    }
+
     [Fact]
     public void DebugIsHiddenAtInformationLevel()
     {

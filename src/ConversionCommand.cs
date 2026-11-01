@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Mod2Xgm.Analysis;
 using Mod2Xgm.Cli;
 using Mod2Xgm.Dmf;
 using Mod2Xgm.Mapping;
@@ -6,6 +7,7 @@ using Mod2Xgm.Mod;
 using Mod2Xgm.Model;
 using Mod2Xgm.Render;
 using Serilog;
+using Serilog.Events;
 
 namespace Mod2Xgm;
 
@@ -74,7 +76,14 @@ internal static class ConversionCommand
 
         Song song = ModToSong.Convert(module, options.AmigaClockHz, notes);
         Playback playback = ModTickPlayer.Play(module, options.AmigaClockHz, options.AmigaTickRateScale, notes);
-        GenesisPlan plan = new SimpleMapper().Map(song, playback, MappingOptions.From(options), notes);
+        MappingOptions mapping = MappingOptions.From(options);
+        if (logger.IsEnabled(LogEventLevel.Debug))
+        {
+            // Nothing uses the analysis yet (the optimizer will, plan M9); --verbose shows it (docs/adr/0068-sample-analysis.md).
+            SampleAnalysisReport.Log(logger, SampleAnalyzer.AnalyzeSong(song, playback, mapping.Ignore));
+        }
+
+        GenesisPlan plan = new SimpleMapper().Map(song, playback, mapping, notes);
         logger.Debug(
             "Mapped {Orders} orders: {FmPatches} FM patches, {DacSamples} DAC samples",
             plan.Patterns.Count,

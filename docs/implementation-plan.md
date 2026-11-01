@@ -115,7 +115,7 @@
 ### M8 — Candidate generation
 | Task | Work | Acceptance |
 |---|---|---|
-| T8.1 | Sample analysis: percussive/tonal, pitch stability, envelope, spectral envelope per pitch region | Tests |
+| T8.1 ✅ | Sample analysis: percussive/tonal, pitch stability, envelope, spectral envelope per pitch region ([ADR 0068](adr/0068-sample-analysis.md)) | Tests |
 | T8.2 | FM patch library + fitting per [references/fm-matching.md](references/fm-matching.md): per-algorithm structure search (GA or pruned exhaustive over MULT/DT), then local search over levels and envelopes on the integer grid; deterministic seed; per pitch region | Fitted patches beat library patches on per-instrument error |
 | T8.3 | PSG candidates (tone / noise) | Tests |
 | T8.4 | PCM variant candidates with costs | Tests |

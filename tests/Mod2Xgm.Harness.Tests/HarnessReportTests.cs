@@ -1,3 +1,4 @@
+using Mod2Xgm.Analysis;
 using Mod2Xgm.Scoring;
 
 namespace Mod2Xgm.Harness.Tests;
@@ -149,6 +150,35 @@ public sealed class HarnessReportTests
         Assert.DoesNotContain("Loudness (EBU R128)", HarnessReport.Markdown([song], "r", "v", 8000), StringComparison.Ordinal);
     }
 
+    /// <summary>The sample-analysis CSV has one line per song and sample, with the region lists separated by spaces (plan T8.1).</summary>
+    [Fact]
+    public void SampleAnalysisCsvHasOneLinePerSample()
+    {
+        AmplitudeEnvelope held = new(8287, 0.005, [-9, -9], -9.034, 0.0049, null, 0);
+        AmplitudeEnvelope hit = new(16574, 0.005, [-3, -30], -3, 0, 0.1234, null);
+        RegionSpectrum spectrum = new(0.01, [], null);
+        SampleAnalysis bass = new(
+            0,
+            "bass, low",
+            SampleKind.Tone,
+            0.0004,
+            0.98765,
+            0.01,
+            new PitchStability(64.0001, 1, 2.25, -0.04),
+            held,
+            new LoopAnalysis(0, 64, 0, 1),
+            [new PitchRegion(8287, 8287, 8287.4, 3, 129.49, spectrum), new PitchRegion(16574, 20000, 16574.8, 1, 258.98, spectrum)]);
+        SampleAnalysis snare = new(4, "snare", SampleKind.Drum, 0.95, 0.1, 0.9, null, hit, null, [new PitchRegion(16574, 16574, 16574, 0, null, spectrum)]);
+        SongResult[] results = [Results[0] with { Samples = [bass, snare] }, Results[1]];
+
+        string[] lines = HarnessReport.SampleAnalysisCsv(results).Split('\n');
+
+        Assert.Equal(HarnessReport.SampleAnalysisHeader, lines[0]);
+        Assert.Equal("alpha,1,\"bass, low\",tone,0,0.988,0.01,64,1,2.3,0,-9.03,4.9,,0,64,1,2,8287 16575,129.5 259,3 1", lines[1]);
+        Assert.Equal("alpha,5,snare,drum,0.95,0.1,0.9,,,,,-3,0,123.4,,,,1,16574,,0", lines[2]);
+        Assert.Equal(string.Empty, lines[3]);
+    }
+
     /// <summary>The same results give the same files: the report holds no time or machine detail (plan T6.3).</summary>
     [Fact]
     public void ReportsAreTheSameEachTime()
@@ -157,5 +187,6 @@ public sealed class HarnessReportTests
         Assert.Equal(HarnessReport.ScoresCsv(Results), HarnessReport.ScoresCsv(Results));
         Assert.Equal(HarnessReport.DurationsCsv(Results), HarnessReport.DurationsCsv(Results));
         Assert.Equal(HarnessReport.LoudnessCsv(Results), HarnessReport.LoudnessCsv(Results));
+        Assert.Equal(HarnessReport.SampleAnalysisCsv(Results), HarnessReport.SampleAnalysisCsv(Results));
     }
 }
