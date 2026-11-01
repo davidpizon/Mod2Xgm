@@ -19,7 +19,8 @@ harmonics. The library had five placeholder patches, on four of the eight algori
 
 - **Build and test only** (David): the conversion and its DMF don't use the fits yet. The optimizer will (M9). The
   harness runs the fitting with `--fm-fit`.
-- **Both structure searches run** (David), and the corpus decides which one stays (see *On the corpus*):
+- **Both structure searches run** (David), and the corpus decides which one stays. It kept **both**: they tie, and
+  the better of the two is about 1 dB closer than either alone (see *On the corpus*).
   - **Pruned exhaustive** (`FmExhaustiveSearch`): every algorithm. Carrier multiples are 1 and the region's four
     strongest harmonics up to 15 (1–4 without a pitch); modulator multiples are 1, 2, 3, 4, 5 and 7. Pruned to
     multiples with no common factor (a common factor only moves the pitch), and operators the algorithm treats alike
@@ -82,17 +83,40 @@ flowchart LR
 
 ### On the corpus
 
-*Pending:* the unlimited corpus run (`--fm-fit`, 19 songs) is in progress. Its numbers, and the choice between the
-exhaustive search and the GA, are added here before this PR leaves draft.
+The harness with `--fm-fit` and no limit, 2026-11-01: 240 samples in 19 songs, 327 pitch regions. Log-mel distance in
+dB, lower is closer:
 
-A probe on a sawtooth at C-2 (no limit): the closest library patch (Brass) scores 7.15 dB, the exhaustive fit 3.93 dB
-(algorithm 3) and the genetic fit 5.98 dB (algorithm 1), in 7,736 renders and 52 s. A limit of 300 renders per step
-gives the same result.
+| | Median | Mean |
+|---|---|---|
+| Closest library patch | 12.73 | 12.75 |
+| Exhaustive search, fitted | 7.47 | 7.83 |
+| Genetic search, fitted | 7.87 | 8.24 |
+| **Best** (of the three) | **6.68** | **6.80** |
+| Best without the LFO (the twin) | 6.96 | |
+
+- **Acceptance holds:** a fitted patch beats the library in **314 of 327 regions** (the harness' *beat the library*
+  line), and on **234 of 240 samples** by the sample's mean. The median gain is 5.5 dB.
+- **The two searches tie, so both stay.** Per region the exhaustive search wins 161, the GA 162, 4 ties; by more than
+  1 dB, 118 and 97. Neither alone comes close to both: the exhaustive fit alone averages 7.83 dB, the GA alone 8.24,
+  the better of the two 6.84. They fail differently. The exhaustive search can't change feedback or the modulator
+  level. The GA misses ratios it never samples: on the plain basses of `8bit_castle` it lands 4–7 dB above the
+  exhaustive fit, and on some drums and voices it is 5–10 dB better.
+- **The library is still best in 13 regions.** Its patch is already close in all of them (5.5–8.8 dB). The searches
+  rebuild the envelopes from the seed and lose its detune and fine levels (see *Open questions*). One of the 13
+  (`jam_-_latenightcoffee` 15) is at the 60 dB floor everywhere, because its region is almost silent.
+- **All eight algorithms are used** by the best fits: 0: 48, 1: 14, 2: 45, 3: 30, 4: 24, 5: 55, 6: 47, 7: 64.
+  SSG-EG is in 160 of them.
+- **The LFO helps a little.** 198 best fits use it, at every rate (0: 48, 1: 33, 2: 19, 3: 10, 4: 3, 5: 11, 6: 38,
+  7: 36), so M9 will need the twins: a song can't run every rate at once. It gains a median 0.12 dB over the twin.
+- **Cost:** a median 9,837 renders (at most 12,659) and 413 s per region (at most 1,066 s), 40.5 CPU-hours in all.
+  That is 2 h wall time with 8 processors. The optimizer can't afford that per conversion, so a render limit or
+  T8.6's cache comes first in M9. A sawtooth probe found the same fit with 300 renders per step as with no limit.
 
 ## Options considered
 
-- **Both searches, the corpus picks (chosen).** ADR 0016 left the choice open, and the two have different strengths:
-  the exhaustive search covers every likely ratio, and the GA also changes feedback and the modulator level.
+- **Both searches, the corpus picks (chosen); it picked both.** ADR 0016 left the choice open. The exhaustive search
+  covers every likely ratio, and the GA also changes feedback and the modulator level.
+- **Only the winner of the corpus run.** Each would win about half the regions and lose about 1 dB on average.
 - **Only one search, chosen from the papers.** Horner used a GA, but the YM2612 grid is small enough that a pruned
   exhaustive search is possible, so the papers don't settle it.
 - **Gradient fitting (DDX7, Sound2Synth).** It needs a differentiable chip model and a training set; the integer grid
@@ -116,5 +140,7 @@ gives the same result.
 ## Open questions
 
 - **The `seconds` column** against T6.3: keep it, or move it to `durations.csv`?
+- **Refining the library patch itself.** In 13 regions the seed beats both fits, because the structure searches
+  rebuild its envelopes. Starting a local search from the seed as well would cost one more refinement per region.
 - **Fitting at more than one pitch per region.** One note per region fits that note best; the edges of an octave may
   sound different.
