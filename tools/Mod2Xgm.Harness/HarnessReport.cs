@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using Mod2Xgm.Analysis;
+using Mod2Xgm.Optimizer;
 using Mod2Xgm.Scoring;
 
 namespace Mod2Xgm.Harness;
@@ -30,6 +31,10 @@ internal static class HarnessReport
     /// <summary>Header of <c>sample-analysis.csv</c>.</summary>
     public const string SampleAnalysisHeader =
         "song,sample,name,kind,percussive,tonal,noisy,period_frames,voiced_share,deviation_cents,drift_cents,peak_db,attack_ms,decay_ms,sustain_db,loop_frames,loop_cycles,regions,region_rates_hz,fundamentals_hz,notes";
+
+    /// <summary>Header of <c>fm-fit.csv</c>.</summary>
+    public const string FmFitHeader =
+        "song,sample,name,region,library,library_db,exhaustive_db,genetic_db,best,best_db,best_mfcc,best_harmonic_db,no_lfo_db,lfo_rate,patch,fitted_beats_library,renders,seconds";
 
     /// <summary>Header of <c>loudness.csv</c>.</summary>
     public const string LoudnessHeader =
@@ -217,6 +222,49 @@ internal static class HarnessReport
                     string.Join(' ', a.Regions.Select(r => Number(r.FundamentalHz, "0.#"))),
                     string.Join(' ', a.Regions.Select(r => r.Notes.ToString(CultureInfo.InvariantCulture))));
                 csv.Append('\n');
+            }
+        }
+
+        return csv.ToString();
+    }
+
+    /// <summary>
+    /// One line per song, sample and pitch region (<c>--fm-fit</c>): the closest library patch, each search's fit and the
+    /// best, their log-mel distances, and the work it took (see <see cref="FmFitHeader"/>).
+    /// </summary>
+    public static string FmFitCsv(IReadOnlyList<SongResult> results)
+    {
+        ArgumentNullException.ThrowIfNull(results);
+        StringBuilder csv = new();
+        csv.Append(FmFitHeader).Append('\n');
+        foreach (SongResult song in results)
+        {
+            foreach (FmSampleFit fit in song.FmFits)
+            {
+                foreach (FmRegionFit r in fit.Regions)
+                {
+                    csv.AppendJoin(
+                        ',',
+                        Csv(song.Song),
+                        (fit.Sample + 1).ToString(CultureInfo.InvariantCulture),
+                        Csv(fit.Name),
+                        (r.Region + 1).ToString(CultureInfo.InvariantCulture),
+                        Csv(r.Library.Patch.Name),
+                        Number(r.Library.Score.MelDb, "0.###"),
+                        Number(r.Exhaustive?.Score.MelDb, "0.###"),
+                        Number(r.Genetic?.Score.MelDb, "0.###"),
+                        FmFitReport.SourceName(r.Best.Source),
+                        Number(r.Best.Score.MelDb, "0.###"),
+                        Number(r.Best.Score.MfccDistance, "0.##"),
+                        Number(r.Best.Score.HarmonicDb, "0.###"),
+                        Number(r.NoLfo.Score.MelDb, "0.###"),
+                        r.Best.LfoRate?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
+                        Csv(FmFitReport.Settings(r.Best)),
+                        r.FittedBeatsLibrary ? "yes" : "no",
+                        r.Renders.ToString(CultureInfo.InvariantCulture),
+                        Number(r.Elapsed.TotalSeconds, "0.#"));
+                    csv.Append('\n');
+                }
             }
         }
 

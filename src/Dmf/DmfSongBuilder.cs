@@ -178,11 +178,11 @@ internal static class DmfSongBuilder
     {
         int[] fileOrder = [0, 2, 1, 3];
         DmfOperator[] operators = [.. fileOrder.Select(i => Operator(patch.Operators[i]))];
-        return new DmfInstrument(patch.Name, new DmfFmInstrument(patch.Algorithm, patch.Feedback, 0, 0, operators), null);
+        return new DmfInstrument(patch.Name, new DmfFmInstrument(patch.Algorithm, patch.Feedback, patch.Fms, patch.Ams, operators), null);
     }
 
     private static DmfOperator Operator(FmOperator op) =>
-        new(op.Am ? 1 : 0, op.Ar, op.Dr, op.Mult, op.Rr, op.Sl, op.Tl, 0, op.Rs, op.Detune + 3, op.D2R, 0);
+        new(op.Am ? 1 : 0, op.Ar, op.Dr, op.Mult, op.Rr, op.Sl, op.Tl, 0, op.Rs, op.Detune + 3, op.D2R, op.SsgEg);
 
     private static DmfMacro Empty() => new([], -1);
 

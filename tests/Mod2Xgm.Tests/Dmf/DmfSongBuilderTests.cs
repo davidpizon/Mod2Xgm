@@ -550,6 +550,29 @@ public sealed class DmfSongBuilderTests
         Assert.All(result.File.Channels, c => Assert.InRange(c.EffectColumns, 1, 4));
     }
 
+    /// <summary>A patch's LFO depths and each operator's SSG-EG reach the DMF instrument, in file order (OP1, OP3, OP2, OP4); the simple mapper's patches have none.</summary>
+    [Fact]
+    public void LfoDepthsAndSsgEgAreWritten()
+    {
+        FmPatch fitted = FmPatchLibrary.Lead with
+        {
+            Fms = 5,
+            Ams = 2,
+            Operators = [.. FmPatchLibrary.Lead.Operators.Select((o, i) => o with { SsgEg = 8 + i, Am = i == 1 })],
+        };
+
+        DmfConversion.Result plain = Convert(Song().WithCell(0, 0, 0, Lead, C2));
+        DmfConversion.Result result = DmfConversion.Convert(Song().WithCell(0, 0, 0, Lead, C2).Build(), transform: p => p with { FmPatches = [fitted] });
+
+        DmfFmInstrument fm = result.File.Instruments[0].Fm!;
+        Assert.Equal((5, 2), (fm.Fms, fm.Ams));
+        Assert.Equal([8, 10, 9, 11], fm.Operators.Select(o => o.SsgMode));
+        Assert.Equal([0, 0, 1, 0], fm.Operators.Select(o => o.Am));
+        DmfFmInstrument library = plain.File.Instruments[0].Fm!;
+        Assert.Equal((0, 0), (library.Fms, library.Ams));
+        Assert.All(library.Operators, o => Assert.Equal(0, o.SsgMode));
+    }
+
     /// <summary>Rate codes: the lowest rate at or above the sample's, never above 32 kHz.</summary>
     [Theory]
     [InlineData(3000, 0)]

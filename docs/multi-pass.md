@@ -38,7 +38,8 @@ decides by error and cost, not by a fixed "FM first" rule.
   3. **Select** by rendered audio through the in-app YM2612 model.
 
   Every search is seeded from the nearest built-in library patch and is deterministic (`--seed`). A sample's
-  timbre changes with pitch, so fit **per pitch region** (typically 1–3 patches per instrument).
+  timbre changes with pitch, so fit **per pitch region** (typically 1–3 patches per instrument). Built in `src/Optimizer` (`FmFitter`, [ADR 0069](adr/0069-fm-patch-fitting.md)): both structure searches run,
+  each fit records the LFO rate it needs and a twin without the LFO, and the harness writes `fm-fit.csv`.
 - **PSG.** Square or noise approximations for simple tones and hi-hats/cymbals.
 - **PCM variants.** Pre-resampled copies; costs slots, voices and bytes (see [sample-capacity.md](sample-capacity.md)).
 - **Combined instruments**:

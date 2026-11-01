@@ -3,6 +3,7 @@ using Mod2Xgm.Analysis;
 using Mod2Xgm.Cli;
 using Mod2Xgm.Mod;
 using Mod2Xgm.Model;
+using Mod2Xgm.Optimizer;
 using Mod2Xgm.Render;
 using Mod2Xgm.Scoring;
 using Serilog;
@@ -31,6 +32,10 @@ namespace Mod2Xgm.Harness;
 /// Also measure the clip's instrument balance from stems, for renderers that can play any DMF
 /// (docs/adr/0051-instrument-balance-metric.md); needs <paramref name="clipSeconds"/>.
 /// </param>
+/// <param name="fmFit">
+/// Also fit FM patches to every sample the conversion analyzed, the song's samples at once
+/// (docs/adr/0069-fm-patch-fitting.md); <c>null</c> to skip.
+/// </param>
 internal sealed class CorpusRun(
     string outputDirectory,
     int sampleRate,
@@ -39,7 +44,8 @@ internal sealed class CorpusRun(
     IReadOnlyList<ICandidateRenderer> candidates,
     ILogger logger,
     double? clipSeconds = null,
-    bool balance = false)
+    bool balance = false,
+    FmFitOptions? fmFit = null)
 {
     /// <summary>
     /// Measures every song in <paramref name="modPaths"/>, <paramref name="jobs"/> at a time; the results are in the
@@ -100,13 +106,34 @@ internal sealed class CorpusRun(
                 }
             }
 
-            return new SongResult(name, duration, notes, scores, null) { Samples = analyses };
+            return new SongResult(name, duration, notes, scores, null) { Samples = analyses, FmFits = FitFm(name, analyses) };
         }
         catch (Exception ex) when (ex is HarnessException or ConversionException or IOException)
         {
             logger.Error("{Song}: {Message}", name, ex.Message);
             return new SongResult(name, duration, notes, [], ex.Message);
         }
+    }
+
+    /// <summary>The FM fits of every analyzed sample, in the analyses' order, fitted at once; none unless asked for.</summary>
+    private IReadOnlyList<FmSampleFit> FitFm(string song, IReadOnlyList<SampleAnalysis> analyses)
+    {
+        if (fmFit is null)
+        {
+            return [];
+        }
+
+        logger.Information("{Song}: fitting FM patches to {Count} samples", song, analyses.Count);
+        FmSampleFit[] fits = new FmSampleFit[analyses.Count];
+        Parallel.For(0, analyses.Count, i => fits[i] = FmFitter.Fit(analyses[i], fmFit));
+        FmFitReport.Log(logger, fits);
+        int regions = fits.Sum(f => f.Regions.Count);
+        logger.Information(
+            "{Song}: fitted FM patches beat the library in {Better} of {Regions} pitch regions",
+            song,
+            fits.Sum(f => f.Regions.Count(r => r.FittedBeatsLibrary)),
+            regions);
+        return fits;
     }
 
     /// <summary>

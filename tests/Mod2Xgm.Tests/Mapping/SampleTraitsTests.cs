@@ -94,8 +94,9 @@ public sealed class SampleTraitsTests
     [Fact]
     public void PatchesHoldValidRegisterValues()
     {
-        Assert.Equal(5, FmPatchLibrary.All.Count);
+        Assert.Equal(11, FmPatchLibrary.All.Count);
         Assert.Equal(FmPatchLibrary.All.Count, FmPatchLibrary.All.Select(p => p.Name).Distinct().Count());
+        Assert.Equal(Enumerable.Range(0, 8), FmPatchLibrary.All.Select(p => p.Algorithm).Distinct().Order());
         foreach (FmPatch patch in FmPatchLibrary.All)
         {
             Assert.InRange(patch.Algorithm, 0, 7);

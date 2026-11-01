@@ -24,11 +24,6 @@ internal sealed class GenesisPlanPlayer
 
     private const int PsgOff = PsgLevels.Off;
 
-    /// <summary>F-numbers are 11 bits.</summary>
-    private const int MaxFnum = 2047;
-
-    private const int MaxBlock = 7;
-
     /// <summary>A looped DAC sample is played out this long at most, as the DMF's copies are; a longer note goes quiet.</summary>
     private const double LoopSeconds = 10;
 
@@ -42,16 +37,9 @@ internal sealed class GenesisPlanPlayer
     private const byte RegKeyOn = 0x28;
     private const byte RegLfo = 0x22;
     private const byte RegCh3Mode = 0x27;
-    private const byte RegDetuneMult = 0x30;
     private const byte RegTl = 0x40;
-    private const byte RegRsAr = 0x50;
-    private const byte RegAmDr = 0x60;
-    private const byte RegD2R = 0x70;
-    private const byte RegSlRr = 0x80;
-    private const byte RegSsgEg = 0x90;
     private const byte RegFnumLow = 0xa0;
     private const byte RegBlockFnumHigh = 0xa4;
-    private const byte RegFeedbackAlgorithm = 0xb0;
     private const byte RegPanLfo = 0xb4;
     private const byte PanLeft = 0x80;
     private const byte PanRight = 0x40;
@@ -63,9 +51,6 @@ internal sealed class GenesisPlanPlayer
 
     /// <summary>The noise register's white-noise bit.</summary>
     private const byte PsgWhiteNoise = 0x04;
-
-    /// <summary>Register offsets of OP1–OP4 (Yamaha order) within a channel's operator registers: OP1, OP3, OP2, OP4 in address order.</summary>
-    private static readonly int[] SlotOffsets = [0, 8, 4, 12];
 
     private readonly GenesisPlan _plan;
     private readonly Song _song;
@@ -374,7 +359,7 @@ internal sealed class GenesisPlanPlayer
             byte pan = side < 0 ? PanLeft : side > 0 ? PanRight : (byte)(PanLeft | PanRight);
             if (pan != track.Pan)
             {
-                WriteFm(c, RegPanLfo, pan);
+                WriteFm(c, RegPanLfo, (byte)(pan | track.Sensitivity));
                 track.Pan = pan;
             }
         }
@@ -413,49 +398,30 @@ internal sealed class GenesisPlanPlayer
             int tl = Math.Clamp(patch.Operators[op].Tl + steps, 0, MaxTl);
             if (tl != track.CarrierTl[op])
             {
-                WriteFm(c, (byte)(RegTl + SlotOffsets[op]), (byte)tl);
+                WriteFm(c, (byte)(RegTl + FmVoice.SlotOffsets[op]), (byte)tl);
                 track.CarrierTl[op] = tl;
             }
         }
     }
 
     /// <summary>The block (bits 13–11) and F-number (bits 10–0) closest to <paramref name="hz"/>: the lowest block that holds it, for the finest steps.</summary>
-    private int BlockFnum(double hz)
-    {
-        // f = fnum × 2^(block − 1) × rate / 2^20 (docs/genesis-audio.md).
-        double fnumAtBlock0 = hz * (1 << 21) / _chips.SampleRateHz;
-        for (int block = 0; block <= MaxBlock; block++)
-        {
-            int fnum = (int)Math.Round(fnumAtBlock0 / (1 << block));
-            if (fnum <= MaxFnum)
-            {
-                return (block << 11) | fnum;
-            }
-        }
-
-        return (MaxBlock << 11) | MaxFnum;
-    }
+    private int BlockFnum(double hz) => FmVoice.BlockFnum(hz, _chips.SampleRateHz);
 
     private void LoadPatch(int c, int index)
     {
         Track track = _tracks[c];
         FmPatch patch = _plan.FmPatches[index];
-        for (int op = 0; op < 4; op++)
-        {
-            FmOperator o = patch.Operators[op];
-            int slot = SlotOffsets[op];
-            int detune = o.Detune >= 0 ? o.Detune : 4 - o.Detune;
-            WriteFm(c, (byte)(RegDetuneMult + slot), (byte)((detune << 4) | o.Mult));
-            WriteFm(c, (byte)(RegTl + slot), (byte)o.Tl);
-            WriteFm(c, (byte)(RegRsAr + slot), (byte)((o.Rs << 6) | o.Ar));
-            WriteFm(c, (byte)(RegAmDr + slot), (byte)((o.Am ? 0x80 : 0) | o.Dr));
-            WriteFm(c, (byte)(RegD2R + slot), (byte)o.D2R);
-            WriteFm(c, (byte)(RegSlRr + slot), (byte)((o.Sl << 4) | o.Rr));
-            WriteFm(c, (byte)(RegSsgEg + slot), 0);
-            track.CarrierTl[op] = -1;
-        }
+        FmVoice.LoadPatch(_chips.Fm, c, patch);
+        Array.Fill(track.CarrierTl, -1);
 
-        WriteFm(c, RegFeedbackAlgorithm, (byte)((patch.Feedback << 3) | patch.Algorithm));
+        // The plan has no LFO rate yet, so the LFO stays off (plan M9 picks one per song, docs/adr/0069-fm-patch-fitting.md);
+        // the sensitivities are still the patch's, as the DMF stores them.
+        byte sensitivity = (byte)((patch.Ams << 4) | patch.Fms);
+        if (sensitivity != track.Sensitivity)
+        {
+            track.Sensitivity = sensitivity;
+            WriteFm(c, RegPanLfo, (byte)(track.Pan | sensitivity));
+        }
     }
 
     private void KeyOn(int c) => _chips.Fm.WriteRegister(0, RegKeyOn, (byte)(0xf0 | KeyOnChannel(c)));
@@ -466,7 +432,7 @@ internal sealed class GenesisPlanPlayer
     private static int KeyOnChannel(int c) => c < 3 ? c : c + 1;
 
     /// <summary>Writes an FM channel's register: <paramref name="register"/> is the channel 1 address, offset by the channel within its part.</summary>
-    private void WriteFm(int c, byte register, byte value) => _chips.Fm.WriteRegister(c / 3, (byte)(register + (c % 3)), value);
+    private void WriteFm(int c, byte register, byte value) => FmVoice.Write(_chips.Fm, c, register, value);
 
     private void StartNoise(Track track, ChannelTick ch, int t)
     {
@@ -679,6 +645,9 @@ internal sealed class GenesisPlanPlayer
 
         /// <summary>The pan bits last written.</summary>
         public byte Pan { get; set; }
+
+        /// <summary>The loaded patch's AMS and FMS bits of register <c>$B4</c>, written with every pan change.</summary>
+        public byte Sensitivity { get; set; }
 
         /// <summary>The PSG volume last written (0 loudest, 15 off), or −1.</summary>
         public int Volume { get; set; } = -1;

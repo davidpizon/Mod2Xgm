@@ -87,14 +87,21 @@ internal sealed record PlanRow(IReadOnlyList<PlanCell> Cells, IReadOnlyList<Effe
 /// <param name="D2R">Second decay rate, 0–31.</param>
 /// <param name="Sl">Sustain level, 0–15.</param>
 /// <param name="Rr">Release rate, 0–15.</param>
-internal sealed record FmOperator(int Mult, int Detune, int Tl, int Rs, int Ar, bool Am, int Dr, int D2R, int Sl, int Rr);
+/// <param name="SsgEg">SSG-EG, register <c>$90</c>'s low 4 bits: 0 = off, 8–15 = on with shape 0–7 (docs/formats/dmf.md#6-instruments).</param>
+internal sealed record FmOperator(int Mult, int Detune, int Tl, int Rs, int Ar, bool Am, int Dr, int D2R, int Sl, int Rr, int SsgEg = 0);
 
 /// <summary>An FM patch: one YM2612 channel's sound.</summary>
 /// <param name="Name">Short name.</param>
 /// <param name="Algorithm">Connection of the operators, 0–7.</param>
 /// <param name="Feedback">OP1 feedback, 0–7.</param>
 /// <param name="Operators">OP1, OP2, OP3, OP4 in Yamaha order (the DMF file lists them OP1, OP3, OP2, OP4).</param>
-internal sealed record FmPatch(string Name, int Algorithm, int Feedback, IReadOnlyList<FmOperator> Operators);
+/// <param name="Fms">LFO vibrato depth (frequency modulation sensitivity), 0–7; 0 = none.</param>
+/// <param name="Ams">LFO tremolo depth (amplitude modulation sensitivity) for operators with <see cref="FmOperator.Am"/>, 0–3; 0 = none.</param>
+internal sealed record FmPatch(string Name, int Algorithm, int Feedback, IReadOnlyList<FmOperator> Operators, int Fms = 0, int Ams = 0)
+{
+    /// <summary>True when the patch needs the chip's LFO: some vibrato, or some tremolo on an operator that takes it.</summary>
+    public bool UsesLfo => Fms > 0 || (Ams > 0 && Operators.Any(o => o.Am));
+}
 
 /// <summary>A song sample played on the DAC.</summary>
 /// <param name="Sample">Index into <see cref="Song.Samples"/>.</param>
