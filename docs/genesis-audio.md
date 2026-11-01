@@ -18,7 +18,9 @@
 - Master clock: NTSC 7 670 453 Hz, PAL 7 600 489 Hz.
 
 ## SN76489 (PSG)
-- 3 square tone channels (10-bit period) + 1 noise channel; 4-bit attenuation (2 dB steps).
+- 3 square tone channels (10-bit period) + 1 noise channel; 4-bit attenuation. The steps are not even: about 2.2 dB at
+  the loud end, growing to 6.5 dB between 13 and 14 (41 dB below the loudest), as Nuked-PSG plays them
+  ([ADR 0067](adr/0067-psg-volume-levels.md); TI's datasheet and MAME say 2 dB a step).
 - Clock: NTSC 3 579 545 Hz, PAL 3 546 893 Hz. The counters step at clock ÷ 16 (223 722 Hz on NTSC).
 - It is Sega's copy inside the VDP, not TI's chip: a 16-bit noise shift register tapped at bits 0 and 3, a period of
   0 that flips the output on every step like period 1 (TI's acts as `$400`), and every channel silent at power-on.
@@ -28,8 +30,9 @@
     at once and a longer one stretches the half-wave in progress.
   - A write to the noise register empties the shift register at once (the noise goes low). The noise shifts on the
     **rise** of its rate flip-flop, or of tone 3's output at rate 3.
-  - Still open: the volume levels at the quiet end (MAME's exact 2 dB steps against Nuked-PSG's table, whose source
-    is unknown) and the register the latch points at after power-on.
+  - The volume levels are Nuked-PSG's, measured from its output, not MAME's 2 dB steps
+    ([ADR 0067](adr/0067-psg-volume-levels.md); where Nuked's table comes from is still **Verify**).
+  - Kept MAME's: the register the latch points at after power-on.
 
 ## Timing
 - Frame rate: NTSC 60 Hz, PAL 50 Hz. XGM/XGM2 advance per frame.

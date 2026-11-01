@@ -4,6 +4,7 @@ using Mod2Xgm.Dmf;
 using Mod2Xgm.Mapping;
 using Mod2Xgm.Model;
 using Mod2Xgm.Render.Pcm;
+using Mod2Xgm.Render.Psg;
 
 namespace Mod2Xgm.Render;
 
@@ -21,10 +22,7 @@ internal sealed class GenesisPlanPlayer
 
     private const int MaxTl = 127;
 
-    /// <summary>Attenuation of one PSG volume step, in dB; 15 is off.</summary>
-    private const double PsgStepDb = 2;
-
-    private const int PsgOff = 15;
+    private const int PsgOff = PsgLevels.Off;
 
     /// <summary>F-numbers are 11 bits.</summary>
     private const int MaxFnum = 2047;
@@ -482,14 +480,14 @@ internal sealed class GenesisPlanPlayer
 
     /// <summary>
     /// The noise follows its sample's loudness tick by tick, as the DMF's noise instrument does: the tick's stretch of the
-    /// sample against its loudest stretch, in 2 dB steps on top of the MOD volume. Past a one-shot sample's end it is silent.
+    /// sample against its loudest stretch, times the MOD volume, at the nearest of the chip's levels (docs/adr/0067-psg-volume-levels.md). Past a one-shot sample's end it is silent.
     /// </summary>
     private void UpdateNoise(Track track, ChannelTick ch, double seconds)
     {
         Sample sample = _song.Samples[track.Sample];
         double rms = WindowRms(sample, (int)track.NoiseFrame, track.NoiseWindow);
         double level = ch.Volume * track.Gain * (track.NoisePeak > 0 ? rms / track.NoisePeak : 0);
-        int volume = level <= 0 ? PsgOff : Math.Clamp((int)Math.Round(-20 * Math.Log10(level) / PsgStepDb, MidpointRounding.AwayFromZero), 0, PsgOff);
+        int volume = PsgLevels.Nearest(level);
         WriteNoiseVolume(track, volume);
         track.NoiseFrame += ch.Pitch.PlaybackRateHz * seconds;
     }

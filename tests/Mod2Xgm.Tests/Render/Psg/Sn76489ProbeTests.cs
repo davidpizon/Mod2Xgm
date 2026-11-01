@@ -10,39 +10,41 @@ namespace Mod2Xgm.Tests.Render.Psg;
 /// Nuked-PSG play (plan T7.3, tests/golden/sn76489/README.md). The reference outputs come from
 /// <c>tools/sn76489-reference/run.sh</c>; run it again after changing a probe (with <c>UPDATE_GOLDEN=1</c> first, to
 /// rewrite the scripts). The port is MAME except where it models the chip as Nuked-PSG does
-/// (docs/adr/0065-sn76489-chip-differences.md): there it must come closer to Nuked, elsewhere stay exactly MAME.
+/// (docs/adr/0065-sn76489-chip-differences.md, docs/adr/0067-psg-volume-levels.md): there it must come closer to Nuked,
+/// elsewhere stay exactly MAME.
 /// </summary>
 public sealed class Sn76489ProbeTests
 {
     /// <summary>
     /// The bar for "sounds like Nuked-PSG": the log-mel distance of a probe after averaging every four samples
-    /// (docs/adr/0057-sn76489-model.md; the worst of these probes, write-quirks, measured 0.16 dB after T7.8, docs/adr/0065-sn76489-chip-differences.md).
+    /// (docs/adr/0057-sn76489-model.md; the worst of these probes, tone, measured 0.03 dB after T7.8, docs/adr/0067-psg-volume-levels.md).
     /// </summary>
     private const double MaxMelDistanceToNukedDb = 0.3;
 
     /// <summary>
     /// Probes that stay further from Nuked-PSG for a reason the port keeps on purpose: their own bar, a little above what
-    /// was measured, so the difference can't grow unseen (docs/adr/0065-sn76489-chip-differences.md#what-is-left).
+    /// was measured, so the difference can't grow unseen (docs/adr/0065-sn76489-chip-differences.md#what-is-left,
+    /// docs/adr/0067-psg-volume-levels.md).
     /// </summary>
     private static readonly Dictionary<string, (double BarDb, string Difference)> KnownDifferences = new()
     {
-        ["chord"] = (0.9, "the volume levels; the reference tool's 9 setup writes start tone 1 a sample early in Nuked-PSG (measured 0.72 dB)"),
-        ["noise-restart"] = (2.3, "the volume levels (measured 1.90 dB)"),
-        ["volumes"] = (2.5, "the volume levels (measured 2.07 dB)"),
+        ["chord"] = (0.7, "the reference tool's 9 setup writes start tone 1 a sample early in Nuked-PSG (measured 0.64 dB)"),
         ["power-on-latch"] = (11.0, "the register the latch points at after power-on (measured 9.98 dB)"),
     };
 
     /// <summary>
-    /// The chip's differences from MAME that the port models (docs/adr/0065-sn76489-chip-differences.md), each with the
+    /// The chip's differences from MAME that the port models (docs/adr/0065-sn76489-chip-differences.md,
+    /// docs/adr/0067-psg-volume-levels.md), each with the
     /// probes it changes: measured by turning each off in turn, when these and only these probes changed.
     /// </summary>
     private static readonly Dictionary<string, string[]> ChipDifferences = new()
     {
         ["tone counters count up to the period as it is now"] = ["periods", "write-quirks"],
         ["noise emptied at once on a restart, shifted on its clock's rise"] = ["chord", "periodic-noise", "white-noise", "write-quirks"],
+        ["Nuked-PSG's volume levels"] = ["chord", "noise-restart", "periods", "volumes", "write-quirks"],
     };
 
-    /// <summary>Nuked-PSG's output is the sum of its four channel levels × 8192; the port's is −(sum of MAME's levels, 8191 at most).</summary>
+    /// <summary>Nuked-PSG's output is the sum of its four channel levels × 8192; the port's is −(sum of its levels, 8191 at most).</summary>
     private const double NukedFullScale = 4 * 8192;
 
     /// <summary>Samples averaged into one before the spectra are compared: about 55.9 kHz, so most mel bands are audible.</summary>
@@ -87,8 +89,7 @@ public sealed class Sn76489ProbeTests
     /// <summary>
     /// The port sounds like Nuked-PSG, a transistor-level model of the Genesis's PSG (the YM7101 VDP's), on every
     /// probe: a second opinion that doesn't share MAME's code. The two rarely match sample for sample (its output has the
-    /// opposite sign and its levels are its own, not MAME's 2 dB steps, which the port keeps; docs/adr/0065-sn76489-chip-differences.md),
-    /// so the spectra are compared.
+    /// opposite sign and is scaled by 8192, not 8191), so the spectra are compared.
     /// </summary>
     [Theory]
     [MemberData(nameof(Names))]
@@ -138,8 +139,8 @@ public sealed class Sn76489ProbeTests
     private static IReadOnlyList<Sn76489Step> Script(string name) =>
         Sn76489Script.Parse(File.ReadAllText(Path.Combine(ProbeDirectory, name + ".txt")));
 
-    /// <summary>A reference output: gzipped little-endian int32s, one per sample.</summary>
-    private static int[] Reference(string name, string emulator)
+    /// <summary>A reference output (<paramref name="emulator"/> <c>mame</c> or <c>nuked</c>): gzipped little-endian int32s, one per sample.</summary>
+    internal static int[] Reference(string name, string emulator)
     {
         string path = Path.Combine(ProbeDirectory, $"{name}.{emulator}.gz");
         Assert.True(File.Exists(path), $"{path} is missing. Run tools/sn76489-reference/run.sh to make it.");
