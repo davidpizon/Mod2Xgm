@@ -1,0 +1,7 @@
+# PCM driver probe: xgm2-half
+# XGM2: one sound at half speed, alone.
+driver xgm2
+sample 1 1000 5
+frame 2
+play 1 1 15 half
+frame 8

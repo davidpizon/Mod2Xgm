@@ -25,7 +25,7 @@ public sealed class XgmPcmDriverTests
     [Fact]
     public void AFreshDriverIsSilentWithTheDacOff()
     {
-        XgmPcmDriver driver = new();
+        XgmPcmDriver driver = new(buffered: false);
         DacCapture capture = DacCapture.Of(driver, 5000);
         Assert.All(capture.Data, b => Assert.Equal(0x80, b));
         Assert.All(capture.Enable, b => Assert.Equal(0, b));
@@ -37,7 +37,7 @@ public sealed class XgmPcmDriverTests
     [Fact]
     public void BeatsAre3810MasterClocksApart()
     {
-        XgmPcmDriver driver = new();
+        XgmPcmDriver driver = new(buffered: false);
         driver.Play(0, DacCapture.Ramp(2048), 0);
         DacCapture capture = DacCapture.Of(driver, 3810);
         Assert.Equal(1, capture.Value(0));
@@ -51,7 +51,7 @@ public sealed class XgmPcmDriverTests
     [Fact]
     public void APlayStartsOnTheNextBeat()
     {
-        XgmPcmDriver driver = new();
+        XgmPcmDriver driver = new(buffered: false);
         DacCapture.Of(driver, 2); // beat 0 at sample 0; beat 1 at sample 4
         driver.Play(0, [50], 0);
         DacCapture capture = DacCapture.Of(driver, 3);
@@ -65,18 +65,18 @@ public sealed class XgmPcmDriverTests
     [Fact]
     public void MixingSticksAtTheEndsInChannelOrder()
     {
-        XgmPcmDriver driver = new();
+        XgmPcmDriver driver = new(buffered: false);
         driver.Play(0, [100], 0);
         driver.Play(1, [100], 0);
         driver.Play(2, [-100], 0);
         Assert.Equal(27, DacCapture.Of(driver, 1).Value(0));
 
-        XgmPcmDriver low = new();
+        XgmPcmDriver low = new(buffered: false);
         low.Play(0, [-100], 0);
         low.Play(3, [-100], 0);
         Assert.Equal(-128, DacCapture.Of(low, 1).Value(0));
 
-        XgmPcmDriver high = new();
+        XgmPcmDriver high = new(buffered: false);
         high.Play(1, [127], 0);
         high.Play(2, [127], 0);
         high.Play(3, [-1], 0);
@@ -87,7 +87,7 @@ public sealed class XgmPcmDriverTests
     [Fact]
     public void ASamplePlaysToTheEndOfItsPadding()
     {
-        XgmPcmDriver driver = new();
+        XgmPcmDriver driver = new(buffered: false);
         driver.Play(2, [10, 20, 30], 8);
         DacCapture first = DacCapture.Of(driver, BeatSample(255));
         Assert.Equal(30, first.Value(BeatSample(2)));
@@ -104,7 +104,7 @@ public sealed class XgmPcmDriverTests
     [Fact]
     public void PriorityDecidesWhoGetsTheChannel()
     {
-        XgmPcmDriver driver = new();
+        XgmPcmDriver driver = new(buffered: false);
         Assert.True(driver.Play(0, [1], 8));
         Assert.False(driver.Play(0, [2], 4));
         Assert.False(driver.Stop(0, 4));
@@ -122,7 +122,7 @@ public sealed class XgmPcmDriverTests
     [Fact]
     public void AStopSilencesTheChannel()
     {
-        XgmPcmDriver driver = new();
+        XgmPcmDriver driver = new(buffered: false);
         driver.Play(1, [-5, -5, -5, -5], 0);
         Assert.Equal(-5, DacCapture.Of(driver, 1).Value(0));
         driver.Stop(1, 0);
@@ -138,7 +138,7 @@ public sealed class XgmPcmDriverTests
     [Fact]
     public void TheDacStaysOnThreeBlocksAfterTheLastSound()
     {
-        XgmPcmDriver driver = new();
+        XgmPcmDriver driver = new(buffered: false);
         driver.Play(0, DacCapture.Ramp(256), 0);
         DacCapture capture = DacCapture.Of(driver, BeatSample(1100));
         Assert.Equal(0x80, capture.Enable[0]);
@@ -150,7 +150,7 @@ public sealed class XgmPcmDriverTests
     [Fact]
     public void TheDacStaysOnWhileASoundPlays()
     {
-        XgmPcmDriver driver = new();
+        XgmPcmDriver driver = new(buffered: false);
         driver.Play(3, DacCapture.Ramp(2560), 0);
         DacCapture capture = DacCapture.Of(driver, BeatSample(2560));
         Assert.Equal(-1, capture.FirstOff());
@@ -160,7 +160,7 @@ public sealed class XgmPcmDriverTests
     [Fact]
     public void BadArgumentsAreRefused()
     {
-        XgmPcmDriver driver = new();
+        XgmPcmDriver driver = new(buffered: false);
         Assert.Throws<ArgumentOutOfRangeException>(() => driver.Play(4, [1], 0));
         Assert.Throws<ArgumentOutOfRangeException>(() => driver.Play(-1, [1], 0));
         Assert.Throws<ArgumentOutOfRangeException>(() => driver.Play(0, [1], 16));
@@ -177,7 +177,7 @@ public sealed class XgmPcmDriverTests
     [Fact]
     public void TheBytesPlayThroughTheYm3438()
     {
-        XgmPcmDriver driver = new();
+        XgmPcmDriver driver = new(buffered: false);
         driver.Play(0, [-128, -64, 0, 64, 127], 0);
         DacCapture capture = DacCapture.Of(driver, BeatSample(5));
 
@@ -194,5 +194,78 @@ public sealed class XgmPcmDriverTests
             Assert.Equal(expected, left[0]);
             Assert.Equal(expected, right[0]);
         }
+    }
+
+    /// <summary>
+    /// Buffered (the default), a play is heard from the first 256-beat block that starts at least
+    /// <see cref="XgmPcmDriver.StartLeadBeats"/> beats later, as SGDK's driver (with xgmtool's 3-frame shift) plays it:
+    /// sent on beat 0, heard from beat 256; sent on beat 200, heard from beat 512.
+    /// </summary>
+    [Theory]
+    [InlineData(0, 256)]
+    [InlineData(180, 256)]
+    [InlineData(200, 512)]
+    public void ABufferedPlayIsHeardFromTheFirstBlockAfterTheLead(int sentOnBeat, int heardFromBeat)
+    {
+        XgmPcmDriver driver = new();
+        Assert.True(driver.Buffered);
+        Span<byte> one = stackalloc byte[1];
+        Span<byte> enable = stackalloc byte[1];
+        while (driver.BeatsSent < sentOnBeat)
+        {
+            driver.Generate(one, enable);
+        }
+
+        driver.Play(0, [5, 6, 7], 0);
+        while (driver.BeatsSent < heardFromBeat)
+        {
+            driver.Generate(one, enable);
+            Assert.Equal(0x80, one[0]);
+        }
+
+        while (driver.BeatsSent == heardFromBeat)
+        {
+            driver.Generate(one, enable);
+        }
+
+        Assert.Equal(0x80 + 5, one[0]);
+    }
+
+    /// <summary>A buffered play or stop refuses bad arguments when it is sent, not when it is heard.</summary>
+    [Fact]
+    public void ABufferedCommandChecksItsArgumentsAtOnce()
+    {
+        XgmPcmDriver driver = new();
+        Assert.Throws<ArgumentOutOfRangeException>(() => driver.Play(4, [1], 0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => driver.Stop(0, 16));
+        Assert.Throws<ArgumentException>(() => driver.Play(0, [], 0));
+    }
+
+    /// <summary>
+    /// Every add that clips costs 11 Z80 cycles and delays the beats after it (SGDK's driver, measured): four loud
+    /// channels that clip on every beat send 3 × 165 master clocks more per beat, 13 % fewer beats than quiet ones.
+    /// </summary>
+    [Fact]
+    public void ClippingSlowsTheBeat()
+    {
+        const int samples = 100_000;
+        sbyte[] loud = [.. Enumerable.Repeat((sbyte)100, 32_768)];
+        sbyte[] quiet = [.. Enumerable.Repeat((sbyte)10, 32_768)];
+        long Beats(sbyte[] sample)
+        {
+            XgmPcmDriver driver = new(buffered: false);
+            for (int c = 0; c < 4; c++)
+            {
+                driver.Play(c, sample, 0);
+            }
+
+            DacCapture.Of(driver, samples);
+            return driver.BeatsSent;
+        }
+
+        long quietBeats = Beats(quiet);
+        long loudBeats = Beats(loud);
+        Assert.Equal(samples * 1008.0 / 3810, quietBeats, 1.0);
+        Assert.Equal(samples * 1008.0 / (3810 + (3 * 165)), loudBeats, 2.0);
     }
 }

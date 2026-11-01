@@ -18,6 +18,10 @@ For **each** probe below:
    The tests then check that DefleMask's copy holds the same song as ours (`DmfProbeTests`).
 5. **Export VGM** into the `vgm/` folder here, again with the same name (`vgm/fm-note.vgm`).
 
+Also, once, for `dac-sample` (plan T7.9, [ADR 0066](../../../docs/adr/0066-pcm-drivers-checked-against-sgdk.md)):
+**File → Export → WAV** (44.1 kHz, 16-bit, stereo, no loop) into a `wav/` folder here as `wav/dac-sample.wav`.
+`DefleMaskDacExportTests` (in `tests/Mod2Xgm.Harness.Tests`) then compares its first beep with the DMF DAC model.
+
 Then run rescomp once for all five (step 6), and tell Claude what you heard for each probe and whether rescomp
 worked. The results go into docs/formats/dmf.md.
 

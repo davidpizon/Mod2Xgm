@@ -8,6 +8,12 @@ internal static class TestFiles
     /// <summary>The repository root: the folder above the test binaries that holds <c>Mod2Xgm.slnx</c>.</summary>
     private static string Root { get; } = FindRoot();
 
+    /// <summary>
+    /// DefleMask's WAV export of the <c>dac-sample</c> DMF probe, made by hand (docs/adr/0066-pcm-drivers-checked-against-sgdk.md,
+    /// tests/golden/dmf-probes/README.md); absent until David exports it.
+    /// </summary>
+    public static string DefleMaskDacExport => Path.Combine(Root, "tests", "golden", "dmf-probes", "wav", "dac-sample.wav");
+
     /// <summary>A short corpus song (31 s, plan T6.1).</summary>
     public static string ShortSong => Path.Combine(Root, "tests", "data", "corpus", "fx-poly1.mod");
 

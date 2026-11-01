@@ -76,8 +76,9 @@ Nuked-PSG on write probes (`tests/golden/sn76489/`).
 **PCM driver models** (`src/Render/Pcm`, plan T7.4, [ADR 0058](adr/0058-pcm-driver-models.md)) — pure C#: what SGDK's
 XGM and XGM2 Z80 drivers and DefleMask's FM6 DAC put on the YM3438's DAC. Plays and stops in, the `$2A` and `$2B`
 bytes for every YM3438 sample out (`IDacSource`): ordered mixing stuck at ±127, 256-byte padding, priorities and
-each driver's DAC on/off rule. The Genesis renderer (T7.5) writes them into `Ym3438`. Checked by tests built from the
-drivers' source; T7.9 checks them against the real drivers.
+each driver's DAC on/off rule, and the drivers' buffering as measured on SGDK's real drivers run on an emulated Z80
+(T7.9, [ADR 0066](adr/0066-pcm-drivers-checked-against-sgdk.md): start delays, XGM2's doubled first 64 beats, XGM's
+clipping slowdown). The Genesis renderer (T7.5) writes them into `Ym3438`.
 
 **GenesisRenderer** (`src/Render`, plan T7.5, [ADR 0059](adr/0059-genesis-renderer.md)) — pure C#: plays a
 `GenesisPlan` on the three models above. The plan says which channel and voice play each note; the tick player's
