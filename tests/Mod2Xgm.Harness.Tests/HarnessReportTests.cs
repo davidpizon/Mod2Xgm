@@ -1,4 +1,6 @@
 using Mod2Xgm.Analysis;
+using Mod2Xgm.Mapping;
+using Mod2Xgm.Optimizer;
 using Mod2Xgm.Scoring;
 
 namespace Mod2Xgm.Harness.Tests;
@@ -177,6 +179,26 @@ public sealed class HarnessReportTests
         Assert.Equal("alpha,1,\"bass, low\",tone,0,0.988,0.01,64,1,2.3,0,-9.03,4.9,,0,64,1,2,8287 16575,129.5 259,3 1", lines[1]);
         Assert.Equal("alpha,5,snare,drum,0.95,0.1,0.9,,,,,-3,0,123.4,,,,1,16574,,0", lines[2]);
         Assert.Equal(string.Empty, lines[3]);
+    }
+
+    /// <summary>The FM fit CSV has one line per song, sample and region: library, both searches, the best and its settings (plan T8.2).</summary>
+    [Fact]
+    public void FmFitCsvHasOneLinePerRegion()
+    {
+        FmFit library = new(FmPatchLibrary.Lead, null, FmFitSource.Library, new FmScore(7.1234, 90.5, 9.5));
+        FmFit exhaustive = new(FmPatchLibrary.Organ with { Name = "Fit 1.1" }, null, FmFitSource.Exhaustive, new FmScore(3.5, 40.25, 4.25));
+        FmFit genetic = new(FmPatchLibrary.Sine with { Fms = 2 }, 5, FmFitSource.Genetic, new FmScore(3, 35, 4));
+        FmRegionFit bass = new(0, library, exhaustive, genetic, genetic, exhaustive, 1234, TimeSpan.FromSeconds(12.34));
+        FmRegionFit lib = new(1, library, null, null, library, library, 11, TimeSpan.FromSeconds(0.5));
+        SongResult[] results = [Results[0] with { FmFits = [new FmSampleFit(0, "bass, low", [bass, lib])] }, Results[1]];
+
+        string[] lines = HarnessReport.FmFitCsv(results).Split('\n');
+
+        Assert.Equal(HarnessReport.FmFitHeader, lines[0]);
+        Assert.Equal("alpha,1,\"bass, low\",1,Lead,7.123,3.5,3,genetic,3,35,4,3.5,5,\"ALG 7 FB 0 MULT 1 1 1 1, LFO 5 FMS 2 AMS 0\",yes,1234,12.3", lines[1]);
+        Assert.Equal("alpha,1,\"bass, low\",2,Lead,7.123,,,library,7.123,90.5,9.5,7.123,,\"ALG 4 FB 5 MULT 1 1 2 2, no LFO\",no,11,0.5", lines[2]);
+        Assert.Equal(string.Empty, lines[3]);
+        Assert.Equal(HarnessReport.FmFitCsv(results), HarnessReport.FmFitCsv(results));
     }
 
     /// <summary>The same results give the same files: the report holds no time or machine detail (plan T6.3).</summary>

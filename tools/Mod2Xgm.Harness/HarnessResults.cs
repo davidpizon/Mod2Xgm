@@ -1,6 +1,7 @@
 using Mod2Xgm.Analysis;
 using Mod2Xgm.Mod;
 using Mod2Xgm.Model;
+using Mod2Xgm.Optimizer;
 using Mod2Xgm.Scoring;
 
 namespace Mod2Xgm.Harness;
@@ -220,4 +221,7 @@ internal sealed record SongResult(string Song, DurationCheck? Duration, int Conv
 {
     /// <summary>The analysis of every sample the song has (docs/adr/0068-sample-analysis.md); empty when the song failed before it.</summary>
     public IReadOnlyList<SampleAnalysis> Samples { get; init; } = [];
+
+    /// <summary>The FM fits of every sample (<c>--fm-fit</c>, docs/adr/0069-fm-patch-fitting.md); empty when not asked for.</summary>
+    public IReadOnlyList<FmSampleFit> FmFits { get; init; } = [];
 }

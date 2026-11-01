@@ -119,13 +119,20 @@ FM patch, PSG). It gets the song and its `Playback`: notes are planned at the ti
 `IChannelMapper`. Its output, `GenesisPlan`, has one pattern **per order** (what a note sounds like depends on the
 instrument and volume the channel carried in), ten columns per row (FM1–5, FM6/DAC, PSG1–4), the FM patches and DAC
 samples the notes use, and per-row song-wide effects (`Flow`). `SampleTraits` (brightness, noise) and `FmPatchLibrary`
-(five placeholder patches) are its stand-ins until scoring (M6) and fitting (M8).
+(eleven patches, at least one per algorithm) are its stand-ins until scoring (M6) and fitting (M8).
 
 **Sample analysis** (`src/Analysis`, plan T8.1, [ADR 0068](adr/0068-sample-analysis.md)) — pass 2 of the optimizer:
 `SampleAnalyzer` measures each sample once, giving `SampleAnalysis`. That holds percussive, tonal and noisy scores (0–1)
 and a label, pitch stability (YIN, `Yin`, shared with `SamplePitch`), the amplitude envelope, the loop, and per pitch
 region (the notes the song plays, at most an octave wide, at most 3) 64 mel bands and up to 64 harmonics. Nothing uses
 it yet; `--verbose` logs it (`SampleAnalysisReport`) and the harness writes `sample-analysis.csv`.
+
+**FM fitting** (`src/Optimizer`, plan T8.2, [ADR 0069](adr/0069-fm-patch-fitting.md)) — part of pass 3: `FmFitter`
+fits an FM patch to each pitch region of a `SampleAnalysis`. `FmNoteRenderer` plays one held note on the `Ym3438` model
+(`Render/FmVoice` loads the patch, shared with `GenesisPlanPlayer`) and `FmEvaluator` scores it against the region's
+harmonics and mel bands. `FmExhaustiveSearch` and `FmGeneticSearch` choose the algorithm and multiples (`FmStructure`),
+`FmLocalSearch` fits the levels, envelopes, SSG-EG and LFO, and `FmFitReport` logs the result. Nothing in the
+conversion uses it yet (M9); the harness runs it with `--fm-fit`.
 
 **Scoring** (`src/Scoring`, plan T6.2, [ADR 0042](adr/0042-scoring-metrics.md)) — pure C#: says how close a rendering sounds to the
 original. `AudioSignal` (mono audio) → `Alignment` (constant lag from the note-start curves) → `SpectralMetrics`

@@ -188,6 +188,22 @@ public sealed class GenesisRendererTests
         Assert.True(Db(slid.Left, slid.SampleRate, 0.185, 0.195) < Db(slid.Left, slid.SampleRate, 0.11, 0.12));
     }
 
+    /// <summary>A patch's SSG-EG plays in the song: a repeating shape keeps a decaying carrier sounding where it would have faded out.</summary>
+    [Fact]
+    public void SsgEgPlaysInTheSong()
+    {
+        FmPatch decaying = new("decay", 7, 0, [new FmOperator(1, 0, 0, 0, 31, false, 20, 0, 15, 15), Muted(), Muted(), Muted()]);
+        FmPatch repeating = decaying with { Operators = [decaying.Operators[0] with { SsgEg = 8 }, .. decaying.Operators.Skip(1)] };
+        Song song = SongOf(1, LoopedSine());
+        Playback playback = PlaybackOf(10, (r, t) => Playing(r == 0 && t == 0));
+
+        StereoAudio once = Render(PlanOf([decaying], [], Row((GenesisChannel.Fm1, Note(VoiceKind.Fm)))), song, playback);
+        StereoAudio again = Render(PlanOf([repeating], [], Row((GenesisChannel.Fm1, Note(VoiceKind.Fm)))), song, playback);
+
+        Assert.True(Db(once.Left, once.SampleRate, 0.8, 1.0) < -60);
+        Assert.True(Db(again.Left, again.SampleRate, 0.8, 1.0) > -30);
+    }
+
     /// <summary>A note delayed past the end of its row (EDx with x ≥ speed) is left out, as ProTracker plays nothing; the render says so.</summary>
     [Fact]
     public void ANoteDelayedPastItsRowIsLeftOut()

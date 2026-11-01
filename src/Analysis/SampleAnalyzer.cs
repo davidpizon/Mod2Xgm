@@ -94,7 +94,7 @@ internal static class SampleAnalyzer
     private const double WhiteNoiseFlatness = 0.5615;
 
     /// <summary>Each region is analyzed over this much of its playback.</summary>
-    private const double RegionSeconds = 1;
+    public const double RegionSeconds = 1;
 
     /// <summary>A region's mel frame size and the step between frames (10 ms at <see cref="AnalysisRateHz"/>).</summary>
     private const int MelFftSize = 2048;
@@ -447,23 +447,33 @@ internal static class SampleAnalyzer
         double? fundamental = period is { } p ? bounds.RateHz / p : null;
         float[] played = PlayOut(sample, bounds.RateHz, RegionSeconds);
         float[] sound = played.Length == 0 ? [] : SampleProcessor.Resample(played, bounds.RateHz, AnalysisRateHz, ResamplingMode.Smooth);
+        return new PitchRegion(bounds.LowRateHz, bounds.HighRateHz, bounds.RateHz, bounds.Notes, fundamental, Spectrum(sound, fundamental));
+    }
+
+    /// <summary>
+    /// The spectrum of <paramref name="sound"/> (at <see cref="AnalysisRateHz"/>) as a region's is taken: its mel bands, and
+    /// its harmonics of <paramref name="fundamentalHz"/> when given. The FM fitter measures its renders with this, so they
+    /// compare frame for frame with the sample's (docs/adr/0069-fm-patch-fitting.md).
+    /// </summary>
+    internal static RegionSpectrum Spectrum(float[] sound, double? fundamentalHz)
+    {
         double hopSeconds = (double)SpectrumHop / AnalysisRateHz;
         if (sound.Length == 0)
         {
-            return new PitchRegion(bounds.LowRateHz, bounds.HighRateHz, bounds.RateHz, bounds.Notes, fundamental, new RegionSpectrum(hopSeconds, [], null));
+            return new RegionSpectrum(hopSeconds, [], null);
         }
 
         MelAnalyzer mel = new(AnalysisRateHz, MelFftSize, SpectrumHop, MelBands);
         float[][] bands = [.. mel.LogMel(sound, sound.Length).Select(row => row.Select(v => (float)v).ToArray())];
-        IReadOnlyList<float[]>? harmonics = fundamental is { } f ? Harmonics(sound, f) : null;
-        return new PitchRegion(bounds.LowRateHz, bounds.HighRateHz, bounds.RateHz, bounds.Notes, fundamental, new RegionSpectrum(hopSeconds, bands, harmonics));
+        IReadOnlyList<float[]>? harmonics = fundamentalHz is { } f ? Harmonics(sound, f) : null;
+        return new RegionSpectrum(hopSeconds, bands, harmonics);
     }
 
     /// <summary>
     /// The level of each harmonic of <paramref name="fundamentalHz"/> in each frame: the strongest bin within a quarter of
     /// the fundamental of the harmonic, in dB of a full-scale sine; <c>null</c> when not even the fundamental is below 20 kHz.
     /// </summary>
-    private static float[][]? Harmonics(float[] sound, double fundamentalHz)
+    internal static float[][]? Harmonics(float[] sound, double fundamentalHz)
     {
         int count = Math.Min(MaxHarmonics, (int)Math.Floor(TopHarmonicHz / fundamentalHz));
         if (count < 1)

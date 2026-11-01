@@ -116,7 +116,7 @@
 | Task | Work | Acceptance |
 |---|---|---|
 | T8.1 ✅ | Sample analysis: percussive/tonal, pitch stability, envelope, spectral envelope per pitch region ([ADR 0068](adr/0068-sample-analysis.md)) | Tests |
-| T8.2 | FM patch library + fitting per [references/fm-matching.md](references/fm-matching.md): per-algorithm structure search (GA or pruned exhaustive over MULT/DT), then local search over levels and envelopes on the integer grid; deterministic seed; per pitch region | Fitted patches beat library patches on per-instrument error |
+| T8.2 ✅ | FM patch library + fitting per [references/fm-matching.md](references/fm-matching.md) ([ADR 0069](adr/0069-fm-patch-fitting.md)): per-algorithm structure search (GA or pruned exhaustive over MULT/DT), then local search over levels and envelopes on the integer grid; deterministic seed; per pitch region | Fitted patches beat library patches on per-instrument error |
 | T8.3 | PSG candidates (tone / noise) | Tests |
 | T8.4 | PCM variant candidates with costs | Tests |
 | T8.5 | Locked-pair detection and CH3 special dual voice (DMF/XGM2); pre-mixed PCM for repeated overlaps, with offsets, head/tail split and byte dedupe ([ADR 0052](adr/0052-pre-mixed-pcm.md)) | Tests; CH3 never offered for XGM v1; seams measured with the PCM driver model (T7.4); XGM2 tail aliasing verified; corpus count of voice steals removed |

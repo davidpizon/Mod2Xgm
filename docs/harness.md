@@ -178,6 +178,8 @@ is over the renderer's bar, **2** the harness couldn't run
 | `--save-reference-wavs` | | Also write the libopenmpt renders to `wav/song.reference.wav`, for listening |
 | `--clip <seconds>` | | Also score each song's first *seconds* (1–600) on their own, write them to `clip-scores.csv` and a report section, and save them for listening as `wav/song.reference.clip.wav` and `wav/song.<renderer>.clip.wav` |
 | `--balance` | | With `--clip`: also measure each clip's [instrument balance](#instrument-balance) from stems, for Furnace, into `balance.csv`, `balance-instruments.csv` and a report section |
+| `--fm-fit` | | Also fit FM patches to every sample the conversion analyzed, every pitch region, with both structure searches ([ADR 0069](adr/0069-fm-patch-fitting.md)), into `fm-fit.csv`; a song's samples are fitted at once. Slow: minutes per region without a limit |
+| `--fm-max-renders <n>` | no limit | With `--fm-fit`: most notes each step of a region's fit renders (the structure search, and each level fit after it) |
 | `-j`, `--jobs` | half the processors, at most 4 | Songs measured at once (1–64). The reports list songs in the same order either way |
 | `-v`, `--verbose` | | Log every scoring step |
 
@@ -194,12 +196,14 @@ In the output folder:
 | `balance-instruments.csv` | With `--balance`: `song,renderer,sample,name,voices,offset_db,distance_db,frames,reference_level_db,r128_offset_lu`, one line per stem |
 | `loudness.csv` | `song,renderer,span,reference_lufs,candidate_lufs,difference_lu,reference_lra_lu,candidate_lra_lu,reference_true_peak_dbtp,candidate_true_peak_dbtp`; `span` is `song`, or `clip` with `--clip` |
 | `sample-analysis.csv` | `song,sample,name,kind,percussive,tonal,noisy,period_frames,voiced_share,deviation_cents,drift_cents,peak_db,attack_ms,decay_ms,sustain_db,loop_frames,loop_cycles,regions,region_rates_hz,fundamentals_hz,notes`, one line per sample with sound ([ADR 0068](adr/0068-sample-analysis.md)); the last three list each pitch region, separated by spaces |
+| `fm-fit.csv` | With `--fm-fit`: `song,sample,name,region,library,library_db,exhaustive_db,genetic_db,best,best_db,best_mfcc,best_harmonic_db,no_lfo_db,lfo_rate,patch,fitted_beats_library,renders,seconds`, one line per pitch region ([ADR 0069](adr/0069-fm-patch-fitting.md)): the closest built-in patch, each search's fit, the best and its twin without the LFO (log-mel distances in dB), the best's settings, the notes rendered and the time taken |
 | `durations.csv` | `song,tick_player_s,openmpt_rules_s,reference_s,difference_s,amiga_difference_s,one_tick_s,within_one_tick,first_row_off,stops_at_f00,conversion_notes,error` |
 | `dmf/`, `wav/` | The conversions and the renders; `dmf/stems/` holds the stem DMFs (their renders are deleted) |
 | `logs/` | Each conversion's console output (`song.log`) and its rows' times (`song.rows.csv`: `order,row,tick_player_s,openmpt_rules_s,reference_s,difference_s`) |
 
 Nothing in the reports depends on the time or the machine, so two runs of the same converter give the same files
-(plan T6.3: *stable scores on reruns*). Reports stay in `artifacts/`. The simple mapper's baseline, which later changes
+(plan T6.3: *stable scores on reruns*). The one exception is `fm-fit.csv`'s `seconds` column, asked for to judge the
+fit's cost (David, [ADR 0069](adr/0069-fm-patch-fitting.md)); every other column of it repeats exactly. Reports stay in `artifacts/`. The simple mapper's baseline, which later changes
 are measured against, is committed in [tests/golden/harness-baseline/](../tests/golden/harness-baseline/README.md)
 ([ADR 0049](adr/0049-simple-mapper-baseline.md)).
 
