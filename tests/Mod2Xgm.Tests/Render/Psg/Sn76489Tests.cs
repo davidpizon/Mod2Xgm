@@ -5,8 +5,11 @@ namespace Mod2Xgm.Tests.Render.Psg;
 /// <summary>The SN76489 model's interface and the simple facts of the Sega PSG that the probes take for granted.</summary>
 public sealed class Sn76489Tests
 {
-    /// <summary>MAME's levels for volumes 0–15: 8191, then 2 dB less per step, truncated; 15 is off.</summary>
-    private static readonly int[] MameLevels = [8191, 6506, 5168, 4105, 3260, 2590, 2057, 1634, 1298, 1031, 819, 650, 516, 410, 326, 0];
+    /// <summary>
+    /// Nuked-PSG's levels for volumes 0–15, measured from its output (× 8192, truncated) with the loudest at MAME's 8191;
+    /// 15 is off (docs/adr/0067-psg-volume-levels.md).
+    /// </summary>
+    private static readonly int[] NukedLevels = [8191, 6324, 5095, 3973, 3129, 2375, 1875, 1425, 1081, 786, 589, 417, 278, 155, 73, 0];
 
     private static int[] Play(Sn76489 chip, int samples)
     {
@@ -50,14 +53,14 @@ public sealed class Sn76489Tests
         Assert.Equal(Play(With(0x8e, 0x0f, 0x90), 600), Play(chip, 600));
     }
 
-    /// <summary>Each volume plays MAME's level, negated: a high channel pulls the output down; the low half of the wave is 0.</summary>
+    /// <summary>Each volume plays Nuked-PSG's level, negated as MAME does: a high channel pulls the output down; the low half of the wave is 0.</summary>
     [Fact]
-    public void VolumesPlayMamesLevelsNegated()
+    public void VolumesPlayNukedsLevelsNegated()
     {
         for (int volume = 0; volume < 16; volume++)
         {
             int[] output = Play(With(0x80 | 0x0e, 0x0f, 0x90 | volume), 1000);
-            Assert.Equal(-MameLevels[volume], output.Min());
+            Assert.Equal(-NukedLevels[volume], output.Min());
             Assert.Equal(0, output.Max());
         }
     }
@@ -70,7 +73,7 @@ public sealed class Sn76489Tests
         // high once its first 1 bit comes round (white noise, rate 0).
         int[] output = Play(With(0x80, 0x00, 0xa0, 0x00, 0xc0, 0x00, 0x90, 0xb0, 0xd0, 0xe4, 0xf0), 4096);
         Assert.Equal(-Sn76489.FullScale, output.Min());
-        Assert.Equal(Sn76489.FullScale, 4 * MameLevels[0]);
+        Assert.Equal(Sn76489.FullScale, 4 * NukedLevels[0]);
     }
 
     /// <summary>A tone flips every <c>period</c> samples, so it sounds at clock / (32 × period).</summary>
@@ -180,12 +183,12 @@ public sealed class Sn76489Tests
     /// <summary>A data byte after a volume latch sets that volume.</summary>
     [Fact]
     public void ADataByteAfterAVolumeLatchSetsTheVolume() =>
-        Assert.Equal(-MameLevels[6], Play(With(0x8e, 0x0f, 0x90, 0x06), 1000).Min());
+        Assert.Equal(-NukedLevels[6], Play(With(0x8e, 0x0f, 0x90, 0x06), 1000).Min());
 
     /// <summary>The latch starts on register 3, tone 2's volume, so a data byte before any latch byte sets it (MAME, from hardware tests).</summary>
     [Fact]
     public void ThePowerOnLatchIsTone2sVolume() =>
-        Assert.Equal(-MameLevels[0], Play(With(0x00, 0xae, 0x0f), 1000).Min());
+        Assert.Equal(-NukedLevels[0], Play(With(0x00, 0xae, 0x0f), 1000).Min());
 
     /// <summary>Periodic noise is one high bit every 16 shifts; at rate 0 it shifts every 32 samples.</summary>
     [Fact]

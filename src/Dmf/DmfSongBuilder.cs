@@ -66,9 +66,6 @@ internal static class DmfSongBuilder
     /// <summary>Most values a macro holds (docs/formats/dmf.md#6-instruments).</summary>
     private const int MaxMacroLength = 127;
 
-    /// <summary>One PSG volume step, in decibels: a noise instrument's volume macro follows its sample's loudness in these.</summary>
-    private const double PsgStepDb = 2;
-
     /// <summary>Builds the DMF song; every lossy choice becomes a note in <paramref name="notes"/>.</summary>
     /// <param name="plan">The mapped song.</param>
     /// <param name="song">The song the plan was made from (samples, instruments, channel pans).</param>
@@ -191,9 +188,11 @@ internal static class DmfSongBuilder
 
     /// <summary>
     /// A PSG noise instrument whose volume macro follows <paramref name="sample"/>'s loudness tick by tick, so a hit fades
-    /// like the recording; the PSG noise itself never fades. DefleMask adds the macro to the channel volume in 2 dB steps
-    /// (Furnace: VOL_SCALE_LOG for SN76489), so the loudest tick is F and a tick 6 dB quieter is C. A sample that loops
-    /// holds its loop's level; one that doesn't ends at 0.
+    /// like the recording; the PSG noise itself never fades. The loudest tick is F, and every other tick takes the chip's
+    /// level nearest its loudness (<see cref="DmfUnits.PsgVolume"/>): a tick 6 dB quieter is C (−6.3 dB). DefleMask adds
+    /// the macro to the channel volume in steps (Furnace: VOL_SCALE_LOG for SN76489), so the fade is exact at full volume
+    /// and ends quieter below it, the steps being uneven (docs/adr/0067-psg-volume-levels.md). A sample that loops holds
+    /// its loop's level; one that doesn't ends at 0.
     /// </summary>
     /// <param name="sample">The noise sample.</param>
     /// <param name="playbackRateHz">The rate its first note plays it at.</param>
@@ -217,7 +216,7 @@ internal static class DmfSongBuilder
         }
 
         double loudest = levels.DefaultIfEmpty(0).Max();
-        List<int> values = [.. levels.Select(level => loudest <= 0 || level <= 0 ? 0 : Math.Clamp((int)Math.Round(DmfUnits.MaxPsgVolume + (20 * Math.Log10(level / loudest) / PsgStepDb), MidpointRounding.AwayFromZero), 0, DmfUnits.MaxPsgVolume))];
+        List<int> values = [.. levels.Select(level => loudest <= 0 ? 0 : DmfUnits.PsgVolume(level / loudest))];
         if (sample.Loop is null && values.Count < MaxMacroLength)
         {
             values.Add(0);

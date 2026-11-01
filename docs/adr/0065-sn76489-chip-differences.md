@@ -1,7 +1,7 @@
 # ADR 0065: The SN76489 model's counters and noise follow the chip where MAME differs, as Nuked-PSG has them (T7.8)
 
 - **Status:** Accepted; closes known differences 2 and 3 of [ADR 0057](0057-sn76489-model.md#known-differences-from-the-chip)
-  and records 1 and 4
+  and records 1 and 4; decision 1 (the volume levels) superseded by [ADR 0067](0067-psg-volume-levels.md)
 - **Date:** 2026-10-31
 
 ## Context

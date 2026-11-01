@@ -3,7 +3,7 @@ name "noise", author "", highlights 4/16
 time base 0, tick times 6/6, PAL, custom Hz off
 1 matrix rows of 64 rows
 instrument 0 "hat" STD: arpeggio mode 0
-  volume [15 14 13 11 10 9 8 6 5 4 3 2 1 0 0 0 0 0 0 0 0 0 0 0 0 0] loop -1; arpeggio [] loop -1; duty/noise [] loop -1; wavetable [] loop -1
+  volume [15 14 13 11 10 9 8 7 6 5 5 4 3 2 2 2 1 1 1 1 0 0 0 0 0 0] loop -1; arpeggio [] loop -1; duty/noise [] loop -1; wavetable [] loop -1
 channel 1: orders [0], effect columns 1
 channel 2: orders [0], effect columns 1
 channel 3: orders [0], effect columns 1
@@ -28,4 +28,5 @@ channel 10: orders [0], effect columns 1
   0:44 note 2 octave 3 volume 9 instrument 0 effects []
 conversion notes:
   Sample 3 "hat": it is noise and the DAC is off (--no-dac), so it is played by the PSG noise channel
+  8 noise notes play below full volume, where DefleMask adds the volume to their fade in the PSG's uneven steps: their fades end quieter than in the MOD
   12 noise notes play quieter than in the MOD: their sample is louder than the PSG's noise at full volume

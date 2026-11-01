@@ -78,8 +78,9 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0062](0062-one-word-samples.md) | A sample 1 word long is read as OpenMPT reads it: empty, its bytes left to the next sample | 2026-10-31 | Accepted; amends 0060 |
 | [0063](0063-multichannel-mod-xm-it-input.md) | Multichannel MOD, XM and IT input (M14–M16): OpenMPT's playback rules ported, NNA emulated, sample options as for MOD | 2026-10-31 | Accepted |
 | [0064](0064-ym3438-chip-differences.md) | The YM3438 model follows the chip where ymfm differs, as Nuked-OPN2 has it (T7.7) | 2026-10-31 | Accepted; closes the known differences of 0056 |
-| [0065](0065-sn76489-chip-differences.md) | The SN76489 model's counters and noise follow the chip where MAME differs, as Nuked-PSG has them; MAME's volume levels and power-on latch kept (T7.8) | 2026-10-31 | Accepted; closes or records the known differences of 0057 |
+| [0065](0065-sn76489-chip-differences.md) | The SN76489 model's counters and noise follow the chip where MAME differs, as Nuked-PSG has them; MAME's volume levels and power-on latch kept (T7.8) | 2026-10-31 | Accepted; closes or records the known differences of 0057; volume levels superseded by [ADR 0067](0067-psg-volume-levels.md) |
 | [0066](0066-pcm-drivers-checked-against-sgdk.md) | The PCM driver models follow SGDK's real XGM and XGM2 drivers, run on an emulated Z80 (T7.9) | 2026-10-31 | Accepted; closes the known differences of 0058 |
+| [0067](0067-psg-volume-levels.md) | The PSG plays Nuked-PSG's volume levels, measured from its output, and the converter picks PSG volumes from them (T7.8) | 2026-10-31 | Accepted; supersedes decision 1 of 0065 |
 | [0068](0068-sample-analysis.md) | Sample analysis: three scores, pitch stability, envelope, loop and a spectrum per pitch region (T8.1) | 2026-10-31 | Accepted |
 
 ## Open questions

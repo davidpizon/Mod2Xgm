@@ -32,9 +32,6 @@ internal sealed class Sn76489
     /// <summary>A channel's level at volume 0 (the loudest): MAME's <c>MAX_OUTPUT / 4</c>.</summary>
     private const int MaxChannelLevel = 0x7fff / 4;
 
-    /// <summary>One volume step: 2 dB, as a ratio (MAME's constant, 10^(2/20)).</summary>
-    private const double VolumeStep = 1.258925412;
-
     /// <summary>The counters are 10 bits wide, like the tone periods (docs/adr/0065-sn76489-chip-differences.md).</summary>
     private const int CounterMask = 0x3ff;
 
@@ -64,8 +61,11 @@ internal sealed class Sn76489
     /// <summary>The register the latch points at after reset on Sega's chip: channel 2's volume (MAME, from hardware tests).</summary>
     private const int ResetLatch = 3;
 
-    /// <summary>Channel levels by volume register value, 0 (loudest) to 15 (off), as MAME builds them.</summary>
-    private static readonly int[] VolumeTable = BuildVolumeTable();
+    /// <summary>
+    /// Channel levels by volume register value, 0 (loudest) to 15 (off): Nuked-PSG's, where MAME's are even 2 dB steps
+    /// (docs/adr/0067-psg-volume-levels.md).
+    /// </summary>
+    private static readonly int[] VolumeTable = PsgLevels.Channel.ToArray();
 
     private readonly int[] _registers = new int[8];
     private readonly int[] _volume = new int[4];
@@ -257,19 +257,4 @@ internal sealed class Sn76489
     /// clocks the noise instead.
     /// </summary>
     private static int NoisePeriod(int noise) => (noise & 3) == NoiseRateTone3 ? 0 : 16 << (noise & 3);
-
-    /// <summary>MAME's table: 8191 at volume 0, 2 dB less per step, truncated to integers; volume 15 is silent.</summary>
-    private static int[] BuildVolumeTable()
-    {
-        int[] table = new int[16];
-        double level = MaxChannelLevel;
-        for (int i = 0; i < 15; i++)
-        {
-            table[i] = level > MaxChannelLevel ? MaxChannelLevel : (int)level;
-            level /= VolumeStep;
-        }
-
-        table[15] = 0;
-        return table;
-    }
 }

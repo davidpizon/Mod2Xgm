@@ -217,7 +217,7 @@ DefleMask's and Furnace's WAV exports of the effect probes, `tests/golden/dmf-ef
 | What | DMF | MOD (ProTracker 2) | Writer |
 |---|---|---|---|
 | FM volume | 0–`7F`, lowers the carriers' TL: **0.75 dB a step** (DMF: linear on 127 − TL; Furnace render of the `levels` probe: 8 steps = 5.9 dB). At `7F` a TL-0 sine carrier is as loud as a full-scale sine on the DAC | 0–64 linear | `127 + 20·log10(v·g) / 0.75`, g = the sample's level over the patch's ([ADR 0050](../adr/0050-voice-levels.md)) |
-| PSG volume | 0–`F`, **2 dB a step**; white noise at `F` is 12.5 dB below a full-scale DAC sine's peak (RMS, Furnace) | | `15 + 20·log10(v·g) / 2` for noise, g = the sample's loudest level over the noise's ([ADR 0050](../adr/0050-voice-levels.md)) |
+| PSG volume | 0–`F`, the chip's attenuator: uneven steps, 2.2 dB at the top to 6.5 dB at the bottom (Nuked-PSG; Furnace and DefleMask may play even 2 dB steps); white noise at `F` is 12.5 dB below a full-scale DAC sine's peak (RMS, Furnace) | | the chip level nearest `v·g` in dB for noise, g = the sample's loudest level over the noise's ([ADR 0050](../adr/0050-voice-levels.md), [ADR 0067](../adr/0067-psg-volume-levels.md)) |
 | DAC volume | **none** (Furnace `noOPN2Vol`): the sample plays as stored | | a quieter copy per 3 dB |
 | `01xx`/`02xx`/`03xx` | xx **F-number steps a tick**, every tick incl. the row's first; the F-number halves/doubles at the octave block (C) | periods per tick, ticks 1… only | F-number distance of the row's move (at its halfway pitch) / DMF ticks |
 | `04xy` | x/64 cycle a tick on every tick; depth y = ±y/16 semitone (1/128-semitone units) | x/64 cycle a tick on ticks 1… only; depth in periods | x × (ticks − 1) / ticks; depth converted at the note's period |
