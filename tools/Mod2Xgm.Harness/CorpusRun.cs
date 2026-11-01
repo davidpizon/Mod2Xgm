@@ -84,8 +84,8 @@ internal sealed class CorpusRun(
                 WavFile.Write(Path.Combine(song.WavDirectory, name + ".reference.clip.wav"), referenceClip);
             }
 
-            duration = CheckLength(song, mod, original.DurationSeconds, out IReadOnlyList<RowTiming> rows, out IReadOnlyList<SampleAnalysis> analyses);
-            notes = Convert(song);
+            duration = CheckLength(song, mod, original.DurationSeconds, out IReadOnlyList<RowTiming> rows);
+            notes = Convert(song, out IReadOnlyList<SampleAnalysis> analyses);
             AudioSignal referenceMono = original.Audio.ToMono();
             Loudness referenceLoudness = Loudness.Of(original.Audio);
             ReferenceStems? stems = balance && referenceClip is not null && candidates.Any(c => c is IDmfRenderer)
@@ -111,15 +111,13 @@ internal sealed class CorpusRun(
 
     /// <summary>
     /// Plays the song with the converter's tick player (PAL, the reference's assumption too), compares when each row
-    /// starts with the reference (every row to <c>logs/name.rows.csv</c>) and checks the length; analyzes every sample on
-    /// the way (<c>sample-analysis.csv</c>).
+    /// starts with the reference (every row to <c>logs/name.rows.csv</c>) and checks the length.
     /// </summary>
-    private DurationCheck CheckLength(SongFiles song, byte[] mod, double referenceSeconds, out IReadOnlyList<RowTiming> rows, out IReadOnlyList<SampleAnalysis> analyses)
+    private DurationCheck CheckLength(SongFiles song, byte[] mod, double referenceSeconds, out IReadOnlyList<RowTiming> rows)
     {
         ConversionNotes silent = new(Logger.None);
         ModModule module = ModReader.Read(mod, silent);
         Playback playback = ModTickPlayer.Play(module, AmigaPitch.PalClockHz, 1.0, silent);
-        analyses = SampleAnalyzer.AnalyzeSong(ModToSong.Convert(module, AmigaPitch.PalClockHz, silent), playback, new HashSet<int>());
         rows = DurationCheck.Rows(playback, r => reference.RowTimes(mod, r));
         System.Text.StringBuilder csv = new("order,row,tick_player_s,openmpt_rules_s,reference_s,difference_s\n");
         foreach (RowTiming row in rows)
@@ -157,15 +155,20 @@ internal sealed class CorpusRun(
         return check;
     }
 
-    /// <summary>Converts the MOD with the default options, its whole console output going to <c>logs/name.log</c>; returns the number of conversion notes.</summary>
-    private int Convert(SongFiles song)
+    /// <summary>
+    /// Converts the MOD with the default options, its whole console output going to <c>logs/name.log</c>; returns the
+    /// number of conversion notes, and the conversion's own sample analysis in <paramref name="analyses"/>
+    /// (<c>sample-analysis.csv</c>).
+    /// </summary>
+    private int Convert(SongFiles song, out IReadOnlyList<SampleAnalysis> analyses)
     {
+        IReadOnlyList<SampleAnalysis> found = [];
         LogFileSink log = new();
         using (Logger songLogger = new LoggerConfiguration().MinimumLevel.Debug().WriteTo.Sink(log).CreateLogger())
         {
             try
             {
-                ConversionCommand.Execute(new ConversionOptions { InputPath = song.ModPath, OutputPath = song.DmfPath, Force = true }, songLogger);
+                ConversionCommand.Execute(new ConversionOptions { InputPath = song.ModPath, OutputPath = song.DmfPath, Force = true }, songLogger, a => found = a);
             }
             finally
             {
@@ -173,6 +176,7 @@ internal sealed class CorpusRun(
             }
         }
 
+        analyses = found;
         logger.Information("{Song}: converted to {Dmf} ({Notes} conversion notes)", song.Name, song.DmfPath, log.Warnings);
         return log.Warnings;
     }

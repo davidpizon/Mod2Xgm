@@ -37,9 +37,14 @@ and `SampleTraits` (brightness and noise). Nothing in M8 exists yet to use the a
   - the attack (the first window within 3 dB of the peak),
   - the decay (the time to 20 dB below the peak; a one-shot's end counts as silence),
   - the sustain (the loop's level against the peak).
+
+  Every window reads the sample as a note plays it: a one-shot up to its real end, a loop through its intro and then
+  round the loop. So a window at the 4 s cut, or the level half a second after a late peak, is never made-up silence.
 - **Loop:** start, length, level, and how many cycles of the pitch it holds.
 - **Pitch regions come from the notes the song plays** (David). They are at most **one octave** wide, with **at most
   3** (David):
+  - A note is each time the song starts the sample. A sample a channel swaps in without a note (MOD: an instrument
+    alone, which changes the loop) counts once per swap, at the channel's pitch.
   - Notes are grouped from the lowest one up, the fewest octave-wide groups.
   - When that makes more than 3, the range is split into three of equal width instead.
   - Each region is analyzed at its median note.
@@ -68,7 +73,7 @@ flowchart LR
 ### On the corpus
 
 There are 240 samples in 19 songs (2026-10-31). The labels are 89 tone, 79 drum, 39 plucked tone, 29 unclear and 4 noise.
-171 samples are played within one octave, 53 need two regions and 16 need three. The tones' pitch deviation has a
+170 samples are played within one octave, 53 need two regions and 17 need three. The tones' pitch deviation has a
 median of ±1.3 cents, and only 4 of 104 stray more than 50 cents.
 
 Most MOD sample names are credits, but the ones that name an instrument agree with the label:
@@ -105,7 +110,8 @@ Without `--verbose` it costs nothing.
   `SampleAnalysisReport`. `Mapping/SamplePitch` now uses `Yin`, with the same results (its tests and the DMF goldens
   are unchanged).
 - `ConversionCommand` runs the analysis only when Debug is enabled, so normal runs and their output are unchanged.
-- The harness writes `sample-analysis.csv` ([harness.md](../harness.md#output)).
+- The harness writes `sample-analysis.csv` ([harness.md](../harness.md#output)) from the conversion's own analysis
+  (`ConversionCommand.Execute` hands it over), so each song is analyzed once.
 - T8.2 fits FM patches per `PitchRegion` against its `MelBandsDb` and `HarmonicsDb`. T8.3 can use `Noisy` and
   `Percussive` to pick PSG noise. T9.3's importance can use the envelope.
 - If the optimizer runs the analysis on every conversion, its cost matters: a cheaper resampler for the analysis

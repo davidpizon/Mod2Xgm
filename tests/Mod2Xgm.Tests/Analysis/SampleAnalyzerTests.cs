@@ -113,6 +113,34 @@ public sealed class SampleAnalyzerTests
         Assert.InRange(a.Envelope.AttackSeconds, 0.12, 0.2);
     }
 
+    /// <summary>
+    /// A one-shot longer than the envelope's 4 s still plays where the envelope stops: its last level doesn't fade at the
+    /// cut, and a swell just before the cut isn't a hit that fades.
+    /// </summary>
+    [Fact]
+    public void AOneShotPastTheEnvelopeEndPlaysOn()
+    {
+        SampleAnalysis a = SampleAnalyzer.Analyze(0, OneShot((int)(6 * C2), Sine(40), t => t < 3.8 ? 0.5 : 0.6), AtC2);
+
+        Assert.True(a.Percussive < 0.1, $"percussive {a.Percussive}");
+        Assert.Equal(a.Envelope.PeakDb, a.Envelope.LevelsDb[^1], 0.5);
+        Assert.Null(a.Envelope.DecaySeconds);
+    }
+
+    /// <summary>A loop that starts after the envelope's 4 s: the envelope reads the intro up to its end, not the loop.</summary>
+    [Fact]
+    public void AnIntroPastTheEnvelopeEndIsReadAsIntro()
+    {
+        int intro = (int)(5 * C2);
+        float[] data = [.. Enumerable.Range(0, intro + 40).Select(i => (float)((i < intro ? 0.5 : 0.05) * Math.Sin(2 * Math.PI * i / 40)))];
+
+        SampleAnalysis a = SampleAnalyzer.Analyze(0, new Sample("intro", data, new SampleLoop(intro, 40)), AtC2);
+
+        Assert.Equal(a.Envelope.PeakDb, a.Envelope.LevelsDb[^1], 0.5);
+        Assert.Equal(-20, a.Envelope.SustainDb!.Value, 0.5);
+        Assert.True(a.Percussive < 0.1, $"percussive {a.Percussive}");
+    }
+
     /// <summary>A sine whose pitch falls by a fifth drifts down, and strays from its median.</summary>
     [Fact]
     public void AFallingPitchDrifts()
@@ -238,7 +266,8 @@ public sealed class SampleAnalyzerTests
     }
 
     /// <summary>
-    /// A song's analysis covers each sample with sound that isn't ignored, with the rates the playback starts it at.
+    /// A song's analysis covers each sample with sound that isn't ignored, with the rates the playback starts it at; a
+    /// sample swapped in without a note (an instrument alone) counts once, at the channel's pitch.
     /// </summary>
     [Fact]
     public void ASongAnalyzesItsPlayedSamples()
@@ -254,10 +283,13 @@ public sealed class SampleAnalyzerTests
             new Timing(6, 125));
         ChannelTick Start(int sample, double rate) => new(true, new NotePitch(36, 0, rate), 1, 0, new SampleBlock(sample, 0, 64), new SampleBlock(sample, 0, 64));
         ChannelTick Idle() => new(false, default, 0, 0, null, new SampleBlock(null, 0, 0));
+        ChannelTick Swapped(int sample, double rate) => new(true, new NotePitch(36, 0, rate), 1, 0, null, new SampleBlock(sample, 0, 32));
         Playback playback = new(
             [
                 new PlaybackTick(0, 0.02, 0, 0, 0, false, [Start(0, C2), Start(2, C4)]),
                 new PlaybackTick(0.02, 0.02, 0, 0, 1, false, [Start(0, C4), Idle()]),
+                new PlaybackTick(0.04, 0.02, 0, 0, 2, false, [Swapped(2, C2), Idle()]),
+                new PlaybackTick(0.06, 0.02, 0, 0, 3, false, [Swapped(2, C2), Idle()]),
             ],
             null,
             PlaybackEnd.Stops);
@@ -267,7 +299,8 @@ public sealed class SampleAnalyzerTests
 
         Assert.Equal([0, 2], all.Select(a => a.Sample));
         Assert.Equal(2, all[0].Regions.Count);
-        Assert.Equal(C4, all[1].Regions.Single().RateHz);
+        Assert.Equal([C2, C4], all[1].Regions.Select(r => r.RateHz));
+        Assert.Equal([1, 1], all[1].Regions.Select(r => r.Notes));
         Assert.Equal([0], some.Select(a => a.Sample));
     }
 }

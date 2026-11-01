@@ -25,7 +25,14 @@ internal static class ConversionCommand
     public static ExitCode Execute(ConversionOptions options) => Execute(options, Log.Logger);
 
     /// <summary>Runs one conversion, logging to <paramref name="logger"/>; expected failures throw <see cref="ConversionException"/>.</summary>
-    public static ExitCode Execute(ConversionOptions options, ILogger logger)
+    public static ExitCode Execute(ConversionOptions options, ILogger logger) => Execute(options, logger, null);
+
+    /// <summary>
+    /// Runs one conversion, logging to <paramref name="logger"/>, and hands the sample analysis to
+    /// <paramref name="analyzed"/> when it is given (the accuracy harness writes it to its CSV without analyzing twice);
+    /// expected failures throw <see cref="ConversionException"/>.
+    /// </summary>
+    public static ExitCode Execute(ConversionOptions options, ILogger logger, Action<IReadOnlyList<SampleAnalysis>>? analyzed)
     {
         LogOptions(options, logger);
 
@@ -77,10 +84,17 @@ internal static class ConversionCommand
         Song song = ModToSong.Convert(module, options.AmigaClockHz, notes);
         Playback playback = ModTickPlayer.Play(module, options.AmigaClockHz, options.AmigaTickRateScale, notes);
         MappingOptions mapping = MappingOptions.From(options);
-        if (logger.IsEnabled(LogEventLevel.Debug))
+        bool verbose = logger.IsEnabled(LogEventLevel.Debug);
+        if (verbose || analyzed is not null)
         {
             // Nothing uses the analysis yet (the optimizer will, plan M9); --verbose shows it (docs/adr/0068-sample-analysis.md).
-            SampleAnalysisReport.Log(logger, SampleAnalyzer.AnalyzeSong(song, playback, mapping.Ignore));
+            IReadOnlyList<SampleAnalysis> analyses = SampleAnalyzer.AnalyzeSong(song, playback, mapping.Ignore);
+            if (verbose)
+            {
+                SampleAnalysisReport.Log(logger, analyses);
+            }
+
+            analyzed?.Invoke(analyses);
         }
 
         GenesisPlan plan = new SimpleMapper().Map(song, playback, mapping, notes);

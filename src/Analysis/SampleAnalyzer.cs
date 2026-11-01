@@ -109,7 +109,9 @@ internal static class SampleAnalyzer
 
     /// <summary>
     /// Analyzes every sample of <paramref name="song"/> that has sound, except those in <paramref name="ignore"/>
-    /// (indexes into <c>Song.Samples</c>), with the notes <paramref name="playback"/> starts on each.
+    /// (indexes into <c>Song.Samples</c>), with the notes <paramref name="playback"/> starts on each. A sample a channel
+    /// swaps in without a note (MOD: an instrument alone, which changes the loop) counts as one note at the channel's
+    /// pitch, once per swap.
     /// </summary>
     public static IReadOnlyList<SampleAnalysis> AnalyzeSong(Song song, Playback playback, IReadOnlySet<int> ignore)
     {
@@ -117,14 +119,21 @@ internal static class SampleAnalyzer
         ArgumentNullException.ThrowIfNull(playback);
         ArgumentNullException.ThrowIfNull(ignore);
         List<double>[] rates = [.. song.Samples.Select(_ => new List<double>())];
+        int?[] previous = new int?[song.Channels.Count];
         foreach (PlaybackTick tick in playback.Ticks)
         {
-            foreach (ChannelTick channel in tick.Channels)
+            for (int c = 0; c < tick.Channels.Count && c < previous.Length; c++)
             {
-                if (channel.Started is { Sample: { } sample } && sample < rates.Length && channel.Pitch.PlaybackRateHz > 0)
+                ChannelTick channel = tick.Channels[c];
+                int? played = channel.Started is { } started ? started.Sample
+                    : channel.Playing && channel.Next.Sample != previous[c] ? channel.Next.Sample
+                    : null;
+                if (played is { } sample && sample < rates.Length && channel.Pitch.PlaybackRateHz > 0)
                 {
                     rates[sample].Add(channel.Pitch.PlaybackRateHz);
                 }
+
+                previous[c] = channel.Next.Sample;
             }
         }
 
@@ -150,7 +159,7 @@ internal static class SampleAnalyzer
         }
 
         Track track = PitchTrack(sound.AsSpan(0, Math.Min(sound.Length, (int)(TrackSeconds * rate))), envelope.PeakDb, period);
-        double percussive = PercussiveScore(sample, envelope);
+        double percussive = PercussiveScore(sample, envelope, period);
         PitchStability? pitch = period is { } p ? Stability(p, track) : null;
         SampleKind kind = Label(percussive, track.Tonal, track.Noisy);
         return new SampleAnalysis(
@@ -218,19 +227,40 @@ internal static class SampleAnalyzer
     private static float[] PlayOut(Sample sample, double rate, double seconds) =>
         SampleProcessor.Unroll(sample, (int)Math.Ceiling(seconds * rate));
 
+    /// <summary>
+    /// Frame <paramref name="i"/> of the sample as a note plays it, however long: a one-shot is silent after its end; a
+    /// looped sample plays to its loop's end, then repeats the loop (as <c>SampleProcessor.Unroll</c>).
+    /// </summary>
+    private static float PlayedFrame(Sample sample, int i)
+    {
+        if (sample.Loop is not { } loop)
+        {
+            return i < sample.Length ? sample.Data[i] : 0;
+        }
+
+        int loopEnd = loop.Start + loop.Length;
+        return sample.Data[i < loopEnd ? i : loop.Start + ((i - loopEnd) % loop.Length)];
+    }
+
+    /// <summary>The envelope's step and window, in frames at <paramref name="rate"/>.</summary>
+    private static (int Hop, int Window) EnvelopeSteps(double rate, double? period)
+    {
+        int hop = Math.Max(1, (int)Math.Round(rate * EnvelopeHopSeconds));
+        return (hop, Math.Max(hop, (int)Math.Ceiling(Math.Max(rate * EnvelopeWindowSeconds, period ?? 0))));
+    }
+
     /// <summary>True when the envelope reaches a one-shot's end, which counts as silence after it.</summary>
     private static bool EndsInSilence(Sample sample, float[] sound) => sample.Loop is null && sound.Length >= sample.Length;
 
     private static AmplitudeEnvelope Envelope(Sample sample, float[] sound, double rate, double? period)
     {
-        int hop = Math.Max(1, (int)Math.Round(rate * EnvelopeHopSeconds));
-        int window = Math.Max(hop, (int)Math.Ceiling(Math.Max(rate * EnvelopeWindowSeconds, period ?? 0)));
+        (int hop, int window) = EnvelopeSteps(rate, period);
         double hopSeconds = hop / rate;
         List<double> levels = [];
         for (int start = 0; start < sound.Length; start += hop)
         {
-            // Past a one-shot's end the window holds the silence that follows; a loop's window wraps into the loop again.
-            levels.Add(Db(WindowRms(sample, sound, start, window)));
+            // A window past the end of the envelope's sound reads on as the note plays, not as silence.
+            levels.Add(Db(WindowRms(sample, start, window)));
         }
 
         if (levels.Count == 0)
@@ -251,17 +281,17 @@ internal static class SampleAnalyzer
 
     /// <summary>
     /// A fast attack (1 at 10 ms or less, 0 at 80 ms or more, even in log time between) times the fall in the half second
-    /// after the peak (1 at 20 dB or more): a hit that fades.
+    /// after the peak (1 at 20 dB or more): a hit that fades. Half a second past the envelope's end, the level is read
+    /// from the sample as it plays on (silence only after a one-shot's real end).
     /// </summary>
-    private static double PercussiveScore(Sample sample, AmplitudeEnvelope envelope)
+    private static double PercussiveScore(Sample sample, AmplitudeEnvelope envelope, double? period)
     {
         double attack = Math.Clamp(Math.Log(SlowAttackSeconds / Math.Max(envelope.AttackSeconds, 1e-6)) / Math.Log(SlowAttackSeconds / FastAttackSeconds), 0, 1);
         IReadOnlyList<double> levels = envelope.LevelsDb;
         int peakIndex = levels.ToList().IndexOf(envelope.PeakDb);
         int later = peakIndex + (int)Math.Round(DecayWindowSeconds / envelope.HopSeconds);
-        double after = later < levels.Count ? levels[later]
-            : sample.Loop is null ? FloorDb
-            : envelope.PeakDb + envelope.SustainDb!.Value; // A looped sample always has a sustain level.
+        (int hop, int window) = EnvelopeSteps(envelope.RateHz, period);
+        double after = later < levels.Count ? levels[later] : Db(WindowRms(sample, later * hop, window));
         double fall = Math.Clamp((envelope.PeakDb - after) / DecayDb, 0, 1);
         return attack * fall;
     }
@@ -277,17 +307,14 @@ internal static class SampleAnalyzer
         };
 
     /// <summary>
-    /// The RMS of <paramref name="window"/> frames from <paramref name="start"/>: a one-shot is silent after its end, a
-    /// looped sample goes on with its loop.
+    /// The RMS of <paramref name="window"/> frames from <paramref name="start"/> as a note plays them (<see cref="PlayedFrame"/>).
     /// </summary>
-    private static double WindowRms(Sample sample, float[] sound, int start, int window)
+    private static double WindowRms(Sample sample, int start, int window)
     {
         double sum = 0;
         for (int i = start; i < start + window; i++)
         {
-            float v = i < sound.Length ? sound[i]
-                : sample.Loop is { } loop ? sample.Data[loop.Start + ((i - loop.Start) % loop.Length)]
-                : 0;
+            float v = PlayedFrame(sample, i);
             sum += (double)v * v;
         }
 
