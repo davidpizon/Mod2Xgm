@@ -83,6 +83,7 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0067](0067-psg-volume-levels.md) | The PSG plays Nuked-PSG's volume levels, measured from its output, and the converter picks PSG volumes from them (T7.8) | 2026-10-31 | Accepted; supersedes decision 1 of 0065 |
 | [0068](0068-sample-analysis.md) | Sample analysis: three scores, pitch stability, envelope, loop and a spectrum per pitch region (T8.1) | 2026-10-31 | Accepted |
 | [0069](0069-fm-patch-fitting.md) | FM patch fitting: both structure searches, local search on the grid, an LFO twin per fit (T8.2) | 2026-10-31 | Accepted |
+| [0070](0070-psg-candidates.md) | PSG candidates: a tone, eight noise tries and a buzz for low notes, scored like FM, marked for room (T8.3) | 2026-11-01 | Accepted |
 
 ## Open questions
 

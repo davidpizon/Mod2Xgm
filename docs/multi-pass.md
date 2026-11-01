@@ -40,7 +40,11 @@ decides by error and cost, not by a fixed "FM first" rule.
   Every search is seeded from the nearest built-in library patch and is deterministic (`--seed`). A sample's
   timbre changes with pitch, so fit **per pitch region** (typically 1–3 patches per instrument). Built in `src/Optimizer` (`FmFitter`, [ADR 0069](adr/0069-fm-patch-fitting.md)): both structure searches run,
   each fit records the LFO rate it needs and a twin without the LFO, and the harness writes `fm-fit.csv`.
-- **PSG.** Square or noise approximations for simple tones and hi-hats/cymbals.
+- **PSG.** Square or noise approximations for simple tones and hi-hats/cymbals. Built in `src/Optimizer` (`PsgFitter`,
+  [ADR 0070](adr/0070-psg-candidates.md)): per region a tone at the note, noise at every rate in both modes, the hiss
+  tuned by tone channel 3 and the buzz tuned to the note (the only PSG try below about 109 Hz), with volumes every
+  1/60 s, scored with the FM fits' ruler (`NoteScorer`). Every try is kept and marked with whether the song has room
+  for it (`SongVoices`: the notes it sounds at once); the harness writes `psg-fit.csv`.
 - **PCM variants.** Pre-resampled copies; costs slots, voices and bytes (see [sample-capacity.md](sample-capacity.md)).
 - **Combined instruments**:
   - **CH3 special mode** (only for *locked* pairs — they start together at a fixed pitch interval, e.g.

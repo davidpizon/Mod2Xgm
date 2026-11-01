@@ -373,10 +373,7 @@ internal static class ModRenderer
             return _lastSource;
         }
 
-        /// <summary>
-        /// True for a part that means silence: no sample, or the 2-frame stretch at a sample's start that ends a one-shot
-        /// sample on an Amiga (docs/architecture.md#layers); OpenMPT stops the note there too.
-        /// </summary>
-        private static bool IsEnd(SampleBlock block) => block is { Sample: null } or { Frames: <= 2, StartFrame: 0 } or { Frames: <= 0 };
+        /// <summary>True for a part that means silence (<see cref="SampleBlock.IsSilence"/>).</summary>
+        private static bool IsEnd(SampleBlock block) => block.IsSilence;
     }
 }

@@ -69,7 +69,7 @@ internal static class FmExhaustiveSearch
     /// The multiples carriers try: 1, then the target's strongest other harmonics up to <see cref="MaxCarrierMult"/>, by
     /// their power over the whole region; 1–4 without a pitch.
     /// </summary>
-    internal static int[] CarrierMults(FmTarget target)
+    internal static int[] CarrierMults(NoteTarget target)
     {
         ArgumentNullException.ThrowIfNull(target);
         if (target.Spectrum.HarmonicsDb is not { Count: > 0 } frames)

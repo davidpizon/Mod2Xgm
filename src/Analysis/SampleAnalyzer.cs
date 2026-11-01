@@ -97,7 +97,7 @@ internal static class SampleAnalyzer
     public const double RegionSeconds = 1;
 
     /// <summary>A region's mel frame size and the step between frames (10 ms at <see cref="AnalysisRateHz"/>).</summary>
-    private const int MelFftSize = 2048;
+    internal const int MelFftSize = 2048;
 
     private const int SpectrumHop = 441;
 
