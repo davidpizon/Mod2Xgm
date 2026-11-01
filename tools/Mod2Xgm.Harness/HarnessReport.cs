@@ -40,6 +40,10 @@ internal static class HarnessReport
     public const string PsgFitHeader =
         "song,sample,name,region,most_at_once,sound,noise_rate,period,pitch_hz,cents_off,channels,room,mel_db,mfcc,harmonic_db,best,best_with_room";
 
+    /// <summary>Header of <c>pcm-fit.csv</c>.</summary>
+    public const string PcmFitHeader =
+        "song,sample,name,target,most_at_once,kind,savings,room,copies,bytes,notes,mel_db,harmonic_db,smallest,start_frame,seconds,plain_mel_db,bent_notes";
+
     /// <summary>Header of <c>loudness.csv</c>.</summary>
     public const string LoudnessHeader =
         "song,renderer,span,reference_lufs,candidate_lufs,difference_lu,reference_lra_lu,candidate_lra_lu,reference_true_peak_dbtp,candidate_true_peak_dbtp";
@@ -314,6 +318,73 @@ internal static class HarnessReport
                             ReferenceEquals(c, r.BestThatFits) ? "yes" : "no");
                         csv.Append('\n');
                     }
+                }
+            }
+        }
+
+        return csv.ToString();
+    }
+
+    /// <summary>
+    /// One line per song, sample, target and PCM candidate (<c>--pcm-fit</c>): each combination of savings (kind
+    /// <c>copies</c>) with its copies, bytes, room, notes and note-weighted distances, whether it is the smallest and the sample's bent notes; then
+    /// each baked note (kind <c>baked</c>) with its notes, start frame, length, distance and the plain copy's distance (see
+    /// <see cref="PcmFitHeader"/>).
+    /// </summary>
+    public static string PcmFitCsv(IReadOnlyList<SongResult> results)
+    {
+        ArgumentNullException.ThrowIfNull(results);
+        StringBuilder csv = new();
+        csv.Append(PcmFitHeader).Append('\n');
+        foreach (SongResult song in results)
+        {
+            foreach (PcmSampleFit fit in song.PcmFits)
+            {
+                string head = string.Join(
+                    ',',
+                    Csv(song.Song),
+                    (fit.Sample + 1).ToString(CultureInfo.InvariantCulture),
+                    Csv(fit.Name),
+                    PcmTargets.Name(fit.Target),
+                    fit.MostAtOnce.ToString(CultureInfo.InvariantCulture));
+                foreach (PcmOption o in fit.Options)
+                {
+                    csv.Append(head).Append(',').AppendJoin(
+                        ',',
+                        "copies",
+                        PcmTargets.Name(o.Savings),
+                        PcmFitReport.RoomName(o.Room),
+                        o.Slots.ToString(CultureInfo.InvariantCulture),
+                        o.Bytes.ToString(CultureInfo.InvariantCulture),
+                        o.Pitches.Sum(p => p.Notes).ToString(CultureInfo.InvariantCulture),
+                        Number(o.MelDb, "0.###"),
+                        Number(o.HarmonicDb, "0.###"),
+                        ReferenceEquals(o, fit.Smallest) ? "yes" : "no",
+                        string.Empty,
+                        string.Empty,
+                        string.Empty,
+                        fit.BentNotes.ToString(CultureInfo.InvariantCulture));
+                    csv.Append('\n');
+                }
+
+                foreach (PcmBaked b in fit.Baked)
+                {
+                    csv.Append(head).Append(',').AppendJoin(
+                        ',',
+                        "baked",
+                        string.Empty,
+                        string.Empty,
+                        "1",
+                        b.Bytes.ToString(CultureInfo.InvariantCulture),
+                        b.Notes.ToString(CultureInfo.InvariantCulture),
+                        Number(b.Score.MelDb, "0.###"),
+                        Number(b.Score.HarmonicDb, "0.###"),
+                        string.Empty,
+                        b.StartFrame.ToString(CultureInfo.InvariantCulture),
+                        Number(b.Seconds, "0.###"),
+                        Number(b.PlainScore.MelDb, "0.###"),
+                        string.Empty);
+                    csv.Append('\n');
                 }
             }
         }

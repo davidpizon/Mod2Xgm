@@ -28,11 +28,11 @@ internal static class ConversionCommand
     public static ExitCode Execute(ConversionOptions options, ILogger logger) => Execute(options, logger, null);
 
     /// <summary>
-    /// Runs one conversion, logging to <paramref name="logger"/>, and hands the sample analysis and how many notes the
-    /// song sounds at once to <paramref name="analyzed"/> when it is given (the accuracy harness writes them to its CSVs
+    /// Runs one conversion, logging to <paramref name="logger"/>, and hands the song, its playback, the sample analysis and
+    /// how many notes the song sounds at once to <paramref name="analyzed"/> when it is given (the accuracy harness writes them to its CSVs
     /// without analyzing twice); expected failures throw <see cref="ConversionException"/>.
     /// </summary>
-    public static ExitCode Execute(ConversionOptions options, ILogger logger, Action<IReadOnlyList<SampleAnalysis>, SongVoices>? analyzed)
+    public static ExitCode Execute(ConversionOptions options, ILogger logger, Action<SongAnalysis>? analyzed)
     {
         LogOptions(options, logger);
 
@@ -94,7 +94,7 @@ internal static class ConversionCommand
                 SampleAnalysisReport.Log(logger, analyses);
             }
 
-            analyzed?.Invoke(analyses, SongVoices.Count(song, playback));
+            analyzed?.Invoke(new SongAnalysis(song, playback, analyses, SongVoices.Count(song, playback)));
         }
 
         GenesisPlan plan = new SimpleMapper().Map(song, playback, mapping, notes);

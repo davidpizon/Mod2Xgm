@@ -227,4 +227,7 @@ internal sealed record SongResult(string Song, DurationCheck? Duration, int Conv
 
     /// <summary>The PSG candidates of every sample (<c>--psg-fit</c>, docs/adr/0070-psg-candidates.md); empty when not asked for.</summary>
     public IReadOnlyList<PsgSampleFit> PsgFits { get; init; } = [];
+
+    /// <summary>The PCM candidates of every sample for every target (<c>--pcm-fit</c>, docs/adr/0071-pcm-candidates.md); empty when not asked for.</summary>
+    public IReadOnlyList<PcmSampleFit> PcmFits { get; init; } = [];
 }

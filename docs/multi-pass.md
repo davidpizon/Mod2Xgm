@@ -46,6 +46,12 @@ decides by error and cost, not by a fixed "FM first" rule.
   1/60 s, scored with the FM fits' ruler (`NoteScorer`). Every try is kept and marked with whether the song has room
   for it (`SongVoices`: the notes it sounds at once); the harness writes `psg-fit.csv`.
 - **PCM variants.** Pre-resampled copies; costs slots, voices and bytes (see [sample-capacity.md](sample-capacity.md)).
+  Built in `src/Optimizer` (`PcmFitter`, [ADR 0071](adr/0071-pcm-candidates.md)), for DMF, XGM and XGM2: a copy per pitch
+  the song starts each sample at (one at C-2 for a sample never played), then every combination of four savings (XGM2 half
+  speed, semitones by the measured pitch, short loops, trim tail), each with its bytes, marked when the sample alone breaks
+  the slot or voice cap, and scored at every pitch through the PCM driver models with `NoteScorer`. Bent notes (slides,
+  vibrato, volume changes, start offsets) that repeat get a baked sample from the MOD renderer. The harness writes
+  `pcm-fit.csv`.
 - **Combined instruments**:
   - **CH3 special mode** (only for *locked* pairs — they start together at a fixed pitch interval, e.g.
     layered bass+kick, octave doubling, chord stabs): channel 3's four operators get independent frequencies → two

@@ -221,6 +221,27 @@ public sealed class HarnessReportTests
         Assert.Equal(string.Empty, lines[4]);
     }
 
+    /// <summary>The PCM fit CSV has one line per song, sample, target and option, then one per baked note (plan T8.4).</summary>
+    [Fact]
+    public void PcmFitCsvHasOneLinePerOptionAndBakedNote()
+    {
+        PcmCopy big = new(8287, 13_317, false, 1000, false, 1607, 1792);
+        PcmCopy small = big with { HalfSpeed = true, PlayRateHz = 6658.5, Points = 804, Bytes = 1024 };
+        PcmOption full = new(PcmSavings.None, [new PcmPitch(8287, 3, big, new NoteScore(1.25, 9, 2.5), 0)], PcmRoom.Fits);
+        PcmOption half = new(PcmSavings.HalfSpeed, [new PcmPitch(8287, 3, small, new NoteScore(4.5, 20, null), 0)], PcmRoom.SampleTooOften);
+        PcmBaked baked = new(2, 256, 0.96, 12_800, new NoteScore(2, 10, null), new NoteScore(6.125, 30, null));
+        PcmSampleFit fit = new(1, "bass, low", PcmTarget.Xgm2, 2, [full, half], [baked], 3, 4, TimeSpan.FromSeconds(1));
+        SongResult[] results = [Results[0] with { PcmFits = [fit] }, Results[1]];
+
+        string[] lines = HarnessReport.PcmFitCsv(results).Split('\n');
+
+        Assert.Equal(HarnessReport.PcmFitHeader, lines[0]);
+        Assert.Equal("alpha,2,\"bass, low\",xgm2,2,copies,none,fits,1,1792,3,1.25,2.5,no,,,,3", lines[1]);
+        Assert.Equal("alpha,2,\"bass, low\",xgm2,2,copies,half speed,sample too often,1,1024,3,4.5,,yes,,,,3", lines[2]);
+        Assert.Equal("alpha,2,\"bass, low\",xgm2,2,baked,,,1,12800,2,2,,,256,0.96,6.125,", lines[3]);
+        Assert.Equal(string.Empty, lines[4]);
+    }
+
     /// <summary>The same results give the same files: the report holds no time or machine detail (plan T6.3).</summary>
     [Fact]
     public void ReportsAreTheSameEachTime()

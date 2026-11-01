@@ -82,12 +82,13 @@ internal static class Program
         Option<bool> fmFit = new("--fm-fit") { Description = "Also fit FM patches to every sample and write fm-fit.csv (slow; docs/adr/0069-fm-patch-fitting.md)." };
         Option<int?> fmRenders = new("--fm-max-renders") { Description = "Most notes each step of a region's FM fit renders (default: no limit)." };
         Option<bool> psgFit = new("--psg-fit") { Description = "Also make PSG candidates for every sample and write psg-fit.csv (docs/adr/0070-psg-candidates.md)." };
+        Option<bool> pcmFit = new("--pcm-fit") { Description = "Also make PCM candidates for every sample and target and write pcm-fit.csv (docs/adr/0071-pcm-candidates.md)." };
         Option<int> jobs = new("--jobs", "-j") { Description = "Songs measured at once.", DefaultValueFactory = _ => DefaultJobs };
         Option<bool> verbose = new("--verbose", "-v") { Description = "Log every scoring step." };
 
         RootCommand root = new("Mod2Xgm accuracy harness: scores conversions against OpenMPT (docs/harness.md).")
         {
-            inputs, output, rate, libopenmpt, furnace, noFurnace, deflemask, noDefleMask, saveReference, clip, balance, fmFit, fmRenders, psgFit, jobs, verbose,
+            inputs, output, rate, libopenmpt, furnace, noFurnace, deflemask, noDefleMask, saveReference, clip, balance, fmFit, fmRenders, psgFit, pcmFit, jobs, verbose,
         };
         root.SetAction(result =>
         {
@@ -138,7 +139,8 @@ internal static class Program
                 measureBalance,
                 result.GetValue(fmFit),
                 maxRenders,
-                result.GetValue(psgFit)));
+                result.GetValue(psgFit),
+                result.GetValue(pcmFit)));
         });
 
         ParseResult parsed = root.Parse(args);
@@ -189,7 +191,7 @@ internal static class Program
             options.SampleRate,
             candidates.Count == 0 ? "none (lengths only)" : string.Join(", ", candidates.Select(c => c.Name)));
 
-        IReadOnlyList<SongResult> results = new CorpusRun(options.OutputDirectory, options.SampleRate, options.SaveReferenceWavs, reference, candidates, logger, options.ClipSeconds, options.Balance, options.FmFit ? new FmFitOptions(options.FmMaxRenders) : null, options.PsgFit).Run(songs, options.Jobs);
+        IReadOnlyList<SongResult> results = new CorpusRun(options.OutputDirectory, options.SampleRate, options.SaveReferenceWavs, reference, candidates, logger, options.ClipSeconds, options.Balance, options.FmFit ? new FmFitOptions(options.FmMaxRenders) : null, options.PsgFit, options.PcmFit).Run(songs, options.Jobs);
         return Report(results, options, reference.Name, logger);
     }
 
@@ -212,6 +214,11 @@ internal static class Program
         if (options.PsgFit)
         {
             File.WriteAllText(Path.Combine(options.OutputDirectory, "psg-fit.csv"), HarnessReport.PsgFitCsv(results));
+        }
+
+        if (options.PcmFit)
+        {
+            File.WriteAllText(Path.Combine(options.OutputDirectory, "pcm-fit.csv"), HarnessReport.PcmFitCsv(results));
         }
 
         if (options.ClipSeconds is not null)
@@ -280,6 +287,7 @@ internal static class Program
 /// <param name="FmFit">Also fit FM patches to every sample (<c>fm-fit.csv</c>).</param>
 /// <param name="FmMaxRenders">Most notes each step of a region's FM fit renders, or <c>null</c> for no limit.</param>
 /// <param name="PsgFit">Also make PSG candidates for every sample (<c>psg-fit.csv</c>).</param>
+/// <param name="PcmFit">Also make PCM candidates for every sample and target (<c>pcm-fit.csv</c>).</param>
 internal sealed record HarnessOptions(
     IReadOnlyList<string> Inputs,
     string OutputDirectory,
@@ -296,4 +304,5 @@ internal sealed record HarnessOptions(
     bool Balance = false,
     bool FmFit = false,
     int? FmMaxRenders = null,
-    bool PsgFit = false);
+    bool PsgFit = false,
+    bool PcmFit = false);
