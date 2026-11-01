@@ -23,7 +23,7 @@ internal readonly record struct FmStructure(int Algorithm, int Feedback, int Mul
     private const double TlStepDb = 0.75;
 
     /// <summary>The multiple of operator <paramref name="op"/> (0–3, Yamaha order).</summary>
-    public int Mult(int op) => op switch
+    private int Mult(int op) => op switch
     {
         0 => Mult1,
         1 => Mult2,

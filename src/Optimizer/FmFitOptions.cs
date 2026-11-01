@@ -17,8 +17,4 @@ internal sealed record FmFitOptions(
     bool Exhaustive = true,
     bool Genetic = true,
     bool SsgEg = true,
-    bool Lfo = true)
-{
-    /// <summary>Both searches, SSG-EG and LFO, no limit, seed 1.</summary>
-    public static FmFitOptions Default { get; } = new();
-}
+    bool Lfo = true);

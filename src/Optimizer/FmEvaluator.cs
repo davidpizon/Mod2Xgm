@@ -93,7 +93,7 @@ internal sealed class FmEvaluator
         Renders++;
         float[] sound = FmNoteRenderer.Render(patch, Lfo(patch, lfoRate), Target.NoteHz, QuickSeconds);
         double score;
-        if (Target.FundamentalHz is { } f && Target.Spectrum.HarmonicsDb is { } harmonics && SampleAnalyzer.Harmonics(sound, f) is { } rendered)
+        if (Target is { FundamentalHz: { } f, Spectrum.HarmonicsDb: { } harmonics } && SampleAnalyzer.Harmonics(sound, f) is { } rendered)
         {
             score = Distance(harmonics, rendered, rendered.Length).Db;
         }

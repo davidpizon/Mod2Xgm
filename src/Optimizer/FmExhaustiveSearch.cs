@@ -120,7 +120,7 @@ internal static class FmExhaustiveSearch
         }
     }
 
-    private static int Gcd(int[] values) => values.Aggregate(0, (a, b) => Gcd(a, b));
+    private static int Gcd(int[] values) => values.Aggregate(0, Gcd);
 
     private static int Gcd(int a, int b) => b == 0 ? a : Gcd(b, a % b);
 }

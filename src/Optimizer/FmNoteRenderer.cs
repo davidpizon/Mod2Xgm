@@ -133,7 +133,7 @@ internal static class FmNoteRenderer
             double[] row = new double[Taps];
             for (int t = 0; t < Taps; t++)
             {
-                double d = t - (Taps / 2) + 1 - fraction;
+                double d = t - half + 1 - fraction;
                 double sinc = d == 0 ? 1 : Math.Sin(2 * Math.PI * cutoff * d) / (2 * Math.PI * cutoff * d);
                 double window = Math.Abs(d) >= half ? 0 : 0.42 + (0.5 * Math.Cos(Math.PI * d / half)) + (0.08 * Math.Cos(2 * Math.PI * d / half));
                 row[t] = sinc * window;

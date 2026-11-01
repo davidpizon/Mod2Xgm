@@ -86,22 +86,22 @@ internal static class FmLocalSearch
             int minTl = carriers.Contains(op) ? 0 : MinModulatorTl;
             foreach (int step in (int[])[-1, 1, -4, 4])
             {
-                yield return Operator(o, x => x.Tl + step is int v && v >= minTl && v <= 127 ? x with { Tl = v } : null);
+                yield return Operator(o, x => Stepped(x.Tl, step, minTl, 127) is { } v ? x with { Tl = v } : null);
             }
 
             foreach (int step in (int[])[-1, 1])
             {
-                yield return Operator(o, x => x.Mult + step is int v and >= 0 and <= 15 ? x with { Mult = v } : null);
-                yield return Operator(o, x => x.Detune + step is int v and >= -3 and <= 3 ? x with { Detune = v } : null);
-                yield return Operator(o, x => x.Sl + step is int v and >= 0 and <= 15 ? x with { Sl = v } : null);
-                yield return Operator(o, x => x.Rs + step is int v and >= 0 and <= 3 ? x with { Rs = v } : null);
+                yield return Operator(o, x => Stepped(x.Mult, step, 0, 15) is { } v ? x with { Mult = v } : null);
+                yield return Operator(o, x => Stepped(x.Detune, step, -3, 3) is { } v ? x with { Detune = v } : null);
+                yield return Operator(o, x => Stepped(x.Sl, step, 0, 15) is { } v ? x with { Sl = v } : null);
+                yield return Operator(o, x => Stepped(x.Rs, step, 0, 3) is { } v ? x with { Rs = v } : null);
             }
 
             foreach (int step in (int[])[-1, 1, -4, 4])
             {
-                yield return Operator(o, x => x.Ar + step is int v and >= 1 and <= 31 ? x with { Ar = v } : null);
-                yield return Operator(o, x => x.Dr + step is int v and >= 0 and <= 31 ? x with { Dr = v } : null);
-                yield return Operator(o, x => x.D2R + step is int v and >= 0 and <= 31 ? x with { D2R = v } : null);
+                yield return Operator(o, x => Stepped(x.Ar, step, 1, 31) is { } v ? x with { Ar = v } : null);
+                yield return Operator(o, x => Stepped(x.Dr, step, 0, 31) is { } v ? x with { Dr = v } : null);
+                yield return Operator(o, x => Stepped(x.D2R, step, 0, 31) is { } v ? x with { D2R = v } : null);
             }
 
             if (ssgEg)
@@ -137,12 +137,12 @@ internal static class FmLocalSearch
 
         foreach (int step in (int[])[-1, 1])
         {
-            yield return Patch(p => p.Feedback + step is int v and >= 0 and <= 7 ? p with { Feedback = v } : null);
+            yield return Patch(p => Stepped(p.Feedback, step, 0, 7) is { } v ? p with { Feedback = v } : null);
             if (lfo)
             {
-                yield return Patch(p => p.Fms + step is int v and >= 0 and <= 7 ? p with { Fms = v } : null);
-                yield return Patch(p => p.Ams + step is int v and >= 0 and <= 3 ? p with { Ams = v } : null);
-                yield return s => s.LfoRate is { } r && r + step is int v and >= 0 and <= 7 ? s with { LfoRate = v } : null;
+                yield return Patch(p => Stepped(p.Fms, step, 0, 7) is { } v ? p with { Fms = v } : null);
+                yield return Patch(p => Stepped(p.Ams, step, 0, 3) is { } v ? p with { Ams = v } : null);
+                yield return s => s.LfoRate is { } r && Stepped(r, step, 0, 7) is { } v ? s with { LfoRate = v } : null;
             }
         }
 
@@ -187,6 +187,13 @@ internal static class FmLocalSearch
 
         return s with { Patch = s.Patch with { Operators = ops } };
     };
+
+    /// <summary><paramref name="value"/> moved by <paramref name="step"/>, or <c>null</c> outside <paramref name="min"/>–<paramref name="max"/>.</summary>
+    private static int? Stepped(int value, int step, int min, int max)
+    {
+        int moved = value + step;
+        return moved >= min && moved <= max ? moved : null;
+    }
 
     /// <summary>A move of operator <paramref name="op"/> only.</summary>
     private static Func<FmVoiceSetting, FmVoiceSetting?> Operator(int op, Func<FmOperator, FmOperator?> change) => s =>

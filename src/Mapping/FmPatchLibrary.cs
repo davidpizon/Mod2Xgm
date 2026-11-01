@@ -45,42 +45,42 @@ internal static class FmPatchLibrary
         [Op(mult: 2, tl: 34, dr: 14, sl: 8, rr: 10), Op(mult: 1, tl: 0, dr: 12, d2R: 4, sl: 6, rr: 10), Op(mult: 3, tl: 40, dr: 16, sl: 8, rr: 10), Op(mult: 1, tl: 10, dr: 12, d2R: 4, sl: 6, rr: 10)]);
 
     /// <summary>Four operators in a chain (algorithm 0), decaying to a held level: a round, punchy bass.</summary>
-    public static FmPatch Bass { get; } = new(
+    private static FmPatch Bass { get; } = new(
         "Bass",
         0,
         4,
         [Op(mult: 1, tl: 40, dr: 8), Op(mult: 1, tl: 36, dr: 6), Op(mult: 1, tl: 30, dr: 6, sl: 4), Op(mult: 1, tl: 0, dr: 4, d2R: 2, sl: 4, rr: 10)]);
 
     /// <summary>Two modulators into one (algorithm 1) with a slow attack: a bowed, string-like swell.</summary>
-    public static FmPatch Strings { get; } = new(
+    private static FmPatch Strings { get; } = new(
         "Strings",
         1,
         3,
         [Op(mult: 1, tl: 38, ar: 14), Op(mult: 3, tl: 44, ar: 14), Op(mult: 1, tl: 32, ar: 14), Op(mult: 1, tl: 0, ar: 14, rr: 6)]);
 
     /// <summary>A bright modulator pair and OP1 into the carrier (algorithm 2), all decaying: a struck, piano-like note.</summary>
-    public static FmPatch Piano { get; } = new(
+    private static FmPatch Piano { get; } = new(
         "Piano",
         2,
         3,
         [Op(mult: 1, tl: 36, dr: 10, sl: 6), Op(mult: 7, tl: 48, dr: 14, sl: 10), Op(mult: 2, tl: 34, dr: 10, sl: 6), Op(mult: 1, tl: 0, dr: 8, d2R: 3, sl: 5, rr: 8)]);
 
     /// <summary>A modulator pair and a high modulator into the carrier (algorithm 3), quick decays: a hard, plucked clavinet.</summary>
-    public static FmPatch Clav { get; } = new(
+    private static FmPatch Clav { get; } = new(
         "Clav",
         3,
         6,
         [Op(mult: 3, tl: 30, dr: 12), Op(mult: 1, tl: 34, dr: 12), Op(mult: 5, tl: 40, dr: 14), Op(mult: 1, tl: 0, dr: 12, d2R: 6, sl: 8, rr: 12)]);
 
     /// <summary>A high modulator on the main carrier and a quiet fourth harmonic beside it (algorithm 4), ringing on: a bell.</summary>
-    public static FmPatch Bell { get; } = new(
+    private static FmPatch Bell { get; } = new(
         "Bell",
         4,
         0,
         [Op(mult: 7, tl: 36, dr: 6, d2R: 2, sl: 4), Op(mult: 1, tl: 4, dr: 4, d2R: 2, sl: 4, rr: 6), Op(mult: 1, tl: 38, dr: 8), Op(mult: 4, tl: 18, dr: 3, d2R: 2, sl: 3, rr: 6)]);
 
     /// <summary>One modulated carrier and two detuned plain ones (algorithm 6): a wide, chorused synth.</summary>
-    public static FmPatch Synth { get; } = new(
+    private static FmPatch Synth { get; } = new(
         "Synth",
         6,
         5,
