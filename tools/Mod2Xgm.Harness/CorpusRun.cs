@@ -1,4 +1,5 @@
 using System.Globalization;
+using Mod2Xgm.Analysis;
 using Mod2Xgm.Cli;
 using Mod2Xgm.Mod;
 using Mod2Xgm.Model;
@@ -84,7 +85,7 @@ internal sealed class CorpusRun(
             }
 
             duration = CheckLength(song, mod, original.DurationSeconds, out IReadOnlyList<RowTiming> rows);
-            notes = Convert(song);
+            notes = Convert(song, out IReadOnlyList<SampleAnalysis> analyses);
             AudioSignal referenceMono = original.Audio.ToMono();
             Loudness referenceLoudness = Loudness.Of(original.Audio);
             ReferenceStems? stems = balance && referenceClip is not null && candidates.Any(c => c is IDmfRenderer)
@@ -99,7 +100,7 @@ internal sealed class CorpusRun(
                 }
             }
 
-            return new SongResult(name, duration, notes, scores, null);
+            return new SongResult(name, duration, notes, scores, null) { Samples = analyses };
         }
         catch (Exception ex) when (ex is HarnessException or ConversionException or IOException)
         {
@@ -154,15 +155,20 @@ internal sealed class CorpusRun(
         return check;
     }
 
-    /// <summary>Converts the MOD with the default options, its whole console output going to <c>logs/name.log</c>; returns the number of conversion notes.</summary>
-    private int Convert(SongFiles song)
+    /// <summary>
+    /// Converts the MOD with the default options, its whole console output going to <c>logs/name.log</c>; returns the
+    /// number of conversion notes, and the conversion's own sample analysis in <paramref name="analyses"/>
+    /// (<c>sample-analysis.csv</c>).
+    /// </summary>
+    private int Convert(SongFiles song, out IReadOnlyList<SampleAnalysis> analyses)
     {
+        IReadOnlyList<SampleAnalysis> found = [];
         LogFileSink log = new();
         using (Logger songLogger = new LoggerConfiguration().MinimumLevel.Debug().WriteTo.Sink(log).CreateLogger())
         {
             try
             {
-                ConversionCommand.Execute(new ConversionOptions { InputPath = song.ModPath, OutputPath = song.DmfPath, Force = true }, songLogger);
+                ConversionCommand.Execute(new ConversionOptions { InputPath = song.ModPath, OutputPath = song.DmfPath, Force = true }, songLogger, a => found = a);
             }
             finally
             {
@@ -170,6 +176,7 @@ internal sealed class CorpusRun(
             }
         }
 
+        analyses = found;
         logger.Information("{Song}: converted to {Dmf} ({Notes} conversion notes)", song.Name, song.DmfPath, log.Warnings);
         return log.Warnings;
     }

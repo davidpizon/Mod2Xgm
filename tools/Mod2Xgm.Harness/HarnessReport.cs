@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using Mod2Xgm.Analysis;
 using Mod2Xgm.Scoring;
 
 namespace Mod2Xgm.Harness;
@@ -25,6 +26,10 @@ internal static class HarnessReport
     /// <summary>Header of <c>balance-instruments.csv</c>.</summary>
     public const string BalanceInstrumentsHeader =
         "song,renderer,sample,name,voices,offset_db,distance_db,frames,reference_level_db,r128_offset_lu";
+
+    /// <summary>Header of <c>sample-analysis.csv</c>.</summary>
+    public const string SampleAnalysisHeader =
+        "song,sample,name,kind,percussive,tonal,noisy,period_frames,voiced_share,deviation_cents,drift_cents,peak_db,attack_ms,decay_ms,sustain_db,loop_frames,loop_cycles,regions,region_rates_hz,fundamentals_hz,notes";
 
     /// <summary>Header of <c>loudness.csv</c>.</summary>
     public const string LoudnessHeader =
@@ -171,6 +176,46 @@ internal static class HarnessReport
                     Number(s?.LagSeconds * 1000),
                     Number(s?.LengthDifferenceSeconds),
                     Csv(candidate.Remark ?? string.Empty));
+                csv.Append('\n');
+            }
+        }
+
+        return csv.ToString();
+    }
+
+    /// <summary>One line per song and sample: the sample analysis's scores, pitch, envelope, loop and regions (see <see cref="SampleAnalysisHeader"/>).</summary>
+    public static string SampleAnalysisCsv(IReadOnlyList<SongResult> results)
+    {
+        ArgumentNullException.ThrowIfNull(results);
+        StringBuilder csv = new();
+        csv.Append(SampleAnalysisHeader).Append('\n');
+        foreach (SongResult song in results)
+        {
+            foreach (SampleAnalysis a in song.Samples)
+            {
+                csv.AppendJoin(
+                    ',',
+                    Csv(song.Song),
+                    (a.Sample + 1).ToString(CultureInfo.InvariantCulture),
+                    Csv(a.Name),
+                    SampleAnalysisReport.KindName(a.Kind),
+                    Number(a.Percussive, "0.###"),
+                    Number(a.Tonal, "0.###"),
+                    Number(a.Noisy, "0.###"),
+                    Number(a.Pitch?.PeriodFrames, "0.###"),
+                    Number(a.Pitch?.VoicedShare, "0.###"),
+                    Number(a.Pitch?.DeviationCents, "0.#"),
+                    Number(a.Pitch?.DriftCents, "0.#"),
+                    Number(a.Envelope.PeakDb, "0.##"),
+                    Number(a.Envelope.AttackSeconds * 1000, "0.#"),
+                    Number(a.Envelope.DecaySeconds * 1000, "0.#"),
+                    Number(a.Envelope.SustainDb, "0.##"),
+                    a.Loop is { } loop ? loop.Length.ToString(CultureInfo.InvariantCulture) : string.Empty,
+                    Number(a.Loop?.Cycles, "0.##"),
+                    a.Regions.Count.ToString(CultureInfo.InvariantCulture),
+                    string.Join(' ', a.Regions.Select(r => Number(r.RateHz, "0"))),
+                    string.Join(' ', a.Regions.Select(r => Number(r.FundamentalHz, "0.#"))),
+                    string.Join(' ', a.Regions.Select(r => r.Notes.ToString(CultureInfo.InvariantCulture))));
                 csv.Append('\n');
             }
         }

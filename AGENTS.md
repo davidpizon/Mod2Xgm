@@ -87,6 +87,7 @@ src/Mapping/        IR -> Genesis channel plan (strategy interface) + SampleBudg
 src/Audio/          SampleProcessor: resampling (NWaves), bit-depth conversion, loop handling
 src/Render/         in-app MOD renderer + YM3438 (ymfm port, src/Render/Fm) / SN76489 (MAME port, src/Render/Psg) / PCM driver models (src/Render/Pcm) (pure C#)
 src/Scoring/        spectral + onset metrics, shared with tools/Mod2Xgm.Harness
+src/Analysis/       sample analysis: scores, pitch, envelope, spectrum per pitch region (optimizer pass 2)
 src/Optimizer/      multi-pass candidates, allocation, refinement
 src/Dmf/            DMF writer
 src/Xgm/            XGM and XGM2 writers

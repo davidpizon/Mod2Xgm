@@ -20,7 +20,7 @@ decides by error and cost, not by a fixed "FM first" rule.
 | Pass | What happens |
 |---|---|
 | 1. Read & analyze song | Apply `--ignore-samples`; per sample: notes/pitches used, durations, volumes, trigger counts; per pair of instruments: co-onset rate and pitch interval (locked-pair detection); repeated overlaps of PCM notes, with offsets ([ADR 0052](adr/0052-pre-mixed-pcm.md)) |
-| 2. Analyze samples | Tonal vs percussive, pitch stability, amplitude envelope, loop, spectral envelope per pitch region |
+| 2. Analyze samples | Tonal vs percussive (and noisy), pitch stability, amplitude envelope, loop, spectral envelope per pitch region (`src/Analysis`, [ADR 0068](adr/0068-sample-analysis.md)) |
 | 3. Generate candidates | Per instrument and pitch region: **fitted FM patch(es)**, **PSG** tone/noise, **PCM variants** (target rate, per pitch for XGM/XGM2), **combined** candidates (CH3 special for locked pairs, pre-mixed PCM for repeated overlaps). Each candidate gets an error score (rendered vs original, at the pitches actually played) and a cost |
 | 4. Allocate | Assign candidates to channels over time, section by section, within the target's limits; greedy start, then local search; objective = importance-weighted total error |
 | 5. Render & refine | Render the whole song in-app (Genesis model) and compare with the in-app MOD render; find the worst sections; re-fit patches or re-allocate there; repeat until no improvement or the time budget is spent |
