@@ -36,6 +36,9 @@ internal sealed record FmFit(FmPatch Patch, int? LfoRate, FmFitSource Source, No
 /// <param name="Elapsed">How long the fit took (for reports only; never changes a result).</param>
 internal sealed record FmRegionFit(int Region, FmFit Library, FmFit? Exhaustive, FmFit? Genetic, FmFit Best, FmFit NoLfo, int Renders, TimeSpan Elapsed)
 {
+    /// <summary>True when it came from the candidate cache (docs/adr/0074-candidate-cache.md); everything else is as made then.</summary>
+    public bool Cached { get; init; }
+
     /// <summary>The better of the two searches' fits, or <c>null</c> when neither ran.</summary>
     public FmFit? Fitted => new[] { Exhaustive, Genetic }.Where(f => f is not null).MinBy(f => f!.Score.MelDb);
 
@@ -69,7 +72,10 @@ internal static class FmFitter
     private const int StructuresPerSearch = 2;
 
     /// <summary>Fits every region of <paramref name="analysis"/>; none for a silent sample.</summary>
-    public static FmSampleFit Fit(SampleAnalysis analysis, FmFitOptions options)
+    /// <param name="analysis">The sample.</param>
+    /// <param name="options">How it is fitted.</param>
+    /// <param name="cache">Where regions fitted before are found and new fits kept; <c>null</c> to fit every region.</param>
+    public static FmSampleFit Fit(SampleAnalysis analysis, FmFitOptions options, CandidateCache? cache = null)
     {
         ArgumentNullException.ThrowIfNull(analysis);
         ArgumentNullException.ThrowIfNull(options);
@@ -80,7 +86,11 @@ internal static class FmFitter
             {
                 if (NoteTarget.Of(analysis.Regions[r]) is { } target)
                 {
-                    regions.Add(FitRegion(r, target, options, PatchName(analysis.Sample, r)));
+                    int region = r;
+                    string name = PatchName(analysis.Sample, r);
+                    regions.Add(cache is null
+                        ? FitRegion(region, target, options, name)
+                        : cache.FmRegion(target, options, region, name, () => FitRegion(region, target, options, name)));
                 }
             }
         }

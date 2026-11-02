@@ -37,7 +37,11 @@ internal sealed record PsgRegionFit(int Region, IReadOnlyList<PsgCandidate> Cand
 /// <param name="Name">The sample's name.</param>
 /// <param name="MostAtOnce">The most channels the song sounds the sample on at once.</param>
 /// <param name="Regions">One per region with sound, in <see cref="SampleAnalysis.Regions"/> order.</param>
-internal sealed record PsgSampleFit(int Sample, string Name, int MostAtOnce, IReadOnlyList<PsgRegionFit> Regions);
+internal sealed record PsgSampleFit(int Sample, string Name, int MostAtOnce, IReadOnlyList<PsgRegionFit> Regions)
+{
+    /// <summary>True when it came from the candidate cache (docs/adr/0074-candidate-cache.md); everything else is as made then.</summary>
+    public bool Cached { get; init; }
+}
 
 /// <summary>
 /// Makes the PSG candidates of plan T8.3 (docs/adr/0070-psg-candidates.md), one set per pitch region of every sample

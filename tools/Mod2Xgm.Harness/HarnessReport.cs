@@ -34,30 +34,30 @@ internal static class HarnessReport
 
     /// <summary>Header of <c>fm-fit.csv</c>.</summary>
     public const string FmFitHeader =
-        "song,sample,name,region,library,library_db,exhaustive_db,genetic_db,best,best_db,best_mfcc,best_harmonic_db,no_lfo_db,lfo_rate,patch,fitted_beats_library,renders,seconds";
+        "song,sample,name,region,library,library_db,exhaustive_db,genetic_db,best,best_db,best_mfcc,best_harmonic_db,no_lfo_db,lfo_rate,patch,fitted_beats_library,renders,seconds,cached";
 
     /// <summary>Header of <c>psg-fit.csv</c>.</summary>
     public const string PsgFitHeader =
-        "song,sample,name,region,most_at_once,sound,noise_rate,period,pitch_hz,cents_off,channels,room,mel_db,mfcc,harmonic_db,best,best_with_room";
+        "song,sample,name,region,most_at_once,sound,noise_rate,period,pitch_hz,cents_off,channels,room,mel_db,mfcc,harmonic_db,best,best_with_room,cached";
 
     /// <summary>Header of <c>pcm-fit.csv</c>.</summary>
     public const string PcmFitHeader =
-        "song,sample,name,target,most_at_once,kind,savings,room,copies,bytes,notes,mel_db,harmonic_db,smallest,start_frame,seconds,plain_mel_db,bent_notes";
+        "song,sample,name,target,most_at_once,kind,savings,room,copies,bytes,notes,mel_db,harmonic_db,smallest,start_frame,seconds,plain_mel_db,bent_notes,cached";
 
     /// <summary>Header of <c>pre-mix.csv</c>.</summary>
     public const string PreMixHeader =
-        "song,target,samples,offsets_ticks,rates_hz,start_frames,volumes,occurrences,saves_steal,window_s,switch_s,end,head_bytes,tail_bytes,slots,tail_sample,tail_start_frame,tail_rate_hz,tail_points,tail_id,clip_db,mel_db,seam_mel_db";
+        "song,target,samples,offsets_ticks,rates_hz,start_frames,volumes,occurrences,saves_steal,window_s,switch_s,end,head_bytes,tail_bytes,slots,tail_sample,tail_start_frame,tail_rate_hz,tail_points,tail_id,clip_db,mel_db,seam_mel_db,cached";
 
     /// <summary>Header of <c>locked-pairs.csv</c>.</summary>
-    public const string LockedPairsHeader = "song,sample_a,channel_a,sample_b,channel_b,onsets,lone_a,lone_b,gap_semitones,spread_cents";
+    public const string LockedPairsHeader = "song,sample_a,channel_a,sample_b,channel_b,onsets,lone_a,lone_b,gap_semitones,spread_cents,cached";
 
     /// <summary>Header of <c>ch3-fit.csv</c>.</summary>
     public const string Ch3FitHeader =
-        "song,targets,sample_a,channel_a,region_a,sample_b,channel_b,region_b,onsets,hz_a,hz_b,window_s,ops12,source_a,source_b,voice_a_db,voice_b_db,mel_db,mfcc,algorithm4_db,cut_down_db,patch";
+        "song,targets,sample_a,channel_a,region_a,sample_b,channel_b,region_b,onsets,hz_a,hz_b,window_s,ops12,source_a,source_b,voice_a_db,voice_b_db,mel_db,mfcc,algorithm4_db,cut_down_db,patch,cached";
 
     /// <summary>Header of <c>voice-steals.csv</c>.</summary>
     public const string VoiceStealsHeader =
-        "song,target,voices,pcm_notes,overlaps,candidates,steals,steals_with_pre_mix,steals_removed,seconds";
+        "song,target,voices,pcm_notes,overlaps,candidates,steals,steals_with_pre_mix,steals_removed,seconds,cached";
 
     /// <summary>Header of <c>loudness.csv</c>.</summary>
     public const string LoudnessHeader =
@@ -285,7 +285,8 @@ internal static class HarnessReport
                         Csv(FmFitReport.Settings(r.Best)),
                         r.FittedBeatsLibrary ? "yes" : "no",
                         r.Renders.ToString(CultureInfo.InvariantCulture),
-                        Number(r.Elapsed.TotalSeconds, "0.#"));
+                        Number(r.Elapsed.TotalSeconds, "0.#"),
+                        YesNo(r.Cached));
                     csv.Append('\n');
                 }
             }
@@ -330,7 +331,8 @@ internal static class HarnessReport
                             Number(c.Score.MfccDistance, "0.##"),
                             Number(c.Score.HarmonicDb, "0.###"),
                             ReferenceEquals(c, r.Best) ? "yes" : "no",
-                            ReferenceEquals(c, r.BestThatFits) ? "yes" : "no");
+                            ReferenceEquals(c, r.BestThatFits) ? "yes" : "no",
+                            YesNo(fit.Cached));
                         csv.Append('\n');
                     }
                 }
@@ -378,7 +380,8 @@ internal static class HarnessReport
                         string.Empty,
                         string.Empty,
                         string.Empty,
-                        fit.BentNotes.ToString(CultureInfo.InvariantCulture));
+                        fit.BentNotes.ToString(CultureInfo.InvariantCulture),
+                        YesNo(fit.Cached));
                     csv.Append('\n');
                 }
 
@@ -398,7 +401,8 @@ internal static class HarnessReport
                         b.StartFrame.ToString(CultureInfo.InvariantCulture),
                         Number(b.Seconds, "0.###"),
                         Number(b.PlainScore.MelDb, "0.###"),
-                        string.Empty);
+                        string.Empty,
+                        YesNo(fit.Cached));
                     csv.Append('\n');
                 }
             }
@@ -448,7 +452,8 @@ internal static class HarnessReport
                         c.Tail is { } i ? i.Id.ToString(CultureInfo.InvariantCulture) : string.Empty,
                         Number(c.ClipDb, "0.##"),
                         Number(c.Score.MelDb, "0.###"),
-                        Number(c.Seam?.MelDb, "0.###"));
+                        Number(c.Seam?.MelDb, "0.###"),
+                        YesNo(fit.Cached));
                     csv.Append('\n');
                 }
             }
@@ -482,7 +487,8 @@ internal static class HarnessReport
                     fit.Steals.ToString(CultureInfo.InvariantCulture),
                     fit.StealsWithPreMix.ToString(CultureInfo.InvariantCulture),
                     fit.StealsRemoved.ToString(CultureInfo.InvariantCulture),
-                    Number(fit.Elapsed.TotalSeconds, "0.#"));
+                    Number(fit.Elapsed.TotalSeconds, "0.#"),
+                    YesNo(fit.Cached));
                 csv.Append('\n');
             }
         }
@@ -514,7 +520,8 @@ internal static class HarnessReport
                     p.LoneA.ToString(CultureInfo.InvariantCulture),
                     p.LoneB.ToString(CultureInfo.InvariantCulture),
                     Number(p.GapCents / 100, "0.##"),
-                    Number(p.SpreadCents, "0.##"));
+                    Number(p.SpreadCents, "0.##"),
+                    YesNo(song.Ch3Fit!.Cached));
                 csv.Append('\n');
             }
         }
@@ -560,7 +567,8 @@ internal static class HarnessReport
                     Number(c.Score.MfccDistance, "0.##"),
                     Number(c.Algorithm4Score.MelDb, "0.###"),
                     Number(c.CutDownScore.MelDb, "0.###"),
-                    Csv(Ch3FitReport.Settings(c)));
+                    Csv(Ch3FitReport.Settings(c)),
+                    YesNo(song.Ch3Fit!.Cached));
                 csv.Append('\n');
             }
         }
@@ -742,6 +750,9 @@ internal static class HarnessReport
     /// <summary>A row as <c>order:row</c>, or nothing.</summary>
     private static string Position(RowTiming? row) =>
         row is null ? string.Empty : string.Create(CultureInfo.InvariantCulture, $"{row.Order}:{row.Row}");
+
+    /// <summary>"yes" or "no".</summary>
+    private static string YesNo(bool value) => value ? "yes" : "no";
 
     /// <summary><paramref name="value"/> in <paramref name="format"/>, without the minus sign of a value that rounds to zero ("-0").</summary>
     private static string Number(double? value, string format = "0.######")

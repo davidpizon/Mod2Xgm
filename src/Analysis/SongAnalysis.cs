@@ -15,4 +15,11 @@ internal sealed record SongAnalysis(Song Song, Playback Playback, IReadOnlyList<
 {
     /// <summary>Every note the song plays (<see cref="SongNote.Find"/>), found once on first use.</summary>
     public IReadOnlyList<SongNote> Notes => field ??= SongNote.Find(Song, Playback);
+
+    /// <summary>
+    /// What the analysis was made from: the MOD file's bytes and every option that changes it, the key of the song's
+    /// candidates in the candidate cache (docs/adr/0074-candidate-cache.md); <c>null</c> when unknown, and then they are
+    /// never cached.
+    /// </summary>
+    public Optimizer.Fingerprint? Source { get; init; }
 }

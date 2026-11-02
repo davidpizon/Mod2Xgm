@@ -26,6 +26,14 @@ internal readonly record struct Fingerprint(UInt128 Low, UInt128 High)
     public static Fingerprint From(ReadOnlySpan<byte> hash) =>
         new(BinaryPrimitives.ReadUInt128LittleEndian(hash), BinaryPrimitives.ReadUInt128LittleEndian(hash[16..]));
 
+    /// <summary>The hash as 64 lowercase hex digits, for file names.</summary>
+    public string ToHex()
+    {
+        Span<byte> hash = stackalloc byte[Size];
+        WriteTo(hash);
+        return Convert.ToHexStringLower(hash);
+    }
+
     /// <summary>Writes the hash to <paramref name="destination"/> (<see cref="Size"/> bytes).</summary>
     public void WriteTo(Span<byte> destination)
     {
@@ -62,6 +70,41 @@ internal sealed class Hasher : IDisposable
         BinaryPrimitives.WriteDoubleLittleEndian(bytes, value);
         _hash.AppendData(bytes);
     }
+
+    /// <summary>Adds <paramref name="value"/>, exactly (its bits).</summary>
+    public void Add(float value)
+    {
+        Span<byte> bytes = stackalloc byte[sizeof(float)];
+        BinaryPrimitives.WriteSingleLittleEndian(bytes, value);
+        _hash.AppendData(bytes);
+    }
+
+    /// <summary>Adds <paramref name="value"/> as 1 or 0.</summary>
+    public void Add(bool value) => Add(value ? 1 : 0);
+
+    /// <summary>Adds whether <paramref name="value"/> is there, then its bits.</summary>
+    public void Add(double? value)
+    {
+        Add(value.HasValue);
+        Add(value ?? 0);
+    }
+
+    /// <summary>Adds whether <paramref name="value"/> is there, then it.</summary>
+    public void Add(int? value)
+    {
+        Add(value.HasValue);
+        Add(value ?? 0);
+    }
+
+    /// <summary>Adds <paramref name="data"/>'s length, then its bytes.</summary>
+    public void Add(ReadOnlySpan<byte> data)
+    {
+        Add(data.Length);
+        _hash.AppendData(data);
+    }
+
+    /// <summary>Adds <paramref name="value"/> as UTF-8, with its length.</summary>
+    public void Add(string value) => Add(System.Text.Encoding.UTF8.GetBytes(value));
 
     /// <summary>Adds <paramref name="value"/>.</summary>
     public void Add(Fingerprint value)

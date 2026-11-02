@@ -60,6 +60,9 @@ internal sealed record ConversionOptions
 
     public int Seed { get; init; }
     public bool NoCache { get; init; }
+
+    /// <summary>The candidate cache's folder (<c>--cache-dir</c>); <c>null</c> for the user's cache folder (docs/adr/0074-candidate-cache.md).</summary>
+    public string? CacheDirectory { get; init; }
     public int ReserveSfxChannels { get; init; }
 
     /// <summary>True when a WAV of the Genesis render is written too (<c>--render-wav</c>, docs/adr/0059-genesis-renderer.md).</summary>

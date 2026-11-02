@@ -16,7 +16,7 @@ internal static class FmFitReport
             foreach (FmRegionFit r in fit.Regions)
             {
                 logger.Debug(
-                    "Sample {Sample:l}, region {Region}: library {Library:l} {LibraryDb:0.00} dB; exhaustive {Exhaustive:l}; genetic {Genetic:l}; best {Best:l} ({Patch:l}); {Renders} notes rendered in {Seconds:0.0} s",
+                    "Sample {Sample:l}, region {Region}: library {Library:l} {LibraryDb:0.00} dB; exhaustive {Exhaustive:l}; genetic {Genetic:l}; best {Best:l} ({Patch:l}); {Renders} notes rendered in {Seconds:0.0} s{Cached:l}",
                     Format($"{fit.Sample + 1} \"{fit.Name}\""),
                     r.Region + 1,
                     r.Library.Patch.Name,
@@ -26,7 +26,8 @@ internal static class FmFitReport
                     Describe(r.Best),
                     Settings(r.Best),
                     r.Renders,
-                    r.Elapsed.TotalSeconds);
+                    r.Elapsed.TotalSeconds,
+                    r.Cached ? " (cached)" : string.Empty);
             }
         }
     }
