@@ -148,6 +148,12 @@ mode (algorithm 4, `FmNoteRenderer.RenderCh3`): per voice a new fit and a cut-do
 the voice's operators), every combination judged together against the MOD mix (`NoteMix`, shared with `PreMixer`).
 Offered for DMF and XGM2 only. Nothing in the conversion uses them yet (M9); the harness runs them with `--ch3`.
 
+**Candidate cache** (`src/Optimizer`, plan T8.6, [ADR 0074](adr/0074-candidate-cache.md)) — `CandidateCache` keeps every
+kind of candidate on disk, one file per key in a folder per build (the Mod2Xgm assembly's module version ID), and
+`CandidateCodec` writes and reads them. FM fits are keyed per pitch region by its sound (`FmFitter.Fit` takes the cache),
+the song-wide kinds by `SongAnalysis.Source`: the MOD file and the options that change the analysis, set by the
+conversion. A result read back carries `Cached`. The harness uses it unless `--no-cache`; the conversion will in M9.
+
 **Scoring** (`src/Scoring`, plan T6.2, [ADR 0042](adr/0042-scoring-metrics.md)) — pure C#: says how close a rendering sounds to the
 original. `AudioSignal` (mono audio) → `Alignment` (constant lag from the note-start curves) → `SpectralMetrics`
 (multi-resolution log-mel distance, MFCC distance on `MelAnalyzer`/`FftPlan`) and `OnsetMetrics` (note-start precision,

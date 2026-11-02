@@ -109,6 +109,11 @@ internal sealed class CommandLineDefinition
         Description = "Don't read or write the fitted-patch cache.",
     };
 
+    public Option<string?> CacheDir { get; } = new("--cache-dir")
+    {
+        Description = "Folder for the fitted-patch cache (default: the user's cache folder).",
+    };
+
     public Option<int> ReserveSfxChannels { get; } = new("--reserve-sfx-channels")
     {
         Description = "PCM channels to leave free for game sound effects (XGM up to 4, XGM2 up to 3).",
@@ -162,6 +167,7 @@ internal sealed class CommandLineDefinition
             TimeBudget,
             Seed,
             NoCache,
+            CacheDir,
             ReserveSfxChannels,
             RenderWav,
             Info,

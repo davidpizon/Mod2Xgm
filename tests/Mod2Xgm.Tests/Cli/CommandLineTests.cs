@@ -48,6 +48,7 @@ public sealed class CommandLineTests
         Assert.Null(options.TimeBudget);
         Assert.Equal(0, options.Seed);
         Assert.False(options.NoCache);
+        Assert.Null(options.CacheDirectory);
         Assert.Equal(0, options.ReserveSfxChannels);
         Assert.False(options.InfoOnly);
         Assert.False(options.Force);
@@ -310,6 +311,21 @@ public sealed class CommandLineTests
 
         Assert.Equal(ExitCode.UsageError, result.Code);
         Assert.Contains($"{first} and {second} both list sample 4; {reason}", result.Error, StringComparison.Ordinal);
+    }
+
+    /// <summary><c>--cache-dir</c> names the candidate cache's folder; it can't be empty or be combined with <c>--no-cache</c>.</summary>
+    [Fact]
+    public void CacheDirNamesTheCacheFolder()
+    {
+        Assert.Equal("my cache", Assert.IsType<ConversionOptions>(Run("song.mod", "--cache-dir", "my cache").Options).CacheDirectory);
+
+        Outcome both = Run("song.mod", "--no-cache", "--cache-dir", "c");
+        Outcome empty = Run("song.mod", "--cache-dir", "");
+
+        Assert.Equal(ExitCode.UsageError, both.Code);
+        Assert.Contains("--no-cache and --cache-dir both given", both.Error, StringComparison.Ordinal);
+        Assert.Equal(ExitCode.UsageError, empty.Code);
+        Assert.Contains("--cache-dir: a folder, please.", empty.Error, StringComparison.Ordinal);
     }
 
     /// <summary><c>--no-dac</c> can be combined with <c>--require-fm</c>, but not with <c>--require-dac</c>: that sample would have nowhere to play.</summary>

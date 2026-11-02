@@ -34,6 +34,8 @@ public sealed class ProgramTests
         Assert.False(options.NoDefleMask);
         Assert.Null(options.ClipSeconds);
         Assert.False(options.Ch3);
+        Assert.False(options.NoCache);
+        Assert.Null(options.CacheDirectory);
         Assert.Equal(Program.DefaultJobs, options.Jobs);
         Assert.InRange(options.Jobs, 1, 4);
     }
@@ -44,7 +46,7 @@ public sealed class ProgramTests
     {
         HarnessOptions options = Parse(
             "a.mod", "songs", "-o", "out", "--rate", "22050", "--libopenmpt", "lib", "--furnace", "f.exe", "--no-furnace",
-            "--deflemask-wavs", "wavs", "--no-deflemask", "--save-reference-wavs", "--clip", "30", "--balance", "--ch3", "-j", "3", "-v");
+            "--deflemask-wavs", "wavs", "--no-deflemask", "--save-reference-wavs", "--clip", "30", "--balance", "--ch3", "--cache-dir", "cache", "-j", "3", "-v");
 
         Assert.Equal(["a.mod", "songs"], options.Inputs);
         Assert.Equal("out", options.OutputDirectory);
@@ -58,6 +60,8 @@ public sealed class ProgramTests
         Assert.Equal(30, options.ClipSeconds);
         Assert.True(options.Balance);
         Assert.True(options.Ch3);
+        Assert.Equal("cache", options.CacheDirectory);
+        Assert.True(Parse("--no-cache").NoCache);
         Assert.True(options.Verbose);
         Assert.Equal(3, options.Jobs);
     }
@@ -71,6 +75,7 @@ public sealed class ProgramTests
         Assert.Throws<HarnessException>(() => Program.Invoke(["--jobs", "0"], _ => 0));
         Assert.Throws<HarnessException>(() => Program.Invoke(["--clip", "0.5"], _ => 0));
         Assert.Throws<HarnessException>(() => Program.Invoke(["--balance"], _ => 0));
+        Assert.Throws<HarnessException>(() => Program.Invoke(["--no-cache", "--cache-dir", "c"], _ => 0));
     }
 
     /// <summary>Songs are the .mod files named or inside folders named, once each, sorted; nothing found is an error.</summary>

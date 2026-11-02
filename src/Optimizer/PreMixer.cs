@@ -93,6 +93,9 @@ internal sealed record PreMixSongFit(PcmTarget Target, int Voices, int PcmNotes,
 {
     /// <summary>Voice steals the candidates remove.</summary>
     public int StealsRemoved => Steals - StealsWithPreMix;
+
+    /// <summary>True when it came from the candidate cache (docs/adr/0074-candidate-cache.md); everything else is as made then.</summary>
+    public bool Cached { get; init; }
 }
 
 /// <summary>

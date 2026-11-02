@@ -5,6 +5,7 @@ using Mod2Xgm.Dmf;
 using Mod2Xgm.Mapping;
 using Mod2Xgm.Mod;
 using Mod2Xgm.Model;
+using Mod2Xgm.Optimizer;
 using Mod2Xgm.Render;
 using Serilog;
 using Serilog.Events;
@@ -57,7 +58,8 @@ internal static class ConversionCommand
         }
 
         ConversionNotes notes = new(logger);
-        ModModule module = ModReader.Read(ReadInput(input), notes, options.Player);
+        byte[] mod = ReadInput(input);
+        ModModule module = ModReader.Read(mod, notes, options.Player);
 
         // Report sections 1–2 come right after reading, before anything that can fail later (docs/cli.md#console-report).
         ModReport.LogMetadata(logger, module, Path.GetFileName(input));
@@ -89,7 +91,10 @@ internal static class ConversionCommand
         {
             // Nothing uses the analysis yet (the optimizer will, plan M9); --verbose shows it (docs/adr/0068-sample-analysis.md).
             IReadOnlyList<SampleAnalysis> analyses = SampleAnalyzer.AnalyzeSong(song, playback, mapping.Ignore);
-            SongAnalysis analysis = new(song, playback, analyses, SongVoices.Count(song, playback));
+            SongAnalysis analysis = new(song, playback, analyses, SongVoices.Count(song, playback))
+            {
+                Source = AnalysisSource(mod, module, options, mapping.Ignore),
+            };
             if (verbose)
             {
                 SampleAnalysisReport.Log(logger, analyses);
@@ -263,15 +268,35 @@ internal static class ConversionCommand
             options.Quality,
             options.Seed);
         logger.Debug(
-            "PCM budget {MaxPcmBytes} bytes, reserved SFX channels {ReserveSfx}, consolidate {Consolidate}, cache {Cache}",
+            "PCM budget {MaxPcmBytes} bytes, reserved SFX channels {ReserveSfx}, consolidate {Consolidate}, cache {Cache:l}",
             options.MaxPcmBytes,
             options.ReserveSfxChannels,
             !options.NoConsolidate,
-            !options.NoCache);
+            options.NoCache ? "off" : Path.Combine(options.CacheDirectory ?? CandidateCache.DefaultRoot, CandidateCache.BuildFolderName));
         LogSampleList(logger, "Ignoring samples {Samples}", options.IgnoreSamples);
         LogSampleList(logger, "Samples required as FM {Samples}", options.RequireFm);
         LogSampleList(logger, "Samples required as DAC {Samples}", options.RequireDac);
         LogSampleList(logger, "Samples required as PSG {Samples}", options.RequirePsg);
+    }
+
+    /// <summary>
+    /// What the analysis is made from, the key of the song's cached candidates (docs/adr/0074-candidate-cache.md): the
+    /// file, the player that reads it, the Amiga's clock and tick rate, and the samples left out.
+    /// </summary>
+    private static Fingerprint AnalysisSource(byte[] mod, ModModule module, ConversionOptions options, IReadOnlySet<int> ignore)
+    {
+        using Hasher key = new();
+        key.Add(Fingerprint.Of(mod));
+        key.Add((int)module.Player);
+        key.Add(options.AmigaClockHz);
+        key.Add(options.AmigaTickRateScale);
+        key.Add(ignore.Count);
+        foreach (int sample in ignore.Order())
+        {
+            key.Add(sample);
+        }
+
+        return key.Finish();
     }
 
     private static void LogSampleList(ILogger logger, string messageTemplate, IReadOnlySet<int> samples)

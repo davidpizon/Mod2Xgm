@@ -189,14 +189,14 @@ public sealed class HarnessReportTests
         FmFit exhaustive = new(FmPatchLibrary.Organ with { Name = "Fit 1.1" }, null, FmFitSource.Exhaustive, new NoteScore(3.5, 40.25, 4.25));
         FmFit genetic = new(FmPatchLibrary.Sine with { Fms = 2 }, 5, FmFitSource.Genetic, new NoteScore(3, 35, 4));
         FmRegionFit bass = new(0, library, exhaustive, genetic, genetic, exhaustive, 1234, TimeSpan.FromSeconds(12.34));
-        FmRegionFit lib = new(1, library, null, null, library, library, 11, TimeSpan.FromSeconds(0.5));
+        FmRegionFit lib = new(1, library, null, null, library, library, 11, TimeSpan.FromSeconds(0.5)) { Cached = true };
         SongResult[] results = [Results[0] with { FmFits = [new FmSampleFit(0, "bass, low", [bass, lib])] }, Results[1]];
 
         string[] lines = HarnessReport.FmFitCsv(results).Split('\n');
 
         Assert.Equal(HarnessReport.FmFitHeader, lines[0]);
-        Assert.Equal("alpha,1,\"bass, low\",1,Lead,7.123,3.5,3,genetic,3,35,4,3.5,5,\"ALG 7 FB 0 MULT 1 1 1 1, LFO 5 FMS 2 AMS 0\",yes,1234,12.3", lines[1]);
-        Assert.Equal("alpha,1,\"bass, low\",2,Lead,7.123,,,library,7.123,90.5,9.5,7.123,,\"ALG 4 FB 5 MULT 1 1 2 2, no LFO\",no,11,0.5", lines[2]);
+        Assert.Equal("alpha,1,\"bass, low\",1,Lead,7.123,3.5,3,genetic,3,35,4,3.5,5,\"ALG 7 FB 0 MULT 1 1 1 1, LFO 5 FMS 2 AMS 0\",yes,1234,12.3,no", lines[1]);
+        Assert.Equal("alpha,1,\"bass, low\",2,Lead,7.123,,,library,7.123,90.5,9.5,7.123,,\"ALG 4 FB 5 MULT 1 1 2 2, no LFO\",no,11,0.5,yes", lines[2]);
         Assert.Equal(string.Empty, lines[3]);
         Assert.Equal(HarnessReport.FmFitCsv(results), HarnessReport.FmFitCsv(results));
     }
@@ -215,9 +215,9 @@ public sealed class HarnessReportTests
         string[] lines = HarnessReport.PsgFitCsv(results).Split('\n');
 
         Assert.Equal(HarnessReport.PsgFitHeader, lines[0]);
-        Assert.Equal("alpha,3,\"lead, hi\",1,4,tone,,254,440.4,1.3,1,sample too often,2.5,20.25,3.125,yes,no", lines[1]);
-        Assert.Equal("alpha,3,\"lead, hi\",1,4,periodic,3,16,436.96,-3,2,fits,4,30,,no,yes", lines[2]);
-        Assert.Equal("alpha,3,\"lead, hi\",1,4,white,1,,,,1,fits,9,50,,no,no", lines[3]);
+        Assert.Equal("alpha,3,\"lead, hi\",1,4,tone,,254,440.4,1.3,1,sample too often,2.5,20.25,3.125,yes,no,no", lines[1]);
+        Assert.Equal("alpha,3,\"lead, hi\",1,4,periodic,3,16,436.96,-3,2,fits,4,30,,no,yes,no", lines[2]);
+        Assert.Equal("alpha,3,\"lead, hi\",1,4,white,1,,,,1,fits,9,50,,no,no,no", lines[3]);
         Assert.Equal(string.Empty, lines[4]);
     }
 
@@ -236,9 +236,9 @@ public sealed class HarnessReportTests
         string[] lines = HarnessReport.PcmFitCsv(results).Split('\n');
 
         Assert.Equal(HarnessReport.PcmFitHeader, lines[0]);
-        Assert.Equal("alpha,2,\"bass, low\",xgm2,2,copies,none,fits,1,1792,3,1.25,2.5,no,,,,3", lines[1]);
-        Assert.Equal("alpha,2,\"bass, low\",xgm2,2,copies,half speed,sample too often,1,1024,3,4.5,,yes,,,,3", lines[2]);
-        Assert.Equal("alpha,2,\"bass, low\",xgm2,2,baked,,,1,12800,2,2,,,256,0.96,6.125,", lines[3]);
+        Assert.Equal("alpha,2,\"bass, low\",xgm2,2,copies,none,fits,1,1792,3,1.25,2.5,no,,,,3,no", lines[1]);
+        Assert.Equal("alpha,2,\"bass, low\",xgm2,2,copies,half speed,sample too often,1,1024,3,4.5,,yes,,,,3,no", lines[2]);
+        Assert.Equal("alpha,2,\"bass, low\",xgm2,2,baked,,,1,12800,2,2,,,256,0.96,6.125,,no", lines[3]);
         Assert.Equal(string.Empty, lines[4]);
     }
 
@@ -256,11 +256,11 @@ public sealed class HarnessReportTests
         string[] steals = HarnessReport.VoiceStealsCsv(results).Split('\n');
 
         Assert.Equal(HarnessReport.PreMixHeader, lines[0]);
-        Assert.Equal("alpha,xgm,1+5,0+2,8287+4144,0+512,1+0.5,14,no,0.1,0.117,tail,1792,4096,2,5,1234,4144,4000,0,0,0.5,1.25", lines[1]);
-        Assert.Equal("alpha,xgm,1+5,0+2,8287+4144,0+512,1+0.5,1,yes,0.1,0.117,baked,8192,,1,,,,,,1.5,0.5,0.25", lines[2]);
+        Assert.Equal("alpha,xgm,1+5,0+2,8287+4144,0+512,1+0.5,14,no,0.1,0.117,tail,1792,4096,2,5,1234,4144,4000,0,0,0.5,1.25,no", lines[1]);
+        Assert.Equal("alpha,xgm,1+5,0+2,8287+4144,0+512,1+0.5,1,yes,0.1,0.117,baked,8192,,1,,,,,,1.5,0.5,0.25,no", lines[2]);
         Assert.Equal(string.Empty, lines[3]);
         Assert.Equal(HarnessReport.VoiceStealsHeader, steals[0]);
-        Assert.Equal("alpha,xgm,4,120,40,2,6,2,4,1.3", steals[1]);
+        Assert.Equal("alpha,xgm,4,120,40,2,6,2,4,1.3,no", steals[1]);
         Assert.Equal(string.Empty, steals[2]);
     }
 
@@ -281,10 +281,10 @@ public sealed class HarnessReportTests
         string[] fits = HarnessReport.Ch3FitCsv(results).Split('\n');
 
         Assert.Equal(HarnessReport.LockedPairsHeader, pairs[0]);
-        Assert.Equal("alpha,3,1,5,4,2,12,0", pairs[1]);
+        Assert.Equal("alpha,3,1,5,4,2,12,0,no", pairs[1]);
         Assert.Equal(string.Empty, pairs[2]);
         Assert.Equal(HarnessReport.Ch3FitHeader, fits[0]);
-        Assert.Equal("alpha,dmf xgm2,3,1,1,5,4,2,2,129.5,259,0.08,B,algorithm4,cut-down,3.5,4.25,5.125,3.5,6,5.125," + Ch3FitReport.Settings(c), fits[1]);
+        Assert.Equal("alpha,dmf xgm2,3,1,1,5,4,2,2,129.5,259,0.08,B,algorithm4,cut-down,3.5,4.25,5.125,3.5,6,5.125," + Ch3FitReport.Settings(c) + ",no", fits[1]);
         Assert.Equal(string.Empty, fits[2]);
     }
 

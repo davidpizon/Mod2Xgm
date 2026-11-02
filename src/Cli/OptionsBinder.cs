@@ -40,6 +40,17 @@ internal static class OptionsBinder
             errors.Add($"--no-dac and --require-dac both given (sample{(requireDac.Count == 1 ? string.Empty : "s")} {string.Join(", ", requireDac.Order())}); --no-dac keeps every sample off the DAC.");
         }
 
+        bool noCache = parseResult.GetValue(definition.NoCache);
+        string? cacheDirectory = parseResult.GetValue(definition.CacheDir);
+        if (noCache && cacheDirectory is not null)
+        {
+            errors.Add("--no-cache and --cache-dir both given; --no-cache doesn't use a cache folder.");
+        }
+        else if (cacheDirectory is { Length: 0 })
+        {
+            errors.Add("--cache-dir: a folder, please.");
+        }
+
         AddConflict(ignoreSamples, "--ignore-samples", requireFm, "--require-fm", "an ignored sample isn't converted at all", errors);
         AddConflict(ignoreSamples, "--ignore-samples", requireDac, "--require-dac", "an ignored sample isn't converted at all", errors);
         AddConflict(ignoreSamples, "--ignore-samples", requirePsg, "--require-psg", "an ignored sample isn't converted at all", errors);
@@ -95,7 +106,8 @@ internal static class OptionsBinder
             Quality = quality,
             TimeBudget = timeBudget,
             Seed = parseResult.GetValue(definition.Seed),
-            NoCache = parseResult.GetValue(definition.NoCache),
+            NoCache = noCache,
+            CacheDirectory = cacheDirectory,
             ReserveSfxChannels = reserveSfx,
             RenderWav = parseResult.GetResult(definition.RenderWav) is not null,
             RenderWavPath = parseResult.GetValue(definition.RenderWav),

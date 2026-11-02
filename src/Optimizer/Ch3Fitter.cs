@@ -62,7 +62,11 @@ internal sealed record Ch3Candidate(
 /// <param name="Candidates">One per pair and pair of pitch regions with sound.</param>
 /// <param name="Renders">FM notes and mixes rendered, the T8.2 fits made here included.</param>
 /// <param name="Elapsed">How long it took (for reports only; never changes a result).</param>
-internal sealed record Ch3SongFit(IReadOnlyList<LockedPair> Pairs, IReadOnlyList<Ch3Candidate> Candidates, int Renders, TimeSpan Elapsed);
+internal sealed record Ch3SongFit(IReadOnlyList<LockedPair> Pairs, IReadOnlyList<Ch3Candidate> Candidates, int Renders, TimeSpan Elapsed)
+{
+    /// <summary>True when it came from the candidate cache (docs/adr/0074-candidate-cache.md); everything else is as made then.</summary>
+    public bool Cached { get; init; }
+}
 
 /// <summary>
 /// Makes the CH3 special-mode candidates of plan T8.5b (docs/multi-pass.md#candidates, docs/adr/0073-ch3-locked-pairs.md):

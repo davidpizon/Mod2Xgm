@@ -87,6 +87,7 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0071](0071-pcm-candidates.md) | PCM candidates: a copy per pitch played, every combination of four savings, baked notes for repeated effects (T8.4) | 2026-11-01 | Accepted |
 | [0072](0072-pre-mix-candidates.md) | Pre-mix candidates: every group of 2–4 overlapping notes, a tail and a baked twin, tails pay their own bytes (T8.5a) | 2026-11-01 | Accepted; supersedes one decision of 0052 |
 | [0073](0073-ch3-locked-pairs.md) | Locked pairs and CH3 special-mode candidates: every onset together, two 2-operator voices judged against the mix (T8.5b) | 2026-11-02 | Accepted |
+| [0074](0074-candidate-cache.md) | Candidate cache: every kind kept per build, FM fits per region's sound, the rest per song file (T8.6) | 2026-11-02 | Accepted |
 
 ## Open questions
 

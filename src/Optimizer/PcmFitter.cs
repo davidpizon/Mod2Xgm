@@ -99,6 +99,9 @@ internal sealed record PcmSampleFit(int Sample, string Name, PcmTarget Target, i
 
     /// <summary>The option with the fewest bytes (the closer one of equals); <c>null</c> for a silent sample.</summary>
     public PcmOption? Smallest => Options.OrderBy(o => o.Bytes).ThenBy(o => o.MelDb).FirstOrDefault();
+
+    /// <summary>True when it came from the candidate cache (docs/adr/0074-candidate-cache.md); everything else is as made then.</summary>
+    public bool Cached { get; init; }
 }
 
 /// <summary>

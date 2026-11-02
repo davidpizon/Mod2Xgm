@@ -107,8 +107,9 @@ All in-process, no native libraries and no external programs:
 
 Default conversions may take **minutes**. `--quality fast|normal|best` (default `normal`): `fast` = simple
 mapper, no fitting; `normal` = full passes with a 5-minute budget; `best` = run until no improvement.
-`--time-budget` overrides. Fitted patches are cached locally per sample hash (user cache directory,
-`--no-cache` to disable) so reruns are fast. Progress is logged at `Information`.
+`--time-budget` overrides. The candidates are cached locally (user cache directory or `--cache-dir`, `--no-cache` to
+disable) so reruns are fast: FM fits per pitch region's sound, the rest per song file, all per build
+([ADR 0074](adr/0074-candidate-cache.md)). Progress is logged at `Information`.
 
 ## SGDK compliance
 

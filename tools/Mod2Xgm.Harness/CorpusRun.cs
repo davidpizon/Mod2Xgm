@@ -43,6 +43,7 @@ namespace Mod2Xgm.Harness;
 /// Also find every song's locked pairs and make their CH3 candidates with these options, cutting down the FM fits when
 /// <paramref name="fmFit"/> made them (docs/adr/0073-ch3-locked-pairs.md); <c>null</c> to skip.
 /// </param>
+/// <param name="cache">Where candidates made before are found and new ones kept (docs/adr/0074-candidate-cache.md); <c>null</c> to make every one.</param>
 internal sealed class CorpusRun(
     string outputDirectory,
     int sampleRate,
@@ -56,7 +57,8 @@ internal sealed class CorpusRun(
     bool psgFit = false,
     bool pcmFit = false,
     bool preMix = false,
-    FmFitOptions? ch3 = null)
+    FmFitOptions? ch3 = null,
+    CandidateCache? cache = null)
 {
     /// <summary>
     /// Measures every song in <paramref name="modPaths"/>, <paramref name="jobs"/> at a time; the results are in the
@@ -123,7 +125,7 @@ internal sealed class CorpusRun(
             {
                 Samples = analyses,
                 FmFits = fmFits,
-                PsgFits = FitPsg(name, analyses, analysis?.Voices),
+                PsgFits = FitPsg(name, analysis),
                 PcmFits = FitPcm(name, analysis),
                 PreMixFits = FitPreMix(name, analysis),
                 Ch3Fit = FitCh3(name, analysis, fmFits),
@@ -146,29 +148,41 @@ internal sealed class CorpusRun(
 
         logger.Information("{Song}: fitting FM patches to {Count} samples", song, analyses.Count);
         FmSampleFit[] fits = new FmSampleFit[analyses.Count];
-        Parallel.For(0, analyses.Count, i => fits[i] = FmFitter.Fit(analyses[i], fmFit));
+        Parallel.For(0, analyses.Count, i => fits[i] = FmFitter.Fit(analyses[i], fmFit, cache));
         FmFitReport.Log(logger, fits);
         int regions = fits.Sum(f => f.Regions.Count);
         logger.Information(
-            "{Song}: fitted FM patches beat the library in {Better} of {Regions} pitch regions",
+            "{Song}: fitted FM patches beat the library in {Better} of {Regions} pitch regions ({Cached} from the cache)",
             song,
             fits.Sum(f => f.Regions.Count(r => r.FittedBeatsLibrary)),
-            regions);
+            regions,
+            fits.Sum(f => f.Regions.Count(r => r.Cached)));
         return fits;
     }
 
-    /// <summary>The PSG candidates of every analyzed sample, in the analyses' order, made at once; none unless asked for.</summary>
-    private IReadOnlyList<PsgSampleFit> FitPsg(string song, IReadOnlyList<SampleAnalysis> analyses, SongVoices? voices)
+    /// <summary>Says how many of a song's candidate sets came from the cache, when any did.</summary>
+    private void LogCached(string song, string kind, int cached, int all)
     {
-        if (!psgFit || voices is null)
+        if (cached > 0)
+        {
+            logger.Information("{Song}: {Cached} of {All} {Kind} candidate sets from the cache", song, cached, all, kind);
+        }
+    }
+
+    /// <summary>The PSG candidates of every analyzed sample, in the analyses' order, made at once; none unless asked for.</summary>
+    private IReadOnlyList<PsgSampleFit> FitPsg(string song, SongAnalysis? analysis)
+    {
+        if (!psgFit || analysis is null)
         {
             return [];
         }
 
+        IReadOnlyList<SampleAnalysis> analyses = analysis.Samples;
         logger.Information("{Song}: making PSG candidates for {Count} samples", song, analyses.Count);
         PsgSampleFit[] fits = new PsgSampleFit[analyses.Count];
-        Parallel.For(0, analyses.Count, i => fits[i] = PsgFitter.Fit(analyses[i], voices));
+        Parallel.For(0, analyses.Count, i => fits[i] = cache?.Psg(analysis, analyses[i]) ?? PsgFitter.Fit(analyses[i], analysis.Voices));
         PsgFitReport.Log(logger, fits);
+        LogCached(song, "PSG", fits.Count(f => f.Cached), fits.Length);
         return fits;
     }
 
@@ -184,8 +198,9 @@ internal sealed class CorpusRun(
         IReadOnlyList<PcmTarget> targets = PcmTargets.All;
         int count = analysis.Samples.Count;
         PcmSampleFit[] fits = new PcmSampleFit[targets.Count * count];
-        Parallel.For(0, fits.Length, i => fits[i] = PcmFitter.Fit(analysis, analysis.Samples[i % count], targets[i / count]));
+        Parallel.For(0, fits.Length, i => fits[i] = cache?.Pcm(analysis, analysis.Samples[i % count], targets[i / count]) ?? PcmFitter.Fit(analysis, analysis.Samples[i % count], targets[i / count]));
         PcmFitReport.Log(logger, fits);
+        LogCached(song, "PCM", fits.Count(f => f.Cached), fits.Length);
         return fits;
     }
 
@@ -203,9 +218,10 @@ internal sealed class CorpusRun(
         // One target at a time: songs already run side by side, and each target's windows take a lot of memory.
         for (int i = 0; i < fits.Length; i++)
         {
-            fits[i] = PreMixer.Fit(analysis, targets[i]);
+            fits[i] = cache?.PreMix(analysis, targets[i]) ?? PreMixer.Fit(analysis, targets[i]);
         }
         PreMixReport.Log(logger, fits);
+        LogCached(song, "pre-mix", fits.Count(f => f.Cached), fits.Length);
         foreach (PreMixSongFit fit in fits)
         {
             logger.Information(
@@ -229,8 +245,9 @@ internal sealed class CorpusRun(
         }
 
         logger.Information("{Song}: finding locked pairs and making CH3 candidates", song);
-        Ch3SongFit fit = Ch3Fitter.Fit(analysis, ch3, fmFits);
+        Ch3SongFit fit = cache?.Ch3(analysis, ch3, fmFits) ?? Ch3Fitter.Fit(analysis, ch3, fmFits);
         Ch3FitReport.Log(logger, fit);
+        LogCached(song, "CH3", fit.Cached ? 1 : 0, 1);
         logger.Information(
             "{Song}: {Pairs} locked pairs, {Candidates} CH3 candidates ({Renders} renders, {Seconds} s)",
             song,
