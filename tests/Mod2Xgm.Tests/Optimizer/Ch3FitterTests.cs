@@ -35,7 +35,7 @@ public sealed class Ch3FitterTests
 
     /// <summary>CH3 special mode is offered for DMF and XGM2, never for XGM v1 (until plan T11.1's probe ROM).</summary>
     [Fact]
-    public void CH3IsNeverOfferedForXgm()
+    public void Ch3IsNeverOfferedForXgm()
     {
         Assert.Equal([PcmTarget.Dmf, PcmTarget.Xgm2], Ch3Fitter.Targets);
         Assert.True(Ch3Fitter.Allows(PcmTarget.Dmf));

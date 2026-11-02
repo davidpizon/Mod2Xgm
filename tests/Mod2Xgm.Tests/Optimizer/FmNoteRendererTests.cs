@@ -97,7 +97,7 @@ public sealed class FmNoteRendererTests
 
     /// <summary>In CH3 special mode each half plays at its own pitch, and only when keyed (plan T8.5b).</summary>
     [Fact]
-    public void CH3HalvesPlayAtTheirOwnPitches()
+    public void Ch3HalvesPlayAtTheirOwnPitches()
     {
         float[] low = FmNoteRenderer.RenderCh3(TwoSines, 220, 550, 0.5, key34: false);
         float[] high = FmNoteRenderer.RenderCh3(TwoSines, 220, 550, 0.5, key12: false);

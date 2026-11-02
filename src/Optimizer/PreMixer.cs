@@ -4,7 +4,6 @@ using Mod2Xgm.Analysis;
 using Mod2Xgm.Audio;
 using Mod2Xgm.Dmf;
 using Mod2Xgm.Model;
-using Mod2Xgm.Render;
 using Serilog.Core;
 
 namespace Mod2Xgm.Optimizer;

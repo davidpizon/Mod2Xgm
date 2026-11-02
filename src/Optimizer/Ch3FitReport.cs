@@ -34,7 +34,7 @@ internal static class Ch3FitReport
     }
 
     /// <summary>The pair and its regions, 1-based, e.g. "3.1 (ch 1) + 5.2 (ch 2)".</summary>
-    public static string Pair(Ch3Candidate c)
+    private static string Pair(Ch3Candidate c)
     {
         ArgumentNullException.ThrowIfNull(c);
         LockedPair p = c.Pair;
