@@ -233,4 +233,7 @@ internal sealed record SongResult(string Song, DurationCheck? Duration, int Conv
 
     /// <summary>The pre-mix candidates for every target (<c>--pre-mix</c>, docs/adr/0072-pre-mix-candidates.md); empty when not asked for.</summary>
     public IReadOnlyList<PreMixSongFit> PreMixFits { get; init; } = [];
+
+    /// <summary>The locked pairs and CH3 candidates (<c>--ch3</c>, docs/adr/0073-ch3-locked-pairs.md); <c>null</c> when not asked for.</summary>
+    public Ch3SongFit? Ch3Fit { get; init; }
 }

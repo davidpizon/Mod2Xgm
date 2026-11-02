@@ -33,6 +33,26 @@ internal static class FmNoteRenderer
     /// <summary>Register <c>$28</c>: all four operators of channel 1 on.</summary>
     private const byte KeyOnAll = 0xf0;
 
+    // CH3 special mode (docs/genesis-audio.md, docs/adr/0073-ch3-locked-pairs.md).
+    private const byte RegCh3Op1High = 0xad;
+    private const byte RegCh3Op2High = 0xae;
+    private const byte RegCh3Op3High = 0xac;
+
+    /// <summary>A CH3 frequency's low byte is 4 registers below its high byte.</summary>
+    private const byte Ch3LowOffset = 4;
+
+    /// <summary>Register <c>$27</c> bit 6: channel 3's operators take their own frequencies.</summary>
+    private const byte Ch3Special = 0x40;
+
+    /// <summary>Channel 3, 0-based, as <see cref="FmVoice"/> and register <c>$28</c> number it.</summary>
+    private const int Channel3 = 2;
+
+    /// <summary>Register <c>$28</c>: OP1 and OP2 on.</summary>
+    private const byte KeyOnOps12 = 0x30;
+
+    /// <summary>Register <c>$28</c>: OP3 and OP4 on.</summary>
+    private const byte KeyOnOps34 = 0xc0;
+
     /// <summary>Taps of the resampling filter: wide enough to fall from 19 kHz to silence before the analysis rate's 22 kHz.</summary>
     private const int Taps = 64;
 
@@ -60,6 +80,49 @@ internal static class FmNoteRenderer
         FmVoice.Write(chip, 0, RegBlockFnumHigh, (byte)(blockFnum >> 8));
         FmVoice.Write(chip, 0, RegFnumLow, (byte)blockFnum);
         chip.WriteRegister(0, RegKeyOn, KeyOnAll);
+
+        int frames = (int)Math.Ceiling(seconds * ChipRateHz);
+        int[] left = new int[frames];
+        int[] right = new int[frames];
+        chip.Generate(left, right);
+        float[] mono = new float[frames];
+        for (int i = 0; i < frames; i++)
+        {
+            mono[i] = (float)(left[i] / CarrierFullScale);
+        }
+
+        return ToAnalysisRate(mono);
+    }
+
+    /// <summary>
+    /// Two 2-operator voices of the algorithm-4 <paramref name="patch"/> held together on channel 3 in CH3 special mode
+    /// (docs/adr/0073-ch3-locked-pairs.md): OP1→OP2 at <paramref name="hz12"/>, OP3→OP4 at <paramref name="hz34"/>, each
+    /// keyed on only when asked, for <paramref name="seconds"/>, without the LFO, at <see cref="SampleAnalyzer.AnalysisRateHz"/>.
+    /// </summary>
+    public static float[] RenderCh3(FmPatch patch, double hz12, double hz34, double seconds, bool key12 = true, bool key34 = true)
+    {
+        ArgumentNullException.ThrowIfNull(patch);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(hz12);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(hz34);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(seconds);
+        Ym3438 chip = new();
+        chip.WriteRegister(0, RegLfo, 0);
+        chip.WriteRegister(0, RegCh3Mode, Ch3Special);
+        FmVoice.LoadPatch(chip, Channel3, patch);
+        FmVoice.Write(chip, Channel3, RegPanLfo, PanBoth);
+        int blockFnum12 = FmVoice.BlockFnum(hz12, ChipRateHz);
+        int blockFnum34 = FmVoice.BlockFnum(hz34, ChipRateHz);
+
+        // Each operator's frequency: OP1 $AD/$A9, OP2 $AE/$AA, OP3 $AC/$A8, OP4 the channel's own (docs/genesis-audio.md).
+        foreach ((byte high, int blockFnum) in (ReadOnlySpan<(byte, int)>)[(RegCh3Op1High, blockFnum12), (RegCh3Op2High, blockFnum12), (RegCh3Op3High, blockFnum34)])
+        {
+            chip.WriteRegister(0, high, (byte)(blockFnum >> 8));
+            chip.WriteRegister(0, (byte)(high - Ch3LowOffset), (byte)blockFnum);
+        }
+
+        FmVoice.Write(chip, Channel3, RegBlockFnumHigh, (byte)(blockFnum34 >> 8));
+        FmVoice.Write(chip, Channel3, RegFnumLow, (byte)blockFnum34);
+        chip.WriteRegister(0, RegKeyOn, (byte)((key12 ? KeyOnOps12 : 0) | (key34 ? KeyOnOps34 : 0) | Channel3));
 
         int frames = (int)Math.Ceiling(seconds * ChipRateHz);
         int[] left = new int[frames];

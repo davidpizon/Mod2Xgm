@@ -33,6 +33,7 @@ public sealed class ProgramTests
         Assert.False(options.Verbose);
         Assert.False(options.NoDefleMask);
         Assert.Null(options.ClipSeconds);
+        Assert.False(options.Ch3);
         Assert.Equal(Program.DefaultJobs, options.Jobs);
         Assert.InRange(options.Jobs, 1, 4);
     }
@@ -43,7 +44,7 @@ public sealed class ProgramTests
     {
         HarnessOptions options = Parse(
             "a.mod", "songs", "-o", "out", "--rate", "22050", "--libopenmpt", "lib", "--furnace", "f.exe", "--no-furnace",
-            "--deflemask-wavs", "wavs", "--no-deflemask", "--save-reference-wavs", "--clip", "30", "--balance", "-j", "3", "-v");
+            "--deflemask-wavs", "wavs", "--no-deflemask", "--save-reference-wavs", "--clip", "30", "--balance", "--ch3", "-j", "3", "-v");
 
         Assert.Equal(["a.mod", "songs"], options.Inputs);
         Assert.Equal("out", options.OutputDirectory);
@@ -56,6 +57,7 @@ public sealed class ProgramTests
         Assert.True(options.SaveReferenceWavs);
         Assert.Equal(30, options.ClipSeconds);
         Assert.True(options.Balance);
+        Assert.True(options.Ch3);
         Assert.True(options.Verbose);
         Assert.Equal(3, options.Jobs);
     }
@@ -115,6 +117,10 @@ public sealed class ProgramTests
         Assert.Equal(0, Program.Report([good], options with { ClipSeconds = 30, Balance = true }, "ref", Logger.None));
         Assert.True(File.Exists(temp.Combine("out", "balance.csv")));
         Assert.True(File.Exists(temp.Combine("out", "balance-instruments.csv")));
+        Assert.False(File.Exists(temp.Combine("out", "ch3-fit.csv")));
+        Assert.Equal(0, Program.Report([good], options with { Ch3 = true }, "ref", Logger.None));
+        Assert.True(File.Exists(temp.Combine("out", "locked-pairs.csv")));
+        Assert.True(File.Exists(temp.Combine("out", "ch3-fit.csv")));
     }
 
     /// <summary>A whole run with the real libopenmpt and no candidate renderers (skipped where libopenmpt isn't installed).</summary>

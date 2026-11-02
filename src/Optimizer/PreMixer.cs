@@ -546,36 +546,8 @@ internal static class PreMixer
         /// The notes of <paramref name="w"/> as the MOD renderer plays them, in mono, from the window's start to the tick
         /// before <paramref name="endTick"/>, scaled so one note at full volume is full scale; at least <paramref name="seconds"/> long.
         /// </summary>
-        private float[] Mix(Window w, int endTick, double seconds)
-        {
-            SampleBlock silence = new(null, 0, 0);
-            double start = Time(w.StartTick);
-            List<PlaybackTick> ticks = [];
-            for (int t = w.StartTick; t < Math.Min(endTick, _playback.Ticks.Count); t++)
-            {
-                PlaybackTick tick = _playback.Ticks[t];
-                ChannelTick[] channels = new ChannelTick[w.Notes.Length];
-                for (int k = 0; k < w.Notes.Length; k++)
-                {
-                    SongNote note = notes[w.Notes[k]];
-                    ChannelTick channel = tick.Channels[note.Channel];
-                    channels[k] = t >= note.FirstTick && t < EndOf(note)
-                        ? channel with { Pan = 0 }
-                        : new ChannelTick(false, channel.Pitch, 0, 0, null, silence);
-                }
-
-                ticks.Add(tick with { TimeSeconds = tick.TimeSeconds - start, Channels = channels });
-            }
-
-            float[] left = ModRenderer.Render(song.Song, new Playback(ticks, null, PlaybackEnd.Stops), new ModRenderOptions(SampleAnalyzer.AnalysisRateHz, 0)).Left;
-            float[] mix = new float[Math.Max(left.Length, (int)Math.Ceiling(seconds * SampleAnalyzer.AnalysisRateHz))];
-            for (int i = 0; i < left.Length; i++)
-            {
-                mix[i] = (float)(left[i] / ModRenderer.MonoChannelLevel);
-            }
-
-            return mix;
-        }
+        private float[] Mix(Window w, int endTick, double seconds) =>
+            NoteMix.Render(song.Song, _playback, [.. w.Notes.Select(n => notes[n])], w.StartTick, endTick, seconds);
 
         /// <summary>Where the tail starts: on DMF the window's end (DefleMask plays on the song's ticks), on XGM and XGM2 the next frame.</summary>
         private double Switch(double windowSeconds) =>

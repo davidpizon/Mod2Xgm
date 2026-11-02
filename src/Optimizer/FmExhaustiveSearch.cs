@@ -19,7 +19,7 @@ internal static class FmExhaustiveSearch
     private const int MaxCarrierMult = 15;
 
     /// <summary>The multiples a modulator can take: the small ones, which keep the sidebands on the harmonics (Horner 1993).</summary>
-    private static readonly int[] ModulatorMults = [1, 2, 3, 4, 5, 7];
+    internal static IReadOnlyList<int> ModulatorMults { get; } = [1, 2, 3, 4, 5, 7];
 
     /// <summary>
     /// Operators that play the same part in each algorithm (Yamaha order, 0 = OP1), whose multiples are tried in rising
@@ -104,11 +104,11 @@ internal static class FmExhaustiveSearch
             return;
         }
 
-        int[] choices = carriers.Contains(op) ? carrierMults : ModulatorMults;
+        IReadOnlyList<int> choices = carriers.Contains(op) ? carrierMults : ModulatorMults;
         int floor = Interchangeable[algorithm].FirstOrDefault(g => g.Contains(op) && g[0] != op) is { } group
             ? mults[group[Array.IndexOf(group, op) - 1]]
             : 0;
-        for (int i = 0; i < choices.Length; i++)
+        for (int i = 0; i < choices.Count; i++)
         {
             if (choices[i] < floor)
             {
@@ -122,5 +122,6 @@ internal static class FmExhaustiveSearch
 
     private static int Gcd(int[] values) => values.Aggregate(0, Gcd);
 
-    private static int Gcd(int a, int b) => b == 0 ? a : Gcd(b, a % b);
+    /// <summary>The greatest common divisor of <paramref name="a"/> and <paramref name="b"/>.</summary>
+    internal static int Gcd(int a, int b) => b == 0 ? a : Gcd(b, a % b);
 }

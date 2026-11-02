@@ -48,6 +48,13 @@ internal static class HarnessReport
     public const string PreMixHeader =
         "song,target,samples,offsets_ticks,rates_hz,start_frames,volumes,occurrences,saves_steal,window_s,switch_s,end,head_bytes,tail_bytes,slots,tail_sample,tail_start_frame,tail_rate_hz,tail_points,tail_id,clip_db,mel_db,seam_mel_db";
 
+    /// <summary>Header of <c>locked-pairs.csv</c>.</summary>
+    public const string LockedPairsHeader = "song,sample_a,channel_a,sample_b,channel_b,onsets,gap_semitones,spread_cents";
+
+    /// <summary>Header of <c>ch3-fit.csv</c>.</summary>
+    public const string Ch3FitHeader =
+        "song,targets,sample_a,channel_a,region_a,sample_b,channel_b,region_b,onsets,hz_a,hz_b,window_s,ops12,source_a,source_b,voice_a_db,voice_b_db,mel_db,mfcc,algorithm4_db,cut_down_db,patch";
+
     /// <summary>Header of <c>voice-steals.csv</c>.</summary>
     public const string VoiceStealsHeader =
         "song,target,voices,pcm_notes,overlaps,candidates,steals,steals_with_pre_mix,steals_removed,seconds";
@@ -476,6 +483,82 @@ internal static class HarnessReport
                     fit.StealsWithPreMix.ToString(CultureInfo.InvariantCulture),
                     fit.StealsRemoved.ToString(CultureInfo.InvariantCulture),
                     Number(fit.Elapsed.TotalSeconds, "0.#"));
+                csv.Append('\n');
+            }
+        }
+
+        return csv.ToString();
+    }
+
+    /// <summary>
+    /// One line per song and locked pair (<c>--ch3</c>): its two tracks (1-based), how often they start together, the gap in
+    /// semitones and how far it spreads in cents (see <see cref="LockedPairsHeader"/>).
+    /// </summary>
+    public static string LockedPairsCsv(IReadOnlyList<SongResult> results)
+    {
+        ArgumentNullException.ThrowIfNull(results);
+        StringBuilder csv = new();
+        csv.Append(LockedPairsHeader).Append('\n');
+        foreach (SongResult song in results)
+        {
+            foreach (LockedPair p in song.Ch3Fit?.Pairs ?? [])
+            {
+                csv.AppendJoin(
+                    ',',
+                    Csv(song.Song),
+                    (p.SampleA + 1).ToString(CultureInfo.InvariantCulture),
+                    (p.ChannelA + 1).ToString(CultureInfo.InvariantCulture),
+                    (p.SampleB + 1).ToString(CultureInfo.InvariantCulture),
+                    (p.ChannelB + 1).ToString(CultureInfo.InvariantCulture),
+                    p.Onsets.Count.ToString(CultureInfo.InvariantCulture),
+                    Number(p.GapCents / 100, "0.##"),
+                    Number(p.SpreadCents, "0.##"));
+                csv.Append('\n');
+            }
+        }
+
+        return csv.ToString();
+    }
+
+    /// <summary>
+    /// One line per song, locked pair and pair of pitch regions (<c>--ch3</c>): the outputs it is offered for, the tracks
+    /// and regions, the onsets, the pitches and window it is scored at, which track has OP1→OP2, each voice's source and own
+    /// distance, the pair's distance and the best of each source alone, and the settings (see <see cref="Ch3FitHeader"/>).
+    /// </summary>
+    public static string Ch3FitCsv(IReadOnlyList<SongResult> results)
+    {
+        ArgumentNullException.ThrowIfNull(results);
+        StringBuilder csv = new();
+        csv.Append(Ch3FitHeader).Append('\n');
+        string targets = string.Join(' ', Ch3Fitter.Targets.Select(PcmTargets.Name));
+        foreach (SongResult song in results)
+        {
+            foreach (Ch3Candidate c in song.Ch3Fit?.Candidates ?? [])
+            {
+                csv.AppendJoin(
+                    ',',
+                    Csv(song.Song),
+                    targets,
+                    (c.Pair.SampleA + 1).ToString(CultureInfo.InvariantCulture),
+                    (c.Pair.ChannelA + 1).ToString(CultureInfo.InvariantCulture),
+                    (c.RegionA + 1).ToString(CultureInfo.InvariantCulture),
+                    (c.Pair.SampleB + 1).ToString(CultureInfo.InvariantCulture),
+                    (c.Pair.ChannelB + 1).ToString(CultureInfo.InvariantCulture),
+                    (c.RegionB + 1).ToString(CultureInfo.InvariantCulture),
+                    c.Occurrences.ToString(CultureInfo.InvariantCulture),
+                    Number(c.HzA, "0.##"),
+                    Number(c.HzB, "0.##"),
+                    Number(c.WindowSeconds, "0.###"),
+                    c.AOnOps12 ? "A" : "B",
+                    Ch3FitReport.SourceName(c.VoiceA.Source),
+                    Ch3FitReport.SourceName(c.VoiceB.Source),
+                    Number(c.VoiceA.Score.MelDb, "0.###"),
+                    Number(c.VoiceB.Score.MelDb, "0.###"),
+                    Number(c.Score.MelDb, "0.###"),
+                    Number(c.Score.MfccDistance, "0.##"),
+                    Number(c.Algorithm4Score.MelDb, "0.###"),
+                    Number(c.CutDownScore.MelDb, "0.###"),
+                    Csv(Ch3FitReport.Settings(c)));
                 csv.Append('\n');
             }
         }

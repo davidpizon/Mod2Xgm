@@ -19,7 +19,7 @@ decides by error and cost, not by a fixed "FM first" rule.
 
 | Pass | What happens |
 |---|---|
-| 1. Read & analyze song | Apply `--ignore-samples`; per sample: notes/pitches used, durations, volumes, trigger counts; per pair of instruments: co-onset rate and pitch interval (locked-pair detection); repeated overlaps of PCM notes, with offsets ([ADR 0052](adr/0052-pre-mixed-pcm.md)) |
+| 1. Read & analyze song | Apply `--ignore-samples`; per sample: notes/pitches used, durations, volumes, trigger counts; per pair of tracks (a sample on a channel): locked-pair detection, every onset together at one pitch gap ([ADR 0073](adr/0073-ch3-locked-pairs.md)); repeated overlaps of PCM notes, with offsets ([ADR 0052](adr/0052-pre-mixed-pcm.md)) |
 | 2. Analyze samples | Tonal vs percussive (and noisy), pitch stability, amplitude envelope, loop, spectral envelope per pitch region (`src/Analysis`, [ADR 0068](adr/0068-sample-analysis.md)) |
 | 3. Generate candidates | Per instrument and pitch region: **fitted FM patch(es)**, **PSG** tone/noise, **PCM variants** (target rate, per pitch for XGM/XGM2), **combined** candidates (CH3 special for locked pairs, pre-mixed PCM for repeated overlaps). Each candidate gets an error score (rendered vs original, at the pitches actually played) and a cost |
 | 4. Allocate | Assign candidates to channels over time, section by section, within the target's limits; greedy start, then local search; objective = importance-weighted total error |
@@ -57,7 +57,12 @@ decides by error and cost, not by a fixed "FM first" rule.
     layered bass+kick, octave doubling, chord stabs): channel 3's four operators get independent frequencies → two
     2-operator voices on one channel. Allowed for **DMF** (system `0x42`, "Genesis ext. CH3") and **XGM2** (`$FA`/`$FB`, `$3x` b3).
     **XGM v1:** the format can express it, but `$27` also holds the YM timer controls — enabled only after a
-    probe ROM confirms it plays correctly (T11.1).
+    probe ROM confirms it plays correctly (T11.1). Built in T8.5b ([ADR 0073](adr/0073-ch3-locked-pairs.md), `LockedPairs`,
+    `Ch3Fitter`): a pair is two tracks (a sample on a channel) whose every note starts on the same tick as one of the
+    other's, at one gap (±10 cents), at least twice. Each voice is fitted to its own sample twice, as a new algorithm-4
+    fit and cut down from the T8.2 fit, on either half; every combination is balanced to the song's levels and judged
+    together against the MOD mix, and the closest is kept. `--verbose` logs the pairs; the harness writes
+    `locked-pairs.csv` and `ch3-fit.csv`.
   - **Pre-mixed PCM** ([ADR 0052](adr/0052-pre-mixed-pcm.md)): for any overlap of two or more PCM notes that
     repeats, including offset starts (a snare a tick after the kick) and partial overlaps (a kick over the start of a
     bass note). One sample holds the overlap's window; a sound that outlasts it continues as a **tail** of its own

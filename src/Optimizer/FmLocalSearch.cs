@@ -28,19 +28,22 @@ internal static class FmLocalSearch
 
     /// <summary>
     /// Fits <paramref name="start"/>; with <paramref name="lfo"/> the LFO's settings are fitted too, otherwise the result
-    /// doesn't use it. <paramref name="ssgEg"/> lets it try SSG-EG shapes.
+    /// doesn't use it. <paramref name="ssgEg"/> lets it try SSG-EG shapes. <paramref name="operators"/> limits the moves to
+    /// those operators (0 = OP1), for one voice of a CH3 pair (docs/adr/0073-ch3-locked-pairs.md); the feedback moves only
+    /// with OP1, whose feedback it is. <c>null</c> moves all four.
     /// </summary>
-    public static FmVoiceSetting Refine(FmEvaluator evaluator, FmVoiceSetting start, bool lfo, bool ssgEg, int? maxRenders)
+    public static FmVoiceSetting Refine(FmEvaluator evaluator, FmVoiceSetting start, bool lfo, bool ssgEg, int? maxRenders, IReadOnlyList<int>? operators = null)
     {
         ArgumentNullException.ThrowIfNull(evaluator);
         int begin = evaluator.Renders;
         FmVoiceSetting current = lfo ? start : WithoutLfo(start);
         double score = evaluator.Search(current.Patch, current.LfoRate);
+        IReadOnlyList<int> moved = operators ?? [0, 1, 2, 3];
         bool improved = true;
         while (improved)
         {
             improved = false;
-            foreach (Func<FmVoiceSetting, FmVoiceSetting?> move in Moves(current.Patch, lfo, ssgEg))
+            foreach (Func<FmVoiceSetting, FmVoiceSetting?> move in Moves(current.Patch, lfo, ssgEg, moved))
             {
                 // A step that helps is taken again, in the same direction, while it keeps helping.
                 while (move(current) is { } next)
@@ -76,14 +79,13 @@ internal static class FmLocalSearch
         return new FmVoiceSetting(p with { Fms = 0, Ams = 0, Operators = [.. p.Operators.Select(o => o with { Am = false })] }, null);
     }
 
-    /// <summary>Every move from a patch like <paramref name="patch"/>: each returns the moved setting, or <c>null</c> when the move would leave the grid.</summary>
-    private static IEnumerable<Func<FmVoiceSetting, FmVoiceSetting?>> Moves(FmPatch patch, bool lfo, bool ssgEg)
+    /// <summary>Every move of <paramref name="operators"/> from a patch like <paramref name="patch"/>: each returns the moved setting, or <c>null</c> when the move would leave the grid.</summary>
+    private static IEnumerable<Func<FmVoiceSetting, FmVoiceSetting?>> Moves(FmPatch patch, bool lfo, bool ssgEg, IReadOnlyList<int> operators)
     {
         IReadOnlyList<int> carriers = VoiceLevel.Carriers(patch.Algorithm);
-        for (int op = 0; op < 4; op++)
+        foreach (int o in operators)
         {
-            int o = op;
-            int minTl = carriers.Contains(op) ? 0 : MinModulatorTl;
+            int minTl = carriers.Contains(o) ? 0 : MinModulatorTl;
             foreach (int step in (int[])[-1, 1, -4, 4])
             {
                 yield return Operator(o, x => Stepped(x.Tl, step, minTl, 127) is { } v ? x with { Tl = v } : null);
@@ -124,20 +126,24 @@ internal static class FmLocalSearch
 
         // Two operators' levels at once, every way: a modulator's level and its carrier's trade off, so one alone can make
         // things worse where both together help (where plain coordinate descent stalls).
-        for (int a = 0; a < 4; a++)
+        for (int a = 0; a < operators.Count; a++)
         {
-            for (int b = a + 1; b < 4; b++)
+            for (int b = a + 1; b < operators.Count; b++)
             {
                 foreach ((int da, int db) in PairSteps)
                 {
-                    yield return Levels(a, da, b, db, carriers);
+                    yield return Levels(operators[a], da, operators[b], db, carriers);
                 }
             }
         }
 
         foreach (int step in (int[])[-1, 1])
         {
-            yield return Patch(p => Stepped(p.Feedback, step, 0, 7) is { } v ? p with { Feedback = v } : null);
+            if (operators.Contains(0))
+            {
+                yield return Patch(p => Stepped(p.Feedback, step, 0, 7) is { } v ? p with { Feedback = v } : null);
+            }
+
             if (lfo)
             {
                 yield return Patch(p => Stepped(p.Fms, step, 0, 7) is { } v ? p with { Fms = v } : null);
