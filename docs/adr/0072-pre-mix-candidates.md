@@ -25,7 +25,7 @@ last one was marked **verify** for XGM2 and assumed for XGM v1.
 - **Every group of 2–4 overlapping notes.** If a kick, a bass and a snare overlap, `kick+bass`, `kick+snare`,
   `bass+snare` and `kick+bass+snare` are all offered, where those notes overlap. At most 4 notes, the most PCM voices any
   target has (XGM). A group is one window only when its notes are linked by overlaps and two or more of them sound in one
-  unbroken stretch: a kick and a snare that each overlap a long bass but not each other give `kick+bass` and
+  unbroken stretch (counted per tick, so a note stopping on the tick another starts, over a third, is no break): a kick and a snare that each overlap a long bass but not each other give `kick+bass` and
   `bass+snare`, never one window with a gap (implementation).
 - **The window** runs from the first note's start to the end of that stretch; at most one note outlasts it.
 - **No length cap.** A long overlap is offered like a short one; the allocator weighs its bytes.
@@ -49,7 +49,7 @@ How it works (implementation):
   `--require-psg`; ignored samples aren't analyzed). Two notes overlap when they sound on a common tick.
 - **Dedupe.** Windows whose notes have the same samples, start ticks, start frames and pitch and volume on every tick
   (with the tick lengths), and the same note going on after the window, make the same bytes, so each such group is rendered once. A group is offered when the song
-  plays it at least twice, or once where it saves a voice steal (ADR 0052). Offered groups with the same bytes are then
+  plays it at least twice, or once where it saves a voice steal (ADR 0052). Offered groups with the same bytes at the same rates are then
   merged into one candidate, their occurrences added.
 - **Mixing.** The MOD renderer plays the notes in mono, other notes on their channels silenced, scaled so one note at
   full volume is full scale. A mix over full scale is turned down to it (`clip_db`, 0 when it wasn't). It is resampled
