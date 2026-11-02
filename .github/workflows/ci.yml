@@ -130,6 +130,6 @@ jobs:
     name: Nightly audit script self-test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Self-test (no GitHub calls)
         run: python3 .github/scripts/nightly_audit.py --self-test
