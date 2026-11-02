@@ -13,13 +13,13 @@ public sealed class CandidateCacheTests
     /// <summary>A tiny budget: the fitting itself is tested with <see cref="FmFitter"/>.</summary>
     private static readonly FmFitOptions Quick = new(MaxRenders: 12, Genetic: false, Lfo: false, SsgEg: false);
 
-    /// <summary>A saw and a square an octave up, together on rows 0, 16 and 32 (a locked pair), keyed by its file.</summary>
+    /// <summary>A saw and a square an octave up, together every 8 rows, eight times (a locked pair, docs/adr/0076-loose-locked-pairs.md), keyed by its file.</summary>
     private static readonly Lazy<SongAnalysis> Song = new(() =>
     {
         ModBuilder mod = new ModBuilder()
             .WithSample(1, "saw", 64, loopStart: 0, loopLength: 64)
             .WithSample(2, "square", 64, data: i => (sbyte)(i < 32 ? 80 : -80), loopStart: 0, loopLength: 64);
-        foreach (int row in (int[])[0, 16, 32])
+        for (int row = 0; row < 64; row += 8)
         {
             mod.WithCell(0, row: row, channel: 0, sample: 1, period: 428).WithCell(0, row: row, channel: 1, sample: 2, period: 214);
         }

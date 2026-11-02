@@ -64,7 +64,9 @@ internal static class FmGeneticSearch
 
         while (population.Count < Population)
         {
-            population.Add(RandomStructure(random));
+            // Multiples 1–8 only shrink when divided down, so the normalized structure always exists.
+            FmStructure drawn = RandomStructure(random);
+            population.Add(FmPitch.Normalized(drawn) ?? drawn);
         }
 
         double best = double.MaxValue;
@@ -108,7 +110,8 @@ internal static class FmGeneticSearch
             {
                 FmStructure a = Tournament(ranked, random);
                 FmStructure b = Tournament(ranked, random);
-                next.Add(Mutate(Cross(a, b, random), random));
+                // A child that would play off the note's pitch gets its multiples divided down, or is its first parent.
+                next.Add(FmPitch.Normalized(Mutate(Cross(a, b, random), random)) ?? a);
             }
 
             population = next;

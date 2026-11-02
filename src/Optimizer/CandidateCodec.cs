@@ -252,6 +252,8 @@ internal static class CandidateCodec
                 Write(writer, o.A);
                 Write(writer, o.B);
             });
+            writer.Write(p.NotesA);
+            writer.Write(p.NotesB);
         });
         WriteList(writer, fit.Candidates, c =>
         {
@@ -293,7 +295,9 @@ internal static class CandidateCodec
             p.ReadInt32(),
             p.ReadInt32(),
             p.ReadInt32(),
-            ReadArray(p, o => new LockedOnset(ReadSongNote(o), ReadSongNote(o)))));
+            ReadArray(p, o => new LockedOnset(ReadSongNote(o), ReadSongNote(o))),
+            p.ReadInt32(),
+            p.ReadInt32()));
         Ch3Candidate[] candidates = ReadArray(reader, c =>
         {
             int pair = c.ReadInt32();

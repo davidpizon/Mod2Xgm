@@ -142,7 +142,8 @@ marked with whether the song has room for it, from `Analysis/SongVoices` (how ma
 `PsgFitReport` logs them. Nothing in the conversion uses them yet (M9); the harness runs them with `--psg-fit`.
 
 **CH3 candidates** (`src/Analysis`, `src/Optimizer`, plan T8.5b, [ADR 0073](adr/0073-ch3-locked-pairs.md)) — passes 1
-and 3: `Analysis/LockedPairs` finds tracks (a sample on a channel) that always start together at one pitch gap, and
+and 3: `Analysis/LockedPairs` finds tracks (a sample on a channel) that mostly start together at one pitch gap
+([ADR 0076](adr/0076-loose-locked-pairs.md)), and
 `LockedPairReport` logs them with `--verbose`. `Ch3Fitter` fits each as two 2-operator voices on channel 3 in CH3 special
 mode (algorithm 4, `FmNoteRenderer.RenderCh3`): per voice a new fit and a cut-down T8.2 fit (`FmLocalSearch` limited to
 the voice's operators), every combination judged together against the MOD mix (`NoteMix`, shared with `PreMixer`).
@@ -178,7 +179,8 @@ clipping with a conversion note. A toolbox: the mapper picks rates, lengths and 
 
 **DmfTimingPlanner / DmfSongBuilder** (`src/Dmf`, plan T5.4–T5.5, [ADR 0043](adr/0043-dmf-timing.md),
 [ADR 0044](adr/0044-dmf-effects-and-song-grid.md)) — turn a `GenesisPlan` into a `DmfFile`: the clock, then the grid
-(one DMF pattern per order) with notes at each sample's measured pitch (`SamplePitch`), volumes in decibel steps,
+(one DMF pattern per order) with notes at each sample's measured pitch (`SamplePitch`; a one-shot shorter than its
+2,048-frame window, such as a chip blip, is searched over half its frames), volumes in decibel steps,
 Amiga stereo, DAC sample copies per loudness and start point, noise instruments that fade like their sample, and
 every effect in DefleMask's units (`DmfPatternTranslator`, `DmfUnits`).
 

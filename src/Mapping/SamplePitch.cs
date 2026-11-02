@@ -9,13 +9,17 @@ namespace Mod2Xgm.Mapping;
 /// recording (a 32-frame loop sounds five octaves above a 1024-frame one), and an FM channel needs the pitch heard.
 /// <para>The repeating part (the loop, else the sound after its first frames) is searched for the shortest lag at which it
 /// matches itself, with the YIN difference function (de Cheveigné and Kawahara, 2002; <see cref="Yin"/>). A sample with no clear repeat
-/// (noise, a drum) has no pitch.</para>
+/// (noise, a drum) has no pitch. A one-shot too short for the full window (a chip blip of a few hundred frames) is searched
+/// with half of what it has as the window and the other half as the longest cycle.</para>
 /// </summary>
 /// <param name="PeriodFrames">Frames per cycle, with sub-frame precision, or <c>null</c> when the sample has no clear pitch.</param>
 internal readonly record struct SamplePitch(double? PeriodFrames)
 {
     /// <summary>Frames the difference function sums over.</summary>
     private const int WindowFrames = 2048;
+
+    /// <summary>The shortest window a short one-shot is searched with: a few cycles of a high tone.</summary>
+    private const int MinWindowFrames = 64;
 
     /// <summary>Longest cycle searched, in frames (8 Hz at ProTracker's C-2 rate).</summary>
     private const int MaxLag = 1024;
@@ -42,14 +46,16 @@ internal readonly record struct SamplePitch(double? PeriodFrames)
             return new SamplePitch(null);
         }
 
-        int maxLag = Math.Min(MaxLag, window.Length - WindowFrames);
-        double[] normalized = Yin.Normalized(window, WindowFrames, maxLag);
+        // A short one-shot sums over half its frames and searches cycles up to the other half.
+        int windowFrames = window.Length >= WindowFrames + (2 * MinLag) ? WindowFrames : window.Length / 2;
+        int maxLag = Math.Min(MaxLag, window.Length - windowFrames);
+        double[] normalized = Yin.Normalized(window, windowFrames, maxLag);
         return new SamplePitch(Yin.FirstDip(normalized, MinLag, Threshold));
     }
 
     /// <summary>
     /// The frames to search: the loop repeated as often as needed (a one-cycle loop is a whole tone), else the sound after
-    /// its attack; <c>null</c> when the sample is too short or silent.
+    /// its attack; <c>null</c> when the sample is silent or has fewer than two <see cref="MinWindowFrames"/> to search.
     /// </summary>
     private static float[]? Window(Sample sample)
     {
@@ -67,7 +73,7 @@ internal readonly record struct SamplePitch(double? PeriodFrames)
         {
             int start = Math.Min(AttackFrames, sample.Length / 4);
             int length = Math.Min(needed, sample.Length - start);
-            if (length < WindowFrames + (2 * MinLag))
+            if (length < 2 * MinWindowFrames)
             {
                 return null;
             }

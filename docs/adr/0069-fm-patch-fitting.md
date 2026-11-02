@@ -23,7 +23,8 @@ harmonics. The library had five placeholder patches, on four of the eight algori
   the better of the two is about 1 dB closer than either alone (see *On the corpus*).
   - **Pruned exhaustive** (`FmExhaustiveSearch`): every algorithm. Carrier multiples are 1 and the region's four
     strongest harmonics up to 15 (1–4 without a pitch); modulator multiples are 1, 2, 3, 4, 5 and 7. Pruned to
-    multiples with no common factor (a common factor only moves the pitch), and operators the algorithm treats alike
+    multiples with no common factor (a common factor only moves the pitch; every search keeps this rule since
+    [ADR 0075](0075-fm-pitch-guard.md)), and operators the algorithm treats alike
     (the carriers of algorithms 5–7, the modulators of algorithm 6) in one order only. Tried in order of how likely
     they are: carriers on strong harmonics first.
   - **Genetic** (`FmGeneticSearch`, after Horner 1993): 32 structures (algorithm, feedback, four multiples, a modulator

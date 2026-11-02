@@ -187,8 +187,12 @@ internal static class Ch3Fitter
                 ops[onOps12 ? 0 : 2] = modulator is { } m ? patch.Operators[m] with { Am = false } : Silent;
                 ops[onOps12 ? 1 : 3] = patch.Operators[carrier] with { Am = false };
 
-                // OP1's feedback goes with it, if it lands on OP1 again.
-                yield return new FmPatch(patch.Name, 4, onOps12 && modulator == 0 ? patch.Feedback : 0, ops);
+                // OP1's feedback goes with it, if it lands on OP1 again. Two operators cut from four may share a factor
+                // the others didn't (2 and 2), so the multiples are divided down to play at the note.
+                if (FmPitch.Normalized(new FmPatch(patch.Name, 4, onOps12 && modulator == 0 ? patch.Feedback : 0, ops)) is { } voice)
+                {
+                    yield return voice;
+                }
             }
         }
     }

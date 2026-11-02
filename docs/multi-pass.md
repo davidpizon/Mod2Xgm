@@ -58,8 +58,9 @@ decides by error and cost, not by a fixed "FM first" rule.
     2-operator voices on one channel. Allowed for **DMF** (system `0x42`, "Genesis ext. CH3") and **XGM2** (`$FA`/`$FB`, `$3x` b3).
     **XGM v1:** the format can express it, but `$27` also holds the YM timer controls — enabled only after a
     probe ROM confirms it plays correctly (T11.1). Built in T8.5b ([ADR 0073](adr/0073-ch3-locked-pairs.md), `LockedPairs`,
-    `Ch3Fitter`): a pair is two tracks (a sample on a channel) whose every note starts on the same tick as one of the
-    other's, at one gap (±10 cents), at least twice. Each voice is fitted to its own sample twice, as a new algorithm-4
+    `Ch3Fitter`): a pair is two tracks (a sample on a channel) that start on the same tick, at one gap (±10 cents), on
+    at least half of each track's notes and at least eight times ([ADR 0076](adr/0076-loose-locked-pairs.md)); a note one
+    plays alone is keyed on its own half. Each voice is fitted to its own sample twice, as a new algorithm-4
     fit and cut down from the T8.2 fit, on either half; every combination is balanced to the song's levels and judged
     together against the MOD mix, and the closest is kept. `--verbose` logs the pairs; the harness writes
     `locked-pairs.csv` and `ch3-fit.csv`.

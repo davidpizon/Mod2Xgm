@@ -49,7 +49,7 @@ internal static class HarnessReport
         "song,target,samples,offsets_ticks,rates_hz,start_frames,volumes,occurrences,saves_steal,window_s,switch_s,end,head_bytes,tail_bytes,slots,tail_sample,tail_start_frame,tail_rate_hz,tail_points,tail_id,clip_db,mel_db,seam_mel_db,cached";
 
     /// <summary>Header of <c>locked-pairs.csv</c>.</summary>
-    public const string LockedPairsHeader = "song,sample_a,channel_a,sample_b,channel_b,onsets,gap_semitones,spread_cents,cached";
+    public const string LockedPairsHeader = "song,sample_a,channel_a,sample_b,channel_b,onsets,lone_a,lone_b,gap_semitones,spread_cents,cached";
 
     /// <summary>Header of <c>ch3-fit.csv</c>.</summary>
     public const string Ch3FitHeader =
@@ -497,8 +497,8 @@ internal static class HarnessReport
     }
 
     /// <summary>
-    /// One line per song and locked pair (<c>--ch3</c>): its two tracks (1-based), how often they start together, the gap in
-    /// semitones and how far it spreads in cents (see <see cref="LockedPairsHeader"/>).
+    /// One line per song and locked pair (<c>--ch3</c>): its two tracks (1-based), how often they start together, how many
+    /// notes each plays alone, the gap in semitones and how far it spreads in cents (see <see cref="LockedPairsHeader"/>).
     /// </summary>
     public static string LockedPairsCsv(IReadOnlyList<SongResult> results)
     {
@@ -517,6 +517,8 @@ internal static class HarnessReport
                     (p.SampleB + 1).ToString(CultureInfo.InvariantCulture),
                     (p.ChannelB + 1).ToString(CultureInfo.InvariantCulture),
                     p.Onsets.Count.ToString(CultureInfo.InvariantCulture),
+                    p.LoneA.ToString(CultureInfo.InvariantCulture),
+                    p.LoneB.ToString(CultureInfo.InvariantCulture),
                     Number(p.GapCents / 100, "0.##"),
                     Number(p.SpreadCents, "0.##"),
                     YesNo(song.Ch3Fit!.Cached));

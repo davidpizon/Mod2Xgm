@@ -270,7 +270,7 @@ public sealed class HarnessReportTests
     {
         SongNote a = new(0, 2, 0, 4, 8287, 0, 1, 0.08, false);
         SongNote b = a with { Channel = 3, Sample = 4, RateHz = 16574 };
-        LockedPair pair = new(2, 0, 4, 3, [new LockedOnset(a, b), new LockedOnset(a with { FirstTick = 8 }, b with { FirstTick = 8 })]);
+        LockedPair pair = new(2, 0, 4, 3, [new LockedOnset(a, b), new LockedOnset(a with { FirstTick = 8 }, b with { FirstTick = 8 })], 3, 2);
         FmPatch patch = new("Ch3", 4, 3, [.. FmPatchLibrary.Lead.Operators.Select(o => o with { SsgEg = 0 })]);
         Ch3Voice va = new(Ch3VoiceSource.Algorithm4, false, patch, new NoteScore(3.5, 2, 1.5));
         Ch3Voice vb = new(Ch3VoiceSource.CutDown, true, patch, new NoteScore(4.25, 2, 1));
@@ -281,7 +281,7 @@ public sealed class HarnessReportTests
         string[] fits = HarnessReport.Ch3FitCsv(results).Split('\n');
 
         Assert.Equal(HarnessReport.LockedPairsHeader, pairs[0]);
-        Assert.Equal("alpha,3,1,5,4,2,12,0,no", pairs[1]);
+        Assert.Equal("alpha,3,1,5,4,2,1,0,12,0,no", pairs[1]);
         Assert.Equal(string.Empty, pairs[2]);
         Assert.Equal(HarnessReport.Ch3FitHeader, fits[0]);
         Assert.Equal("alpha,dmf xgm2,3,1,1,5,4,2,2,129.5,259,0.08,B,algorithm4,cut-down,3.5,4.25,5.125,3.5,6,5.125," + Ch3FitReport.Settings(c) + ",no", fits[1]);
