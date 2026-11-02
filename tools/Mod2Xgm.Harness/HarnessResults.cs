@@ -230,4 +230,7 @@ internal sealed record SongResult(string Song, DurationCheck? Duration, int Conv
 
     /// <summary>The PCM candidates of every sample for every target (<c>--pcm-fit</c>, docs/adr/0071-pcm-candidates.md); empty when not asked for.</summary>
     public IReadOnlyList<PcmSampleFit> PcmFits { get; init; } = [];
+
+    /// <summary>The pre-mix candidates for every target (<c>--pre-mix</c>, docs/adr/0072-pre-mix-candidates.md); empty when not asked for.</summary>
+    public IReadOnlyList<PreMixSongFit> PreMixFits { get; init; } = [];
 }

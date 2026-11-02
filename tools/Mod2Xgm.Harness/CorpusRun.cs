@@ -38,6 +38,7 @@ namespace Mod2Xgm.Harness;
 /// </param>
 /// <param name="psgFit">Also make the PSG candidates of every sample the conversion analyzed (docs/adr/0070-psg-candidates.md).</param>
 /// <param name="pcmFit">Also make the PCM candidates of every sample the conversion analyzed, for every target (docs/adr/0071-pcm-candidates.md).</param>
+/// <param name="preMix">Also make the pre-mixed PCM candidates of every song for every target, with its voice steals (docs/adr/0072-pre-mix-candidates.md).</param>
 internal sealed class CorpusRun(
     string outputDirectory,
     int sampleRate,
@@ -49,7 +50,8 @@ internal sealed class CorpusRun(
     bool balance = false,
     FmFitOptions? fmFit = null,
     bool psgFit = false,
-    bool pcmFit = false)
+    bool pcmFit = false,
+    bool preMix = false)
 {
     /// <summary>
     /// Measures every song in <paramref name="modPaths"/>, <paramref name="jobs"/> at a time; the results are in the
@@ -111,7 +113,7 @@ internal sealed class CorpusRun(
                 }
             }
 
-            return new SongResult(name, duration, notes, scores, null) { Samples = analyses, FmFits = FitFm(name, analyses), PsgFits = FitPsg(name, analyses, analysis?.Voices), PcmFits = FitPcm(name, analysis) };
+            return new SongResult(name, duration, notes, scores, null) { Samples = analyses, FmFits = FitFm(name, analyses), PsgFits = FitPsg(name, analyses, analysis?.Voices), PcmFits = FitPcm(name, analysis), PreMixFits = FitPreMix(name, analysis) };
         }
         catch (Exception ex) when (ex is HarnessException or ConversionException or IOException)
         {
@@ -170,6 +172,37 @@ internal sealed class CorpusRun(
         PcmSampleFit[] fits = new PcmSampleFit[targets.Count * count];
         Parallel.For(0, fits.Length, i => fits[i] = PcmFitter.Fit(analysis, analysis.Samples[i % count], targets[i / count]));
         PcmFitReport.Log(logger, fits);
+        return fits;
+    }
+
+    /// <summary>The pre-mix candidates of the song for every target, made at once; none unless asked for.</summary>
+    private IReadOnlyList<PreMixSongFit> FitPreMix(string song, SongAnalysis? analysis)
+    {
+        if (!preMix || analysis is null)
+        {
+            return [];
+        }
+
+        logger.Information("{Song}: making pre-mix candidates", song);
+        IReadOnlyList<PcmTarget> targets = PcmTargets.All;
+        PreMixSongFit[] fits = new PreMixSongFit[targets.Count];
+        // One target at a time: songs already run side by side, and each target's windows take a lot of memory.
+        for (int i = 0; i < fits.Length; i++)
+        {
+            fits[i] = PreMixer.Fit(analysis, targets[i]);
+        }
+        PreMixReport.Log(logger, fits);
+        foreach (PreMixSongFit fit in fits)
+        {
+            logger.Information(
+                "{Song}: {Target}: {Candidates} pre-mix candidates; voice steals {Steals} → {After}",
+                song,
+                PcmTargets.Name(fit.Target),
+                fit.Candidates.Count,
+                fit.Steals,
+                fit.StealsWithPreMix);
+        }
+
         return fits;
     }
 

@@ -32,6 +32,9 @@ internal static class ModRenderer
     /// <summary>Output level of one channel at full volume, before panning: libopenmpt's, measured on a full-scale sample.</summary>
     private const double ChannelGain = 0.5;
 
+    /// <summary>Level of one channel at full volume in a mono render (stereo separation 0): <see cref="ChannelGain"/> split over both sides.</summary>
+    public const double MonoChannelLevel = ChannelGain / 2;
+
     /// <summary>OpenMPT pans MOD channels to 25 % / 75 % (pan ±0.5), not hard left/right.</summary>
     public const double OpenMptSeparation = 0.5;
 

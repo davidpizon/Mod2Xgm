@@ -62,7 +62,9 @@ decides by error and cost, not by a fixed "FM first" rule.
     repeats, including offset starts (a snare a tick after the kick) and partial overlaps (a kick over the start of a
     bass note). One sample holds the overlap's window; a sound that outlasts it continues as a **tail** of its own
     sample on the same voice. Windows are found from the note events and deduplicated by their rendered bytes. Saves
-    a PCM voice per overlap, at the cost of the window's bytes and slot.
+    a PCM voice per overlap, at the cost of the window's bytes and slot. Built in T8.5a ([ADR 0072](adr/0072-pre-mix-candidates.md),
+    `PreMixer`): every group of 2–4 overlapping notes, a one-shot tail also offered baked to its end, the seam scored
+    through the PCM driver models, each tail paying its own bytes; the harness writes `pre-mix.csv` and `voice-steals.csv`.
 
 ## Constraints the allocator enforces
 

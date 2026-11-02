@@ -65,7 +65,7 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0049](0049-simple-mapper-baseline.md) | Simple-mapper baseline and score calibration (T6.4) | 2026-10-30 | Accepted; changes the onset weight of [ADR 0042](0042-scoring-metrics.md) |
 | [0050](0050-voice-levels.md) | Voice levels: FM and PSG noise as loud as their samples | 2026-10-30 | Accepted |
 | [0051](0051-instrument-balance-metric.md) | Instrument balance metric: per-sample stems, checked against listening | 2026-10-30 | Accepted |
-| [0052](0052-pre-mixed-pcm.md) | Pre-mixed PCM for repeated overlaps (T8.5) | 2026-10-30 | Accepted |
+| [0052](0052-pre-mixed-pcm.md) | Pre-mixed PCM for repeated overlaps (T8.5) | 2026-10-30 | Accepted; tail sharing superseded by 0072 |
 | [0053](0053-r128-loudness-in-the-harness.md) | EBU R128 loudness in the harness (R128Net), checked against listening | 2026-10-30 | Proposed |
 | [0054](0054-mod-renderer.md) | In-app MOD renderer: OpenMPT's clean sound, measured (T7.1) | 2026-10-30 | Accepted; known differences closed by [ADR 0060](0060-openmpt-pitch-and-loops.md) |
 | [0055](0055-notes-beyond-protracker-range.md) | Notes beyond ProTracker's range play as in OpenMPT | 2026-10-30 | Accepted; amends [ADR 0033](0033-tick-player.md); parts superseded by [ADR 0060](0060-openmpt-pitch-and-loops.md) |
@@ -85,6 +85,7 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0069](0069-fm-patch-fitting.md) | FM patch fitting: both structure searches, local search on the grid, an LFO twin per fit (T8.2) | 2026-10-31 | Accepted |
 | [0070](0070-psg-candidates.md) | PSG candidates: a tone, eight noise tries and a buzz for low notes, scored like FM, marked for room (T8.3) | 2026-11-01 | Accepted |
 | [0071](0071-pcm-candidates.md) | PCM candidates: a copy per pitch played, every combination of four savings, baked notes for repeated effects (T8.4) | 2026-11-01 | Accepted |
+| [0072](0072-pre-mix-candidates.md) | Pre-mix candidates: every group of 2–4 overlapping notes, a tail and a baked twin, tails pay their own bytes (T8.5a) | 2026-11-01 | Accepted; supersedes one decision of 0052 |
 
 ## Open questions
 

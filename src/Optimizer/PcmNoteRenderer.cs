@@ -49,13 +49,53 @@ internal static class PcmNoteRenderer
             source.Generate(data, enable);
         }
 
-        float[] sound = new float[frames];
-        for (int i = 0; i < frames; i++)
+        return Resampler.Resample(ToSound(data, enable));
+    }
+
+    /// <summary>
+    /// <paramref name="head"/> (points at <paramref name="playRateHz"/>) played on channel 1 from its start, then
+    /// <paramref name="tail"/> (points at <paramref name="tailRateHz"/>) started on the same channel at
+    /// <paramref name="switchSeconds"/>, as a pre-mixed sample's tail is (docs/adr/0072-pre-mix-candidates.md); the first
+    /// <paramref name="seconds"/> at <see cref="SampleAnalyzer.AnalysisRateHz"/>.
+    /// </summary>
+    public static float[] Render(PcmTarget target, float[] head, double playRateHz, double seconds, float[] tail, double tailRateHz, double switchSeconds)
+    {
+        ArgumentNullException.ThrowIfNull(head);
+        ArgumentNullException.ThrowIfNull(tail);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(seconds);
+        int frames = (int)Math.Ceiling(seconds * ChipRateHz);
+        byte[] data = new byte[frames];
+        byte[] enable = new byte[frames];
+        int at = Math.Clamp((int)Math.Round(switchSeconds * ChipRateHz), 0, frames);
+        IDacSource source = Start(target, head, playRateHz, false);
+        source.Generate(data.AsSpan(0, at), enable.AsSpan(0, at));
+        switch (tail.Length > 0 ? source : null)
+        {
+            case DmfDac dac:
+                dac.Play(SampleProcessor.ToSigned16(tail, string.Empty, Silent), (int)Math.Round(tailRateHz));
+                break;
+            case XgmPcmDriver xgm:
+                xgm.Play(0, SampleProcessor.ToSigned8(tail, string.Empty, Silent), 0);
+                break;
+            case Xgm2PcmDriver xgm2:
+                xgm2.Play(0, SampleProcessor.ToSigned8(tail, string.Empty, Silent), Xgm2PcmDriver.LowPriority, false);
+                break;
+        }
+
+        source.Generate(data.AsSpan(at), enable.AsSpan(at));
+        return Resampler.Resample(ToSound(data, enable));
+    }
+
+    /// <summary>The DAC's bytes as −1…+1, silent where the DAC is off.</summary>
+    private static float[] ToSound(byte[] data, byte[] enable)
+    {
+        float[] sound = new float[data.Length];
+        for (int i = 0; i < data.Length; i++)
         {
             sound[i] = (enable[i] & DacOn) != 0 ? (data[i] - DacZero) / 128f : 0;
         }
 
-        return Resampler.Resample(sound);
+        return sound;
     }
 
     /// <summary>The target's driver, playing <paramref name="copy"/> on its first channel.</summary>

@@ -44,6 +44,14 @@ internal static class HarnessReport
     public const string PcmFitHeader =
         "song,sample,name,target,most_at_once,kind,savings,room,copies,bytes,notes,mel_db,harmonic_db,smallest,start_frame,seconds,plain_mel_db,bent_notes";
 
+    /// <summary>Header of <c>pre-mix.csv</c>.</summary>
+    public const string PreMixHeader =
+        "song,target,samples,offsets_ticks,occurrences,saves_steal,window_s,switch_s,end,head_bytes,tail_bytes,slots,tail_sample,tail_start_frame,tail_id,clip_db,mel_db,seam_mel_db";
+
+    /// <summary>Header of <c>voice-steals.csv</c>.</summary>
+    public const string VoiceStealsHeader =
+        "song,target,voices,pcm_notes,overlaps,candidates,steals,steals_with_pre_mix,steals_removed,seconds";
+
     /// <summary>Header of <c>loudness.csv</c>.</summary>
     public const string LoudnessHeader =
         "song,renderer,span,reference_lufs,candidate_lufs,difference_lu,reference_lra_lu,candidate_lra_lu,reference_true_peak_dbtp,candidate_true_peak_dbtp";
@@ -386,6 +394,84 @@ internal static class HarnessReport
                         string.Empty);
                     csv.Append('\n');
                 }
+            }
+        }
+
+        return csv.ToString();
+    }
+
+    /// <summary>
+    /// One line per song, target and pre-mix candidate (<c>--pre-mix</c>): its samples and their start ticks in the window,
+    /// how often the song plays it, whether it saves a voice steal, the window and switch, how the outlasting note goes on,
+    /// its bytes and slots, the tail's sample, start frame and id, how far the mix was turned down, and the distances of the
+    /// whole and of the seam (see <see cref="PreMixHeader"/>).
+    /// </summary>
+    public static string PreMixCsv(IReadOnlyList<SongResult> results)
+    {
+        ArgumentNullException.ThrowIfNull(results);
+        StringBuilder csv = new();
+        csv.Append(PreMixHeader).Append('\n');
+        foreach (SongResult song in results)
+        {
+            foreach (PreMixSongFit fit in song.PreMixFits)
+            {
+                foreach (PreMixCandidate c in fit.Candidates)
+                {
+                    csv.AppendJoin(
+                        ',',
+                        Csv(song.Song),
+                        PcmTargets.Name(fit.Target),
+                        PreMixReport.Samples(c),
+                        PreMixReport.Offsets(c),
+                        c.Occurrences.ToString(CultureInfo.InvariantCulture),
+                        c.SavesSteal ? "yes" : "no",
+                        Number(c.WindowSeconds, "0.###"),
+                        Number(c.SwitchSeconds, "0.###"),
+                        PreMixReport.EndName(c.End),
+                        c.HeadBytes.ToString(CultureInfo.InvariantCulture),
+                        c.Tail is { } tail ? tail.Bytes.ToString(CultureInfo.InvariantCulture) : string.Empty,
+                        c.Slots.ToString(CultureInfo.InvariantCulture),
+                        c.Tail is { } s ? (s.Sample + 1).ToString(CultureInfo.InvariantCulture) : string.Empty,
+                        c.Tail is { } f ? f.StartFrame.ToString(CultureInfo.InvariantCulture) : string.Empty,
+                        c.Tail is { } i ? i.Id.ToString(CultureInfo.InvariantCulture) : string.Empty,
+                        Number(c.ClipDb, "0.##"),
+                        Number(c.Score.MelDb, "0.###"),
+                        Number(c.Seam?.MelDb, "0.###"));
+                    csv.Append('\n');
+                }
+            }
+        }
+
+        return csv.ToString();
+    }
+
+    /// <summary>
+    /// One line per song and target (<c>--pre-mix</c>): its PCM voices, the notes that may be pre-mixed, the overlaps found,
+    /// the candidates, and the notes that start while every voice is busy without and with the pre-mixes (see
+    /// <see cref="VoiceStealsHeader"/>).
+    /// </summary>
+    public static string VoiceStealsCsv(IReadOnlyList<SongResult> results)
+    {
+        ArgumentNullException.ThrowIfNull(results);
+        StringBuilder csv = new();
+        csv.Append(VoiceStealsHeader).Append('\n');
+        foreach (SongResult song in results)
+        {
+            foreach (PreMixSongFit fit in song.PreMixFits)
+            {
+                csv.AppendJoin(
+                    ',',
+                    Csv(song.Song),
+                    PcmTargets.Name(fit.Target),
+                    fit.Voices.ToString(CultureInfo.InvariantCulture),
+                    fit.PcmNotes.ToString(CultureInfo.InvariantCulture),
+                    fit.Overlaps.ToString(CultureInfo.InvariantCulture),
+                    fit.Candidates.Count.ToString(CultureInfo.InvariantCulture),
+                    fit.Steals.ToString(CultureInfo.InvariantCulture),
+                    fit.StealsWithPreMix.ToString(CultureInfo.InvariantCulture),
+                    fit.StealsRemoved.ToString(CultureInfo.InvariantCulture),
+                    Number(fit.Elapsed.TotalSeconds, "0.#"));
+                csv.Append('\n');
             }
         }
 

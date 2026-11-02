@@ -65,6 +65,12 @@ All multi-byte values little-endian unless noted. Single-track file:
 SID rules: entry #0 reserved (PCM-stop id); sample length = next entry − this entry, so a **dummy
 terminating entry** is required; empty = `$FFFF`; samples **256-byte aligned**.
 
+Slots never share bytes in the ROM, in XGM2 or XGM v1 ([ADR 0072](../adr/0072-pre-mix-candidates.md)). The Z80 driver
+itself would play a slot pointing into another sample's data: it takes the length as next entry − this entry and checks
+nothing else (`drv_xgm2_ym_fct.i80`, `FM_playPCM`). But rescomp always runs the file through xgm2tool or xgmtool, which
+read each slot as a sample of its own (`XGM.java`, sample table parse) and write every sample's bytes back to back
+(`XGM.java`, `getPCMDataArray`; xgmtool's `xgc.c`). Checked against SGDK's sources, 2026-11-01.
+
 Blocks follow in order: **SDAT** (SLEN×256, 8-bit signed PCM) → **FMDAT** (FMLEN×256) →
 **PSGDAT** (PSGLEN×256) → optional GD3. Pad each block to a 256-byte multiple.
 

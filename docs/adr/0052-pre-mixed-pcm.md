@@ -1,6 +1,6 @@
 # ADR 0052: Pre-mixed PCM for repeated overlaps (T8.5)
 
-- **Status:** Accepted
+- **Status:** Accepted; the decision "Tails share bytes where the format allows" superseded by [ADR 0072](0072-pre-mix-candidates.md)
 - **Date:** 2026-10-30
 
 ## Context

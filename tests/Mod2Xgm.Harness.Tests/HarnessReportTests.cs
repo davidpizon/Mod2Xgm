@@ -242,6 +242,28 @@ public sealed class HarnessReportTests
         Assert.Equal(string.Empty, lines[4]);
     }
 
+    /// <summary>The pre-mix CSVs have one line per song, target and candidate, and one per song and target for the voice steals (plan T8.5a).</summary>
+    [Fact]
+    public void PreMixCsvsHaveOneLinePerCandidateAndTarget()
+    {
+        PreMixPart[] parts = [new(0, 0, 8287, 0, 1), new(4, 2, 4143.5, 0, 0.5)];
+        PreMixCandidate tail = new(parts, 14, false, 0.1, 0.1167, PreMixEnd.Tail, 1792, new PreMixTail(0, 4, 1234, 4143.5, 4000, 4096), 0, new NoteScore(0.5, 2, null), new NoteScore(1.25, 4, null));
+        PreMixCandidate baked = tail with { Occurrences = 1, SavesSteal = true, End = PreMixEnd.Baked, HeadBytes = 8192, Tail = null, ClipDb = 1.5, Seam = new NoteScore(0.25, 1, null) };
+        PreMixSongFit fit = new(PcmTarget.Xgm, 4, 120, 40, 6, 2, [tail, baked], 30, TimeSpan.FromSeconds(1.25));
+        SongResult[] results = [Results[0] with { PreMixFits = [fit] }, Results[1]];
+
+        string[] lines = HarnessReport.PreMixCsv(results).Split('\n');
+        string[] steals = HarnessReport.VoiceStealsCsv(results).Split('\n');
+
+        Assert.Equal(HarnessReport.PreMixHeader, lines[0]);
+        Assert.Equal("alpha,xgm,1+5,0+2,14,no,0.1,0.117,tail,1792,4096,2,5,1234,0,0,0.5,1.25", lines[1]);
+        Assert.Equal("alpha,xgm,1+5,0+2,1,yes,0.1,0.117,baked,8192,,1,,,,1.5,0.5,0.25", lines[2]);
+        Assert.Equal(string.Empty, lines[3]);
+        Assert.Equal(HarnessReport.VoiceStealsHeader, steals[0]);
+        Assert.Equal("alpha,xgm,4,120,40,2,6,2,4,1.3", steals[1]);
+        Assert.Equal(string.Empty, steals[2]);
+    }
+
     /// <summary>The same results give the same files: the report holds no time or machine detail (plan T6.3).</summary>
     [Fact]
     public void ReportsAreTheSameEachTime()
