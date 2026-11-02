@@ -65,5 +65,26 @@ internal static class PreMixReport
         return string.Join('+', candidate.Parts.Select(p => p.OffsetTicks.ToString(CultureInfo.InvariantCulture)));
     }
 
+    /// <summary>The parts' start rates in Hz, rounded, joined by "+", e.g. "8363+16726".</summary>
+    public static string Rates(PreMixCandidate candidate)
+    {
+        ArgumentNullException.ThrowIfNull(candidate);
+        return string.Join('+', candidate.Parts.Select(p => Math.Round(p.RateHz).ToString(CultureInfo.InvariantCulture)));
+    }
+
+    /// <summary>The parts' first frames (MOD <c>9xx</c>), joined by "+", e.g. "0+512".</summary>
+    public static string StartFrames(PreMixCandidate candidate)
+    {
+        ArgumentNullException.ThrowIfNull(candidate);
+        return string.Join('+', candidate.Parts.Select(p => p.StartFrame.ToString(CultureInfo.InvariantCulture)));
+    }
+
+    /// <summary>The parts' start volumes, 0–1 to two places, joined by "+", e.g. "1+0.5".</summary>
+    public static string Volumes(PreMixCandidate candidate)
+    {
+        ArgumentNullException.ThrowIfNull(candidate);
+        return string.Join('+', candidate.Parts.Select(p => p.Volume.ToString("0.##", CultureInfo.InvariantCulture)));
+    }
+
     private static string Format(FormattableString text) => text.ToString(CultureInfo.InvariantCulture);
 }

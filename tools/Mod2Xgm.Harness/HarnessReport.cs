@@ -46,7 +46,7 @@ internal static class HarnessReport
 
     /// <summary>Header of <c>pre-mix.csv</c>.</summary>
     public const string PreMixHeader =
-        "song,target,samples,offsets_ticks,occurrences,saves_steal,window_s,switch_s,end,head_bytes,tail_bytes,slots,tail_sample,tail_start_frame,tail_id,clip_db,mel_db,seam_mel_db";
+        "song,target,samples,offsets_ticks,rates_hz,start_frames,volumes,occurrences,saves_steal,window_s,switch_s,end,head_bytes,tail_bytes,slots,tail_sample,tail_start_frame,tail_rate_hz,tail_points,tail_id,clip_db,mel_db,seam_mel_db";
 
     /// <summary>Header of <c>voice-steals.csv</c>.</summary>
     public const string VoiceStealsHeader =
@@ -401,9 +401,9 @@ internal static class HarnessReport
     }
 
     /// <summary>
-    /// One line per song, target and pre-mix candidate (<c>--pre-mix</c>): its samples and their start ticks in the window,
-    /// how often the song plays it, whether it saves a voice steal, the window and switch, how the outlasting note goes on,
-    /// its bytes and slots, the tail's sample, start frame and id, how far the mix was turned down, and the distances of the
+    /// One line per song, target and pre-mix candidate (<c>--pre-mix</c>): its samples, their start ticks in the window and
+    /// their start rates, frames and volumes, how often the song plays it, whether it saves a voice steal, the window and switch, how the outlasting note goes on,
+    /// its bytes and slots, the tail's sample, start frame, rate, length and id, how far the mix was turned down, and the distances of the
     /// whole and of the seam (see <see cref="PreMixHeader"/>).
     /// </summary>
     public static string PreMixCsv(IReadOnlyList<SongResult> results)
@@ -423,6 +423,9 @@ internal static class HarnessReport
                         PcmTargets.Name(fit.Target),
                         PreMixReport.Samples(c),
                         PreMixReport.Offsets(c),
+                        PreMixReport.Rates(c),
+                        PreMixReport.StartFrames(c),
+                        PreMixReport.Volumes(c),
                         c.Occurrences.ToString(CultureInfo.InvariantCulture),
                         c.SavesSteal ? "yes" : "no",
                         Number(c.WindowSeconds, "0.###"),
@@ -433,6 +436,8 @@ internal static class HarnessReport
                         c.Slots.ToString(CultureInfo.InvariantCulture),
                         c.Tail is { } s ? (s.Sample + 1).ToString(CultureInfo.InvariantCulture) : string.Empty,
                         c.Tail is { } f ? f.StartFrame.ToString(CultureInfo.InvariantCulture) : string.Empty,
+                        c.Tail is { } r ? Number(r.RateHz, "0") : string.Empty,
+                        c.Tail is { } p ? p.Points.ToString(CultureInfo.InvariantCulture) : string.Empty,
                         c.Tail is { } i ? i.Id.ToString(CultureInfo.InvariantCulture) : string.Empty,
                         Number(c.ClipDb, "0.##"),
                         Number(c.Score.MelDb, "0.###"),

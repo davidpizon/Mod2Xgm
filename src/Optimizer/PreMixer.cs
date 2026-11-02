@@ -147,7 +147,7 @@ internal static class PreMixer
         SongNote[] notes = [.. song.Notes.Where(n => eligible.Contains(n.Sample))];
         int voices = PcmTargets.Voices(target);
         bool[] stolen = new bool[notes.Length];
-        int steals = Steals([.. notes.Select((n, i) => new Unit(n.FirstTick, End(n), [i]))], voices, stolen);
+        int steals = Steals([.. notes.Select((n, i) => new Unit(n.FirstTick, EndOf(n), [i]))], voices, stolen);
         List<Window> windows = Windows(notes);
 
         Run run = new(song, notes, target);
@@ -197,7 +197,7 @@ internal static class PreMixer
     }
 
     /// <summary>The tick after a note's last.</summary>
-    private static int End(SongNote note) => note.FirstTick + note.Ticks;
+    private static int EndOf(SongNote note) => note.FirstTick + note.Ticks;
 
     /// <summary>
     /// Every group of 2–<see cref="MaxNotes"/> notes that overlap: linked by overlaps, with one stretch where two or more
@@ -209,7 +209,7 @@ internal static class PreMixer
         List<int> active = [];
         for (int i = 0; i < notes.Length; i++)
         {
-            active.RemoveAll(j => End(notes[j]) <= notes[i].FirstTick);
+            active.RemoveAll(j => EndOf(notes[j]) <= notes[i].FirstTick);
             foreach (int j in active)
             {
                 near[i].Add(j);
@@ -272,10 +272,10 @@ internal static class PreMixer
                 used[n] = true;
             }
 
-            units.Add(new Unit(w.StartTick, w.Notes.Max(n => End(notes[n])), w.Notes));
+            units.Add(new Unit(w.StartTick, w.Notes.Max(n => EndOf(notes[n])), w.Notes));
         }
 
-        units.AddRange(Enumerable.Range(0, notes.Length).Where(n => !used[n]).Select(n => new Unit(notes[n].FirstTick, End(notes[n]), [n])));
+        units.AddRange(Enumerable.Range(0, notes.Length).Where(n => !used[n]).Select(n => new Unit(notes[n].FirstTick, EndOf(notes[n]), [n])));
         return units;
     }
 
@@ -327,7 +327,7 @@ internal static class PreMixer
             foreach (int n in group)
             {
                 changes.Add((notes[n].FirstTick, 1));
-                changes.Add((End(notes[n]), -1));
+                changes.Add((EndOf(notes[n]), -1));
             }
 
             int sounding = 0;
@@ -352,7 +352,7 @@ internal static class PreMixer
                 return null;
             }
 
-            int[] outlast = [.. group.Where(n => End(notes[n]) > endTick)];
+            int[] outlast = [.. group.Where(n => EndOf(notes[n]) > endTick)];
             return new Window(group, notes[group[0]].FirstTick, endTick, outlast.Length == 1 ? outlast[0] : null);
         }
     }
@@ -385,11 +385,11 @@ internal static class PreMixer
                 AppendNote(key, w, n, w.EndTick);
             }
 
-            if (w.Outlast is not { } o || Time(End(notes[o])) - Time(w.StartTick) <= switchSeconds || RanOut(o, Time(w.StartTick) + switchSeconds))
+            if (w.Outlast is not { } o || Time(EndOf(notes[o])) - Time(w.StartTick) <= switchSeconds || RanOut(o, Time(w.StartTick) + switchSeconds))
             {
                 if (w.Outlast is { } shortOne)
                 {
-                    AppendFrom(key, shortOne, w.EndTick, End(notes[shortOne]));
+                    AppendFrom(key, shortOne, w.EndTick, EndOf(notes[shortOne]));
                 }
 
                 yield return (PreMixEnd.None, key.Finish());
@@ -403,7 +403,7 @@ internal static class PreMixer
             if (SampleOf(o).Loop is null)
             {
                 using Hasher baked = new(head);
-                AppendFrom(baked, o, w.EndTick, End(notes[o]));
+                AppendFrom(baked, o, w.EndTick, EndOf(notes[o]));
                 yield return (PreMixEnd.Baked, baked.Finish());
             }
         }
@@ -420,7 +420,7 @@ internal static class PreMixer
             double playRate = target == PcmTarget.Dmf
                 ? DmfSongBuilder.DacRateHz(w.Notes.Max(n => notes[n].RateHz))
                 : PcmTargets.PlayRateHz(target, 0, false);
-            int lastTick = end == PreMixEnd.Tail || w.Outlast is null ? w.EndTick : End(notes[w.Outlast.Value]);
+            int lastTick = end == PreMixEnd.Tail || w.Outlast is null ? w.EndTick : EndOf(notes[w.Outlast.Value]);
             double storedSeconds = end == PreMixEnd.Tail ? switchSeconds + PadSeconds(w) : Seconds(w.StartTick, lastTick);
             double scoreSeconds = Math.Clamp(storedSeconds, MinScoreSeconds, SampleAnalyzer.RegionSeconds);
             double renderSeconds = end == PreMixEnd.None ? scoreSeconds : Math.Max(scoreSeconds, switchSeconds + SeamSeconds);
@@ -489,7 +489,7 @@ internal static class PreMixer
             Sample sample = SampleOf(o);
             (int start, ChannelTick now) = FrameAt(o, Time(w.StartTick) + switchSeconds);
             double rate = now.Pitch.PlaybackRateHz;
-            double left = same.Max(s => Time(End(notes[s.Outlast!.Value])) - Time(s.StartTick) - switchSeconds); // Every window of a tail key has one.
+            double left = same.Max(s => Time(EndOf(notes[s.Outlast!.Value])) - Time(s.StartTick) - switchSeconds); // Every window of a tail key has one.
             int frames = sample.Loop is null
                 ? Math.Max(0, sample.Length - start)
                 : (int)Math.Ceiling(Math.Min(left, MaxTailSeconds) * rate) + 1;
@@ -519,12 +519,12 @@ internal static class PreMixer
             SongNote note = notes[n];
             double frame = note.StartFrame;
             int t = note.FirstTick;
-            for (; t < End(note) && Time(t + 1) <= at; t++)
+            for (; t < EndOf(note) && Time(t + 1) <= at; t++)
             {
                 frame += Channel(t, note).Pitch.PlaybackRateHz * _playback.Ticks[t].DurationSeconds;
             }
 
-            int last = Math.Min(t, End(note) - 1);
+            int last = Math.Min(t, EndOf(note) - 1);
             ChannelTick now = Channel(last, note);
             frame += now.Pitch.PlaybackRateHz * Math.Max(0, at - Time(last));
             return ((int)Math.Round(frame), now);
@@ -550,7 +550,7 @@ internal static class PreMixer
                 {
                     SongNote note = notes[w.Notes[k]];
                     ChannelTick channel = tick.Channels[note.Channel];
-                    channels[k] = t >= note.FirstTick && t < End(note)
+                    channels[k] = t >= note.FirstTick && t < EndOf(note)
                         ? channel with { Pan = 0 }
                         : new ChannelTick(false, channel.Pitch, 0, 0, null, silence);
                 }
@@ -593,14 +593,14 @@ internal static class PreMixer
             key.Add(note.Sample);
             key.Add(note.FirstTick - w.StartTick);
             key.Add(note.StartFrame);
-            AppendFrom(key, n, note.FirstTick, Math.Min(End(note), to));
+            AppendFrom(key, n, note.FirstTick, Math.Min(EndOf(note), to));
         }
 
         /// <summary>A note's pitch, volume and tick length on every tick from <paramref name="from"/> to before <paramref name="to"/> (within the note), after their count.</summary>
         private void AppendFrom(Hasher key, int n, int from, int to)
         {
             SongNote note = notes[n];
-            int end = Math.Min(to, End(note));
+            int end = Math.Min(to, EndOf(note));
             key.Add(Math.Max(0, end - from));
             for (int t = from; t < end; t++)
             {
