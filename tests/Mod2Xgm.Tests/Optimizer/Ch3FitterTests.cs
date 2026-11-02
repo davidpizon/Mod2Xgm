@@ -12,16 +12,18 @@ public sealed class Ch3FitterTests
     /// <summary>Small budgets, so the tests run in seconds: the fitting itself is tested with <see cref="FmFitter"/>.</summary>
     private static readonly FmFitOptions Quick = new(MaxRenders: 12, Genetic: false, Lfo: false);
 
-    /// <summary>A looped saw on channel 1 and a looped square an octave up on channel 2, together on rows 0, 16 and 32 (twice in one region each).</summary>
+    /// <summary>A looped saw on channel 1 and a looped square an octave up on channel 2, together every 8 rows (eight times, in one region each); the square also plays once alone.</summary>
     private static readonly Lazy<SongAnalysis> SawAndSquare = new(() =>
     {
         ModBuilder mod = new ModBuilder()
             .WithSample(1, "saw", 64, loopStart: 0, loopLength: 64)
             .WithSample(2, "square", 64, data: i => (sbyte)(i < 32 ? 80 : -80), loopStart: 0, loopLength: 64);
-        foreach (int row in (int[])[0, 16, 32])
+        for (int row = 0; row < 64; row += 8)
         {
             mod.WithCell(0, row: row, channel: 0, sample: 1, period: 428).WithCell(0, row: row, channel: 1, sample: 2, period: 214);
         }
+
+        mod.WithCell(0, row: 60, channel: 1, sample: 2, period: 214);
 
         return PcmSongs.Analyze(mod.Build());
     });
@@ -43,15 +45,19 @@ public sealed class Ch3FitterTests
         Assert.False(Ch3Fitter.Allows(PcmTarget.Xgm));
     }
 
-    /// <summary>A locked pair gets one candidate: algorithm 4, one voice per half, the closer of every combination tried.</summary>
+    /// <summary>
+    /// A locked pair gets one candidate: algorithm 4, one voice per half, the closer of every combination tried. It is
+    /// scored where both play; the note one plays alone is left to its own half.
+    /// </summary>
     [Fact]
     public void ALockedPairGetsACandidate()
     {
         Ch3SongFit fit = Fitted.Value;
 
-        Assert.Single(fit.Pairs);
+        LockedPair pair = Assert.Single(fit.Pairs);
+        Assert.Equal((0, 1), (pair.LoneA, pair.LoneB));
         Ch3Candidate c = Assert.Single(fit.Candidates);
-        Assert.Equal(3, c.Occurrences);
+        Assert.Equal(8, c.Occurrences);
         Assert.Equal(4, c.Patch.Algorithm);
         Assert.Equal(2, c.HzB / c.HzA, 1);
         Assert.InRange(c.WindowSeconds, 0.1, 1);
@@ -166,7 +172,7 @@ public sealed class Ch3FitterTests
 
         string[] lines = [.. sink.Messages(LogEventLevel.Debug)];
         Assert.Equal(2, lines.Length);
-        Assert.StartsWith("CH3 1.1 (ch 1) + 2.1 (ch 2): 3 onsets, ", lines[0]);
+        Assert.StartsWith("CH3 1.1 (ch 1) + 2.1 (ch 2): 8 onsets, ", lines[0]);
         Assert.Contains("MULT", lines[0]);
         Assert.StartsWith("1 locked pairs, 1 CH3 candidates", lines[1]);
         Assert.Equal("algorithm4", Ch3FitReport.SourceName(Ch3VoiceSource.Algorithm4));
