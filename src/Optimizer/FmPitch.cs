@@ -65,7 +65,7 @@ internal static class FmPitch
         return patch with { Operators = ops };
     }
 
-    /// <summary>The multiples of a structure (all four operators sound) divided by what they share, as <see cref="Normalized"/> does; <c>null</c> when that needs a multiple above 15.</summary>
+    /// <summary>The multiples of a structure (all four operators sound) divided by what they share, as <see cref="Normalized(FmPatch)"/> does; <c>null</c> when that needs a multiple above 15.</summary>
     public static FmStructure? Normalized(FmStructure structure)
     {
         int[] halves = [Halves(structure.Mult1), Halves(structure.Mult2), Halves(structure.Mult3), Halves(structure.Mult4)];

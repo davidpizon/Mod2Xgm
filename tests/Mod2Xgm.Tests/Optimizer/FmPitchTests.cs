@@ -19,10 +19,8 @@ public sealed class FmPitchTests
     [InlineData(3, 6, 3, 9, false)]
     [InlineData(1, 1, 1, 0, false)]
     [InlineData(0, 0, 0, 0, false)]
-    public void APatchKeepsThePitchWhenItsMultiplesShareNoFactor(int m1, int m2, int m3, int m4, bool keeps)
-    {
+    public void APatchKeepsThePitchWhenItsMultiplesShareNoFactor(int m1, int m2, int m3, int m4, bool keeps) =>
         Assert.Equal(keeps, FmPitch.Keeps(Lead(m1, m2, m3, m4)));
-    }
 
     /// <summary>Silent operators don't count: a CH3 half is judged by its own two operators.</summary>
     [Fact]
