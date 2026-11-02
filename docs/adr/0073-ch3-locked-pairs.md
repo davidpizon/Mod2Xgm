@@ -1,6 +1,6 @@
 # ADR 0073: Locked pairs and CH3 special-mode candidates: every onset together, two 2-operator voices judged against the mix (T8.5b)
 
-- **Status:** Accepted
+- **Status:** Accepted; the lock rule is superseded by [ADR 0076](0076-loose-locked-pairs.md)
 - **Date:** 2026-11-02
 
 ## Context
