@@ -64,7 +64,21 @@ How it works (implementation):
 
 ## Corpus result
 
-CORPUS_RESULT
+Full corpus (19 songs, 42,984 PCM notes, 233,005 overlapping note pairs), `--pre-mix --no-furnace --no-deflemask -j 8`, 270 min:
+
+| Target | Voices | Candidates | Tail | Baked | Neither | Offered once (saves a steal) | Steals before → with pre-mixes |
+|---|---|---|---|---|---|---|---|
+| DMF | 1 | 135,858 | 67,514 | 17,278 | 51,066 | 84,848 | 31,538 → 22,584 (−28 %) |
+| XGM | 4 | 50,360 | 24,332 | 9,520 | 16,508 | 0 | 0 → 0 |
+| XGM2 | 3 | 120,866 | 57,771 | 14,851 | 48,244 | 70,468 | 7,705 → 894 (−88 %) |
+
+- Median mel distance: DMF 4.68 dB, XGM 5.52 dB, XGM2 5.17 dB. Seam (±0.1 s around the switch) median 5.95–6.26 dB,
+  90th percentile 9.25–9.70 dB, so a tail is not always clean; T8.6 sees both endings.
+- Most mixes go over full scale: about 81 % are turned down by more than 1 dB (median 4.1–4.4 dB, 90th percentile
+  6.6–7.4 dB). Whether the quieter mix still beats the steal is for the scorer in T8.6, not this step.
+- XGM's four voices never steal in the corpus, so its candidates are only the repeated ones.
+- Memory: keys are SHA-256 fingerprints and the harness runs a song's targets one at a time. On
+  `drozerix_-_the_hawks_claw` the peak went from 6,062 MB to 993 MB (18.7 → 26.9 min) with identical candidates.
 
 ## Options considered
 
