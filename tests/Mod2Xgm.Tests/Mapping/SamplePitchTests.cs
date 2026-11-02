@@ -53,6 +53,23 @@ public sealed class SamplePitchTests
         Assert.Equal(48, SamplePitch.Measure(sample).PeriodFrames!.Value, 0.1);
     }
 
+    /// <summary>
+    /// A one-shot shorter than the full window (a chip blip) is still measured at its fundamental: here a few hundred frames
+    /// with k0w-rsnd sample 1's harmonics, whose fifth is 11 dB above the fundamental.
+    /// </summary>
+    [Theory]
+    [InlineData(482, 21)]
+    [InlineData(964, 42)]
+    [InlineData(500, 20)]
+    public void AShortOneShotIsMeasured(int frames, int period)
+    {
+        // Harmonics 1–9 in dB against the fifth, measured from the sample.
+        double[] db = [-11, -60, -4, -11, 0, -5, -2, -8, -8];
+        float[] blip = [.. Enumerable.Range(0, frames).Select(i => (float)db.Select((d, k) => Math.Pow(10, d / 20) * Math.Sin(2 * Math.PI * (k + 1) * i / period)).Sum())];
+
+        Assert.Equal(period, SamplePitch.Measure(new Sample("blip", blip, null)).PeriodFrames!.Value, 0.1);
+    }
+
     /// <summary>Noise, silence and samples too short to measure have no pitch.</summary>
     [Fact]
     public void NoiseSilenceAndShortSamplesHaveNoPitch()
@@ -61,7 +78,8 @@ public sealed class SamplePitchTests
 
         Assert.Null(SamplePitch.Measure(new Sample("noise", noise, null)).PeriodFrames);
         Assert.Null(SamplePitch.Measure(new Sample("silence", new float[8000], null)).PeriodFrames);
-        Assert.Null(SamplePitch.Measure(new Sample("click", Sine(500, 20), null)).PeriodFrames);
+        Assert.Null(SamplePitch.Measure(new Sample("short noise", noise[..500], null)).PeriodFrames);
+        Assert.Null(SamplePitch.Measure(new Sample("click", Sine(100, 20), null)).PeriodFrames);
         Assert.Null(SamplePitch.Measure(new Sample("quiet loop", new float[64], new SampleLoop(0, 64))).PeriodFrames);
     }
 
