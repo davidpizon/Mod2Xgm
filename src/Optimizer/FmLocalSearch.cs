@@ -46,7 +46,8 @@ internal static class FmLocalSearch
             foreach (Func<FmVoiceSetting, FmVoiceSetting?> move in Moves(current.Patch, lfo, ssgEg, moved))
             {
                 // A step that helps is taken again, in the same direction, while it keeps helping.
-                while (move(current) is { } next)
+                // Never into a patch that plays off the note's pitch (docs/adr/0075-fm-pitch-guard.md).
+                while (move(current) is { } next && (FmPitch.Keeps(next.Patch) || !FmPitch.Keeps(current.Patch)))
                 {
                     if (maxRenders is { } max && evaluator.Renders - begin >= max)
                     {
