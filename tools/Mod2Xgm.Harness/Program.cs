@@ -84,12 +84,13 @@ internal static class Program
         Option<bool> psgFit = new("--psg-fit") { Description = "Also make PSG candidates for every sample and write psg-fit.csv (docs/adr/0070-psg-candidates.md)." };
         Option<bool> pcmFit = new("--pcm-fit") { Description = "Also make PCM candidates for every sample and target and write pcm-fit.csv (docs/adr/0071-pcm-candidates.md)." };
         Option<bool> preMix = new("--pre-mix") { Description = "Also make pre-mixed PCM candidates for every song and target and write pre-mix.csv and voice-steals.csv (docs/adr/0072-pre-mix-candidates.md)." };
+        Option<bool> ch3 = new("--ch3") { Description = "Also find locked pairs and make CH3 special-mode candidates, writing locked-pairs.csv and ch3-fit.csv (docs/adr/0073-ch3-locked-pairs.md); --fm-max-renders limits its fits." };
         Option<int> jobs = new("--jobs", "-j") { Description = "Songs measured at once.", DefaultValueFactory = _ => DefaultJobs };
         Option<bool> verbose = new("--verbose", "-v") { Description = "Log every scoring step." };
 
         RootCommand root = new("Mod2Xgm accuracy harness: scores conversions against OpenMPT (docs/harness.md).")
         {
-            inputs, output, rate, libopenmpt, furnace, noFurnace, deflemask, noDefleMask, saveReference, clip, balance, fmFit, fmRenders, psgFit, pcmFit, preMix, jobs, verbose,
+            inputs, output, rate, libopenmpt, furnace, noFurnace, deflemask, noDefleMask, saveReference, clip, balance, fmFit, fmRenders, psgFit, pcmFit, preMix, ch3, jobs, verbose,
         };
         root.SetAction(result =>
         {
@@ -142,7 +143,8 @@ internal static class Program
                 maxRenders,
                 result.GetValue(psgFit),
                 result.GetValue(pcmFit),
-                result.GetValue(preMix)));
+                result.GetValue(preMix),
+                result.GetValue(ch3)));
         });
 
         ParseResult parsed = root.Parse(args);
@@ -193,7 +195,7 @@ internal static class Program
             options.SampleRate,
             candidates.Count == 0 ? "none (lengths only)" : string.Join(", ", candidates.Select(c => c.Name)));
 
-        IReadOnlyList<SongResult> results = new CorpusRun(options.OutputDirectory, options.SampleRate, options.SaveReferenceWavs, reference, candidates, logger, options.ClipSeconds, options.Balance, options.FmFit ? new FmFitOptions(options.FmMaxRenders) : null, options.PsgFit, options.PcmFit, options.PreMix).Run(songs, options.Jobs);
+        IReadOnlyList<SongResult> results = new CorpusRun(options.OutputDirectory, options.SampleRate, options.SaveReferenceWavs, reference, candidates, logger, options.ClipSeconds, options.Balance, options.FmFit ? new FmFitOptions(options.FmMaxRenders) : null, options.PsgFit, options.PcmFit, options.PreMix, options.Ch3 ? new FmFitOptions(options.FmMaxRenders) : null).Run(songs, options.Jobs);
         return Report(results, options, reference.Name, logger);
     }
 
@@ -227,6 +229,12 @@ internal static class Program
         {
             File.WriteAllText(Path.Combine(options.OutputDirectory, "pre-mix.csv"), HarnessReport.PreMixCsv(results));
             File.WriteAllText(Path.Combine(options.OutputDirectory, "voice-steals.csv"), HarnessReport.VoiceStealsCsv(results));
+        }
+
+        if (options.Ch3)
+        {
+            File.WriteAllText(Path.Combine(options.OutputDirectory, "locked-pairs.csv"), HarnessReport.LockedPairsCsv(results));
+            File.WriteAllText(Path.Combine(options.OutputDirectory, "ch3-fit.csv"), HarnessReport.Ch3FitCsv(results));
         }
 
         if (options.ClipSeconds is not null)
@@ -297,6 +305,7 @@ internal static class Program
 /// <param name="PsgFit">Also make PSG candidates for every sample (<c>psg-fit.csv</c>).</param>
 /// <param name="PcmFit">Also make PCM candidates for every sample and target (<c>pcm-fit.csv</c>).</param>
 /// <param name="PreMix">Also make pre-mixed PCM candidates for every song and target (<c>pre-mix.csv</c>, <c>voice-steals.csv</c>).</param>
+/// <param name="Ch3">Also find locked pairs and make CH3 candidates for every song (<c>locked-pairs.csv</c>, <c>ch3-fit.csv</c>).</param>
 internal sealed record HarnessOptions(
     IReadOnlyList<string> Inputs,
     string OutputDirectory,
@@ -315,4 +324,5 @@ internal sealed record HarnessOptions(
     int? FmMaxRenders = null,
     bool PsgFit = false,
     bool PcmFit = false,
-    bool PreMix = false);
+    bool PreMix = false,
+    bool Ch3 = false);

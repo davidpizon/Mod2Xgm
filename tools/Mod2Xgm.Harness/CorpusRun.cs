@@ -39,6 +39,10 @@ namespace Mod2Xgm.Harness;
 /// <param name="psgFit">Also make the PSG candidates of every sample the conversion analyzed (docs/adr/0070-psg-candidates.md).</param>
 /// <param name="pcmFit">Also make the PCM candidates of every sample the conversion analyzed, for every target (docs/adr/0071-pcm-candidates.md).</param>
 /// <param name="preMix">Also make the pre-mixed PCM candidates of every song for every target, with its voice steals (docs/adr/0072-pre-mix-candidates.md).</param>
+/// <param name="ch3">
+/// Also find every song's locked pairs and make their CH3 candidates with these options, cutting down the FM fits when
+/// <paramref name="fmFit"/> made them (docs/adr/0073-ch3-locked-pairs.md); <c>null</c> to skip.
+/// </param>
 internal sealed class CorpusRun(
     string outputDirectory,
     int sampleRate,
@@ -51,7 +55,8 @@ internal sealed class CorpusRun(
     FmFitOptions? fmFit = null,
     bool psgFit = false,
     bool pcmFit = false,
-    bool preMix = false)
+    bool preMix = false,
+    FmFitOptions? ch3 = null)
 {
     /// <summary>
     /// Measures every song in <paramref name="modPaths"/>, <paramref name="jobs"/> at a time; the results are in the
@@ -113,7 +118,16 @@ internal sealed class CorpusRun(
                 }
             }
 
-            return new SongResult(name, duration, notes, scores, null) { Samples = analyses, FmFits = FitFm(name, analyses), PsgFits = FitPsg(name, analyses, analysis?.Voices), PcmFits = FitPcm(name, analysis), PreMixFits = FitPreMix(name, analysis) };
+            IReadOnlyList<FmSampleFit> fmFits = FitFm(name, analyses);
+            return new SongResult(name, duration, notes, scores, null)
+            {
+                Samples = analyses,
+                FmFits = fmFits,
+                PsgFits = FitPsg(name, analyses, analysis?.Voices),
+                PcmFits = FitPcm(name, analysis),
+                PreMixFits = FitPreMix(name, analysis),
+                Ch3Fit = FitCh3(name, analysis, fmFits),
+            };
         }
         catch (Exception ex) when (ex is HarnessException or ConversionException or IOException)
         {
@@ -204,6 +218,27 @@ internal sealed class CorpusRun(
         }
 
         return fits;
+    }
+
+    /// <summary>The song's locked pairs and CH3 candidates, cutting down <paramref name="fmFits"/> where they cover a region; <c>null</c> unless asked for.</summary>
+    private Ch3SongFit? FitCh3(string song, SongAnalysis? analysis, IReadOnlyList<FmSampleFit> fmFits)
+    {
+        if (ch3 is null || analysis is null)
+        {
+            return null;
+        }
+
+        logger.Information("{Song}: finding locked pairs and making CH3 candidates", song);
+        Ch3SongFit fit = Ch3Fitter.Fit(analysis, ch3, fmFits);
+        Ch3FitReport.Log(logger, fit);
+        logger.Information(
+            "{Song}: {Pairs} locked pairs, {Candidates} CH3 candidates ({Renders} renders, {Seconds} s)",
+            song,
+            fit.Pairs.Count,
+            fit.Candidates.Count,
+            fit.Renders,
+            Seconds(fit.Elapsed.TotalSeconds));
+        return fit;
     }
 
     /// <summary>

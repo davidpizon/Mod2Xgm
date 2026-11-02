@@ -13,7 +13,13 @@
   FM. The accuracy harness should score DAC notes at the volumes the song really uses.
   The in-app FM model is the clean YM3438 ([ADR 0056](adr/0056-ym3438-model.md)), so it doesn't reproduce this flaw.
 - Channel 3 "special mode" (`$27` bit 6) gives each ch3 operator its own frequency → DefleMask "Genesis
-  ext. CH3" system.
+  ext. CH3" system. The frequencies (high byte first, it latches until the low byte): OP1 `$AD`/`$A9`, OP2 `$AE`/`$AA`,
+  OP3 `$AC`/`$A8`, OP4 the channel's own `$A6`/`$A2`. Key-on (`$28`) switches each operator on its own (bits 4–7 =
+  OP1–OP4), so algorithm 4 (OP1→OP2, OP3→OP4) plays two 2-operator voices; the feedback belongs to OP1's half
+  ([ADR 0073](adr/0073-ch3-locked-pairs.md)).
+- Algorithms (Yamaha order; `→` modulates, carriers last): 0 OP1→OP2→OP3→OP4; 1 (OP1+OP2)→OP3→OP4;
+  2 (OP1 + OP2→OP3)→OP4; 3 (OP1→OP2 + OP3)→OP4; 4 OP1→OP2, OP3→OP4; 5 OP1→(OP2, OP3, OP4); 6 OP1→OP2, OP3, OP4;
+  7 all four carriers.
 - Panning per channel: left / right / both / none (no fine pan).
 - Master clock: NTSC 7 670 453 Hz, PAL 7 600 489 Hz.
 

@@ -68,4 +68,19 @@ public sealed class FmLocalSearchTests
         Assert.Equal((0, 0), (plain.Patch.Fms, plain.Patch.Ams));
         Assert.All(plain.Patch.Operators, o => Assert.False(o.Am));
     }
+
+    /// <summary>Limited to OP3 and OP4 (one CH3 voice), the fit leaves OP1, OP2 and the feedback alone, and still gets closer.</summary>
+    [Fact]
+    public void TheFitMovesOnlyTheOperatorsItIsGiven()
+    {
+        FmPatch start = OffLead with { Feedback = 3 };
+        FmEvaluator evaluator = new(FmTargets.Of(FmPatchLibrary.Lead));
+
+        FmVoiceSetting fitted = FmLocalSearch.Refine(evaluator, new FmVoiceSetting(start, null), false, true, 200, [2, 3]);
+
+        Assert.Equal(start.Operators[0], fitted.Patch.Operators[0]);
+        Assert.Equal(start.Operators[1], fitted.Patch.Operators[1]);
+        Assert.Equal(3, fitted.Patch.Feedback);
+        Assert.True(evaluator.Search(fitted.Patch, null) < evaluator.Search(start, null));
+    }
 }

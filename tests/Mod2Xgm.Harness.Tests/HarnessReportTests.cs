@@ -264,6 +264,30 @@ public sealed class HarnessReportTests
         Assert.Equal(string.Empty, steals[2]);
     }
 
+    /// <summary>The CH3 CSVs have one line per song and locked pair, and one per pair of pitch regions with its candidate (plan T8.5b).</summary>
+    [Fact]
+    public void Ch3CsvsHaveOneLinePerPairAndCandidate()
+    {
+        SongNote a = new(0, 2, 0, 4, 8287, 0, 1, 0.08, false);
+        SongNote b = a with { Channel = 3, Sample = 4, RateHz = 16574 };
+        LockedPair pair = new(2, 0, 4, 3, [new LockedOnset(a, b), new LockedOnset(a with { FirstTick = 8 }, b with { FirstTick = 8 })]);
+        FmPatch patch = new("Ch3", 4, 3, [.. FmPatchLibrary.Lead.Operators.Select(o => o with { SsgEg = 0 })]);
+        Ch3Voice va = new(Ch3VoiceSource.Algorithm4, false, patch, new NoteScore(3.5, 2, 1.5));
+        Ch3Voice vb = new(Ch3VoiceSource.CutDown, true, patch, new NoteScore(4.25, 2, 1));
+        Ch3Candidate c = new(pair, 0, 1, 2, 129.5, 259, 0.08, patch, false, va, vb, new NoteScore(5.125, 3.5, null), new NoteScore(6, 4, null), new NoteScore(5.125, 3.5, null));
+        SongResult[] results = [Results[0] with { Ch3Fit = new Ch3SongFit([pair], [c], 40, TimeSpan.FromSeconds(2)) }, Results[1]];
+
+        string[] pairs = HarnessReport.LockedPairsCsv(results).Split('\n');
+        string[] fits = HarnessReport.Ch3FitCsv(results).Split('\n');
+
+        Assert.Equal(HarnessReport.LockedPairsHeader, pairs[0]);
+        Assert.Equal("alpha,3,1,5,4,2,12,0", pairs[1]);
+        Assert.Equal(string.Empty, pairs[2]);
+        Assert.Equal(HarnessReport.Ch3FitHeader, fits[0]);
+        Assert.Equal("alpha,dmf xgm2,3,1,1,5,4,2,2,129.5,259,0.08,B,algorithm4,cut-down,3.5,4.25,5.125,3.5,6,5.125," + Ch3FitReport.Settings(c), fits[1]);
+        Assert.Equal(string.Empty, fits[2]);
+    }
+
     /// <summary>The same results give the same files: the report holds no time or machine detail (plan T6.3).</summary>
     [Fact]
     public void ReportsAreTheSameEachTime()

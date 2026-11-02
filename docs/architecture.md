@@ -141,6 +141,13 @@ the buzz for low notes. `PsgNoteRenderer` plays one on the `Sn76489` model and `
 marked with whether the song has room for it, from `Analysis/SongVoices` (how many notes the song sounds at once), and
 `PsgFitReport` logs them. Nothing in the conversion uses them yet (M9); the harness runs them with `--psg-fit`.
 
+**CH3 candidates** (`src/Analysis`, `src/Optimizer`, plan T8.5b, [ADR 0073](adr/0073-ch3-locked-pairs.md)) — passes 1
+and 3: `Analysis/LockedPairs` finds tracks (a sample on a channel) that always start together at one pitch gap, and
+`LockedPairReport` logs them with `--verbose`. `Ch3Fitter` fits each as two 2-operator voices on channel 3 in CH3 special
+mode (algorithm 4, `FmNoteRenderer.RenderCh3`): per voice a new fit and a cut-down T8.2 fit (`FmLocalSearch` limited to
+the voice's operators), every combination judged together against the MOD mix (`NoteMix`, shared with `PreMixer`).
+Offered for DMF and XGM2 only. Nothing in the conversion uses them yet (M9); the harness runs them with `--ch3`.
+
 **Scoring** (`src/Scoring`, plan T6.2, [ADR 0042](adr/0042-scoring-metrics.md)) — pure C#: says how close a rendering sounds to the
 original. `AudioSignal` (mono audio) → `Alignment` (constant lag from the note-start curves) → `SpectralMetrics`
 (multi-resolution log-mel distance, MFCC distance on `MelAnalyzer`/`FftPlan`) and `OnsetMetrics` (note-start precision,

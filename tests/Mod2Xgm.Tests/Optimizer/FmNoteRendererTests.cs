@@ -87,4 +87,33 @@ public sealed class FmNoteRendererTests
         Assert.Throws<ArgumentOutOfRangeException>(() => FmNoteRenderer.Render(FmPatchLibrary.Sine, null, 440, 0));
         Assert.Throws<ArgumentNullException>(() => FmNoteRenderer.ToAnalysisRate(null!));
     }
+
+    /// <summary>Two sine voices on algorithm 4: OP1→OP2 and OP3→OP4 with silent modulators and full-level carriers.</summary>
+    private static FmPatch TwoSines { get; } = new("two sines", 4, 0, [
+        new FmOperator(1, 0, 127, 0, 31, false, 0, 0, 0, 15),
+        new FmOperator(1, 0, 0, 0, 31, false, 0, 0, 0, 15),
+        new FmOperator(1, 0, 127, 0, 31, false, 0, 0, 0, 15),
+        new FmOperator(1, 0, 0, 0, 31, false, 0, 0, 0, 15)]);
+
+    /// <summary>In CH3 special mode each half plays at its own pitch, and only when keyed (plan T8.5b).</summary>
+    [Fact]
+    public void Ch3HalvesPlayAtTheirOwnPitches()
+    {
+        float[] low = FmNoteRenderer.RenderCh3(TwoSines, 220, 550, 0.5, key34: false);
+        float[] high = FmNoteRenderer.RenderCh3(TwoSines, 220, 550, 0.5, key12: false);
+        float[] none = FmNoteRenderer.RenderCh3(TwoSines, 220, 550, 0.5, key12: false, key34: false);
+
+        Assert.Equal(220, Hz(low), 3);
+        Assert.Equal(550, Hz(high), 3);
+        Assert.Equal(1, Peak(low, 2000), 0.03);
+        Assert.Equal(0, Peak(none, 2000), 3);
+    }
+
+    /// <summary>With both halves at one pitch, CH3 special mode sounds exactly as the patch does on a normal channel.</summary>
+    [Fact]
+    public void CH3AtOnePitchIsANormalNote()
+    {
+        Assert.Equal(FmNoteRenderer.Render(FmPatchLibrary.Brass with { Algorithm = 4 }, null, 330, 0.25), FmNoteRenderer.RenderCh3(FmPatchLibrary.Brass with { Algorithm = 4 }, 330, 330, 0.25));
+        Assert.Throws<ArgumentOutOfRangeException>(() => FmNoteRenderer.RenderCh3(TwoSines, 0, 330, 1));
+    }
 }

@@ -89,12 +89,16 @@ internal static class ConversionCommand
         {
             // Nothing uses the analysis yet (the optimizer will, plan M9); --verbose shows it (docs/adr/0068-sample-analysis.md).
             IReadOnlyList<SampleAnalysis> analyses = SampleAnalyzer.AnalyzeSong(song, playback, mapping.Ignore);
+            SongAnalysis analysis = new(song, playback, analyses, SongVoices.Count(song, playback));
             if (verbose)
             {
                 SampleAnalysisReport.Log(logger, analyses);
+
+                // Samples that must stay PCM or PSG never go on FM, so never into CH3 (docs/adr/0073-ch3-locked-pairs.md).
+                LockedPairReport.Log(logger, LockedPairs.Find(analysis, mapping.RequireDac.Union(mapping.RequirePsg).ToHashSet()));
             }
 
-            analyzed?.Invoke(new SongAnalysis(song, playback, analyses, SongVoices.Count(song, playback)));
+            analyzed?.Invoke(analysis);
         }
 
         GenesisPlan plan = new SimpleMapper().Map(song, playback, mapping, notes);
