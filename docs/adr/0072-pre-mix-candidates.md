@@ -36,7 +36,7 @@ last one was marked **verify** for XGM2 and assumed for XGM v1.
   data, but no `.xgm` or `.xgm2` reaches a ROM as written: rescomp always runs it through xgm2tool or xgmtool, and both
   rebuild the sample block slot by slot, so a shared tail turns into a copy (see [formats/xgm.md](../formats/xgm.md)).
   A tail is the rest of the outlasting note's sample, from where the note is at the switch, at its rate and volume
-  then, so it carries on at the level the mix left it at. Tails with the same bytes share one slot (`tail_id`).
+  then, so it carries on at the level the mix left it at. Tails with the same bytes at the same rate share one slot (`tail_id`).
 - **Voice steals are counted as notes over the limit.** For each target's voices (DMF 1, XGM 4, XGM2 3), a note that
   starts while every voice is busy counts as stolen; voices are given out in the order notes start. Then again with
   every candidate used where it fits: each note goes into one pre-mix at most, larger groups first, and a pre-mix holds
@@ -48,7 +48,7 @@ How it works (implementation):
 - **Finding windows.** From the notes of `SongNote.Find`, of samples with sound that aren't kept out (`--require-fm`,
   `--require-psg`; ignored samples aren't analyzed). Two notes overlap when they sound on a common tick.
 - **Dedupe.** Windows whose notes have the same samples, start ticks, start frames and pitch and volume on every tick
-  (with the tick lengths) make the same bytes, so each such group is rendered once. A group is offered when the song
+  (with the tick lengths), and the same note going on after the window, make the same bytes, so each such group is rendered once. A group is offered when the song
   plays it at least twice, or once where it saves a voice steal (ADR 0052). Offered groups with the same bytes are then
   merged into one candidate, their occurrences added.
 - **Mixing.** The MOD renderer plays the notes in mono, other notes on their channels silenced, scaled so one note at
@@ -59,12 +59,13 @@ How it works (implementation):
   holds what follows of the outlasting note, so a tail that starts a little late doesn't leave a gap.
 - **Scores.** The pre-mix through the target's PCM driver model (`PcmNoteRenderer`, the tail started on the same channel
   at the switch) against the MOD renderer's mix, by the FM fits' ruler (`NoteScorer`, mel bands only, as a mix has no one
-  pitch): over the window, at least 0.1 s and at most the analysis's second; and the **seam**, ±0.1 s around the switch,
+  pitch): over the window, at least 0.1 s and at most the analysis's second; and the **seam**, ±0.1 s around the switch (from the start when the switch is sooner),
   for the tail and its baked twin alike.
 
 ## Corpus result
 
-Full corpus (19 songs, 42,984 PCM notes, 233,005 overlapping note pairs), `--pre-mix --no-furnace --no-deflemask -j 8`, 270 min:
+Full corpus (19 songs, 42,984 PCM notes, 233,005 overlapping note pairs), `--pre-mix --no-furnace --no-deflemask -j 8`, 270 min. Measured before the
+review fixes to window gaps, outlast keys, rates in merge keys and the early seam, which change edge cases only:
 
 | Target | Voices | Candidates | Tail | Baked | Neither | Offered once (saves a steal) | Steals before → with pre-mixes |
 |---|---|---|---|---|---|---|---|

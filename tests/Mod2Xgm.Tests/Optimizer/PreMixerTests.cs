@@ -136,6 +136,52 @@ public sealed class PreMixerTests
         Assert.DoesNotContain(fit.Candidates, c => c.End == PreMixEnd.Baked);
     }
 
+    /// <summary>A snare that starts on the tick the kick stops, over a pad, is no gap: two notes sound all along, so the three make one window.</summary>
+    [Fact]
+    public void ANoteHandingOverToAnotherOverAPadIsOneWindow()
+    {
+        ModBuilder mod = new ModBuilder()
+            .WithSample(1, "kick", 64, loopStart: 0, loopLength: 64, data: i => (sbyte)(i < 32 ? 60 : -60))
+            .WithSample(2, "pad", 64, loopStart: 0, loopLength: 64, data: i => (sbyte)(Math.Sin(i * 2 * Math.PI / 64) * 50))
+            .WithSample(3, "snare", 512, data: i => (sbyte)((i * 37 % 255) - 127));
+        foreach (int row in new[] { 0, 16 })
+        {
+            mod.WithCell(0, row: row, channel: 0, sample: 1, period: 428)
+                .WithCell(0, row: row, channel: 1, sample: 2, period: 428)
+                .WithCell(0, row: row + 1, channel: 0, sample: 3, period: 428);
+        }
+
+        SongAnalysis song = PcmSongs.Analyze(mod.Build());
+        PreMixSongFit fit = PreMixer.Fit(song, PcmTarget.Xgm2);
+
+        PreMixCandidate three = Assert.Single(fit.Candidates, c => c.Parts.Count == 3);
+        Assert.Equal("1+2+3", PreMixReport.Samples(three));
+        Assert.Equal(2, three.Occurrences);
+    }
+
+    /// <summary>Two notes that play the same way until one stops go on as different tails depending on which one stops.</summary>
+    [Fact]
+    public void WhichNoteGoesOnMakesADifferentCandidate()
+    {
+        ModBuilder mod = new ModBuilder()
+            .WithSample(1, "square", 64, loopStart: 0, loopLength: 64, data: i => (sbyte)(i < 32 ? 50 : -50))
+            .WithSample(2, "sine", 64, loopStart: 0, loopLength: 64, data: i => (sbyte)(Math.Sin(i * 2 * Math.PI / 64) * 50))
+            .WithSample(3, "snare", 512, data: i => (sbyte)((i * 37 % 255) - 127));
+        foreach ((int row, int stops) in new[] { (0, 0), (16, 1) })
+        {
+            mod.WithCell(0, row: row, channel: 0, sample: 1, period: 428)
+                .WithCell(0, row: row, channel: 1, sample: 2, period: 428)
+                .WithCell(0, row: row + 1, channel: stops, sample: 3, period: 428);
+        }
+
+        SongAnalysis song = PcmSongs.Analyze(mod.Build());
+        PreMixSongFit fit = PreMixer.Fit(song, PcmTarget.Dmf);
+
+        PreMixCandidate[] pairs = [.. fit.Candidates.Where(c => PreMixReport.Samples(c) == "1+2" && c.End == PreMixEnd.Tail)];
+        Assert.Equal([0, 1], pairs.Select(c => c.Tail!.Sample).Order());
+        Assert.All(pairs, c => Assert.Equal(1, c.Occurrences));
+    }
+
     /// <summary>A one-shot that outlasts the window's tick but runs out before the next frame has no tail: the pre-mix holds it to its end.</summary>
     [Fact]
     public void ANoteThatRunsOutBeforeTheSwitchHasNoTail()

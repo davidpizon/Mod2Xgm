@@ -330,10 +330,11 @@ internal static class PreMixer
                 changes.Add((EndOf(notes[n]), -1));
             }
 
+            // Summed per tick: one note ending where another starts, with a third still sounding, is no gap.
             int sounding = 0;
             int runs = 0;
             int endTick = 0;
-            foreach ((int tick, int change) in changes.OrderBy(c => c.Tick).ThenBy(c => c.Change))
+            foreach ((int tick, int change) in changes.GroupBy(c => c.Tick, (tick, all) => (tick, all.Sum(c => c.Change))).OrderBy(c => c.tick))
             {
                 int before = sounding;
                 sounding += change;
@@ -385,6 +386,8 @@ internal static class PreMixer
                 AppendNote(key, w, n, w.EndTick);
             }
 
+            // Which note goes on: two that play the same way up to here can go on with different samples.
+            key.Add(w.Outlast is { } last ? Array.IndexOf(w.Notes, last) : -1);
             if (w.Outlast is not { } o || Time(EndOf(notes[o])) - Time(w.StartTick) <= switchSeconds || RanOut(o, Time(w.StartTick) + switchSeconds))
             {
                 if (w.Outlast is { } shortOne)
@@ -466,13 +469,17 @@ internal static class PreMixer
             if (end != PreMixEnd.None)
             {
                 double from = Math.Max(0, switchSeconds - SeamSeconds);
-                seam = Scorer(Head(ideal, from, 2 * SeamSeconds), notes[w.Notes[0]].RateHz).Score(Head(played, from, 2 * SeamSeconds));
+                double seconds = switchSeconds + SeamSeconds - from;
+                seam = Scorer(Head(ideal, from, seconds), notes[w.Notes[0]].RateHz).Score(Head(played, from, seconds));
             }
 
             PreMixPart[] parts = [.. w.Notes.Select(n => new PreMixPart(notes[n].Sample, notes[n].FirstTick - w.StartTick, notes[n].RateHz, notes[n].StartFrame, notes[n].Volume))];
             PreMixCandidate candidate = new(parts, same.Count, saves, windowSeconds, switchSeconds, end, PcmTargets.Bytes(target, stored.Length), tail, clipDb, score, seam);
+            // The same bytes at another rate (DMF's DAC rate codes) sound different, and a DMF slot has one rate.
             using Hasher both = new(BytesKey(stored));
+            both.Add(playRate);
             both.Add(tail is null ? default : BytesKey(tailPoints));
+            both.Add(tailRate);
             Fingerprint bytes = both.Finish();
             return (candidate, bytes);
         }
@@ -503,7 +510,9 @@ internal static class PreMixer
 
             double playRate = PcmTargets.PlayRateHz(target, rate, false);
             float[] points = data.Length == 0 ? [] : SampleProcessor.Resample(data, rate, playRate, ResamplingMode.Smooth);
-            Fingerprint key = BytesKey(points);
+            using Hasher bytes = new(BytesKey(points));
+            bytes.Add(playRate);
+            Fingerprint key = bytes.Finish();
             if (!_tailIds.TryGetValue(key, out int id))
             {
                 id = _tailIds.Count;
