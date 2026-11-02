@@ -49,7 +49,7 @@ internal sealed partial class CandidateCache
     public static string BuildFolderName { get; } = "build-" + Build.ToString("N");
 
     /// <summary>The cache folder given.</summary>
-    public string Root { get; }
+    private string Root { get; }
 
     /// <summary>This build's folder.</summary>
     public string Folder { get; }
