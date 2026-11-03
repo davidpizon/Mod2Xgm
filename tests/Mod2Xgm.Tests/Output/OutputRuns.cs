@@ -44,10 +44,10 @@ internal static partial class OutputRuns
 
     /// <summary>
     /// Converts <see cref="Song"/> in <c>--progress <paramref name="mode"/></c> with the cache (and the timing history) in
-    /// <paramref name="cacheDirectory"/>.
+    /// <paramref name="cacheDirectory"/>; its stdout, made stable.
     /// </summary>
-    public static (int Code, string Output, string Error) ConvertWithCache(string mode, string cacheDirectory, params string[] args) =>
-        Run(mode, ["--cache-dir", cacheDirectory, .. args]);
+    public static string ConvertWithCache(string mode, string cacheDirectory, params string[] args) =>
+        Run(mode, ["--cache-dir", cacheDirectory, .. args]).Output;
 
     private static (int Code, string Output, string Error) Run(string mode, string[] args)
     {
