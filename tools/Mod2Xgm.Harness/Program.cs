@@ -1,7 +1,10 @@
 using System.CommandLine;
+using System.Diagnostics;
 using System.Globalization;
 using System.Reflection;
+using System.Text;
 using Mod2Xgm.Optimizer;
+using Mod2Xgm.Output;
 using Serilog;
 using Serilog.Core;
 using Serilog.Events;
@@ -11,9 +14,13 @@ namespace Mod2Xgm.Harness;
 /// <summary>
 /// The accuracy harness's command line (docs/harness.md). Exit codes: 0 every song measured and within one tick,
 /// 1 a song failed or its length is off by more than a tick, 2 the harness couldn't run (a tool is missing, bad options).
+/// Its output goes through the converter's reporters, chosen by <c>--progress</c> (docs/cli-output.md#the-harness).
 /// </summary>
 internal static class Program
 {
+    /// <summary>The exit code when the harness couldn't run: a tool is missing, an input isn't there, bad options.</summary>
+    internal const int CannotRun = 2;
+
     /// <summary>Default corpus, relative to the repository root (plan T6.1).</summary>
     internal const string DefaultCorpus = "tests/data/corpus";
 
@@ -28,31 +35,70 @@ internal static class Program
 
     internal static int Main(string[] args)
     {
+        TerminalProbe terminal = TerminalProbe.Current();
+        using TextWriter? output = terminal.OutputRedirected ? Utf8(Console.OpenStandardOutput()) : null;
+        using TextWriter? error = terminal.ErrorRedirected ? Utf8(Console.OpenStandardError()) : null;
+        return Run(args, output ?? Console.Out, error ?? Console.Error, terminal);
+    }
+
+    /// <summary>
+    /// Makes the reporter <c>--progress</c> asks for (found before parsing, so parse errors use it too), logs through it,
+    /// runs the harness and reports how it ended. A <see cref="HarnessException"/> exits 2; any other exception is a bug,
+    /// reported with its stack, and exits 2 too. Never reads stdin.
+    /// </summary>
+    internal static int Run(string[] args, TextWriter output, TextWriter error, TerminalProbe terminal)
+    {
+        ArgumentNullException.ThrowIfNull(args);
         LoggingLevelSwitch level = new(); // starts at Information
-        Log.Logger = new LoggerConfiguration()
-            .MinimumLevel.ControlledBy(level)
-            .WriteTo.Console(outputTemplate: Mod2Xgm.Program.ConsoleOutputTemplate, formatProvider: CultureInfo.InvariantCulture, standardErrorFromLevel: LogEventLevel.Warning)
-            .CreateLogger();
+        Stopwatch clock = Stopwatch.StartNew();
+        using IConversionReporter reporter = Reporters.Create(ProgressModeScan.Find(args), output, error, terminal);
+        Log.Logger = Mod2Xgm.Program.CreateLogger(level, reporter);
+        PhaseTracker tracker = new(reporter, TimeProvider.System, new EtaEstimator());
         try
         {
-            return Invoke(args, options =>
+            int code = Invoke(args, options =>
             {
                 level.MinimumLevel = options.Verbose ? LogEventLevel.Debug : LogEventLevel.Information;
-                return Execute(options, Log.Logger);
+                if (!options.NoCache)
+                {
+                    // Earlier runs' song times, next to the converter's (docs/cli-output.md#time-estimate).
+                    tracker.Estimator.History = TimingHistory.Load(options.CacheDirectory ?? CandidateCache.DefaultRoot, Log.Logger);
+                }
+
+                return Execute(options, Log.Logger, tracker);
             });
+            tracker.Estimator.History?.Save();
+            Log.CloseAndFlush();
+            reporter.Completed(new RunOutcome((ExitCode)code, tracker.Timings, clock.Elapsed));
+            return code;
         }
         catch (HarnessException ex)
         {
-            Log.Error("{Message}", ex.Message);
-            return 2;
+            return Failed(ex.Message, ex.Kind, null);
         }
-        finally
+        catch (Exception ex)
         {
+            return Failed(ex.Message, "internal", ex);
+        }
+
+        int Failed(string message, string kind, Exception? exception)
+        {
+            tracker.Estimator.History?.Save();
             Log.CloseAndFlush();
+            reporter.Failed(new RunFailure((ExitCode)CannotRun, message, exception, null, tracker.Timings, clock.Elapsed) { Kind = kind });
+            return CannotRun;
         }
     }
 
-    /// <summary>Parses <paramref name="args"/> and hands the options to <paramref name="execute"/>; a usage error exits 2.</summary>
+    /// <summary>
+    /// A redirected stream is written in UTF-8 without a byte-order mark, as the converter's (docs/cli-output.md#streams).
+    /// </summary>
+    private static StreamWriter Utf8(Stream stream) => new(stream, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)) { AutoFlush = true };
+
+    /// <summary>
+    /// Parses <paramref name="args"/> and hands the options to <paramref name="execute"/>; a bad command line throws a
+    /// usage <see cref="HarnessException"/>, which exits 2.
+    /// </summary>
     internal static int Invoke(string[] args, Func<HarnessOptions, int> execute)
     {
         Argument<string[]> inputs = new("inputs")
@@ -89,46 +135,52 @@ internal static class Program
         Option<string?> cacheDir = new("--cache-dir") { Description = "Folder for the candidate cache (default: the user's cache folder, as mod2xgm's)." };
         Option<int> jobs = new("--jobs", "-j") { Description = "Songs measured at once.", DefaultValueFactory = _ => DefaultJobs };
         Option<bool> verbose = new("--verbose", "-v") { Description = "Log every scoring step." };
+        Option<string> progress = new(ProgressModeScan.OptionName)
+        {
+            Description = "How progress and results are shown: fancy (the default), text, json or silent (docs/cli-output.md).",
+            DefaultValueFactory = _ => "fancy",
+        };
+        progress.AcceptOnlyFromAmong([.. ProgressModeScan.Names.Keys]);
 
         RootCommand root = new("Mod2Xgm accuracy harness: scores conversions against OpenMPT (docs/harness.md).")
         {
-            inputs, output, rate, libopenmpt, furnace, noFurnace, deflemask, noDefleMask, saveReference, clip, balance, fmFit, fmRenders, psgFit, pcmFit, preMix, ch3, noCache, cacheDir, jobs, verbose,
+            inputs, output, rate, libopenmpt, furnace, noFurnace, deflemask, noDefleMask, saveReference, clip, balance, fmFit, fmRenders, psgFit, pcmFit, preMix, ch3, noCache, cacheDir, jobs, verbose, progress,
         };
         root.SetAction(result =>
         {
             int sampleRate = result.GetValue(rate);
             if (sampleRate is < 8_000 or > 192_000)
             {
-                throw new HarnessException(string.Create(CultureInfo.InvariantCulture, $"--rate {sampleRate}: between 8000 and 192000 Hz, please"));
+                throw HarnessException.Usage(string.Create(CultureInfo.InvariantCulture, $"--rate {sampleRate}: between 8000 and 192000 Hz, please"));
             }
 
             int songsAtOnce = result.GetValue(jobs);
             if (songsAtOnce is < 1 or > 64)
             {
-                throw new HarnessException(string.Create(CultureInfo.InvariantCulture, $"--jobs {songsAtOnce}: between 1 and 64, please"));
+                throw HarnessException.Usage(string.Create(CultureInfo.InvariantCulture, $"--jobs {songsAtOnce}: between 1 and 64, please"));
             }
 
             double? clipSeconds = result.GetValue(clip);
             if (clipSeconds is < 1 or > 600)
             {
-                throw new HarnessException(string.Create(CultureInfo.InvariantCulture, $"--clip {clipSeconds}: between 1 and 600 seconds, please"));
+                throw HarnessException.Usage(string.Create(CultureInfo.InvariantCulture, $"--clip {clipSeconds}: between 1 and 600 seconds, please"));
             }
 
             bool measureBalance = result.GetValue(balance);
             if (measureBalance && clipSeconds is null)
             {
-                throw new HarnessException("--balance measures the listening clips: give --clip too");
+                throw HarnessException.Usage("--balance measures the listening clips: give --clip too");
             }
 
             int? maxRenders = result.GetValue(fmRenders);
             if (maxRenders is < 1)
             {
-                throw new HarnessException(string.Create(CultureInfo.InvariantCulture, $"--fm-max-renders {maxRenders}: at least 1, please"));
+                throw HarnessException.Usage(string.Create(CultureInfo.InvariantCulture, $"--fm-max-renders {maxRenders}: at least 1, please"));
             }
 
             if (result.GetValue(noCache) && result.GetValue(cacheDir) is not null)
             {
-                throw new HarnessException("--no-cache and --cache-dir both given; --no-cache doesn't use a cache folder");
+                throw HarnessException.Usage("--no-cache and --cache-dir both given; --no-cache doesn't use a cache folder");
             }
 
             string[] given = result.GetValue(inputs) ?? [];
@@ -160,20 +212,27 @@ internal static class Program
         return parsed.Errors.Count > 0 ? Errors(parsed) : parsed.Invoke(new InvocationConfiguration { EnableDefaultExceptionHandler = false });
     }
 
-    private static int Errors(ParseResult parsed)
-    {
-        foreach (System.CommandLine.Parsing.ParseError error in parsed.Errors)
-        {
-            Log.Error("{Message}", error.Message);
-        }
+    private static int Errors(ParseResult parsed) =>
+        throw HarnessException.Usage(string.Join("; ", parsed.Errors.Select(e => e.Message)));
 
-        return 2;
-    }
-
-    /// <summary>Sets up the renderers from <paramref name="options"/>, measures every song, writes the reports and returns the exit code.</summary>
-    internal static int Execute(HarnessOptions options, ILogger logger)
+    /// <summary>
+    /// Sets up the renderers from <paramref name="options"/>, measures every song (one step each, reported to
+    /// <paramref name="progress"/>), writes the reports and returns the exit code.
+    /// </summary>
+    internal static int Execute(HarnessOptions options, ILogger logger, IConversionProgress? progress = null)
     {
         ArgumentNullException.ThrowIfNull(options);
+        IReadOnlyList<string> songs = FindSongs(options.Inputs);
+        progress ??= NoProgress.Instance;
+        progress.Begin(new RunInfo(
+            string.Join(", ", options.Inputs),
+            RunInfo.HarnessFormat,
+            "normal",
+            [.. songs.Select((song, i) => new PhaseInfo(i + 1, CorpusRun.PhaseId(song), Path.GetFileNameWithoutExtension(song), string.Empty))],
+            Math.Min(options.Jobs, songs.Count)));
+
+        // Each step is one song: the history keeps seconds per song (docs/cli-output.md#the-harness).
+        progress.SetSongSize(SongSize.Rows, 1);
         LibOpenMpt.UseDirectory(options.LibOpenMptDirectory);
         OpenMptRenderer reference = new();
         List<ICandidateRenderer> candidates = [new ModRendererCheck(options.SampleRate), new GenesisRendererCheck(options.SampleRate, logger)];
@@ -195,7 +254,6 @@ internal static class Program
             candidates.Add(new DefleMaskExports(deflemask));
         }
 
-        IReadOnlyList<string> songs = FindSongs(options.Inputs);
         logger.Information(
             "Measuring {Count} songs, {Jobs} at a time, against {Reference} at {Rate} Hz; renderers: {Renderers}",
             songs.Count,
@@ -211,7 +269,7 @@ internal static class Program
             logger.Information("Candidate cache: {Folder}", cache.Folder);
         }
 
-        IReadOnlyList<SongResult> results = new CorpusRun(options.OutputDirectory, options.SampleRate, options.SaveReferenceWavs, reference, candidates, logger, options.ClipSeconds, options.Balance, options.FmFit ? new FmFitOptions(options.FmMaxRenders) : null, options.PsgFit, options.PcmFit, options.PreMix, options.Ch3 ? new FmFitOptions(options.FmMaxRenders) : null, cache).Run(songs, options.Jobs);
+        IReadOnlyList<SongResult> results = new CorpusRun(options.OutputDirectory, options.SampleRate, options.SaveReferenceWavs, reference, candidates, logger, options.ClipSeconds, options.Balance, options.FmFit ? new FmFitOptions(options.FmMaxRenders) : null, options.PsgFit, options.PcmFit, options.PreMix, options.Ch3 ? new FmFitOptions(options.FmMaxRenders) : null, cache).Run(songs, options.Jobs, progress);
         return Report(results, options, reference.Name, logger);
     }
 
@@ -268,7 +326,11 @@ internal static class Program
         File.WriteAllText(report, HarnessReport.Markdown(results, reference, version, options.SampleRate));
 
         int failed = results.Count(r => r.Error is not null || r.Duration?.Within == false || r.Scores.Any(ModRendererCheck.OverTheBar));
-        logger.Information("Report: {Report} ({Failed} of {Count} songs failed, are more than a tick off, or the in-app MOD renderer is over its bar)", report, failed, results.Count);
+        logger.ForContext(new ReportRow("result", ("output", report), ("failed", failed), ("songs", results.Count))).Information(
+            "Report: {ReportFile} ({Failed} of {Count} songs failed, are more than a tick off, or the in-app MOD renderer is over its bar)",
+            report,
+            failed,
+            results.Count);
         return failed == 0 ? 0 : 1;
     }
 

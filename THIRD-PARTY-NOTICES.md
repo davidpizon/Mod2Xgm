@@ -25,7 +25,6 @@ Versions are pinned in [`Directory.Packages.props`](Directory.Packages.props).
 |---|---|---|
 | xunit.v3, xunit.runner.visualstudio | Apache-2.0 | https://github.com/xunit/xunit |
 | Spectre.Console.Testing (tests of `--progress fancy` only) | MIT | https://github.com/spectreconsole/spectre.console |
-| Serilog.Sinks.Console (`tools/Mod2Xgm.Harness` only; the converter prints through its own reporters, [ADR 0077](docs/adr/0077-console-output-modes.md)) | Apache-2.0 | https://github.com/serilog/serilog-sinks-console |
 | Microsoft.NET.Test.Sdk | MIT | https://github.com/microsoft/vstest |
 | Microsoft.Testing.Extensions.CodeCoverage | Microsoft .NET Library License (closed-source, free to use) | https://github.com/microsoft/codecoverage |
 | libopenmpt (loaded at run time by `tools/Mod2Xgm.Harness` only; installed on the PC, not in the repository; [ADR 0047](docs/adr/0047-accuracy-harness.md)) | BSD-3-Clause | https://lib.openmpt.org/libopenmpt/ |

@@ -1,8 +1,8 @@
 # Console output for people and agents
 
-> Status: **proposed** — the design for plan milestone **M17** ([implementation-plan.md](implementation-plan.md#m17--console-output-for-people-and-agents)),
-> decided in [ADR 0077](adr/0077-console-output-modes.md). Nothing here is built yet; [cli.md](cli.md#console-output) describes
-> what the converter prints today.
+> Status: **built** (T17.1–T17.8) — the design for plan milestone **M17** ([implementation-plan.md](implementation-plan.md#m17--console-output-for-people-and-agents)),
+> decided in [ADR 0077](adr/0077-console-output-modes.md). The report's content and line format are in
+> [cli.md](cli.md#console-report).
 
 ## Goals
 
@@ -44,6 +44,10 @@ progress area prints nothing, so `fancy` prints one static line per finished ste
 
 David had no preference; this split is the proposal in ADR 0077.
 
+A redirected stdout or stderr is written in **UTF-8** (no byte-order mark) in every mode, whatever the console's code
+page: on Windows that is the OEM code page, which can't hold names like `é` or `fancy`'s drawing characters. A
+console that isn't redirected keeps its own encoding, and its code page is never changed.
+
 ## Never interactive
 
 - The converter never reads stdin and never calls `AnsiConsole.Prompt`, `Confirm`, `SelectionPrompt` or anything
@@ -57,7 +61,7 @@ David had no preference; this split is the proposal in ADR 0077.
   (`CommandApp`) is not used: it binds settings by reflection and is marked not AOT-compatible, which breaks the
   zero-warning AOT rule ([ADR 0077](adr/0077-console-output-modes.md#options-considered)).
 
-## The orchestration layer (`src/Output/`, proposed)
+## The orchestration layer (`src/Output/`)
 
 ```mermaid
 flowchart LR
@@ -138,30 +142,49 @@ object at most once a second, plus every start and end.
 
 - **Current step:** once a step has done at least 2 % of its work and run for 0.5 s, remaining =
   elapsed × (total − done) / done, smoothed (exponential moving average) so it doesn't jump.
-- **Steps not started yet:** from **history**: the seconds per unit of work each phase took on earlier runs, times
-  this run's units (known once the earlier steps have run: rows after the scan, seconds of audio after playback).
-  A phase with no history counts as unknown.
+- **Steps not started yet**, and the current step until it has a pace of its own: from **history**: the seconds per
+  unit of song size each phase took on earlier runs, times this song's size in that unit. `render` scales with the
+  **ticks** played (known after `play`), `analyze` with the **samples** it analyzes (known after `play`), every other
+  phase with the **rows** played (known after `scan`). Before its size is known, and with no history, a phase's
+  estimate is unknown. `check`, `read` and `scan` run before any size is known, so they never get history; they take
+  well under a second.
+- **Measured** (2026-11-03, Debug build, history from two runs of `cancan.mod`, `--verbose --render-wav`): at the
+  start of `analyze`, `map` and `render`, the estimate of the time left was within 8 % of the real time on
+  `10kdub.mod`, `8bit_castle.mod` and `cancan.mod`. Rows alone were 37–50 % short on the other songs: a row's ticks
+  depend on the song's speed, and the render's time per tick barely varies (0.0027 s on all three).
 - **Total:** current remaining + the sum of the estimates for the steps left. When any part is unknown the total is
   shown as `about 12 s+` in `fancy`, `eta=12s+` in `text`, `"eta_s":12,"eta_partial":true` in `json`; with nothing
   known, `—` / `eta=?` / `"eta_s":null`.
 - **History file:** `timings.json` at the **root** of the candidate cache folder (`--cache-dir`, default
-  [cli.md](cli.md)), outside the per-build folders so it survives new builds. Per phase: an exponential moving
-  average of seconds per unit over the last runs, plus the machine's processor count. Written atomically (temp file +
-  rename) at the end of a run; a file that can't be read or written is ignored with a `Debug` line, never a failure.
-  `--no-cache` neither reads nor writes it, and then only the current step has an estimate. Serialized with a
-  `System.Text.Json` source-generated context (AOT-safe).
+  [cli.md](cli.md)), outside the per-build folders so it survives new builds:
+  `{"v":1,"seconds_per_unit":{"map":0.00005,"render":0.0025,…}}`. Each run moves a phase's number halfway towards its new
+  pace. Saved when the run ends, success or failure, for the phases that finished: written to a temporary file and
+  renamed over the old one. Read with `JsonDocument` and written with `Utf8JsonWriter` (no reflection). A file that
+  can't be read or written, has another `v`, or holds a value that isn't a non-negative number is ignored with a
+  `Debug` line, never a failure. `--no-cache` neither reads nor writes it, and then only the current step has an
+  estimate.
 
 ## `fancy`
 
-- A header rule: `mod2xgm 0.x · song.mod → DMF · quality normal`.
-- Report section 1 as a two-column grid, section 2 as a `Table` (the same columns as today, status colored: used,
-  unused dim, empty dim, ignored yellow), section 3 as a `Table`.
-- Live area (`AnsiConsole.Progress`) with two rows: the step (`[5/9] Map channels`, bar, %, elapsed, remaining) and the
-  **total** (`Total`, bar weighted by the time estimates, elapsed, remaining). Instant phases flash through without a
-  bar of their own; short pauses use `AnsiConsole.Status` spinners, which Spectre silences when ANSI is off.
-- Conversion notes print above the live area in yellow, `Debug` lines dimmed, as they happen (T17.7's spike
-  confirms how Spectre takes writes during a live display; if it can't, notes are printed when their step ends).
-- End: a timing table (step, time, work), then the result line in green (or the error in red).
+The default (`FancyReporter`; whole run: `tests/golden/output/fancy-conversion.txt`):
+
+- A header rule: `mod2xgm 0.x · song.mod → DMF · quality normal · 7 steps`.
+- Report section 1 as a two-column grid, section 2 as a `Table` (the same columns as the line format, status colored:
+  used green, ignored yellow, unused and empty dim), section 3 as a `Table` titled with the output's counts. A table
+  is printed when its last row has come (the next line of any other kind).
+- **Live area**, on a console that can redraw: two lines, the step (`[5/7] Map channels`, bar, %, time spent, time
+  left) and the **total** (bar weighted by the time estimates, time spent, time left), each fitting 80 columns. A
+  step whose share is unknown shows `…` and a dim bar. The bars are drawn here (`━`, done part green), not with
+  Spectre's `Progress`, which owns its loop: the conversion calls the reporter step by step, so a Spectre
+  `LiveDisplay` runs on its own thread and is fed each update (at most every 100 ms, `PhaseTracker`).
+- Conversion notes print above the live area in yellow (`note …`), `Debug` lines dimmed, as they happen: Spectre
+  prints a write made during a live display above it.
+- **Piped or `TERM=dumb`:** no live area and no escape codes (Spectre draws nothing for a live display there, the
+  T17.1 spike), so each finished step prints one static line: `✓ [5/7] Map channels 0.1 s`. A redirected output has
+  no width, so Spectre's default of 80 columns applies.
+- End: a timing table (step, time, work), then `Done → <output>, 10 conversion notes in 1.2 s`; on stderr, after the
+  live area has closed, `error <message> (exit 4)`, or for a usage error its problems, the usage line and the help
+  hint, and for a crash the stack trace.
 - **Escaping:** sample names and the title can hold `[` and `]`, which Spectre markup reads as styles. Names are
   always passed as `Text` objects or through `Markup.Escape`, never interpolated into markup (the same rule as
   Serilog's braces in [cli.md](cli.md#console-report)).
@@ -226,11 +249,21 @@ parses every line of the golden run (`tests/golden/output/json-conversion.jsonl`
 
 ## The harness
 
-`tools/Mod2Xgm.Harness` takes the same `--progress` modes (its usage errors keep exit 2). Its phases are per song
-(convert, reference render, candidate renders, score, plus the fit passes it was asked for) and one corpus total:
-`fancy` shows one row per running job (`--jobs`) plus the corpus bar; `text` / `json` emit the same `step` /
-`phase` records with a `song` field. Song times go to the same history file (the harness already uses the
-candidate cache folder), so a corpus rerun has an estimate from the start.
+`tools/Mod2Xgm.Harness` takes the same `--progress` modes through the same reporters. Each song is one step, id
+`song:<name>` (its file name without `.mod`), named by the song; songs run `--jobs` at a time, so steps may start out
+of order and overlap:
+
+- `fancy` titles the run `mod2xgm harness <version> · N songs, J at a time`, shows a row per song being measured plus
+  the corpus total, and ends with the timing table and `Done → <output>/report.md`. Piped, each finished song is one
+  `✓ [n/N] name` line.
+- `text` and `json` write the usual `run` (format `harness`, plus `jobs` when more than one), `step` / `phase`, `time`
+  and `result` records; the result's `out` / `output` is `report.md`.
+- The run's time left is what the running songs have left plus the songs not started, divided by the jobs.
+- Its exit codes stay its own: 0, 1 (a song failed or is off), 2 (couldn't run). An exit-2 failure is an `error`
+  record of kind `cannot-run` (libopenmpt missing, an input not found), `usage` (bad options) or `internal` (a bug, with
+  its stack).
+- Song times go to the same history file (`timings.json` in the cache folder; not with `--no-cache`), one entry per
+  song, so a corpus rerun has an estimate from the start.
 
 ## Testing
 

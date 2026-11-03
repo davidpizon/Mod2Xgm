@@ -27,13 +27,13 @@ mod2xgm <input.mod> [options]
 | `--quality <fast\|normal\|best>` | `normal` | `fast`: simple mapper, no fitting. `normal`: multi-pass with a 5-minute budget. `best`: run until no improvement. See [multi-pass.md](multi-pass.md). Until the optimizer exists (plan M9) every quality uses the simple mapper, and `normal`/`best` print a line saying so. |
 | `--time-budget <duration>` | per quality | Overrides the optimizer time limit (`90s`, `5m`). |
 | `--seed <n>` | 0 | Optimizer seed; same input + options + seed → same output. |
-| `--no-cache` | off | Don't read or write the fitted-patch cache (the optimizer's candidates, kept per build: [ADR 0074](adr/0074-candidate-cache.md)). Until the optimizer exists (plan M9) the conversion makes no candidates, so it changes nothing yet. |
+| `--no-cache` | off | Don't read or write the fitted-patch cache (the optimizer's candidates, kept per build: [ADR 0074](adr/0074-candidate-cache.md)). Until the optimizer exists (plan M9) the conversion makes no candidates, so it changes nothing yet. It also neither reads nor writes the timing history the time estimates use ([cli-output.md](cli-output.md#time-estimate)). |
 | `--cache-dir <path>` | user cache folder | Where the fitted-patch cache lives: `%LOCALAPPDATA%\Mod2Xgm\Cache` on Windows, `~/Library/Caches/Mod2Xgm` on macOS, `$XDG_CACHE_HOME/mod2xgm` (or `~/.cache/mod2xgm`) elsewhere. Each build keeps its own `build-…` folder and deletes the other builds' on first use; delete the folder to clear it. Empty, or with `--no-cache` → exit 1. |
 | `--reserve-sfx-channels <n>` | 0 | Leave n PCM channels free for game sound effects (XGM ≤ 4, XGM2 ≤ 3). |
 | `--render-wav [path]` | off | Also write a WAV of a Genesis playing the conversion: 16-bit stereo, 44.1 kHz, rendered in-app on the chip models with the output format's PCM driver ([ADR 0059](adr/0059-genesis-renderer.md)). Without a path it goes next to the output as `song.genesis.wav`. Same checks as the output file (see [Output naming](#output-naming)). Works with `--info` (only the WAV is written). With `--format xgm`/`xgm2` the WAV is written but no song file, and the exit code stays 1. Put it **after** the input or give a path: `mod2xgm --render-wav song.mod` takes `song.mod` as the WAV's path. |
 | `--info` | off | Dry run: read, report and convert in memory (all report sections and conversion notes), but write no output file. |
 | `--force` | off | Overwrite an existing output file. |
-| `--progress <fancy\|text\|json\|silent>` | `fancy` | How the run is shown: `fancy` (progress bars and tables, for people), `text` (compact lines, for AI agents), `json` (one JSON object per line, for programs) or `silent` (nothing at all, not even errors: only the exit code). Read before the rest of the command line, so usage errors use it too. **Being built (plan M17)**: `text`, `json` and `silent` work; `fancy` prints the lines described in [Console output](#console-output) for now. See [cli-output.md](cli-output.md) and [ADR 0077](adr/0077-console-output-modes.md). |
+| `--progress <fancy\|text\|json\|silent>` | `fancy` | How the run is shown: `fancy` (progress bars and tables, for people), `text` (compact lines, for AI agents), `json` (one JSON object per line, for programs) or `silent` (nothing at all, not even errors: only the exit code). Read before the rest of the command line, so usage errors use it too. See [cli-output.md](cli-output.md) and [ADR 0077](adr/0077-console-output-modes.md). |
 | `-v, --verbose` | off | Also print `Debug`-level detail (per-channel mapping, sample processing, and each sample's analysis: [ADR 0068](adr/0068-sample-analysis.md)). |
 | `-h, --help` | | Usage. |
 | `--version` | | Version. |
@@ -224,9 +224,12 @@ as part of the message template.
 
 ## Console output
 
-> Planned (M17, [ADR 0077](adr/0077-console-output-modes.md)): `--progress fancy|text|json|silent` replaces this
-> output with progress bars, an agent text format, NDJSON and a silent mode — see [cli-output.md](cli-output.md).
-> Until then the converter prints what this section describes.
+> How the run is shown depends on `--progress` ([cli-output.md](cli-output.md), [ADR 0077](adr/0077-console-output-modes.md)):
+> `fancy` (the default) draws the report as a grid and tables with step and total progress bars; `text` writes one
+> fact per line; `json` one object per line; `silent` nothing. The content is the same in each: the report sections
+> below, every conversion note, the detail with `--verbose`, and the result. The `INF …` / `WRN …` lines this
+> section shows are the report's **line format**: the report's golden files in `tests/golden/report/` are written in
+> it. The accuracy harness takes the same `--progress` modes ([harness.md](harness.md#options)). Whole runs in each mode are golden files in `tests/golden/output/`.
 
 Logged with Serilog (console sink, invariant culture):
 

@@ -61,6 +61,37 @@ public sealed class PhaseTrackerTests
         Assert.False(progress[^1].TotalPartial);
     }
 
+    /// <summary>
+    /// Phases may run at once (the harness's songs): the run's time left is what the running ones have left plus the
+    /// phases not started yet, shared over the jobs, and partial while one of them has no guess.
+    /// </summary>
+    [Fact]
+    public void ParallelPhasesShareTheTimeLeft()
+    {
+        PhaseInfo third = new(3, "c", "C", "ticks");
+        FakeClock clock = new();
+        RecordingReporter reporter = new();
+        PhaseTracker tracker = new(reporter, clock, new EtaEstimator());
+        tracker.Begin(new RunInfo("corpus", RunInfo.HarnessFormat, "normal", [Read, Render, third], Jobs: 2));
+        IPhase read = tracker.Start("read", 100);
+        IPhase render = tracker.Start("render", 100);
+
+        clock.Advance(TimeSpan.FromSeconds(1));
+        read.Advance(50);
+        PhaseUpdate first = reporter.Updates[^1];
+        render.Advance(50);
+        PhaseUpdate both = reporter.Updates[^1];
+        read.Done();
+        render.Done();
+
+        Assert.Equal(TimeSpan.FromSeconds(1), first.Remaining);
+        Assert.Equal(TimeSpan.FromSeconds(0.5), first.TotalRemaining);
+        Assert.True(first.TotalPartial);
+        Assert.Equal(TimeSpan.FromSeconds(1), both.TotalRemaining);
+        Assert.True(both.TotalPartial);
+        Assert.Equal(["read", "render"], tracker.Timings.Select(t => t.Phase.Id));
+    }
+
     /// <summary>A phase that isn't in the run's plan is a bug.</summary>
     [Fact]
     public void UnknownPhaseThrows()
@@ -76,7 +107,7 @@ public sealed class PhaseTrackerTests
     public void NoProgressIsSilent()
     {
         NoProgress.Instance.Begin(new RunInfo("song.mod", "dmf", "normal", [Read]));
-        NoProgress.Instance.SetSongRows(64);
+        NoProgress.Instance.SetSongSize(SongSize.Rows, 64);
         IPhase phase = NoProgress.Instance.Start("anything", 5);
         phase.SetTotal(10);
         phase.Advance(3);

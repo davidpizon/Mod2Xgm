@@ -96,7 +96,7 @@ internal static class ConversionCommand
         SampleUsage usage = SampleUsageScanner.Scan(module, notes);
         phase.SetTotal(usage.RowsPlayed);
         phase.Advance(usage.RowsPlayed);
-        progress.SetSongRows(usage.RowsPlayed);
+        progress.SetSongSize(SongSize.Rows, usage.RowsPlayed);
         logger.Debug(
             "Usage scan: {Rows} rows played, {Used} samples used, loops back: {LoopsBack}",
             usage.RowsPlayed,
@@ -113,8 +113,10 @@ internal static class ConversionCommand
         phase.Done();
         phase = progress.Start(PhasePlay);
         Playback playback = ModTickPlayer.Play(module, options.AmigaClockHz, options.AmigaTickRateScale, notes);
+        progress.SetSongSize(SongSize.Ticks, playback.Ticks.Count);
         phase.Done();
         MappingOptions mapping = MappingOptions.From(options);
+        progress.SetSongSize(SongSize.Samples, Enumerable.Range(0, song.Samples.Count).Count(s => !song.Samples[s].IsEmpty && !mapping.Ignore.Contains(s)));
         if (verbose || analyzed is not null)
         {
             // Nothing uses the analysis yet (the optimizer will, plan M9); --verbose shows it (docs/adr/0068-sample-analysis.md).

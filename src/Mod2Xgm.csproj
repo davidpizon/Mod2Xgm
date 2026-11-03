@@ -15,6 +15,7 @@
     <PackageReference Include="Serilog" />
     <PackageReference Include="System.CommandLine" />
     <PackageReference Include="NWaves" />
+    <PackageReference Include="Spectre.Console" />
   </ItemGroup>
 
   <ItemGroup>
