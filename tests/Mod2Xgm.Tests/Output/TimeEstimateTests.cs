@@ -136,8 +136,8 @@ public sealed class TimeEstimateTests
     {
         using TempDirectory cache = new();
 
-        (_, string first, _) = OutputRuns.ConvertWithCache("text", cache.Path);
-        (_, string second, _) = OutputRuns.ConvertWithCache("text", cache.Path);
+        string first = OutputRuns.ConvertWithCache("text", cache.Path);
+        string second = OutputRuns.ConvertWithCache("text", cache.Path);
 
         Assert.True(File.Exists(cache.Combine(TimingHistory.FileName)));
         Assert.Contains("step 4/7 model start | eta ?", first, StringComparison.Ordinal);

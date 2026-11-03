@@ -1,7 +1,6 @@
 using System.Globalization;
 using Serilog.Events;
 using Spectre.Console;
-using Spectre.Console.Rendering;
 
 namespace Mod2Xgm.Output;
 
@@ -46,8 +45,8 @@ internal sealed class FancyReporter : IConversionReporter
         ArgumentNullException.ThrowIfNull(output);
         ArgumentNullException.ThrowIfNull(error);
         ArgumentNullException.ThrowIfNull(terminal);
-        IAnsiConsole console = Console(output, !terminal.OutputRedirected && !terminal.DumbTerminal, terminal);
-        IAnsiConsole errorConsole = Console(error, !terminal.ErrorRedirected && !terminal.DumbTerminal, terminal);
+        IAnsiConsole console = Console(output, terminal is { OutputRedirected: false, DumbTerminal: false }, terminal);
+        IAnsiConsole errorConsole = Console(error, terminal is { ErrorRedirected: false, DumbTerminal: false }, terminal);
         return new FancyReporter(console, errorConsole, terminal.Interactive && console.Profile.Capabilities.Interactive);
     }
 
@@ -207,8 +206,6 @@ internal sealed class FancyReporter : IConversionReporter
             case "result":
                 FlushTables();
                 _result = row;
-                break;
-            default:
                 break;
         }
     }
