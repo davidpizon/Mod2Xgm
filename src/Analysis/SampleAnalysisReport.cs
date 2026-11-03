@@ -28,7 +28,7 @@ internal static class SampleAnalysisReport
                 PitchText(a.Pitch),
                 EnvelopeText(a.Envelope),
                 LoopText(a.Loop));
-            logger.ForContext(ReportRow.Part).Debug(
+            logger.Debug(
                 "Sample {Sample:l}: {Count} pitch regions: {Regions:l}",
                 Label(a),
                 a.Regions.Count,
