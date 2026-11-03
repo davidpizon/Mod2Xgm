@@ -1,4 +1,5 @@
 using System.Globalization;
+using Mod2Xgm.Output;
 using Serilog;
 
 namespace Mod2Xgm.Mod;
@@ -26,13 +27,56 @@ internal static class ModReport
 
     private const string NoLoop = "—";
 
-    /// <summary>Logs section 1, the metadata the file embeds, at <c>Information</c>.</summary>
-    public static void LogMetadata(ILogger logger, ModModule module, string fileName) =>
-        WriteLines(logger, MetadataLines(module, fileName));
+    /// <summary>
+    /// Logs section 1, the metadata the file embeds, at <c>Information</c>; the first line carries every field as a
+    /// <c>metadata</c> <see cref="ReportRow"/>, the others are its parts.
+    /// </summary>
+    public static void LogMetadata(ILogger logger, ModModule module, string fileName)
+    {
+        IReadOnlyList<string> lines = MetadataLines(module, fileName);
+        WriteLines(logger, lines, [MetadataRow(module, fileName), .. Enumerable.Repeat(ReportRow.Part, lines.Count - 1)]);
+    }
 
-    /// <summary>Logs section 2, every sample slot with its play count and status, at <c>Information</c>.</summary>
+    /// <summary>
+    /// Logs section 2, every sample slot with its play count and status, at <c>Information</c>; each slot's line carries a
+    /// <c>sample</c> <see cref="ReportRow"/>, the header is a part.
+    /// </summary>
     public static void LogSamples(ILogger logger, ModModule module, SampleUsage usage, IReadOnlySet<int> ignoredSamples) =>
-        WriteLines(logger, SampleLines(module, usage, ignoredSamples));
+        WriteLines(logger, SampleLines(module, usage, ignoredSamples), [ReportRow.Part, .. SampleRows(module, usage, ignoredSamples)]);
+
+    /// <summary>Section 1's fields: the file, the tracker that made it, its size and its starting tempo.</summary>
+    private static ReportRow MetadataRow(ModModule module, string fileName)
+    {
+        InitialTempo tempo = FindInitialTempo(module);
+        return new ReportRow(
+            "metadata",
+            ("file", fileName),
+            ("bytes", module.FileSize),
+            ("title", Printable(module.Title)),
+            ("tracker", FormatName(module)),
+            ("tag", module.Tag),
+            ("channels", module.ChannelCount),
+            ("slots", module.Samples.Count),
+            ("orders", module.SongLength),
+            ("restart", module.RestartPosition),
+            ("patterns", module.Patterns.Count),
+            ("speed", tempo.Speed),
+            ("bpm", tempo.Bpm));
+    }
+
+    /// <summary>Section 2's fields, one row per slot in slot order.</summary>
+    private static IEnumerable<ReportRow> SampleRows(ModModule module, SampleUsage usage, IReadOnlySet<int> ignoredSamples) =>
+        module.Samples.Select(sample => new ReportRow(
+            "sample",
+            ("n", sample.Number),
+            ("name", Printable(sample.Name)),
+            ("length", sample.Length),
+            ("loop_start", sample.Loops ? sample.LoopStart : null),
+            ("loop_length", sample.Loops ? sample.LoopLength : null),
+            ("volume", sample.Volume),
+            ("finetune", sample.FineTune),
+            ("notes", usage.Samples[sample.Number - 1].Notes),
+            ("status", ignoredSamples.Contains(sample.Number) ? "ignored" : StatusText(usage.Samples[sample.Number - 1].Status))));
 
     /// <summary>The lines of section 1, without the level prefix.</summary>
     public static IReadOnlyList<string> MetadataLines(ModModule module, string fileName)
@@ -110,14 +154,16 @@ internal static class ModReport
     /// <summary>
     /// Names are printed in quotes so leading and trailing spaces show; control characters become <c>·</c>.
     /// </summary>
-    public static string Quoted(string text) => "\"" + string.Concat(text.Select(c => char.IsControl(c) ? '·' : c)) + "\"";
+    public static string Quoted(string text) => "\"" + Printable(text) + "\"";
 
-    private static void WriteLines(ILogger logger, IEnumerable<string> lines)
+    /// <summary><paramref name="text"/> with control characters shown as <c>·</c>.</summary>
+    private static string Printable(string text) => string.Concat(text.Select(c => char.IsControl(c) ? '·' : c));
+
+    private static void WriteLines(ILogger logger, IReadOnlyList<string> lines, IReadOnlyList<ReportRow> rows)
     {
-        // The line is a property, not the template: names may hold '{' and '}', which a template would read as holes.
-        foreach (string line in lines)
+        for (int i = 0; i < lines.Count; i++)
         {
-            logger.Information("{ReportLine:l}", line);
+            ReportRow.Write(logger, lines[i], rows[i]);
         }
     }
 

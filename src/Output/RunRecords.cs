@@ -12,8 +12,12 @@ internal sealed record PhaseInfo(int Number, string Id, string Name, string Unit
 /// <param name="Format">The output format's name (<c>dmf</c>, <c>xgm</c>, <c>xgm2</c>).</param>
 /// <param name="Quality">The quality's name (<c>fast</c>, <c>normal</c>, <c>best</c>).</param>
 /// <param name="Phases">Every step, in order.</param>
-internal sealed record RunInfo(string Input, string Format, string Quality, IReadOnlyList<PhaseInfo> Phases)
+/// <param name="Jobs">How many steps run at once: 1 for a conversion, <c>--jobs</c> for the harness's songs.</param>
+internal sealed record RunInfo(string Input, string Format, string Quality, IReadOnlyList<PhaseInfo> Phases, int Jobs = 1)
 {
+    /// <summary>The <see cref="Format"/> of a harness run (docs/cli-output.md#the-harness): its steps are songs.</summary>
+    public const string HarnessFormat = "harness";
+
     /// <summary>The converter's version (the informational version, without the commit hash).</summary>
     public static string Version { get; } = (typeof(RunInfo).Assembly
         .GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
@@ -88,8 +92,13 @@ internal sealed record RunFailure(
     IReadOnlyList<PhaseTiming> Timings,
     TimeSpan Elapsed)
 {
-    /// <summary>The kind of failure, a stable word per exit code for <c>json</c> (docs/cli-output.md#json).</summary>
-    public string Kind => Code switch
+    /// <summary>
+    /// The kind of failure, a stable word per exit code for <c>json</c> (docs/cli-output.md#json); the harness, whose
+    /// exit codes differ, sets its own.
+    /// </summary>
+    public string Kind { get; init; } = KindOf(Code);
+
+    private static string KindOf(ExitCode code) => code switch
     {
         ExitCode.UsageError => "usage",
         ExitCode.InputNotFound => "input-not-found",

@@ -161,7 +161,11 @@ dotnet run --project tools/Mod2Xgm.Harness -c Release
 Use `-c Release`: the scoring is several times slower in a Debug build. Exit code: **0** every song was measured and
 its timeline is within one tick and the in-app renderer within its bar, **1** a song failed, is more than a tick off or
 is over the renderer's bar, **2** the harness couldn't run
-(libopenmpt missing, bad options).
+(libopenmpt missing, an input not found, bad options).
+
+The run is shown the converter's way, chosen by `--progress` ([cli-output.md](cli-output.md#the-harness)): each song
+is one step (`song:<name>`), the result names `report.md`, and a failure to run is an error of kind `cannot-run`
+(`usage` for bad options), exit 2. `fancy` shows a row per song being measured plus the corpus total.
 
 ## Options
 
@@ -188,6 +192,7 @@ is over the renderer's bar, **2** the harness couldn't run
 | `--cache-dir <path>` | the user's cache folder | Where the candidate cache lives, as `mod2xgm --cache-dir`; can't be combined with `--no-cache` |
 | `-j`, `--jobs` | half the processors, at most 4 | Songs measured at once (1–64). The reports list songs in the same order either way |
 | `-v`, `--verbose` | | Log every scoring step |
+| `--progress <mode>` | `fancy` | How the run is shown: `fancy`, `text`, `json` or `silent`, as `mod2xgm --progress` ([cli-output.md](cli-output.md)). Song times go to `timings.json` in the cache folder unless `--no-cache`, so the next run has an estimate from the start |
 
 ## Output
 

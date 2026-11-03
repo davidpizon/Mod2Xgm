@@ -75,6 +75,23 @@ jobs:
           # No arguments is a usage error (exit 1) by design; --version and --help must succeed.
           "$bin" --version
           "$bin" --help > /dev/null
+          # A corpus song in every --progress mode (docs/cli-output.md), output piped as an agent would see it.
+          out="$RUNNER_TEMP/smoke"
+          mkdir -p "$out"
+          for mode in fancy text json silent; do
+            "$bin" tests/data/corpus/cancan.mod --progress "$mode" --output "$out/$mode.dmf" > "$out/$mode.out" 2> "$out/$mode.err"
+            [ -s "$out/$mode.dmf" ] || { echo "--progress $mode wrote no DMF"; exit 1; }
+            echo "--- $mode: $(wc -l < "$out/$mode.out") lines"; tail -n 2 "$out/$mode.out"
+          done
+          grep -q '^result ok exit=0' "$out/text.out"
+          tail -n 1 "$out/json.out" | grep -q '"type":"result"'
+          [ ! -s "$out/silent.out" ] && [ ! -s "$out/silent.err" ]
+          # Silent stays silent on a usage error too, and still exits 1.
+          set +e
+          "$bin" --progress silent > "$out/usage.out" 2> "$out/usage.err" < /dev/null
+          code=$?
+          set -e
+          [ "$code" -eq 1 ] && [ ! -s "$out/usage.out" ] && [ ! -s "$out/usage.err" ]
 
   coverage:
     name: Code coverage

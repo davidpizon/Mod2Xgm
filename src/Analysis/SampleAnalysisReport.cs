@@ -1,11 +1,13 @@
 using System.Globalization;
+using Mod2Xgm.Output;
 using Serilog;
 
 namespace Mod2Xgm.Analysis;
 
 /// <summary>
 /// Logs the sample analysis at <c>Debug</c> level, so <c>--verbose</c> shows it (docs/adr/0068-sample-analysis.md): two
-/// lines per sample, its scores, pitch, envelope and loop, then its pitch regions.
+/// lines per sample, its scores, pitch, envelope and loop, then its pitch regions. The first line carries an
+/// <c>analysis</c> <see cref="ReportRow"/> with the same facts as numbers, for <c>--progress json</c>.
 /// </summary>
 internal static class SampleAnalysisReport
 {
@@ -16,7 +18,7 @@ internal static class SampleAnalysisReport
         ArgumentNullException.ThrowIfNull(analyses);
         foreach (SampleAnalysis a in analyses)
         {
-            logger.Debug(
+            logger.ForContext(Row(a)).Debug(
                 "Sample {Sample:l}: {Kind:l} (percussive {Percussive:0.00}, tonal {Tonal:0.00}, noisy {Noisy:0.00}); {Pitch:l}; {Envelope:l}; {Loop:l}",
                 Label(a),
                 KindName(a.Kind),
@@ -44,6 +46,27 @@ internal static class SampleAnalysisReport
         SampleKind.Noise => "noise",
         _ => "unclear",
     };
+
+    /// <summary>The analysis of one sample as a report row: scores, pitch, envelope, loop and the pitch regions' rates.</summary>
+    private static ReportRow Row(SampleAnalysis a) => new(
+        "analysis",
+        ("n", a.Sample + 1),
+        ("name", a.Name),
+        ("kind", KindName(a.Kind)),
+        ("percussive", a.Percussive),
+        ("tonal", a.Tonal),
+        ("noisy", a.Noisy),
+        ("period_frames", a.Pitch?.PeriodFrames),
+        ("voiced", a.Pitch?.VoicedShare),
+        ("deviation_cents", a.Pitch?.DeviationCents),
+        ("drift_cents", a.Pitch?.DriftCents),
+        ("peak_db", a.Envelope.PeakDb),
+        ("attack_ms", a.Envelope.AttackSeconds * 1000),
+        ("decay_ms", a.Envelope.DecaySeconds * 1000),
+        ("sustain_db", a.Envelope.SustainDb),
+        ("loop_start", a.Loop?.Start),
+        ("loop_length", a.Loop?.Length),
+        ("regions", a.Regions.Count));
 
     private static string Label(SampleAnalysis a) => Format($"{a.Sample + 1} \"{a.Name}\"");
 
