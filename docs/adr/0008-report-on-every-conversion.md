@@ -1,6 +1,6 @@
 # ADR 0008: Report on every conversion
 
-- **Status:** Accepted
+- **Status:** Accepted; the "no option suppresses it" rule superseded by [ADR 0077](0077-console-output-modes.md) (`--progress silent`)
 - **Date:** 2026-10-27
 
 ## Context

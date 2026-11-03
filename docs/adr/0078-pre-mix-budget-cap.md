@@ -1,4 +1,4 @@
-# ADR 0077: Pre-mix candidates fit the song's PCM budget; the window search grows only windows
+# ADR 0078: Pre-mix candidates fit the song's PCM budget; the window search grows only windows
 
 - **Status:** Accepted; supersedes the decision "No length cap" of [ADR 0072](0072-pre-mix-candidates.md)
 - **Date:** 2026-11-02

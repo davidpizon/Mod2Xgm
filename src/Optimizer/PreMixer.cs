@@ -151,7 +151,7 @@ internal static class PreMixer
     /// <param name="keepOut">Samples that never go into a pre-mix.</param>
     /// <param name="maxPcmBytes">
     /// The song's PCM budget: a candidate whose head and tail together take more is never offered, on every target, as
-    /// the allocator could never fit it (docs/adr/0077-pre-mix-budget-cap.md).
+    /// the allocator could never fit it (docs/adr/0078-pre-mix-budget-cap.md).
     /// </param>
     public static PreMixSongFit Fit(SongAnalysis song, PcmTarget target, IReadOnlySet<int>? keepOut = null, long maxPcmBytes = ConversionDefaults.MaxPcmBytes)
     {
@@ -259,7 +259,7 @@ internal static class PreMixer
             active.Add(i);
         }
 
-        // Every window less the note that starts last (the last index) is a window too (docs/adr/0077-pre-mix-budget-cap.md),
+        // Every window less the note that starts last (the last index) is a window too (docs/adr/0078-pre-mix-budget-cap.md),
         // so each window grows from its first two notes, one later-starting note at a time. A note that starts after
         // the window's stretch has ended can't join it.
         List<Window> found = [];

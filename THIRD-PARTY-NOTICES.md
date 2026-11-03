@@ -13,6 +13,7 @@ Versions are pinned in [`Directory.Packages.props`](Directory.Packages.props).
 | Serilog | Apache-2.0 | https://github.com/serilog/serilog |
 | Serilog.Sinks.Console | Apache-2.0 | https://github.com/serilog/serilog-sinks-console |
 | System.CommandLine | MIT | https://github.com/dotnet/command-line-api |
+| Spectre.Console, with its dependency Spectre.Console.Ansi (`--progress fancy`; [ADR 0077](docs/adr/0077-console-output-modes.md)) | MIT | https://github.com/spectreconsole/spectre.console |
 | NWaves | MIT, notice below | https://github.com/ar1st0crat/NWaves |
 | .NET runtime and libraries (Native AOT, .NET 10) | MIT | https://github.com/dotnet/runtime |
 | pt2-clone: ProTracker 2.3 period tables (`src/pt2_tables.c`, in `src/Model/AmigaPitch.cs`) and replayer, ported to C# (`src/pt2_replayer.c` → `src/Mod/ModTickPlayer.cs`) | BSD-3-Clause, notice below | https://github.com/8bitbubsy/pt2-clone |
@@ -24,6 +25,7 @@ Versions are pinned in [`Directory.Packages.props`](Directory.Packages.props).
 | Component | License | Source |
 |---|---|---|
 | xunit.v3, xunit.runner.visualstudio | Apache-2.0 | https://github.com/xunit/xunit |
+| Spectre.Console.Testing (tests of `--progress fancy` only) | MIT | https://github.com/spectreconsole/spectre.console |
 | Microsoft.NET.Test.Sdk | MIT | https://github.com/microsoft/vstest |
 | Microsoft.Testing.Extensions.CodeCoverage | Microsoft .NET Library License (closed-source, free to use) | https://github.com/microsoft/codecoverage |
 | libopenmpt (loaded at run time by `tools/Mod2Xgm.Harness` only; installed on the PC, not in the repository; [ADR 0047](docs/adr/0047-accuracy-harness.md)) | BSD-3-Clause | https://lib.openmpt.org/libopenmpt/ |

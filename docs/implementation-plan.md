@@ -202,6 +202,22 @@ hold several voices.
 | T16.4 | `ModRenderer`: IT resonant filter, sustain-loop release | Renderer score against libopenmpt within the MOD bar on probe ITs |
 | T16.5 | Command line converts IT: static filter baked into samples, changing filter approximated with a note, default Zxx filter macros only; voice stealing over background voices; sample options and usage errors as for XM; freely licensed IT corpus | CLI tests; corpus opens in DefleMask and passes rescomp; scores recorded |
 
+### M17 — Console output for people and agents
+Design in [cli-output.md](cli-output.md), decided in [ADR 0077](adr/0077-console-output-modes.md): one switch,
+`--progress fancy|text|json|silent` (default `fancy`), the step and total progress with time estimates, never a
+prompt. Needs only M5, so it can run alongside M8–M9; the optimizer (M9) reports its passes through it.
+
+| Task | Work | Acceptance |
+|---|---|---|
+| T17.1 ✅ | Spike: core **Spectre.Console** (MIT) under Native AOT: `Progress` with custom columns, `Status`, `Table`, writing lines during a live display, behavior with stdout redirected, `NO_COLOR`; Spectre.Console.Cli stays out (not AOT-compatible). If it isn't clean, try the next package (SpProgress, ShellProgressBar, Chuckie.ConsoleProgressBar), then an own renderer. Pin in `Directory.Packages.props`, `THIRD-PARTY-NOTICES.md`, result in ADR 0077 | AOT publish of a throwaway app **with zero warnings** on win-x64, linux-x64, osx-arm64 (CI matrix); findings recorded |
+| T17.2 | `src/Output/`: `--progress` (pre-scanned from `args` so parse errors use the mode), `OutputMode` on `ConversionOptions`, `TerminalProbe`, `IConversionReporter`, `ReporterSink` (Serilog → reporter; console sink removed), `Program.Run` errors through the reporter, `silent`; no stdin reads anywhere; usage errors name the missing argument and print the usage line. Until T17.7 every non-silent mode prints today's lines | `silent` prints 0 bytes on every exit path (0–6, crash); every mode returns with stdin closed under a timeout; usage-error tests per mode |
+| T17.3 | Structured report: `ModReport`, `DmfReport`, `SampleAnalysisReport`, `LockedPairReport` produce typed rows; notes keep template + scalar properties; `text` mode in the compact format ([cli-output.md](cli-output.md#text)) incl. the verbatim XGM2 line | Golden `text` runs in `tests/golden/output/`; every report field present; names with `{}`/`[]`/control characters survive |
+| T17.4 | `json` mode: NDJSON schema v1 ([cli-output.md](cli-output.md#json)) with a source-generated `JsonSerializerContext`; error objects (usage with `missing` + `usage`, exit 2–6, exit 5 with `stack`); last line always `result` or `error` | A test parses every line of every golden run against the schema; AOT publish clean |
+| T17.5 | Phases and work: `PhaseTracker` (phase list from the options, step n of N, timing with `TimeProvider`), `IWorkCounter` threaded into the usage scan, `ModToSong`, `ModTickPlayer`, `SampleAnalyzer`, `SimpleMapper`, DMF writing and `GenesisRenderer` (no-op default); throttling per mode; timing table / `timing` object | Step counts right for every option mix (`--info`, `--render-wav`, `--verbose`, xgm/xgm2); counters reach their totals; no measurable slowdown on the corpus |
+| T17.6 | Time estimates: `EtaEstimator` (current step after 2 % / 0.5 s, smoothed; later steps from history; partial / unknown shown as such) and `timings.json` at the cache root (atomic write, `--no-cache` off, damaged file ignored with a `Debug` line) | Fake-clock tests; a second corpus run estimates every step before it starts, within 25 % of the real time on the corpus (recorded) |
+| T17.7 | `fancy` mode on Spectre.Console: header, report tables, step + total bars, colored notes above the live area, `Debug` dimmed, timing table, result/error; markup escaping of names; becomes the default | `TestConsole` tests with ANSI on and off and narrow widths; redirected output has no escape codes or animation frames; David's look sign-off at a terminal |
+| T17.8 | Harness: same `--progress` modes; per-song phases, one row per job plus the corpus total, ETA from the shared history; docs ([harness.md](harness.md), [cli.md](cli.md), AGENTS.md required behavior #1) | Harness tests per mode; CI smoke run of the AOT binary in all four modes on all three RIDs |
+
 ## Dependencies
 
 ```mermaid
@@ -216,11 +232,13 @@ flowchart LR
     M8 --> M9
     M9 --> M10 --> M11 --> M12
     M9 --> M13 --> M14 --> M15 --> M16
+    M5 --> M17
 ```
 
 M4 can run in parallel with M3. M7 can start once M3's tick player lands; M8 needs M6 (scoring) and M7 (rendering).
 M13 starts once M9 is done ([ADR 0048](adr/0048-midi-input.md)). M14–M16 follow MIDI, each building on the one
-before ([ADR 0063](adr/0063-multichannel-mod-xm-it-input.md)); M14 needs only M9, so it could run alongside M13.
+before ([ADR 0063](adr/0063-multichannel-mod-xm-it-input.md)); M14 needs only M9, so it could run alongside M13. M17 (console output) needs only M5 and can run alongside
+M8–M9 ([ADR 0077](adr/0077-console-output-modes.md)).
 
 ## Risks
 
