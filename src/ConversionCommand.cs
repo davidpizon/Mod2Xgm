@@ -158,7 +158,7 @@ internal static class ConversionCommand
             phase.Done();
         }
 
-        string? written = options.Format == OutputFormat.Dmf && !options.InfoOnly ? output : null;
+        string? written = options is { Format: OutputFormat.Dmf, InfoOnly: false } ? output : null;
         logger.ForContext(new ReportRow("result", ("input", input), ("output", written), ("wav", wav), ("notes", notes.Count))).Information(
             "{Input} -> {Output} ({NoteCount} conversion notes)",
             Path.GetFileName(input),

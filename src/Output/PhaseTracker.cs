@@ -70,12 +70,12 @@ internal sealed class NoProgress : IConversionProgress
     }
 
     /// <inheritdoc/>
-    public IPhase Start(string id, long total = 0) => Phase.Instance;
+    public IPhase Start(string id, long total = 0) => Phase.Shared;
 
     /// <summary>A phase that counts nothing.</summary>
     private sealed class Phase : IPhase
     {
-        public static Phase Instance { get; } = new();
+        public static Phase Shared { get; } = new();
 
         public void SetTotal(long total)
         {

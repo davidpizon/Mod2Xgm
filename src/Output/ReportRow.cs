@@ -13,7 +13,7 @@ namespace Mod2Xgm.Output;
 internal sealed class ReportRow : ILogEventEnricher
 {
     /// <summary>The log event property holding the row, a <see cref="StructureValue"/> tagged with its kind.</summary>
-    public const string PropertyName = "Report";
+    private const string PropertyName = "Report";
 
     /// <summary>A line whose content another row carries (a table header, or the rest of the metadata): not shown on its own.</summary>
     public static ReportRow Part { get; } = new("part");
