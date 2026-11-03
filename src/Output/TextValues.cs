@@ -11,7 +11,7 @@ namespace Mod2Xgm.Output;
 /// </summary>
 internal static class TextValues
 {
-    // Strings in a message are written as they are, not in quotes, as in the log lines (LogLinesReporter.OutputTemplate).
+    // Strings in a message are written as they are, not in quotes, as in the log lines (Program.ConsoleOutputTemplate).
     private static readonly MessageTemplateTextFormatter MessageFormatter = new("{Message:l}", CultureInfo.InvariantCulture);
 
     /// <summary>The message of <paramref name="logEvent"/>, with its strings unquoted.</summary>

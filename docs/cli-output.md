@@ -1,8 +1,8 @@
 # Console output for people and agents
 
-> Status: **proposed** — the design for plan milestone **M17** ([implementation-plan.md](implementation-plan.md#m17--console-output-for-people-and-agents)),
-> decided in [ADR 0077](adr/0077-console-output-modes.md). Nothing here is built yet; [cli.md](cli.md#console-output) describes
-> what the converter prints today.
+> Status: **built** (T17.1–T17.7; the harness is T17.8) — the design for plan milestone **M17** ([implementation-plan.md](implementation-plan.md#m17--console-output-for-people-and-agents)),
+> decided in [ADR 0077](adr/0077-console-output-modes.md). The report's content and line format are in
+> [cli.md](cli.md#console-report).
 
 ## Goals
 
@@ -44,6 +44,10 @@ progress area prints nothing, so `fancy` prints one static line per finished ste
 
 David had no preference; this split is the proposal in ADR 0077.
 
+A redirected stdout or stderr is written in **UTF-8** (no byte-order mark) in every mode, whatever the console's code
+page: on Windows that is the OEM code page, which can't hold names like `é` or `fancy`'s drawing characters. A
+console that isn't redirected keeps its own encoding, and its code page is never changed.
+
 ## Never interactive
 
 - The converter never reads stdin and never calls `AnsiConsole.Prompt`, `Confirm`, `SelectionPrompt` or anything
@@ -57,7 +61,7 @@ David had no preference; this split is the proposal in ADR 0077.
   (`CommandApp`) is not used: it binds settings by reflection and is marked not AOT-compatible, which breaks the
   zero-warning AOT rule ([ADR 0077](adr/0077-console-output-modes.md#options-considered)).
 
-## The orchestration layer (`src/Output/`, proposed)
+## The orchestration layer (`src/Output/`)
 
 ```mermaid
 flowchart LR
@@ -162,15 +166,25 @@ object at most once a second, plus every start and end.
 
 ## `fancy`
 
-- A header rule: `mod2xgm 0.x · song.mod → DMF · quality normal`.
-- Report section 1 as a two-column grid, section 2 as a `Table` (the same columns as today, status colored: used,
-  unused dim, empty dim, ignored yellow), section 3 as a `Table`.
-- Live area (`AnsiConsole.Progress`) with two rows: the step (`[5/9] Map channels`, bar, %, elapsed, remaining) and the
-  **total** (`Total`, bar weighted by the time estimates, elapsed, remaining). Instant phases flash through without a
-  bar of their own; short pauses use `AnsiConsole.Status` spinners, which Spectre silences when ANSI is off.
-- Conversion notes print above the live area in yellow, `Debug` lines dimmed, as they happen (T17.7's spike
-  confirms how Spectre takes writes during a live display; if it can't, notes are printed when their step ends).
-- End: a timing table (step, time, work), then the result line in green (or the error in red).
+The default (`FancyReporter`; whole run: `tests/golden/output/fancy-conversion.txt`):
+
+- A header rule: `mod2xgm 0.x · song.mod → DMF · quality normal · 7 steps`.
+- Report section 1 as a two-column grid, section 2 as a `Table` (the same columns as the line format, status colored:
+  used green, ignored yellow, unused and empty dim), section 3 as a `Table` titled with the output's counts. A table
+  is printed when its last row has come (the next line of any other kind).
+- **Live area**, on a console that can redraw: two lines, the step (`[5/7] Map channels`, bar, %, time spent, time
+  left) and the **total** (bar weighted by the time estimates, time spent, time left), each fitting 80 columns. A
+  step whose share is unknown shows `…` and a dim bar. The bars are drawn here (`━`, done part green), not with
+  Spectre's `Progress`, which owns its loop: the conversion calls the reporter step by step, so a Spectre
+  `LiveDisplay` runs on its own thread and is fed each update (at most every 100 ms, `PhaseTracker`).
+- Conversion notes print above the live area in yellow (`note …`), `Debug` lines dimmed, as they happen: Spectre
+  prints a write made during a live display above it.
+- **Piped or `TERM=dumb`:** no live area and no escape codes (Spectre draws nothing for a live display there, the
+  T17.1 spike), so each finished step prints one static line: `✓ [5/7] Map channels 0.1 s`. A redirected output has
+  no width, so Spectre's default of 80 columns applies.
+- End: a timing table (step, time, work), then `Done → <output>, 10 conversion notes in 1.2 s`; on stderr, after the
+  live area has closed, `error <message> (exit 4)`, or for a usage error its problems, the usage line and the help
+  hint, and for a crash the stack trace.
 - **Escaping:** sample names and the title can hold `[` and `]`, which Spectre markup reads as styles. Names are
   always passed as `Text` objects or through `Markup.Escape`, never interpolated into markup (the same rule as
   Serilog's braces in [cli.md](cli.md#console-report)).

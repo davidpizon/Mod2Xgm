@@ -16,6 +16,12 @@ internal static partial class OutputRuns
     private const int Period = 428; // C-2 (docs/formats/mod.md#pitch)
     private const int SetSpeed = 0xF;
 
+    /// <summary>
+    /// The console width of the runs, on a <c>TERM=dumb</c> terminal (no escape codes, no live area; a redirected output
+    /// has no width): wide enough that a temporary folder's path isn't wrapped in <c>fancy</c>.
+    /// </summary>
+    private const int Width = 200;
+
     /// <summary>A song with every kind of sample slot, as in the report's golden test.</summary>
     public static byte[] Song() => new ModBuilder { Title = "space {debris}" }
         .WithSample(1, "bassdrum", 4532)
@@ -60,7 +66,7 @@ internal static partial class OutputRuns
             static a => CommandLineDefinition.Invoke(a, Program.ConvertMod, TextWriter.Null, TextWriter.Null),
             output,
             error,
-            TerminalProbe.From(true, true, null, _ => null));
+            TerminalProbe.From(false, true, Width, static v => v == "TERM" ? "dumb" : null));
         return (code, Stable(output.ToString(), temp.Path), Stable(error.ToString(), temp.Path));
     }
 
@@ -71,6 +77,7 @@ internal static partial class OutputRuns
         text = text.Replace(escaped, "TEMP", StringComparison.Ordinal).Replace(folder, "TEMP", StringComparison.Ordinal);
         text = text.Replace("TEMP\\\\", "TEMP/", StringComparison.Ordinal).Replace("TEMP\\", "TEMP/", StringComparison.Ordinal);
         text = text.Replace("mod2xgm=" + RunInfo.Version, "mod2xgm=VERSION", StringComparison.Ordinal)
+            .Replace("mod2xgm " + RunInfo.Version + " ", "mod2xgm VERSION ", StringComparison.Ordinal)
             .Replace("\"version\":\"" + RunInfo.Version + "\"", "\"version\":\"VERSION\"", StringComparison.Ordinal);
         text = Seconds().Replace(text, "#s");
         text = JsonSeconds().Replace(text, "\"${key}\":0");

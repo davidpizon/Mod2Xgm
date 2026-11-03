@@ -45,44 +45,6 @@ public sealed class OutputLayerTests
     [Fact]
     public void ProbeOfThisProcess() => Assert.NotNull(TerminalProbe.Current());
 
-    /// <summary>The log-lines reporter prints Information on stdout and notes on stderr, in the console template.</summary>
-    [Fact]
-    public void LogLinesGoToTheirStreams()
-    {
-        using StringWriter output = new();
-        using StringWriter error = new();
-        using LogLinesReporter reporter = new(output, error);
-
-        reporter.Emit(Event(LogEventLevel.Information, "hello"));
-        reporter.Emit(Event(LogEventLevel.Warning, "dropped"));
-
-        Assert.Equal("INF hello" + Environment.NewLine, output.ToString());
-        Assert.Equal("WRN dropped" + Environment.NewLine, error.ToString());
-    }
-
-    /// <summary>The log-lines reporter prints a failure's message, a usage error's problems and usage line, and a crash's stack.</summary>
-    [Fact]
-    public void LogLinesReportFailures()
-    {
-        using StringWriter error = new();
-        using LogLinesReporter reporter = new(TextWriter.Null, error);
-        UsageException usage = new(["Required argument missing: <input.mod>."], ["input.mod"]);
-
-        reporter.RunStarted(new RunInfo("song.mod", "dmf", "normal", []));
-        reporter.Phase(Update());
-        reporter.Completed(new RunOutcome(ExitCode.Success, [], TimeSpan.Zero));
-        reporter.Failed(new RunFailure(ExitCode.InputNotFound, "Input file not found: x.mod", null, null, [], TimeSpan.Zero));
-        reporter.Failed(new RunFailure(ExitCode.UsageError, usage.Message, null, usage, [], TimeSpan.Zero));
-        reporter.Failed(new RunFailure(ExitCode.InternalError, "boom", new InvalidOperationException("boom"), null, [], TimeSpan.Zero));
-
-        string text = error.ToString();
-        Assert.Contains("ERR Input file not found: x.mod", text, StringComparison.Ordinal);
-        Assert.Contains("ERR Required argument missing: <input.mod>.", text, StringComparison.Ordinal);
-        Assert.Contains("Usage: mod2xgm <input.mod> [options]", text, StringComparison.Ordinal);
-        Assert.Contains("FTL Unexpected error", text, StringComparison.Ordinal);
-        Assert.Contains("System.InvalidOperationException: boom", text, StringComparison.Ordinal);
-    }
-
     /// <summary>The silent reporter takes every call and prints nothing.</summary>
     [Fact]
     public void SilentTakesEverything()
@@ -96,9 +58,11 @@ public sealed class OutputLayerTests
         reporter.Failed(new RunFailure(ExitCode.InternalError, "boom", null, null, [], TimeSpan.Zero));
     }
 
-    /// <summary>Each mode gets its reporter; until their tasks land, fancy, text and json print log lines.</summary>
+    /// <summary>Each mode gets its reporter.</summary>
     [Theory]
-    [InlineData(nameof(OutputMode.Fancy), typeof(LogLinesReporter))]
+    [InlineData(nameof(OutputMode.Fancy), typeof(FancyReporter))]
+    [InlineData(nameof(OutputMode.Text), typeof(TextReporter))]
+    [InlineData(nameof(OutputMode.Json), typeof(JsonReporter))]
     [InlineData(nameof(OutputMode.Silent), typeof(SilentReporter))]
     public void FactoryPicksTheReporter(string mode, Type expected)
     {
