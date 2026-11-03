@@ -36,6 +36,14 @@ jobs:
         run: dotnet build --no-restore -c Release
       - name: Test
         run: dotnet test --no-build -c Release
+      - name: Upload hung-test logs
+        # A test that runs 10 minutes is stopped and named in TestResults/*_hang.log (ADR 0079); the dump stays behind.
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: hung-tests-${{ matrix.os }}
+          path: '**/TestResults/*_hang.log'
+          if-no-files-found: ignore
 
   aot:
     name: AOT publish (${{ matrix.rid }})
