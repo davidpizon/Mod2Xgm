@@ -1,6 +1,7 @@
 using System.Globalization;
 using Serilog.Events;
 using Spectre.Console;
+using Spectre.Console.Rendering;
 
 namespace Mod2Xgm.Output;
 
