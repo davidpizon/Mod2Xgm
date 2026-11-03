@@ -1,4 +1,5 @@
 using Mod2Xgm.Analysis;
+using Mod2Xgm.Output;
 using Serilog.Events;
 
 namespace Mod2Xgm.Tests.Analysis;
@@ -9,7 +10,7 @@ public sealed class SampleAnalysisReportTests
     /// <summary>An empty spectrum, for regions whose spectrum the report doesn't show.</summary>
     private static readonly RegionSpectrum Spectrum = new(0.01, [], [new float[12]]);
 
-    /// <summary>A looped, pitched sample logs its scores, pitch, envelope and loop, then each region with its harmonics.</summary>
+    /// <summary>A looped, pitched sample logs its scores, pitch, envelope and loop, then each region with its harmonics; the first line carries them as an <c>analysis</c> row.</summary>
     [Fact]
     public void ALoopedToneLogsEverything()
     {
@@ -36,9 +37,18 @@ public sealed class SampleAnalysisReportTests
                     + "16574–20000 Hz (2 notes, analyzed at 18000 Hz, sounding 281.2 Hz with 12 harmonics)",
             ],
             sink.Messages(LogEventLevel.Debug));
+        StructureValue row = Assert.IsType<StructureValue>(ReportRow.Find(sink.Events[0]));
+        Assert.Equal("analysis", row.TypeTag);
+        Assert.Equal(1, row.Get("n"));
+        Assert.Equal("plucked tone", row.Get("kind"));
+        Assert.Equal(64.0, row.Get("period_frames"));
+        Assert.Equal(250.0, row.Get("decay_ms"));
+        Assert.Equal(64, row.Get("loop_length"));
+        Assert.Equal(2, row.Get("regions"));
+        Assert.Equal("part", ReportRow.Find(sink.Events[1])?.TypeTag);
     }
 
-    /// <summary>A one-shot without a pitch says so, and its region has no fundamental.</summary>
+    /// <summary>A one-shot without a pitch says so, its region has no fundamental, and its row leaves the missing facts out.</summary>
     [Fact]
     public void AnUnpitchedOneShotSaysSo()
     {
@@ -61,6 +71,10 @@ public sealed class SampleAnalysisReportTests
         Assert.Equal(2, lines.Length);
         Assert.EndsWith("; no clear pitch; peak -3.0 dBFS, attack 0 ms, never 20 dB down (at 8287 Hz); no loop", lines[0], StringComparison.Ordinal);
         Assert.Equal("Sample 4 \"snare\": 1 pitch regions: 8287 Hz (0 notes, analyzed at 8287 Hz)", lines[1]);
+        StructureValue row = Assert.IsType<StructureValue>(ReportRow.Find(sink.Events[0]));
+        Assert.Null(row.Get("period_frames"));
+        Assert.Null(row.Get("decay_ms"));
+        Assert.Null(row.Get("loop_start"));
     }
 
     /// <summary>Every label has its own words.</summary>

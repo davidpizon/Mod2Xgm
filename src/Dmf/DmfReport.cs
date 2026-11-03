@@ -1,6 +1,7 @@
 using System.Globalization;
 using Mod2Xgm.Mapping;
 using Mod2Xgm.Model;
+using Mod2Xgm.Output;
 using Serilog;
 
 namespace Mod2Xgm.Dmf;
@@ -19,16 +20,64 @@ internal static class DmfReport
 
     private const int BytesPerKilobyte = 1024;
 
-    /// <summary>Logs section 3 at <c>Information</c>, one event per line.</summary>
+    /// <summary>
+    /// Logs section 3 at <c>Information</c>, one event per line: the summary carries an <c>output</c>
+    /// <see cref="ReportRow"/>, each instrument and DAC sample an <c>instrument</c> row.
+    /// </summary>
     public static void Log(ILogger logger, DmfSong dmf, Song song)
     {
         ArgumentNullException.ThrowIfNull(logger);
-
-        // The line is a property, not the template: names may hold '{' and '}', which a template would read as holes.
-        foreach (string line in Lines(dmf, song))
+        IReadOnlyList<string> lines = Lines(dmf, song);
+        IReadOnlyList<ReportRow> rows = Rows(dmf);
+        for (int i = 0; i < lines.Count; i++)
         {
-            logger.Information("{ReportLine:l}", line);
+            ReportRow.Write(logger, lines[i], rows[i]);
         }
+    }
+
+    /// <summary>The fields of <see cref="Lines"/>, line for line: sample numbers are 1-based, as trackers show them.</summary>
+    public static IReadOnlyList<ReportRow> Rows(DmfSong dmf)
+    {
+        ArgumentNullException.ThrowIfNull(dmf);
+        int fm = dmf.Instruments.Count(i => i.Kind == VoiceKind.Fm);
+        List<ReportRow> rows =
+        [
+            new ReportRow(
+                "output",
+                ("format", "dmf"),
+                ("fm", fm),
+                ("psg", dmf.Instruments.Count - fm),
+                ("dac", dmf.File.Samples.Count),
+                ("pcm_bytes", dmf.File.Samples.Sum(s => (long)s.Data.Count * GenesisBytesPerFrame))),
+        ];
+
+        for (int i = 0; i < dmf.Instruments.Count; i++)
+        {
+            DmfInstrumentSource source = dmf.Instruments[i];
+            rows.Add(new ReportRow(
+                "instrument",
+                ("kind", source.Kind == VoiceKind.Fm ? "FM" : "PSG"),
+                ("n", i + 1),
+                ("from", source.Samples.Select(s => s + 1)),
+                ("detail", source.Kind == VoiceKind.Fm ? Invariant($"{dmf.File.Instruments[i].Name} patch") : "noise")));
+        }
+
+        for (int i = 0; i < dmf.Samples.Count; i++)
+        {
+            DmfSampleSource source = dmf.Samples[i];
+            DmfSample sample = dmf.File.Samples[i];
+            rows.Add(new ReportRow(
+                "instrument",
+                ("kind", "DAC"),
+                ("n", i + 1),
+                ("from", new[] { source.Sample + 1 }),
+                ("rate_hz", sample.RateHz),
+                ("bytes", sample.Data.Count * GenesisBytesPerFrame),
+                ("offset", source.Offset > 0 ? source.Offset : null),
+                ("volume_db", source.VolumeDb > 0 ? -source.VolumeDb : null)));
+        }
+
+        return rows;
     }
 
     /// <summary>The lines of section 3, without the level prefix: a summary, then one line per instrument and DAC sample.</summary>

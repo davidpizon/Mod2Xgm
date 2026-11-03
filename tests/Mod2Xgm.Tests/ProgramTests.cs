@@ -119,7 +119,7 @@ public sealed class ProgramTests
         Assert.Equal((int)ExitCode.UsageError, code);
         Assert.Equal(string.Empty, output);
         Assert.Contains("Required argument missing: <input.mod>.", error, StringComparison.Ordinal);
-        Assert.Contains("Usage: " + UsageException.UsageLine, error, StringComparison.Ordinal);
+        Assert.Contains(UsageException.UsageLine, error, StringComparison.Ordinal);
         Assert.DoesNotContain("--render-wav", error, StringComparison.Ordinal);
     }
 

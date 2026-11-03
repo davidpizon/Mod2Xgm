@@ -1,0 +1,49 @@
+note: Sample 8 badname: the name contains unprintable bytes; the header may be damaged
+meta file=song.mod bytes=21802 title="space {debris}" format="ProTracker M.K." channels=4 slots=31 orders=2 restart=127 patterns=2 speed=4 bpm=140
+info Emulating ProTracker 2 (the default for 31-sample files; --player ust changes it)
+note: Sample 5 never played: holds 100 bytes but is never played
+note: Sample 8 badname: holds 64 bytes but is never played
+sample 01 "bassdrum" len=4532 loop=- vol=64 fine=0 notes=2 used
+sample 02 "snare [2]" len=3870 loop=- vol=48 fine=-2 notes=2 used
+sample 03 "  by Jester" len=0 loop=- vol=0 fine=0 notes=0 empty
+sample 04 "strings" len=8000 loop=2000+6000 vol=64 fine=0 notes=1 used
+sample 05 "never played" len=100 loop=- vol=64 fine=0 notes=0 unused
+sample 06 "" len=0 loop=- vol=0 fine=0 notes=0 empty
+sample 07 "vocal" len=2104 loop=- vol=64 fine=7 notes=1 used
+sample 08 "bad·name" len=64 loop=- vol=64 fine=0 notes=0 unused
+sample 09 "" len=0 loop=- vol=0 fine=0 notes=0 empty
+sample 10 "" len=0 loop=- vol=0 fine=0 notes=0 empty
+sample 11 "" len=0 loop=- vol=0 fine=0 notes=0 empty
+sample 12 "" len=0 loop=- vol=0 fine=0 notes=0 empty
+sample 13 "" len=0 loop=- vol=0 fine=0 notes=0 empty
+sample 14 "" len=0 loop=- vol=0 fine=0 notes=0 empty
+sample 15 "" len=0 loop=- vol=0 fine=0 notes=0 empty
+sample 16 "" len=0 loop=- vol=0 fine=0 notes=0 empty
+sample 17 "" len=0 loop=- vol=0 fine=0 notes=0 empty
+sample 18 "" len=0 loop=- vol=0 fine=0 notes=0 empty
+sample 19 "" len=0 loop=- vol=0 fine=0 notes=0 empty
+sample 20 "" len=0 loop=- vol=0 fine=0 notes=0 empty
+sample 21 "" len=0 loop=- vol=0 fine=0 notes=0 empty
+sample 22 "" len=0 loop=- vol=0 fine=0 notes=0 empty
+sample 23 "" len=0 loop=- vol=0 fine=0 notes=0 empty
+sample 24 "" len=0 loop=- vol=0 fine=0 notes=0 empty
+sample 25 "" len=0 loop=- vol=0 fine=0 notes=0 empty
+sample 26 "" len=0 loop=- vol=0 fine=0 notes=0 empty
+sample 27 "" len=0 loop=- vol=0 fine=0 notes=0 empty
+sample 28 "" len=0 loop=- vol=0 fine=0 notes=0 empty
+sample 29 "" len=0 loop=- vol=0 fine=0 notes=0 empty
+sample 30 "" len=0 loop=- vol=0 fine=0 notes=0 empty
+sample 31 "" len=0 loop=- vol=0 fine=0 notes=0 empty
+info --quality normal: the optimizer isn't built yet (plan M9), so the simple mapper is used
+note: Sample 4 "strings": it loops, so it is a sustained tone and is played by the Organ FM patch
+note: 3 drum notes started on the same row as a louder one and could not use the DAC; played by FM instead
+note: Sample 2 "snare [2]": its FM notes are placed at the pitch measured from the sample
+note: Sample 4 "strings": its FM notes are placed at the pitch measured from the sample
+note: Sample 7 "vocal": its FM notes are placed at the pitch measured from the sample
+note: 1 FM notes play quieter than in the MOD: their sample is louder than its patch can play without clipping
+note: 1 tremolo (7xy) effects were left out on DAC notes (the DAC plays a sample at one pitch and volume)
+output dmf fm=2 psg=0 dac=1 pcm_bytes=6029
+output FM 01 <- 04 "strings" (Organ patch)
+output FM 02 <- 02 "snare [2]", 07 "vocal" (Pluck patch)
+output DAC 01 <- 01 "bassdrum" rate=11025 bytes=6029
+result ok exit=0 out=TEMP/song.dmf notes=10 time=#s

@@ -83,10 +83,14 @@ flowchart LR
 - **`TerminalProbe`** — reads once: `Console.IsOutputRedirected`, `Console.IsErrorRedirected`, the console width,
   `NO_COLOR`, `TERM=dumb`, and Spectre's detected `Capabilities` (Ansi, Interactive, ColorSystem). It never changes the
   mode; it only configures the `fancy` console, and its findings are logged at `Debug`.
-- **`IConversionReporter`** — everything the user sees goes through it:
-  `RunStarted`, `Metadata`, `Samples`, `OutputInstruments`, `PhaseStarted`, `PhaseProgress`, `PhaseFinished`, `Note`,
-  `Debug`, `Info` (e.g. the XGM2 extension line), `Timings`, `Result`, `Error`. Each takes typed records, never
-  preformatted text, so `json` gets fields and `fancy` gets table cells.
+- **`IConversionReporter`** — everything the user sees goes through it: `RunStarted`, `Phase` (start, progress, end),
+  `Completed` and `Failed` take typed records (`RunInfo`, `PhaseUpdate`, `RunOutcome`, `RunFailure`), never
+  preformatted text. Everything else arrives as Serilog events.
+- **Report rows** — the report's lines (metadata, the sample table, the output table, the result) are still logged as
+  text, so the log lines and their golden files don't change, and each carries a **`ReportRow`**: a structured
+  `"Report"` property attached with `logger.ForContext(row)` (kinds `metadata`, `sample`, `output`, `instrument`, `analysis` (at `Debug`),
+  `result`; `part` marks the table's other lines). `text` and `json` write the row's fields and skip the line text;
+  `fancy` draws them as table cells.
 - **The reporter is the Serilog sink** — every reporter is an `ILogEventSink`, so `Warning` events (conversion
   notes), `Debug` events and report rows reach it through the logger. Serilog stays the logging pipeline and the 61
   stages that take a `ConversionNotes` / `ILogger` do not change. The console sink is gone from the converter: nothing
@@ -175,9 +179,18 @@ time read=0.0s scan=0.1s model=0.0s play=0.4s map=4.0s write=0.1s total=18.2s
 result ok exit=0 out=C:\music\song.dmf notes=12 time=18.2s
 ```
 
-Errors: `error exit=2 message="Input file not found: song.mod"` on stderr. The XGM2 line is printed verbatim as
+Other lines: `note: <message>` for each conversion note, `info <message>` and `debug <message>` (with `--verbose`) for
+everything else, the message on one line with its strings unquoted. Names and titles are always quoted; other text is
+quoted only when it holds a space, a quote, `=` or `|` (or is empty), so a bare Windows path keeps its `\`; inside quotes
+`"` and `\` are escaped and control characters show as `·`.
+
+Errors go to stderr: `error exit=2 kind=input-not-found message="Input file not found: song.mod"`. `kind` is one of
+`usage`, `input-not-found`, `invalid-input`, `output-not-writable`, `does-not-fit`, `internal`. A usage error adds
+`missing=<names>` (comma-separated) and `usage="mod2xgm <input.mod> [options]"`; a crash adds one `stack <line>` per
+line of the stack trace. The XGM2 line is printed verbatim as
 `info NOTE: SGDK expects XGM2 files to use the .XGM file extension.` so the exact sentence stays in the output.
-The keywords and keys are a contract: adding a key is fine, renaming or removing one needs an ADR.
+The keywords and keys are a contract: adding a key is fine, renaming or removing one needs an ADR. The golden file
+`tests/golden/output/text-conversion.txt` shows a whole run.
 
 ## `json`
 

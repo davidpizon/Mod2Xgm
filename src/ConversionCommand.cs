@@ -6,6 +6,7 @@ using Mod2Xgm.Mapping;
 using Mod2Xgm.Mod;
 using Mod2Xgm.Model;
 using Mod2Xgm.Optimizer;
+using Mod2Xgm.Output;
 using Mod2Xgm.Render;
 using Serilog;
 using Serilog.Events;
@@ -122,7 +123,8 @@ internal static class ConversionCommand
             RenderWav(options, wav, playback, song, plan, notes, logger);
         }
 
-        logger.Information(
+        string? written = options.Format == OutputFormat.Dmf && !options.InfoOnly ? output : null;
+        logger.ForContext(new ReportRow("result", ("input", input), ("output", written), ("wav", wav), ("notes", notes.Count))).Information(
             "{Input} -> {Output} ({NoteCount} conversion notes)",
             Path.GetFileName(input),
             options.Format != OutputFormat.Dmf ? "(no song file: only the WAV render)" : options.InfoOnly ? "(--info: no file written)" : output,
