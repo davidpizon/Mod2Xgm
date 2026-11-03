@@ -249,7 +249,9 @@ internal sealed class CommandLineDefinition
         List<string> missing = [];
         foreach (ParseError parseError in parseResult.Errors)
         {
-            if (parseError.Message.StartsWith(MissingArgumentMessage, StringComparison.Ordinal))
+            if (parseError.SymbolResult is ArgumentResult argumentResult
+                && argumentResult.Argument == Input
+                && parseError.Message.StartsWith(MissingArgumentMessage, StringComparison.Ordinal))
             {
                 missing.Add(Input.Name);
                 problems.Add($"Required argument missing: <{Input.Name}>.");
