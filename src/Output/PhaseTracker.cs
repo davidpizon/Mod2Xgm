@@ -48,9 +48,6 @@ internal interface IConversionProgress
 
     /// <summary>Starts phase <paramref name="id"/> with <paramref name="total"/> work (0 when not known yet).</summary>
     IPhase Start(string id, long total = 0);
-
-    /// <summary>Every finished phase's time, in order.</summary>
-    IReadOnlyList<PhaseTiming> Timings { get; }
 }
 
 /// <summary>Progress that goes nowhere: the default for <see cref="ConversionCommand"/> outside the command line.</summary>
@@ -58,9 +55,6 @@ internal sealed class NoProgress : IConversionProgress
 {
     /// <summary>The one instance.</summary>
     public static NoProgress Instance { get; } = new();
-
-    /// <inheritdoc/>
-    public IReadOnlyList<PhaseTiming> Timings => [];
 
     /// <inheritdoc/>
     public void Begin(RunInfo run)
@@ -116,7 +110,7 @@ internal sealed class PhaseTracker(IConversionReporter reporter, TimeProvider ti
     private IReadOnlyList<PhaseInfo> _phases = [];
     private int _jobs = 1;
 
-    /// <inheritdoc/>
+    /// <summary>Every finished phase's time, in order.</summary>
     public IReadOnlyList<PhaseTiming> Timings
     {
         get

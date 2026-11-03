@@ -114,8 +114,6 @@ public sealed class PhaseTrackerTests
         phase.Done();
         NoWork.Instance.SetTotal(1);
         NoWork.Instance.Advance();
-
-        Assert.Empty(NoProgress.Instance.Timings);
     }
 
     /// <summary>A whole conversion in text mode names each step of its plan, in order, and ends with their times.</summary>
