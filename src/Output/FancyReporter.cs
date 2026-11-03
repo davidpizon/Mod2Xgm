@@ -442,8 +442,11 @@ internal sealed class FancyReporter : IConversionReporter
             double total = u.TotalRemaining is { } r && (u.TotalElapsed + r).TotalSeconds > 0
                 ? u.TotalElapsed.TotalSeconds / (u.TotalElapsed + r).TotalSeconds
                 : Math.Min(1, (_ended + _running.Sum(p => p.Fraction ?? 0)) / u.Of);
-            List<IRenderable> rows = [.. shown.Select(p => Row(Invariant($"[{p.Phase.Number}/{p.Of}] {p.Phase.Name}"), p.Event == PhaseEvent.End ? 1 : p.Fraction, p.Elapsed, p.Remaining, false, Decoration.None))];
-            rows.Add(Row("Total", total, u.TotalElapsed, u.TotalRemaining, u.TotalPartial, Decoration.Bold));
+            List<IRenderable> rows =
+            [
+                .. shown.Select(p => Row(Invariant($"[{p.Phase.Number}/{p.Of}] {p.Phase.Name}"), p.Event == PhaseEvent.End ? 1 : p.Fraction, p.Elapsed, p.Remaining, false, Decoration.None)),
+                Row("Total", total, u.TotalElapsed, u.TotalRemaining, u.TotalPartial, Decoration.Bold),
+            ];
             return new Rows(rows);
         }
 

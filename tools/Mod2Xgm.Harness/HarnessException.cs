@@ -19,7 +19,7 @@ internal sealed class HarnessException : Exception
     /// The failure's kind for <c>--progress json</c> and <c>text</c> (docs/cli-output.md#the-harness): <c>cannot-run</c>
     /// (a tool or input is missing), or <c>usage</c> for a bad command line.
     /// </summary>
-    public string Kind { get; init; } = "cannot-run";
+    public string Kind { get; private init; } = "cannot-run";
 
     /// <summary>A bad command line, described by <paramref name="message"/>.</summary>
     public static HarnessException Usage(string message) => new(message) { Kind = "usage" };
