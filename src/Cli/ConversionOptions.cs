@@ -1,6 +1,7 @@
 using Mod2Xgm.Audio;
 using Mod2Xgm.Mod;
 using Mod2Xgm.Model;
+using Mod2Xgm.Output;
 
 namespace Mod2Xgm.Cli;
 
@@ -73,6 +74,9 @@ internal sealed record ConversionOptions
     public bool InfoOnly { get; init; }
     public bool Force { get; init; }
     public bool Verbose { get; init; }
+
+    /// <summary>How the run talks to its caller (<c>--progress</c>, docs/cli-output.md).</summary>
+    public OutputMode Progress { get; init; } = OutputMode.Fancy;
 }
 
 /// <summary>Default values and limits shared by the CLI and the converter.</summary>

@@ -223,14 +223,16 @@ compiler, analyzer, trim/AOT, NuGet or MSBuild warning fails the build.
 
 ## Logging (Serilog)
 
-- Packages: `Serilog`, `Serilog.Sinks.Console`. Configure **in code** in `Program.cs` — no
-  `Serilog.Settings.Configuration` / `appsettings.json` (reflection-based, not AOT-safe).
+- Packages: `Serilog` (the harness also uses `Serilog.Sinks.Console`). Configure **in code** in `Program.cs` — no
+  `Serilog.Settings.Configuration` / `appsettings.json` (reflection-based, not AOT-safe). The converter's only sink is
+  the **reporter** `--progress` picks (`src/Output/`, [docs/cli-output.md](docs/cli-output.md)): nothing else writes
+  to the console, and failures go to the reporter, not to `Log.Error`.
 - Use the static `Log` (or an `ILogger` passed in) — no `Console.WriteLine` for diagnostics.
 - Levels: `Debug` = detail shown with `--verbose`; `Information` = normal progress/summary;
-  `Warning` = conversion notes; `Error` = failures that set a non-zero exit code; `Fatal` = unexpected crashes.
+  `Warning` = conversion notes.
 - Message templates with **named scalar properties** (`Log.Warning("Sample {Sample} truncated to {Length} bytes", name, len)`).
   No `{@obj}` destructuring of complex types — it relies on reflection and breaks under trimming/AOT.
-- Levels `Warning` and above go to **stderr**; below to stdout.
+- Which stream each line goes to depends on the `--progress` mode ([docs/cli-output.md](docs/cli-output.md#streams)).
 - Always `Log.CloseAndFlush()` before exit.
 - Magic numbers that come from a file spec get a named constant and a comment pointing at the doc
   section (e.g. `// docs/formats/mod.md#sample-header`).

@@ -1,6 +1,7 @@
 using System.CommandLine;
 using Mod2Xgm.Audio;
 using Mod2Xgm.Mod;
+using Mod2Xgm.Output;
 
 namespace Mod2Xgm.Cli;
 
@@ -114,6 +115,7 @@ internal static class OptionsBinder
             InfoOnly = parseResult.GetValue(definition.Info),
             Force = parseResult.GetValue(definition.Force),
             Verbose = parseResult.GetValue(definition.Verbose),
+            Progress = ProgressModeScan.Names[parseResult.GetValue(definition.Progress) ?? "fancy"],
         };
 
         return new Result(options, errors);

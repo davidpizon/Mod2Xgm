@@ -81,7 +81,7 @@ Spectre.Console.Testing 0.57.2) and listed in `THIRD-PARTY-NOTICES.md`.
 
 ## Consequences
 
-- New `src/Output/` layer (reporters, `TerminalProbe`, `PhaseTracker`, `EtaEstimator`, `ReporterSink`); the Serilog
+- New `src/Output/` layer (reporters, `TerminalProbe`, `PhaseTracker`, `EtaEstimator`; each reporter is the Serilog sink); the Serilog
   console sink leaves the converter. Stages gain an optional `IWorkCounter`.
 - Report code (`ModReport`, `DmfReport`, `SampleAnalysisReport`, `LockedPairReport`) produces typed rows instead of
   text lines.
