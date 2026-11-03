@@ -1,0 +1,49 @@
+{"v":1,"type":"note","message":"Sample 8 bad\u0007name: the name contains unprintable bytes; the header may be damaged","template":"Sample {Sample} {Name}: the name contains unprintable bytes; the header may be damaged","properties":{"Sample":8,"Name":"bad\u0007name"}}
+{"v":1,"type":"metadata","file":"song.mod","bytes":21802,"title":"space {debris}","tracker":"ProTracker M.K.","tag":"M.K.","channels":4,"slots":31,"orders":2,"restart":127,"patterns":2,"speed":4,"bpm":140}
+{"v":1,"type":"info","message":"Emulating ProTracker 2 (the default for 31-sample files; --player ust changes it)"}
+{"v":1,"type":"note","message":"Sample 5 never played: holds 100 bytes but is never played","template":"Sample {Sample} {Name}: holds {Length} bytes but is never played","properties":{"Sample":5,"Name":"never played","Length":100}}
+{"v":1,"type":"note","message":"Sample 8 bad\u0007name: holds 64 bytes but is never played","template":"Sample {Sample} {Name}: holds {Length} bytes but is never played","properties":{"Sample":8,"Name":"bad\u0007name","Length":64}}
+{"v":1,"type":"sample","n":1,"name":"bassdrum","length":4532,"volume":64,"finetune":0,"notes":2,"status":"used"}
+{"v":1,"type":"sample","n":2,"name":"snare [2]","length":3870,"volume":48,"finetune":-2,"notes":2,"status":"used"}
+{"v":1,"type":"sample","n":3,"name":"  by Jester","length":0,"volume":0,"finetune":0,"notes":0,"status":"empty"}
+{"v":1,"type":"sample","n":4,"name":"strings","length":8000,"loop_start":2000,"loop_length":6000,"volume":64,"finetune":0,"notes":1,"status":"used"}
+{"v":1,"type":"sample","n":5,"name":"never played","length":100,"volume":64,"finetune":0,"notes":0,"status":"unused"}
+{"v":1,"type":"sample","n":6,"name":"","length":0,"volume":0,"finetune":0,"notes":0,"status":"empty"}
+{"v":1,"type":"sample","n":7,"name":"vocal","length":2104,"volume":64,"finetune":7,"notes":1,"status":"used"}
+{"v":1,"type":"sample","n":8,"name":"bad·name","length":64,"volume":64,"finetune":0,"notes":0,"status":"unused"}
+{"v":1,"type":"sample","n":9,"name":"","length":0,"volume":0,"finetune":0,"notes":0,"status":"empty"}
+{"v":1,"type":"sample","n":10,"name":"","length":0,"volume":0,"finetune":0,"notes":0,"status":"empty"}
+{"v":1,"type":"sample","n":11,"name":"","length":0,"volume":0,"finetune":0,"notes":0,"status":"empty"}
+{"v":1,"type":"sample","n":12,"name":"","length":0,"volume":0,"finetune":0,"notes":0,"status":"empty"}
+{"v":1,"type":"sample","n":13,"name":"","length":0,"volume":0,"finetune":0,"notes":0,"status":"empty"}
+{"v":1,"type":"sample","n":14,"name":"","length":0,"volume":0,"finetune":0,"notes":0,"status":"empty"}
+{"v":1,"type":"sample","n":15,"name":"","length":0,"volume":0,"finetune":0,"notes":0,"status":"empty"}
+{"v":1,"type":"sample","n":16,"name":"","length":0,"volume":0,"finetune":0,"notes":0,"status":"empty"}
+{"v":1,"type":"sample","n":17,"name":"","length":0,"volume":0,"finetune":0,"notes":0,"status":"empty"}
+{"v":1,"type":"sample","n":18,"name":"","length":0,"volume":0,"finetune":0,"notes":0,"status":"empty"}
+{"v":1,"type":"sample","n":19,"name":"","length":0,"volume":0,"finetune":0,"notes":0,"status":"empty"}
+{"v":1,"type":"sample","n":20,"name":"","length":0,"volume":0,"finetune":0,"notes":0,"status":"empty"}
+{"v":1,"type":"sample","n":21,"name":"","length":0,"volume":0,"finetune":0,"notes":0,"status":"empty"}
+{"v":1,"type":"sample","n":22,"name":"","length":0,"volume":0,"finetune":0,"notes":0,"status":"empty"}
+{"v":1,"type":"sample","n":23,"name":"","length":0,"volume":0,"finetune":0,"notes":0,"status":"empty"}
+{"v":1,"type":"sample","n":24,"name":"","length":0,"volume":0,"finetune":0,"notes":0,"status":"empty"}
+{"v":1,"type":"sample","n":25,"name":"","length":0,"volume":0,"finetune":0,"notes":0,"status":"empty"}
+{"v":1,"type":"sample","n":26,"name":"","length":0,"volume":0,"finetune":0,"notes":0,"status":"empty"}
+{"v":1,"type":"sample","n":27,"name":"","length":0,"volume":0,"finetune":0,"notes":0,"status":"empty"}
+{"v":1,"type":"sample","n":28,"name":"","length":0,"volume":0,"finetune":0,"notes":0,"status":"empty"}
+{"v":1,"type":"sample","n":29,"name":"","length":0,"volume":0,"finetune":0,"notes":0,"status":"empty"}
+{"v":1,"type":"sample","n":30,"name":"","length":0,"volume":0,"finetune":0,"notes":0,"status":"empty"}
+{"v":1,"type":"sample","n":31,"name":"","length":0,"volume":0,"finetune":0,"notes":0,"status":"empty"}
+{"v":1,"type":"info","message":"--quality normal: the optimizer isn't built yet (plan M9), so the simple mapper is used"}
+{"v":1,"type":"note","message":"Sample 4 \"strings\": it loops, so it is a sustained tone and is played by the Organ FM patch","template":"Sample {Sample}: it loops, so it is a sustained tone and is played by the {Patch} FM patch","properties":{"Sample":"4 \"strings\"","Patch":"Organ"}}
+{"v":1,"type":"note","message":"3 drum notes started on the same row as a louder one and could not use the DAC; played by FM instead","template":"{Count} drum notes started on the same row as a louder one and could not use the DAC; played by FM instead","properties":{"Count":3}}
+{"v":1,"type":"note","message":"Sample 2 \"snare [2]\": its FM notes are placed at the pitch measured from the sample","template":"Sample {Sample}: its FM notes are placed at the pitch measured from the sample","properties":{"Sample":"2 \"snare [2]\""}}
+{"v":1,"type":"note","message":"Sample 4 \"strings\": its FM notes are placed at the pitch measured from the sample","template":"Sample {Sample}: its FM notes are placed at the pitch measured from the sample","properties":{"Sample":"4 \"strings\""}}
+{"v":1,"type":"note","message":"Sample 7 \"vocal\": its FM notes are placed at the pitch measured from the sample","template":"Sample {Sample}: its FM notes are placed at the pitch measured from the sample","properties":{"Sample":"7 \"vocal\""}}
+{"v":1,"type":"note","message":"1 FM notes play quieter than in the MOD: their sample is louder than its patch can play without clipping","template":"{Count} FM notes play quieter than in the MOD: their sample is louder than its patch can play without clipping","properties":{"Count":1}}
+{"v":1,"type":"note","message":"1 tremolo (7xy) effects were left out on DAC notes (the DAC plays a sample at one pitch and volume)","template":"{Count} tremolo (7xy) effects were left out on DAC notes (the DAC plays a sample at one pitch and volume)","properties":{"Count":1}}
+{"v":1,"type":"output","format":"dmf","fm":2,"psg":0,"dac":1,"pcm_bytes":6029}
+{"v":1,"type":"instrument","kind":"FM","n":1,"from":[4],"detail":"Organ patch"}
+{"v":1,"type":"instrument","kind":"FM","n":2,"from":[2,7],"detail":"Pluck patch"}
+{"v":1,"type":"instrument","kind":"DAC","n":1,"from":[1],"rate_hz":11025,"bytes":6029}
+{"v":1,"type":"result","exit":0,"output":"TEMP/song.dmf","wav":null,"notes":10,"seconds":0}

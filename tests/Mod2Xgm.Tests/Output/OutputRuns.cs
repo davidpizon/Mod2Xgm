@@ -54,14 +54,14 @@ internal static partial class OutputRuns
         return (code, Stable(output.ToString(), temp.Path), Stable(error.ToString(), temp.Path));
     }
 
-    /// <summary><paramref name="text"/> with the temporary folder as <c>TEMP</c> and every time as <c>#</c>.</summary>
+    /// <summary><paramref name="text"/> with the temporary folder as <c>TEMP</c> and every time as <c>#</c> (<c>0</c> in JSON, so it still parses).</summary>
     public static string Stable(string text, string folder)
     {
         string escaped = folder.Replace("\\", "\\\\", StringComparison.Ordinal);
         text = text.Replace(escaped, "TEMP", StringComparison.Ordinal).Replace(folder, "TEMP", StringComparison.Ordinal);
         text = text.Replace("TEMP\\\\", "TEMP/", StringComparison.Ordinal).Replace("TEMP\\", "TEMP/", StringComparison.Ordinal);
         text = Seconds().Replace(text, "#s");
-        text = JsonSeconds().Replace(text, "\"${key}\":#");
+        text = JsonSeconds().Replace(text, "\"${key}\":0");
         return text;
     }
 

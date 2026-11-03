@@ -195,24 +195,27 @@ The keywords and keys are a contract: adding a key is fine, renaming or removing
 ## `json`
 
 NDJSON on stdout, UTF-8, one object per line, every object with `"v":1` (schema version) and `"type"`.
-Serialized with `Utf8JsonWriter` / a source-generated `JsonSerializerContext` — no reflection.
+Written with `Utf8JsonWriter`, so nothing is serialized by reflection. Strings are escaped as JSON requires (quotes,
+`\`, control characters as `\u0007`); other characters (é, ←) stay as they are. Nothing goes to stderr.
 
 | `type` | Fields |
 |---|---|
-| `run` | `version`, `input`, `format`, `quality`, `steps` (the phase list: `[{"n":1,"id":"check","name":"Check paths"},…]`) |
+| `run` | `version`, `input`, `format`, `quality`, `steps` (the phase list: `[{"n":1,"id":"check","name":"Check paths","unit":""},…]`) |
 | `metadata` | `file`, `bytes`, `title`, `tracker`, `tag`, `channels`, `slots`, `orders`, `restart`, `patterns`, `speed`, `bpm` |
-| `sample` | `n`, `name`, `length`, `loop_start`, `loop_length`, `volume`, `finetune`, `notes`, `status` |
-| `output` | `format`, `fm`, `psg`, `dac`, `pcm_bytes`, `instruments` (`[{"kind":"FM","n":1,"from":[1,2],"detail":"Sine patch"}]`) |
-| `phase` | `n`, `of`, `id`, `event` (`start` / `progress` / `end`), `done`, `total`, `elapsed_s`, `eta_s`, `total_eta_s`, `eta_partial` |
-| `note` | `message` (rendered), `template`, `properties` (scalar values only) |
-| `debug` | `message` |
+| `sample` | `n`, `name`, `length`, `loop_start`, `loop_length` (only when it loops), `volume`, `finetune`, `notes`, `status` |
+| `output` | `format`, `fm`, `psg`, `dac`, `pcm_bytes` |
+| `instrument` | `kind` (`FM`, `PSG`, `DAC`), `n`, `from` (sample numbers), `detail`, and for PCM `rate_hz`, `bytes`, `offset`, `volume_db` (each only when it applies) |
+| `analysis` | with `--verbose`: `n`, `name`, `kind`, `percussive`, `tonal`, `noisy`, `period_frames`, `voiced`, `deviation_cents`, `drift_cents`, `peak_db`, `attack_ms`, `decay_ms`, `sustain_db`, `loop_start`, `loop_length`, `regions` (missing facts left out) |
+| `phase` | `n`, `of`, `id`, `event` (`start` / `progress` / `end`), `done`, `total`, `unit`, `elapsed_s`, `eta_s`, `total_eta_s`, `eta_partial`; progress at most once a second |
+| `note` | `message` (rendered), `template`, `properties` (the template's values, typed) |
+| `debug` | with `--verbose`: `message`, `template`, `properties` |
 | `info` | `message` (e.g. the XGM2 extension line, verbatim) |
 | `timing` | `phases` (`[{"id":"map","seconds":4.0,"done":2,"unit":"orders"}]`), `total_s` |
-| `result` | `exit`, `output`, `wav`, `notes`, `seconds` |
-| `error` | `code`, `error` (`usage`, `input-not-found`, `invalid-input`, `output-not-writable`, `internal`, `does-not-fit`), `message`, `missing` (usage errors), `usage`, `stack` (exit 5 only) |
+| `result` | `exit`, `output` / `wav` (`null` when not written), `notes`, `seconds` |
+| `error` | `code`, `error` (`usage`, `input-not-found`, `invalid-input`, `output-not-writable`, `internal`, `does-not-fit`), `message`, `problems`, `missing` and `usage` (usage errors), `stack` (exit 5 only) |
 
 The last line of every run is `result` or `error`. The schema is documented here and checked by a test that
-parses every line of every golden run; changing a field's meaning bumps `v`.
+parses every line of the golden run (`tests/golden/output/json-conversion.jsonl`); changing a field's meaning bumps `v`.
 
 ## The harness
 
