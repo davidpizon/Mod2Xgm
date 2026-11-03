@@ -38,7 +38,9 @@ internal static class ProgressModeScan
             string? value = null;
             if (arg == OptionName)
             {
-                value = i + 1 < args.Count ? args[++i] : string.Empty;
+                value = i + 1 < args.Count && !args[i + 1].StartsWith("-", StringComparison.Ordinal)
+                    ? args[++i]
+                    : string.Empty;
             }
             else if (arg.Length > OptionName.Length
                 && arg.StartsWith(OptionName, StringComparison.Ordinal)
