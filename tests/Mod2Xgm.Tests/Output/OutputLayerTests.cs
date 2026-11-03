@@ -27,7 +27,7 @@ public sealed class OutputLayerTests
     {
         Dictionary<string, string> environment = new() { ["NO_COLOR"] = "1", ["TERM"] = "dumb" };
 
-        TerminalProbe dumb = TerminalProbe.From(false, false, 120, name => environment.GetValueOrDefault(name));
+        TerminalProbe dumb = TerminalProbe.From(false, false, 120, environment.GetValueOrDefault);
         TerminalProbe piped = TerminalProbe.From(true, false, 120, _ => null);
         TerminalProbe terminal = TerminalProbe.From(false, true, 120, _ => null);
 

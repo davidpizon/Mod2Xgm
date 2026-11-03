@@ -9,10 +9,10 @@ namespace Mod2Xgm.Output;
 internal sealed class EtaEstimator
 {
     /// <summary>Share of its work a phase has done before its own pace is trusted.</summary>
-    public const double MinCountedShare = 0.02;
+    private const double MinCountedShare = 0.02;
 
     /// <summary>Time a phase has run before its own pace is trusted.</summary>
-    public static readonly TimeSpan MinCountedTime = TimeSpan.FromSeconds(0.5);
+    private static readonly TimeSpan MinCountedTime = TimeSpan.FromSeconds(0.5);
 
     /// <summary>Weight of a new guess in the smoothed guess of the running phase.</summary>
     public const double Smoothing = 0.3;

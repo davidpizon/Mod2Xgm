@@ -157,7 +157,7 @@ internal static class ModReport
     public static string Quoted(string text) => "\"" + Printable(text) + "\"";
 
     /// <summary><paramref name="text"/> with control characters shown as <c>·</c>.</summary>
-    public static string Printable(string text) => string.Concat(text.Select(c => char.IsControl(c) ? '·' : c));
+    private static string Printable(string text) => string.Concat(text.Select(c => char.IsControl(c) ? '·' : c));
 
     private static void WriteLines(ILogger logger, IReadOnlyList<string> lines, IReadOnlyList<ReportRow> rows)
     {
