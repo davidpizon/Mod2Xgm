@@ -73,8 +73,9 @@ How it is built (Claude, within the decisions above):
 Still to come. The planned proof, all five kinds with `--fm-max-renders 300` run twice (an empty cache, then a warm
 one, comparing the CSVs but for `cached`), was stopped before its warm run: after about 12 hours and 34 CPU-hours the
 cold run had finished 16 songs, but `kc-dancinonamiga` had been in the pre-mixer for about 10 hours without
-finishing a target (the other songs' pre-mixes took minutes). That slow pre-mix is a pre-mixer problem, not a cache
-one, and is left for a follow-up. Until then, the proof is the unit tests: every kind round-trips byte for byte, a
+finishing a target, and `drozerix_-_ai_renaissance`'s pre-mix had also taken about 8 hours. That slow pre-mix is
+a pre-mixer problem, not a cache one; [ADR 0078](0078-pre-mix-budget-cap.md) (PR #87) addresses it. Until then,
+the proof is the unit tests: every kind round-trips byte for byte, a
 rerun reads every candidate back marked `Cached`, and FM fits are shared between samples that sound the same.
 
 ## Consequences
