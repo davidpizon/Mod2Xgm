@@ -5,6 +5,7 @@ using Serilog.Events;
 
 namespace Mod2Xgm.Tests;
 
+[Collection(ProgramState.Name)]
 public sealed class ProgramTests
 {
     [Fact]
