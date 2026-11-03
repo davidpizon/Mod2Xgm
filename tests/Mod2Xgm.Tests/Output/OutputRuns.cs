@@ -23,7 +23,7 @@ internal static partial class OutputRuns
     private const int Width = 200;
 
     /// <summary>A song with every kind of sample slot, as in the report's golden test.</summary>
-    public static byte[] Song() => new ModBuilder { Title = "space {debris}" }
+    private static byte[] Song() => new ModBuilder { Title = "space {debris}" }
         .WithSample(1, "bassdrum", 4532)
         .WithSample(2, "snare [2]", 3870, fineTune: -2, volume: 48)
         .WithSample(3, "  by Jester", 0, volume: 0)
@@ -50,10 +50,10 @@ internal static partial class OutputRuns
 
     /// <summary>
     /// Converts <see cref="Song"/> in <c>--progress <paramref name="mode"/></c> with the cache (and the timing history) in
-    /// <paramref name="cacheDirectory"/>.
+    /// <paramref name="cacheDirectory"/>; its stdout, made stable.
     /// </summary>
-    public static (int Code, string Output, string Error) ConvertWithCache(string mode, string cacheDirectory, params string[] args) =>
-        Run(mode, ["--cache-dir", cacheDirectory, .. args]);
+    public static string ConvertWithCache(string mode, string cacheDirectory, params string[] args) =>
+        Run(mode, ["--cache-dir", cacheDirectory, .. args]).Output;
 
     private static (int Code, string Output, string Error) Run(string mode, string[] args)
     {
@@ -71,7 +71,7 @@ internal static partial class OutputRuns
     }
 
     /// <summary><paramref name="text"/> with the temporary folder as <c>TEMP</c>, the version as <c>VERSION</c> and every time as <c>#</c> (<c>0</c> in JSON, so it still parses).</summary>
-    public static string Stable(string text, string folder)
+    private static string Stable(string text, string folder)
     {
         string escaped = folder.Replace("\\", "\\\\", StringComparison.Ordinal);
         text = text.Replace(escaped, "TEMP", StringComparison.Ordinal).Replace(folder, "TEMP", StringComparison.Ordinal);

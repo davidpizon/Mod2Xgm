@@ -16,10 +16,10 @@ internal sealed class TimingHistory
     public const string FileName = "timings.json";
 
     /// <summary>Bumped when the file's layout changes; a file of another version is ignored.</summary>
-    public const int FormatVersion = 1;
+    private const int FormatVersion = 1;
 
     /// <summary>Weight of the newest run in a phase's average.</summary>
-    public const double Weight = 0.5;
+    private const double Weight = 0.5;
 
     private readonly string _path;
     private readonly ILogger _logger;

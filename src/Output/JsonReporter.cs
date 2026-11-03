@@ -15,10 +15,10 @@ namespace Mod2Xgm.Output;
 internal sealed class JsonReporter(TextWriter output) : IConversionReporter
 {
     /// <summary>The schema version every object carries; bumped when a field changes meaning.</summary>
-    public const int SchemaVersion = 1;
+    private const int SchemaVersion = 1;
 
     /// <summary>Least time between two progress objects of one phase.</summary>
-    public static readonly TimeSpan ProgressInterval = TimeSpan.FromSeconds(1);
+    private static readonly TimeSpan ProgressInterval = TimeSpan.FromSeconds(1);
 
     private static readonly JsonWriterOptions WriterOptions = new()
     {
