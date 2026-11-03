@@ -90,6 +90,7 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0074](0074-candidate-cache.md) | Candidate cache: every kind kept per build, FM fits per region's sound, the rest per song file (T8.6) | 2026-11-02 | Accepted |
 | [0075](0075-fm-pitch-guard.md) | FM pitch guard: every fitted voice repeats at the note, no ½ multiple and no shared factor | 2026-11-02 | Accepted |
 | [0076](0076-loose-locked-pairs.md) | Loosened locked pairs: half of each track together, at least eight times, lone notes on their own half | 2026-11-02 | Accepted; supersedes the lock rule of 0073 |
+| [0077](0077-console-output-modes.md) | Console output modes: `--progress fancy\|text\|json\|silent`, step and total progress with time estimates, never interactive (M17) | 2026-11-02 | Accepted; supersedes part of 0008 and 0028 |
 
 ## Open questions
 
