@@ -17,7 +17,7 @@ internal static partial class OutputRuns
     private const int SetSpeed = 0xF;
 
     /// <summary>A song with every kind of sample slot, as in the report's golden test.</summary>
-    public static byte[] Song() => new ModBuilder { Title = "space {debris}" }
+    private static byte[] Song() => new ModBuilder { Title = "space {debris}" }
         .WithSample(1, "bassdrum", 4532)
         .WithSample(2, "snare [2]", 3870, fineTune: -2, volume: 48)
         .WithSample(3, "  by Jester", 0, volume: 0)
@@ -55,7 +55,7 @@ internal static partial class OutputRuns
     }
 
     /// <summary><paramref name="text"/> with the temporary folder as <c>TEMP</c> and every time as <c>#</c> (<c>0</c> in JSON, so it still parses).</summary>
-    public static string Stable(string text, string folder)
+    private static string Stable(string text, string folder)
     {
         string escaped = folder.Replace("\\", "\\\\", StringComparison.Ordinal);
         text = text.Replace(escaped, "TEMP", StringComparison.Ordinal).Replace(folder, "TEMP", StringComparison.Ordinal);
