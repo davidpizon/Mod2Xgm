@@ -90,6 +90,18 @@ public sealed class TextReporterTests
             lines);
     }
 
+    /// <summary>A run with steps at once (the harness) names its jobs on the run line.</summary>
+    [Fact]
+    public void RunLineNamesTheJobs()
+    {
+        using StringWriter output = new();
+        using TextReporter reporter = new(output, TextWriter.Null);
+
+        reporter.RunStarted(new RunInfo("corpus", RunInfo.HarnessFormat, "normal", [new PhaseInfo(1, "song:a", "a", string.Empty)], Jobs: 3));
+
+        Assert.EndsWith("format=harness quality=normal steps=1 jobs=3" + Environment.NewLine, output.ToString(), StringComparison.Ordinal);
+    }
+
     /// <summary>The outcome prints the timing line and the result, with what the conversion wrote.</summary>
     [Fact]
     public void ResultLine()

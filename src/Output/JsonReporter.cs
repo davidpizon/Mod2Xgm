@@ -76,6 +76,11 @@ internal sealed class JsonReporter(TextWriter output) : IConversionReporter
             json.WriteString("input", run.Input);
             json.WriteString("format", run.Format);
             json.WriteString("quality", run.Quality);
+            if (run.Jobs > 1)
+            {
+                json.WriteNumber("jobs", run.Jobs);
+            }
+
             json.WriteStartArray("steps");
             foreach (PhaseInfo phase in run.Phases)
             {

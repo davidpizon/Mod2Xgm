@@ -1,6 +1,6 @@
 # Console output for people and agents
 
-> Status: **built** (T17.1–T17.7; the harness is T17.8) — the design for plan milestone **M17** ([implementation-plan.md](implementation-plan.md#m17--console-output-for-people-and-agents)),
+> Status: **built** (T17.1–T17.8) — the design for plan milestone **M17** ([implementation-plan.md](implementation-plan.md#m17--console-output-for-people-and-agents)),
 > decided in [ADR 0077](adr/0077-console-output-modes.md). The report's content and line format are in
 > [cli.md](cli.md#console-report).
 
@@ -249,11 +249,21 @@ parses every line of the golden run (`tests/golden/output/json-conversion.jsonl`
 
 ## The harness
 
-`tools/Mod2Xgm.Harness` takes the same `--progress` modes (its usage errors keep exit 2). Its phases are per song
-(convert, reference render, candidate renders, score, plus the fit passes it was asked for) and one corpus total:
-`fancy` shows one row per running job (`--jobs`) plus the corpus bar; `text` / `json` emit the same `step` /
-`phase` records with a `song` field. Song times go to the same history file (the harness already uses the
-candidate cache folder), so a corpus rerun has an estimate from the start.
+`tools/Mod2Xgm.Harness` takes the same `--progress` modes through the same reporters. Each song is one step, id
+`song:<name>` (its file name without `.mod`), named by the song; songs run `--jobs` at a time, so steps may start out
+of order and overlap:
+
+- `fancy` titles the run `mod2xgm harness <version> · N songs, J at a time`, shows a row per song being measured plus
+  the corpus total, and ends with the timing table and `Done → <output>/report.md`. Piped, each finished song is one
+  `✓ [n/N] name` line.
+- `text` and `json` write the usual `run` (format `harness`, plus `jobs` when more than one), `step` / `phase`, `time`
+  and `result` records; the result's `out` / `output` is `report.md`.
+- The run's time left is what the running songs have left plus the songs not started, divided by the jobs.
+- Its exit codes stay its own: 0, 1 (a song failed or is off), 2 (couldn't run). An exit-2 failure is an `error`
+  record of kind `cannot-run` (libopenmpt missing, an input not found), `usage` (bad options) or `internal` (a bug, with
+  its stack).
+- Song times go to the same history file (`timings.json` in the cache folder; not with `--no-cache`), one entry per
+  song, so a corpus rerun has an estimate from the start.
 
 ## Testing
 
