@@ -78,6 +78,17 @@ grep -o 'line-rate="[0-9.]*"' "$(find artifacts/coverage -name coverage.cobertur
 Only the `Mod2Xgm` assembly is measured. Don't exclude code from coverage to pass the gate — write the test,
 or make the code testable (e.g. `Program.Run` takes the work as a delegate so the error path is covered).
 
+## Hung tests
+
+A test that runs **10 minutes** is stopped ([ADR 0079](adr/0079-hung-test-timeout.md)). Both test projects load
+MTP's hang-dump extension and run with `--hangdump --hangdump-timeout 10m` (their `TestingPlatformCommandLineArguments`).
+The limit is per test: the timer restarts whenever a test finishes, so a long run of quick tests is never stopped.
+
+A stopped run fails with exit code 7 and writes `TestResults/<project>_<pid>_hang.log`, which names the tests that were
+still running, plus a full memory dump beside it. In CI the log is the `hung-tests-<os>` artifact of the failed
+`Build and test` job. A test that needs more than 10 minutes must be split, made smaller, or moved to the accuracy
+harness.
+
 ## Accuracy harness (drives design decisions)
 
 The goal is the most accurate **sounding** output, so it is measured, not guessed:

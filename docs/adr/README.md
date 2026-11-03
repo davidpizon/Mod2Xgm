@@ -92,6 +92,7 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0076](0076-loose-locked-pairs.md) | Loosened locked pairs: half of each track together, at least eight times, lone notes on their own half | 2026-11-02 | Accepted; supersedes the lock rule of 0073 |
 | [0077](0077-console-output-modes.md) | Console output modes: `--progress fancy\|text\|json\|silent`, step and total progress with time estimates, never interactive (M17) | 2026-11-02 | Accepted; supersedes part of 0008 and 0028 |
 | [0078](0078-pre-mix-budget-cap.md) | Pre-mix candidates fit the song's PCM budget; the window search grows only windows | 2026-11-02 | Accepted; supersedes the no-length-cap decision of 0072 |
+| [0079](0079-hung-test-timeout.md) | A test that runs 10 minutes is stopped, with a dump naming it (MTP hang-dump extension, per test) | 2026-11-03 | Accepted |
 
 ## Open questions
 
