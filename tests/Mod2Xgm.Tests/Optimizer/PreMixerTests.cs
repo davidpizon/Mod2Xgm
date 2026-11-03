@@ -240,6 +240,26 @@ public sealed class PreMixerTests
         Assert.Equal(0, kept.Steals);
     }
 
+    /// <summary>A candidate bigger than the song's whole PCM budget is never offered, on every target; one that just fits is.</summary>
+    [Fact]
+    public void ACandidateOverTheBudgetIsNeverOffered()
+    {
+        foreach (PcmTarget target in PcmTargets.All)
+        {
+            PreMixSongFit all = PreMixer.Fit(KickAndBass.Value, target);
+            Assert.NotEmpty(all.Candidates);
+            foreach (PreMixCandidate c in all.Candidates)
+            {
+                Assert.Contains(PreMixer.Fit(KickAndBass.Value, target, maxPcmBytes: c.Bytes).Candidates, k => k.End == c.End && k.Bytes == c.Bytes);
+                PreMixSongFit under = PreMixer.Fit(KickAndBass.Value, target, maxPcmBytes: c.Bytes - 1);
+                Assert.All(under.Candidates, k => Assert.True(k.Bytes < c.Bytes));
+                Assert.Equal(all.Candidates.Count(k => k.Bytes < c.Bytes), under.Candidates.Count);
+            }
+        }
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => PreMixer.Fit(KickAndBass.Value, PcmTarget.Xgm, maxPcmBytes: 0));
+    }
+
     /// <summary>The report logs a line per target and one per candidate.</summary>
     [Fact]
     public void TheReportLogsEveryTargetAndCandidate()

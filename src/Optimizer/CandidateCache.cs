@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using Mod2Xgm.Analysis;
+using Mod2Xgm.Cli;
 using Serilog;
 
 namespace Mod2Xgm.Optimizer;
@@ -131,8 +132,8 @@ internal sealed partial class CandidateCache
             f => f with { Cached = true });
     }
 
-    /// <summary>The pre-mix candidates of <paramref name="song"/> for <paramref name="target"/>.</summary>
-    public PreMixSongFit PreMix(SongAnalysis song, PcmTarget target, IReadOnlySet<int>? keepOut = null)
+    /// <summary>The pre-mix candidates of <paramref name="song"/> for <paramref name="target"/>, within the song's PCM budget <paramref name="maxPcmBytes"/>.</summary>
+    public PreMixSongFit PreMix(SongAnalysis song, PcmTarget target, IReadOnlySet<int>? keepOut = null, long maxPcmBytes = ConversionDefaults.MaxPcmBytes)
     {
         ArgumentNullException.ThrowIfNull(song);
         return SongWide(
@@ -142,8 +143,9 @@ internal sealed partial class CandidateCache
             {
                 k.Add((int)target);
                 AddSet(k, keepOut);
+                k.Add((double)maxPcmBytes);
             },
-            () => PreMixer.Fit(song, target, keepOut),
+            () => PreMixer.Fit(song, target, keepOut, maxPcmBytes),
             CandidateCodec.Write,
             CandidateCodec.ReadPreMixSongFit,
             f => f with { Cached = true });
