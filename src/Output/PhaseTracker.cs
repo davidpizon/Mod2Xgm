@@ -186,7 +186,16 @@ internal sealed class PhaseTracker(IConversionReporter reporter, TimeProvider ti
         // One job runs its phases in order, so one skipped before this phase won't run; with more, any may still start.
         IEnumerable<PhaseInfo> waiting = _phases.Where(p => !_startedIds.Contains(p.Id) && (_jobs > 1 || p.Number > phase.Number));
         (TimeSpan? total, bool partial) = _estimator.RunRemaining(current, waiting);
-        return (total / _jobs, partial || unknown);
+        TimeSpan? estimate = total / _jobs;
+        foreach (TimeSpan? left in _running.Values)
+        {
+            if (left is { } known && (estimate is null || known > estimate.Value))
+            {
+                estimate = known;
+            }
+        }
+
+        return (estimate, partial || unknown);
     }
 
     /// <summary>One running phase.</summary>
