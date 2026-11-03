@@ -76,7 +76,7 @@ public sealed class PhaseTrackerTests
     public void NoProgressIsSilent()
     {
         NoProgress.Instance.Begin(new RunInfo("song.mod", "dmf", "normal", [Read]));
-        NoProgress.Instance.SetSongRows(64);
+        NoProgress.Instance.SetSongSize(SongSize.Rows, 64);
         IPhase phase = NoProgress.Instance.Start("anything", 5);
         phase.SetTotal(10);
         phase.Advance(3);

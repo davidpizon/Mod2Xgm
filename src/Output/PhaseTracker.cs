@@ -40,8 +40,11 @@ internal interface IConversionProgress
     /// <summary>The run's input and phases are known.</summary>
     void Begin(RunInfo run);
 
-    /// <summary>The song's size in rows played, which the time estimates of the phases not started yet scale with.</summary>
-    void SetSongRows(long rows);
+    /// <summary>
+    /// The song's size in <paramref name="unit"/> (<see cref="SongSize.Rows"/>, <see cref="SongSize.Ticks"/>,
+    /// <see cref="SongSize.Samples"/>), once known: the time estimates of the phases not started yet scale with it.
+    /// </summary>
+    void SetSongSize(string unit, long amount);
 
     /// <summary>Starts phase <paramref name="id"/> with <paramref name="total"/> work (0 when not known yet).</summary>
     IPhase Start(string id, long total = 0);
@@ -65,7 +68,7 @@ internal sealed class NoProgress : IConversionProgress
     }
 
     /// <inheritdoc/>
-    public void SetSongRows(long rows)
+    public void SetSongSize(string unit, long amount)
     {
     }
 
@@ -110,6 +113,9 @@ internal sealed class PhaseTracker(IConversionReporter reporter, TimeProvider ti
     /// <inheritdoc/>
     public IReadOnlyList<PhaseTiming> Timings => _timings;
 
+    /// <summary>The run's time estimates; the command line gives it the timing history once the options are read.</summary>
+    public EtaEstimator Estimator => _estimator;
+
     /// <inheritdoc/>
     public void Begin(RunInfo run)
     {
@@ -119,7 +125,7 @@ internal sealed class PhaseTracker(IConversionReporter reporter, TimeProvider ti
     }
 
     /// <inheritdoc/>
-    public void SetSongRows(long rows) => _estimator.SongRows = rows;
+    public void SetSongSize(string unit, long amount) => _estimator.SetSongSize(unit, amount);
 
     /// <inheritdoc/>
     public IPhase Start(string id, long total = 0)
@@ -176,7 +182,7 @@ internal sealed class PhaseTracker(IConversionReporter reporter, TimeProvider ti
         {
             TimeSpan elapsed = tracker._time.GetElapsedTime(_started);
             TimeSpan? remaining = phaseEvent == PhaseEvent.End ? TimeSpan.Zero : tracker._estimator.Remaining(phase, elapsed, _done, _total);
-            (TimeSpan? total, bool partial) = EtaEstimator.RunRemaining(remaining, tracker.After(phase));
+            (TimeSpan? total, bool partial) = tracker._estimator.RunRemaining(remaining, tracker.After(phase));
             tracker._reporter.Phase(new PhaseUpdate(
                 phase,
                 tracker._phases.Count,

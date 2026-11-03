@@ -39,14 +39,24 @@ internal static partial class OutputRuns
     /// Converts <see cref="Song"/> with <paramref name="args"/> and <c>--progress <paramref name="mode"/></c> (and
     /// <c>--no-cache</c>, so no timing history is read); the exit code and both streams, made stable.
     /// </summary>
-    public static (int Code, string Output, string Error) Convert(string mode, params string[] args)
+    public static (int Code, string Output, string Error) Convert(string mode, params string[] args) =>
+        Run(mode, ["--no-cache", .. args]);
+
+    /// <summary>
+    /// Converts <see cref="Song"/> in <c>--progress <paramref name="mode"/></c> with the cache (and the timing history) in
+    /// <paramref name="cacheDirectory"/>.
+    /// </summary>
+    public static (int Code, string Output, string Error) ConvertWithCache(string mode, string cacheDirectory, params string[] args) =>
+        Run(mode, ["--cache-dir", cacheDirectory, .. args]);
+
+    private static (int Code, string Output, string Error) Run(string mode, string[] args)
     {
         using TempDirectory temp = new();
         string input = temp.CreateFile("song.mod", Song());
         using StringWriter output = new();
         using StringWriter error = new();
         int code = Program.Run(
-            [input, "--progress", mode, "--no-cache", .. args],
+            [input, "--progress", mode, .. args],
             static a => CommandLineDefinition.Invoke(a, Program.ConvertMod, TextWriter.Null, TextWriter.Null),
             output,
             error,

@@ -138,18 +138,27 @@ object at most once a second, plus every start and end.
 
 - **Current step:** once a step has done at least 2 % of its work and run for 0.5 s, remaining =
   elapsed × (total − done) / done, smoothed (exponential moving average) so it doesn't jump.
-- **Steps not started yet:** from **history**: the seconds per unit of work each phase took on earlier runs, times
-  this run's units (known once the earlier steps have run: rows after the scan, seconds of audio after playback).
-  A phase with no history counts as unknown.
+- **Steps not started yet**, and the current step until it has a pace of its own: from **history**: the seconds per
+  unit of song size each phase took on earlier runs, times this song's size in that unit. `render` scales with the
+  **ticks** played (known after `play`), `analyze` with the **samples** it analyzes (known after `play`), every other
+  phase with the **rows** played (known after `scan`). Before its size is known, and with no history, a phase's
+  estimate is unknown. `check`, `read` and `scan` run before any size is known, so they never get history; they take
+  well under a second.
+- **Measured** (2026-11-03, Debug build, history from two runs of `cancan.mod`, `--verbose --render-wav`): at the
+  start of `analyze`, `map` and `render`, the estimate of the time left was within 8 % of the real time on
+  `10kdub.mod`, `8bit_castle.mod` and `cancan.mod`. Rows alone were 37–50 % short on the other songs: a row's ticks
+  depend on the song's speed, and the render's time per tick barely varies (0.0027 s on all three).
 - **Total:** current remaining + the sum of the estimates for the steps left. When any part is unknown the total is
   shown as `about 12 s+` in `fancy`, `eta=12s+` in `text`, `"eta_s":12,"eta_partial":true` in `json`; with nothing
   known, `—` / `eta=?` / `"eta_s":null`.
 - **History file:** `timings.json` at the **root** of the candidate cache folder (`--cache-dir`, default
-  [cli.md](cli.md)), outside the per-build folders so it survives new builds. Per phase: an exponential moving
-  average of seconds per unit over the last runs, plus the machine's processor count. Written atomically (temp file +
-  rename) at the end of a run; a file that can't be read or written is ignored with a `Debug` line, never a failure.
-  `--no-cache` neither reads nor writes it, and then only the current step has an estimate. Serialized with a
-  `System.Text.Json` source-generated context (AOT-safe).
+  [cli.md](cli.md)), outside the per-build folders so it survives new builds:
+  `{"v":1,"seconds_per_unit":{"map":0.00005,"render":0.0025,…}}`. Each run moves a phase's number halfway towards its new
+  pace. Saved when the run ends, success or failure, for the phases that finished: written to a temporary file and
+  renamed over the old one. Read with `JsonDocument` and written with `Utf8JsonWriter` (no reflection). A file that
+  can't be read or written, has another `v`, or holds a value that isn't a non-negative number is ignored with a
+  `Debug` line, never a failure. `--no-cache` neither reads nor writes it, and then only the current step has an
+  estimate.
 
 ## `fancy`
 

@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using Mod2Xgm.Cli;
+using Mod2Xgm.Optimizer;
 using Mod2Xgm.Output;
 using Serilog;
 using Serilog.Core;
@@ -48,18 +49,21 @@ internal static class Program
         try
         {
             ExitCode code = body(args);
+            tracker.Estimator.History?.Save();
             Log.CloseAndFlush();
             reporter.Completed(new RunOutcome(code, tracker.Timings, clock.Elapsed));
             return (int)code;
         }
         catch (ConversionException ex)
         {
+            tracker.Estimator.History?.Save();
             Log.CloseAndFlush();
             reporter.Failed(new RunFailure(ex.Code, ex.Message, null, ex as UsageException, tracker.Timings, clock.Elapsed));
             return (int)ex.Code;
         }
         catch (Exception ex)
         {
+            tracker.Estimator.History?.Save();
             Log.CloseAndFlush();
             reporter.Failed(new RunFailure(ExitCode.InternalError, ex.Message, ex, null, tracker.Timings, clock.Elapsed));
             return (int)ExitCode.InternalError;
@@ -88,6 +92,12 @@ internal static class Program
             Terminal.Width,
             Terminal.NoColor,
             Terminal.DumbTerminal);
+        if (Progress is PhaseTracker tracker && !options.NoCache)
+        {
+            // Earlier runs' timings, at the root of the candidate cache folder (docs/cli-output.md#time-estimate).
+            tracker.Estimator.History = TimingHistory.Load(options.CacheDirectory ?? CandidateCache.DefaultRoot, Log.Logger);
+        }
+
         return ConversionCommand.Execute(options, Log.Logger, null, Progress);
     }
 }
