@@ -18,8 +18,9 @@ internal sealed class EtaEstimator
     public const double Smoothing = 0.3;
 
     private readonly Dictionary<string, long> _songSize = new(StringComparer.Ordinal);
-    private string? _phase;
-    private double? _smoothedSeconds;
+
+    // The smoothed guess of each running phase; the harness runs several songs at once.
+    private readonly Dictionary<string, double> _smoothedSeconds = new(StringComparer.Ordinal);
 
     /// <summary>Earlier runs' timings; <c>null</c> with <c>--no-cache</c>, or before the options are read.</summary>
     public TimingHistory? History { get; set; }
@@ -35,12 +36,6 @@ internal sealed class EtaEstimator
     public TimeSpan? Remaining(PhaseInfo phase, TimeSpan elapsed, long done, long total)
     {
         ArgumentNullException.ThrowIfNull(phase);
-        if (_phase != phase.Id)
-        {
-            _phase = phase.Id;
-            _smoothedSeconds = null;
-        }
-
         double? guess = null;
         if (total > 0 && done > 0 && (double)done / total >= MinCountedShare && elapsed >= MinCountedTime)
         {
@@ -51,12 +46,15 @@ internal sealed class EtaEstimator
             guess = Math.Max(0, (expected - elapsed).TotalSeconds);
         }
 
+        bool known = _smoothedSeconds.TryGetValue(phase.Id, out double smoothed);
         if (guess is { } g)
         {
-            _smoothedSeconds = _smoothedSeconds is { } s ? s + (Smoothing * (g - s)) : g;
+            smoothed = known ? smoothed + (Smoothing * (g - smoothed)) : g;
+            _smoothedSeconds[phase.Id] = smoothed;
+            known = true;
         }
 
-        return _smoothedSeconds is { } seconds ? TimeSpan.FromSeconds(seconds) : null;
+        return known ? TimeSpan.FromSeconds(smoothed) : null;
     }
 
     /// <summary>
@@ -89,8 +87,7 @@ internal sealed class EtaEstimator
     public void Finished(PhaseInfo phase, TimeSpan elapsed)
     {
         ArgumentNullException.ThrowIfNull(phase);
-        _phase = null;
-        _smoothedSeconds = null;
+        _smoothedSeconds.Remove(phase.Id);
         History?.Record(phase.Id, elapsed, Size(phase));
     }
 

@@ -80,7 +80,9 @@ internal sealed class FancyReporter : IConversionReporter
         ArgumentNullException.ThrowIfNull(run);
         lock (_lock)
         {
-            string title = Invariant($"mod2xgm {RunInfo.Version} · {Path.GetFileName(run.Input)} → {run.Format.ToUpperInvariant()} · quality {run.Quality} · {run.Phases.Count} steps");
+            string title = run.Format == RunInfo.HarnessFormat
+                ? Invariant($"mod2xgm harness {RunInfo.Version} · {run.Phases.Count} songs, {run.Jobs} at a time")
+                : Invariant($"mod2xgm {RunInfo.Version} · {Path.GetFileName(run.Input)} → {run.Format.ToUpperInvariant()} · quality {run.Quality} · {run.Phases.Count} steps");
             _console.Write(new Rule(Markup.Escape(title)) { Justification = Justify.Left });
         }
     }
@@ -103,8 +105,7 @@ internal sealed class FancyReporter : IConversionReporter
             }
 
             _area ??= new LiveArea(_console);
-            _area.Show(update);
-            if (update.Event == PhaseEvent.End && update.Phase.Number == update.Of)
+            if (_area.Show(update))
             {
                 CloseArea();
             }
@@ -359,7 +360,8 @@ internal sealed class FancyReporter : IConversionReporter
     private static string Invariant(FormattableString text) => text.ToString(CultureInfo.InvariantCulture);
 
     /// <summary>
-    /// The live area: a step row and a total row, redrawn in place by Spectre's <see cref="LiveDisplay"/>. A live display
+    /// The live area: a row per running step (the harness runs <c>--jobs</c> songs at once; between two steps, the one
+    /// just finished) and a total row, redrawn in place by Spectre's <see cref="LiveDisplay"/>. A live display
     /// runs its callback to the end on the calling thread, but the conversion calls the reporter step by step, so the
     /// display runs on its own thread and is fed with <see cref="LiveDisplayContext.UpdateTarget"/>. Lines written to the
     /// console meanwhile are printed above it by Spectre.
@@ -373,8 +375,10 @@ internal sealed class FancyReporter : IConversionReporter
         private readonly ManualResetEventSlim _started = new();
         private readonly ManualResetEventSlim _stop = new();
         private readonly IAnsiConsole _console;
+        private readonly List<PhaseUpdate> _running = [];
         private LiveDisplayContext? _context;
         private PhaseUpdate? _update;
+        private int _ended;
 
         /// <summary>Starts the live display on <paramref name="console"/>.</summary>
         public LiveArea(IAnsiConsole console)
@@ -385,11 +389,30 @@ internal sealed class FancyReporter : IConversionReporter
             _started.Wait();
         }
 
-        /// <summary>Redraws the two rows for <paramref name="update"/>.</summary>
-        public void Show(PhaseUpdate update)
+        /// <summary>Redraws the rows for <paramref name="update"/>; <c>true</c> once every step has ended.</summary>
+        public bool Show(PhaseUpdate update)
         {
             _update = update;
+            int index = _running.FindIndex(u => u.Phase.Id == update.Phase.Id);
+            if (update.Event == PhaseEvent.End)
+            {
+                _ended++;
+                if (index >= 0)
+                {
+                    _running.RemoveAt(index);
+                }
+            }
+            else if (index >= 0)
+            {
+                _running[index] = update;
+            }
+            else
+            {
+                _running.Add(update);
+            }
+
             _context?.UpdateTarget(Rows());
+            return _ended >= update.Of || (update.Event == PhaseEvent.End && update.Phase.Number == update.Of && _running.Count == 0);
         }
 
         /// <summary>Draws the last rows once more and ends the display; they stay on the screen.</summary>
@@ -417,13 +440,13 @@ internal sealed class FancyReporter : IConversionReporter
                 return new Rows(new Text(string.Empty));
             }
 
-            double? step = u.Event == PhaseEvent.End ? 1 : u.Fraction;
+            IReadOnlyList<PhaseUpdate> shown = _running.Count > 0 ? _running : [u];
             double total = u.TotalRemaining is { } r && (u.TotalElapsed + r).TotalSeconds > 0
                 ? u.TotalElapsed.TotalSeconds / (u.TotalElapsed + r).TotalSeconds
-                : (u.Phase.Number - 1 + (step ?? 0)) / u.Of;
-            return new Rows(
-                Row(Invariant($"[{u.Phase.Number}/{u.Of}] {u.Phase.Name}"), step, u.Elapsed, u.Remaining, false, Decoration.None),
-                Row("Total", total, u.TotalElapsed, u.TotalRemaining, u.TotalPartial, Decoration.Bold));
+                : Math.Min(1, (_ended + _running.Sum(p => p.Fraction ?? 0)) / u.Of);
+            List<IRenderable> rows = [.. shown.Select(p => Row(Invariant($"[{p.Phase.Number}/{p.Of}] {p.Phase.Name}"), p.Event == PhaseEvent.End ? 1 : p.Fraction, p.Elapsed, p.Remaining, false, Decoration.None))];
+            rows.Add(Row("Total", total, u.TotalElapsed, u.TotalRemaining, u.TotalPartial, Decoration.Bold));
+            return new Rows(rows);
         }
 
         /// <summary>One line: label, bar, percentage, time spent and time left; it fits in 80 columns.</summary>

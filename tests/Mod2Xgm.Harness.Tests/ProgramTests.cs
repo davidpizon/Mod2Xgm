@@ -70,8 +70,8 @@ public sealed class ProgramTests
     [Fact]
     public void BadOptionsAreUsageErrors()
     {
-        Assert.Equal(2, Program.Invoke(["--no-such-option"], _ => 0));
-        Assert.Throws<HarnessException>(() => Program.Invoke(["--rate", "100"], _ => 0));
+        Assert.Equal("usage", Assert.Throws<HarnessException>(() => Program.Invoke(["--no-such-option"], _ => 0)).Kind);
+        Assert.Equal("usage", Assert.Throws<HarnessException>(() => Program.Invoke(["--rate", "100"], _ => 0)).Kind);
         Assert.Throws<HarnessException>(() => Program.Invoke(["--jobs", "0"], _ => 0));
         Assert.Throws<HarnessException>(() => Program.Invoke(["--clip", "0.5"], _ => 0));
         Assert.Throws<HarnessException>(() => Program.Invoke(["--balance"], _ => 0));

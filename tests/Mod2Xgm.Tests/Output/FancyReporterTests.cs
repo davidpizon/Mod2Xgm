@@ -102,6 +102,35 @@ public sealed class FancyReporterTests
         Assert.Contains("Done", output, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// A harness run names its songs and jobs in the header, and the live area shows a row for every song running at
+    /// once, then closes when the last one ends, whichever it is.
+    /// </summary>
+    [Fact]
+    public void LiveAreaShowsEveryRunningSong()
+    {
+        PhaseInfo first = new(1, "song:first", "first", string.Empty);
+        PhaseInfo second = new(2, "song:second", "second", string.Empty);
+        TestConsole console = new();
+        console.Interactive();
+        console.EmitAnsiSequences();
+        using FancyReporter reporter = new(console, new TestConsole(), live: true);
+
+        reporter.RunStarted(new RunInfo("corpus", RunInfo.HarnessFormat, "normal", [first, second], Jobs: 2));
+        reporter.Phase(Update(second, PhaseEvent.Start, 0, 0, null));
+        reporter.Phase(Update(first, PhaseEvent.Start, 0, 0, TimeSpan.FromSeconds(4)));
+        reporter.Phase(Update(second, PhaseEvent.End, 0, 0, TimeSpan.Zero));
+        reporter.Phase(Update(first, PhaseEvent.End, 0, 0, TimeSpan.Zero));
+        reporter.Emit(Event(LogEventLevel.Information, "after the bars"));
+
+        string output = console.Output;
+        Assert.Contains("mod2xgm harness ", output, StringComparison.Ordinal);
+        Assert.Contains("2 songs, 2 at a time", output, StringComparison.Ordinal);
+        Assert.Contains("[1/2] first", output, StringComparison.Ordinal);
+        Assert.Contains("[2/2] second", output, StringComparison.Ordinal);
+        Assert.Contains("after the bars", output, StringComparison.Ordinal);
+    }
+
     /// <summary>Piped, each finished step is one static line, and nothing is drawn for progress.</summary>
     [Fact]
     public void PipedStepsAreStaticLines()

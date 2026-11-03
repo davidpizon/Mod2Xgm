@@ -228,8 +228,8 @@ as part of the message template.
 > `fancy` (the default) draws the report as a grid and tables with step and total progress bars; `text` writes one
 > fact per line; `json` one object per line; `silent` nothing. The content is the same in each: the report sections
 > below, every conversion note, the detail with `--verbose`, and the result. The `INF …` / `WRN …` lines this
-> section shows are the report's **line format**: the accuracy harness logs with it, and the report's golden files
-> in `tests/golden/report/` are written in it. Whole runs in each mode are golden files in `tests/golden/output/`.
+> section shows are the report's **line format**: the report's golden files in `tests/golden/report/` are written in
+> it. The accuracy harness takes the same `--progress` modes ([harness.md](harness.md#options)). Whole runs in each mode are golden files in `tests/golden/output/`.
 
 Logged with Serilog (console sink, invariant culture):
 

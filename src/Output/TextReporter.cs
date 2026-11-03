@@ -45,7 +45,8 @@ internal sealed class TextReporter(TextWriter output, TextWriter error) : IConve
             Pair("input", Path.GetFileName(run.Input)),
             Pair("format", run.Format),
             Pair("quality", run.Quality),
-            Pair("steps", run.Phases.Count)));
+            Pair("steps", run.Phases.Count),
+            run.Jobs > 1 ? Pair("jobs", run.Jobs) : null));
     }
 
     /// <inheritdoc/>
