@@ -1,7 +1,7 @@
 namespace Mod2Xgm;
 
 /// <summary>
-/// An expected failure with a specific exit code (bad input, unwritable output, …). <see cref="Program.Run"/>
+/// An expected failure with a specific exit code (bad input, unwritable output, …). <see cref="Program.Run(string[], Func{string[], ExitCode}, TextWriter, TextWriter, TerminalProbe)"/>
 /// prints the message without a stack trace and exits with <see cref="Code"/>. A command line that can't be used is a
 /// <see cref="UsageException"/>.
 /// </summary>

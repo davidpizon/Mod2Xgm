@@ -49,7 +49,7 @@ internal static class ProgressModeScan
 
             if (value is not null)
             {
-                mode = Names.TryGetValue(value, out OutputMode named) ? named : OutputMode.Fancy;
+                mode = Names.GetValueOrDefault(value, OutputMode.Fancy);
             }
         }
 

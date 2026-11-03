@@ -36,13 +36,13 @@ internal static class DmfReport
     }
 
     /// <summary>The fields of <see cref="Lines"/>, line for line: sample numbers are 1-based, as trackers show them.</summary>
-    public static IReadOnlyList<ReportRow> Rows(DmfSong dmf)
+    private static IReadOnlyList<ReportRow> Rows(DmfSong dmf)
     {
         ArgumentNullException.ThrowIfNull(dmf);
         int fm = dmf.Instruments.Count(i => i.Kind == VoiceKind.Fm);
         List<ReportRow> rows =
         [
-            new ReportRow(
+            new(
                 "output",
                 ("format", "dmf"),
                 ("fm", fm),

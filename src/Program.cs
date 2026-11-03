@@ -17,7 +17,7 @@ internal static class Program
     internal const string ConsoleOutputTemplate = LogLinesReporter.OutputTemplate;
 
     /// <summary>How the console was attached when the run started (docs/cli-output.md#the-orchestration-layer-srcoutput-proposed).</summary>
-    internal static TerminalProbe Terminal { get; private set; } = TerminalProbe.From(true, true, null, static _ => null);
+    private static TerminalProbe Terminal { get; set; } = TerminalProbe.From(true, true, null, static _ => null);
 
     internal static int Main(string[] args) => Run(args, static a => CommandLineDefinition.Invoke(a, ConvertMod));
 

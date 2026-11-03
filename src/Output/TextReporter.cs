@@ -12,7 +12,7 @@ namespace Mod2Xgm.Output;
 internal sealed class TextReporter(TextWriter output, TextWriter error) : IConversionReporter
 {
     /// <summary>Least time between two progress lines of one phase.</summary>
-    public static readonly TimeSpan ProgressInterval = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan ProgressInterval = TimeSpan.FromSeconds(5);
 
     private readonly Lock _lock = new();
     private readonly Dictionary<int, string> _sampleNames = [];
@@ -69,8 +69,6 @@ internal sealed class TextReporter(TextWriter output, TextWriter error) : IConve
                 break;
             case PhaseEvent.End:
                 Write(output, $"{step} done | {TextValues.Seconds(update.Elapsed)}");
-                break;
-            default:
                 break;
         }
     }
