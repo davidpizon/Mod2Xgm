@@ -2,6 +2,7 @@ using Mod2Xgm.Audio;
 using Mod2Xgm.Cli;
 using Mod2Xgm.Mapping;
 using Mod2Xgm.Model;
+using Mod2Xgm.Output;
 
 namespace Mod2Xgm.Render;
 
@@ -41,11 +42,12 @@ internal static class GenesisRenderer
     /// <param name="playback">The same song played by the tick player: every tick's pitch, volume and pan.</param>
     /// <param name="options">How to render; <c>null</c> for <see cref="GenesisRenderOptions.Default"/>.</param>
     /// <param name="notes">Collects what the render can't play as the plan says.</param>
+    /// <param name="work">Counts the ticks rendered, when given (docs/cli-output.md#phases).</param>
     /// <exception cref="ArgumentException">The options don't fit the playback, or the playback isn't of the plan's song.</exception>
-    public static StereoAudio Render(GenesisPlan plan, Song song, Playback playback, GenesisRenderOptions? options, ConversionNotes notes)
+    public static StereoAudio Render(GenesisPlan plan, Song song, Playback playback, GenesisRenderOptions? options, ConversionNotes notes, IWorkCounter? work = null)
     {
         GenesisRenderOptions settings = options ?? GenesisRenderOptions.Default;
-        (float[] left, float[] right, double rate) = RenderAtChipRate(plan, song, playback, settings, notes);
+        (float[] left, float[] right, double rate) = RenderAtChipRate(plan, song, playback, settings, notes, work ?? NoWork.Instance);
         if (settings.SampleRate is not { } sampleRate)
         {
             return new StereoAudio(left, right, (int)Math.Round(rate));
@@ -57,7 +59,7 @@ internal static class GenesisRenderer
     }
 
     /// <summary>The render at the YM3438's own rate (returned as <c>Rate</c>), before resampling.</summary>
-    private static (float[] Left, float[] Right, double Rate) RenderAtChipRate(GenesisPlan plan, Song song, Playback playback, GenesisRenderOptions options, ConversionNotes notes)
+    private static (float[] Left, float[] Right, double Rate) RenderAtChipRate(GenesisPlan plan, Song song, Playback playback, GenesisRenderOptions options, ConversionNotes notes, IWorkCounter work)
     {
         ArgumentNullException.ThrowIfNull(plan);
         ArgumentNullException.ThrowIfNull(song);
@@ -76,6 +78,7 @@ internal static class GenesisRenderer
         float[] left = new float[starts[^1]];
         float[] right = new float[starts[^1]];
         GenesisPlanPlayer player = new(plan, song, playback, durations, chips, options.Resampler, notes);
+        work.SetTotal(ticks.Count);
         for (int t = 0; t < ticks.Count; t++)
         {
             int at = starts[t];
@@ -90,6 +93,7 @@ internal static class GenesisRenderer
 
             player.FinishTick(t);
             chips.Render(left.AsSpan(at, end - at), right.AsSpan(at, end - at));
+            work.Advance();
         }
 
         player.Report();

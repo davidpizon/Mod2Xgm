@@ -5,6 +5,7 @@ using Serilog.Parsing;
 namespace Mod2Xgm.Tests.Output;
 
 /// <summary>Tests of <c>--progress text</c> (plan T17.3, docs/cli-output.md#text).</summary>
+[Collection(ProgramState.Name)]
 public sealed class TextReporterTests
 {
     /// <summary>A whole conversion in text mode matches its golden file: the report, the notes and the result.</summary>

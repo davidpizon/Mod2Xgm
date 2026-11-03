@@ -95,8 +95,9 @@ flowchart LR
   notes), `Debug` events and report rows reach it through the logger. Serilog stays the logging pipeline and the 61
   stages that take a `ConversionNotes` / `ILogger` do not change. The console sink is gone from the converter: nothing
   writes to the console except the reporter.
-- **`PhaseTracker`** — knows the phase list for this run (from the options), the current step, the work done in it,
-  and times every phase with `TimeProvider` (a fake clock in tests).
+- **`PhaseTracker`** — knows the phase list for this run (`ConversionCommand.Phases`, from the options), the current
+  step, the work done in it, and times every phase with `TimeProvider` (a fake clock in tests). It passes progress to
+  the reporter at most every 100 ms.
 - **`Program.Run`** — creates the reporter first; `ConversionException` → `Failed` + its exit code (a command line
   that can't be used is a `UsageException`: its problems, the missing arguments and the usage line); any other
   exception → `Failed` (with the stack trace in `fancy`/`text`/`json`, nothing in `silent`) + exit 5.
@@ -106,24 +107,30 @@ flowchart LR
 The steps are known before the first one starts, so "step 5 of 9" is true from the start. Which steps a run has
 depends on its options:
 
-| # | Phase (`id`) | When | Work counted |
+| # | Phase (`id`) | When | Work counted (`unit`) |
 |---|---|---|---|
-| 1 | Check paths (`check`) | always | — (instant) |
-| 2 | Read MOD (`read`) | always | bytes |
-| 3 | Scan sample use (`scan`) | always | rows played |
-| 4 | Build song model (`model`) | always | patterns |
-| 5 | Play ticks (`play`) | always | orders |
-| 6 | Analyze samples (`analyze`) | `--verbose`, the harness, and (M9) the optimizer | samples |
-| 7 | Map channels (`map`) | always | orders |
-| 8 | Write DMF (`write`) | a song file is written | — (instant) |
-| 9 | Render WAV (`render`) | `--render-wav` | seconds of song rendered |
+| 1 | Check paths (`check`) | always | — |
+| 2 | Read MOD (`read`) | always | `bytes` (at the end: the read is one call) |
+| 3 | Scan sample use (`scan`) | always | `rows` played (at the end) |
+| 4 | Build song model (`model`) | always | — |
+| 5 | Play ticks (`play`) | always | — |
+| 6 | Analyze samples (`analyze`) | `--verbose`, the harness, and (M9) the optimizer | `samples`, one by one |
+| 7 | Map channels (`map`) | always | — |
+| 8 | Write DMF (`write`) | `--format dmf` (with `--info` it builds the DMF but writes nothing) | — |
+| 9 | Render WAV (`render`) | `--render-wav` | `ticks`, one by one |
+
+Steps are numbered within the run, so a plain DMF conversion has 7 (`step 6/7 map`). Only the two slow steps count
+their work as they go; the others take well under a second on real songs, and their ids, names and units are a
+contract of the `text` and `json` output and of the timing history.
 
 When the optimizer lands (plan M9) it adds its passes as phases (`fit-fm`, `fit-psg`, `fit-pcm`, `pre-mix`,
 `allocate`, `refine`), each counting candidates or rounds; `refine` under `--time-budget` counts time against the
 budget, so its bar and estimate are exact.
 
-Stages report work through a small **`IWorkCounter`** parameter (`Total`, `Advance(n)`), with a no-op default so
-tests and the harness need not pass one. Counting is cheap (an integer add); the reporter throttles what it shows:
+Stages report work through a small optional **`IWorkCounter`** parameter (`SetTotal`, `Advance(n)`;
+`SampleAnalyzer.AnalyzeSong`, `GenesisRenderer.Render`), with a no-op default so tests and the harness need not pass
+one. `ConversionCommand.Execute` takes an **`IConversionProgress`** (`Begin`, `Start(id)` → a phase with `Done()`,
+`SetSongRows`); `Program.Run` passes a `PhaseTracker` and hands its timings to the reporter at the end, success or failure. Counting is cheap (an integer add); the reporter throttles what it shows:
 `fancy` redraws at most 10 times a second, `text` writes a progress line at most every 5 s, `json` a progress
 object at most once a second, plus every start and end.
 

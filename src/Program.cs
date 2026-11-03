@@ -19,6 +19,9 @@ internal static class Program
     /// <summary>How the console was attached when the run started (docs/cli-output.md#the-orchestration-layer-srcoutput-proposed).</summary>
     internal static TerminalProbe Terminal { get; private set; } = TerminalProbe.From(true, true, null, static _ => null);
 
+    /// <summary>The steps of the current run, reported to its reporter (docs/cli-output.md#phases).</summary>
+    internal static IConversionProgress Progress { get; private set; } = NoProgress.Instance;
+
     internal static int Main(string[] args) => Run(args, static a => CommandLineDefinition.Invoke(a, ConvertMod));
 
     /// <summary>Runs <paramref name="body"/> on the process's console; see <see cref="Run(string[], Func{string[], ExitCode}, TextWriter, TextWriter, TerminalProbe)"/>.</summary>
@@ -39,25 +42,32 @@ internal static class Program
         Stopwatch clock = Stopwatch.StartNew();
         using IConversionReporter reporter = Reporters.Create(ProgressModeScan.Find(args), output, error, terminal);
         Log.Logger = CreateLogger(LevelSwitch, reporter);
+        PhaseTracker tracker = new(reporter, TimeProvider.System, new EtaEstimator());
+        Progress = tracker;
 
         try
         {
             ExitCode code = body(args);
             Log.CloseAndFlush();
-            reporter.Completed(new RunOutcome(code, [], clock.Elapsed));
+            reporter.Completed(new RunOutcome(code, tracker.Timings, clock.Elapsed));
             return (int)code;
         }
         catch (ConversionException ex)
         {
             Log.CloseAndFlush();
-            reporter.Failed(new RunFailure(ex.Code, ex.Message, null, ex as UsageException, [], clock.Elapsed));
+            reporter.Failed(new RunFailure(ex.Code, ex.Message, null, ex as UsageException, tracker.Timings, clock.Elapsed));
             return (int)ex.Code;
         }
         catch (Exception ex)
         {
             Log.CloseAndFlush();
-            reporter.Failed(new RunFailure(ExitCode.InternalError, ex.Message, ex, null, [], clock.Elapsed));
+            reporter.Failed(new RunFailure(ExitCode.InternalError, ex.Message, ex, null, tracker.Timings, clock.Elapsed));
             return (int)ExitCode.InternalError;
+        }
+        finally
+        {
+            // The reporter is disposed with this run; a later ConvertMod (tests call it directly) reports nowhere.
+            Progress = NoProgress.Instance;
         }
     }
 
@@ -78,6 +88,6 @@ internal static class Program
             Terminal.Width,
             Terminal.NoColor,
             Terminal.DumbTerminal);
-        return ConversionCommand.Execute(options, Log.Logger);
+        return ConversionCommand.Execute(options, Log.Logger, null, Progress);
     }
 }
