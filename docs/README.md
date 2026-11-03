@@ -5,6 +5,7 @@
 | [implementation-plan.md](implementation-plan.md) | **Build order:** milestones M0–M12, tasks, acceptance criteria, risks |
 | [architecture.md](architecture.md) | Conversion pipeline, layers, data model, project layout |
 | [cli.md](cli.md) | Command-line contract: arguments, output naming, exit codes |
+| [cli-output.md](cli-output.md) | Console output for people and agents: `--progress` modes, phases, time estimates, text/JSON formats (proposed, M17) |
 | [references/](references/README.md) | Research summaries for agents: FM matching (Horner 1993, Sound2Synth 2022, DDX7 2022) and the fitting design they lead to |
 | [multi-pass.md](multi-pass.md) | Multi-pass optimizer: FM/PSG/PCM candidates, allocation, in-app render & refine |
 | [sample-capacity.md](sample-capacity.md) | Capacity limits per target, capacity warning, sample consolidation, ignoring samples |

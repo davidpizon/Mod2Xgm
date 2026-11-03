@@ -1,6 +1,6 @@
 # ADR 0028: Console report sections 1–2 (T2.5)
 
-- **Status:** Accepted
+- **Status:** Accepted; line format superseded by [ADR 0077](0077-console-output-modes.md) once M17 lands
 - **Date:** 2026-10-27
 
 ## Context

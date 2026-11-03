@@ -214,6 +214,10 @@ as part of the message template.
 
 ## Console output
 
+> Planned (M17, [ADR 0077](adr/0077-console-output-modes.md)): `--progress fancy|text|json|silent` replaces this
+> output with progress bars, an agent text format, NDJSON and a silent mode — see [cli-output.md](cli-output.md).
+> Until then the converter prints what this section describes.
+
 Logged with Serilog (console sink, invariant culture):
 
 - stdout: `Information` (and `Debug` with `--verbose`: the effective options, ignored samples, two
