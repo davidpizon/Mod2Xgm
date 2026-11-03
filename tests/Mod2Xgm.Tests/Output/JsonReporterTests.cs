@@ -43,6 +43,27 @@ public sealed class JsonReporterTests
         Assert.Equal("output-not-writable", last.RootElement.GetProperty("error").GetString());
     }
 
+    /// <summary>
+    /// A run with steps at once (the harness) carries <c>jobs</c>; a failure whose kind was set (the harness's
+    /// <c>cannot-run</c>) keeps it.
+    /// </summary>
+    [Fact]
+    public void HarnessRunsCarryJobsAndTheirKind()
+    {
+        using StringWriter output = new();
+        using JsonReporter reporter = new(output);
+
+        reporter.RunStarted(new RunInfo("corpus", RunInfo.HarnessFormat, "normal", [new PhaseInfo(1, "song:a", "a", string.Empty)], Jobs: 2));
+        reporter.Failed(new RunFailure((ExitCode)2, "libopenmpt not found", null, null, [], TimeSpan.Zero) { Kind = "cannot-run" });
+
+        string[] lines = Lines(output.ToString());
+        using JsonDocument run = JsonDocument.Parse(lines[0]);
+        using JsonDocument error = JsonDocument.Parse(lines[^1]);
+        Assert.Equal(2, run.RootElement.GetProperty("jobs").GetInt32());
+        Assert.Equal("cannot-run", error.RootElement.GetProperty("error").GetString());
+        Assert.Equal(2, error.RootElement.GetProperty("code").GetInt32());
+    }
+
     /// <summary>A usage error lists its problems, the missing arguments and the usage line.</summary>
     [Fact]
     public void UsageErrorNamesTheMissingArgument()

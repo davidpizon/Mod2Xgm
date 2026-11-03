@@ -4,6 +4,7 @@ using Mod2Xgm.Cli;
 using Mod2Xgm.Mod;
 using Mod2Xgm.Model;
 using Mod2Xgm.Optimizer;
+using Mod2Xgm.Output;
 using Mod2Xgm.Render;
 using Mod2Xgm.Scoring;
 using Serilog;
@@ -60,11 +61,15 @@ internal sealed class CorpusRun(
     FmFitOptions? ch3 = null,
     CandidateCache? cache = null)
 {
+    /// <summary>The step id of the song at <paramref name="modPath"/> (docs/cli-output.md#the-harness).</summary>
+    public static string PhaseId(string modPath) => "song:" + Path.GetFileNameWithoutExtension(modPath);
+
     /// <summary>
-    /// Measures every song in <paramref name="modPaths"/>, <paramref name="jobs"/> at a time; the results are in the
-    /// order given, whatever order the songs finish in. A song that fails is reported and skipped.
+    /// Measures every song in <paramref name="modPaths"/>, <paramref name="jobs"/> at a time, each as a step of
+    /// <paramref name="progress"/> (<see cref="PhaseId"/>); the results are in the order given, whatever order the songs
+    /// finish in. A song that fails is reported and skipped.
     /// </summary>
-    public IReadOnlyList<SongResult> Run(IReadOnlyList<string> modPaths, int jobs = 1)
+    public IReadOnlyList<SongResult> Run(IReadOnlyList<string> modPaths, int jobs = 1, IConversionProgress? progress = null)
     {
         ArgumentNullException.ThrowIfNull(modPaths);
         ArgumentOutOfRangeException.ThrowIfLessThan(jobs, 1);
@@ -74,7 +79,18 @@ internal sealed class CorpusRun(
         }
 
         SongResult[] results = new SongResult[modPaths.Count];
-        Parallel.For(0, modPaths.Count, new ParallelOptions { MaxDegreeOfParallelism = jobs }, i => results[i] = Measure(modPaths[i]));
+        Parallel.For(0, modPaths.Count, new ParallelOptions { MaxDegreeOfParallelism = jobs }, i =>
+        {
+            IPhase phase = (progress ?? NoProgress.Instance).Start(PhaseId(modPaths[i]));
+            try
+            {
+                results[i] = Measure(modPaths[i]);
+            }
+            finally
+            {
+                phase.Done();
+            }
+        });
         return results;
     }
 

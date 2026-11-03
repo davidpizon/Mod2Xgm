@@ -34,11 +34,25 @@ internal static class ConversionCommand
     /// how many notes the song sounds at once to <paramref name="analyzed"/> when it is given (the accuracy harness writes them to its CSVs
     /// without analyzing twice); expected failures throw <see cref="ConversionException"/>.
     /// </summary>
-    public static ExitCode Execute(ConversionOptions options, ILogger logger, Action<SongAnalysis>? analyzed)
+    public static ExitCode Execute(ConversionOptions options, ILogger logger, Action<SongAnalysis>? analyzed) =>
+        Execute(options, logger, analyzed, NoProgress.Instance);
+
+    /// <summary>
+    /// Runs one conversion as <see cref="Execute(ConversionOptions, ILogger, Action{SongAnalysis}?)"/> does, and tells
+    /// <paramref name="progress"/> the run's steps, which one is running and how much of its work is done
+    /// (docs/cli-output.md#phases).
+    /// </summary>
+    public static ExitCode Execute(ConversionOptions options, ILogger logger, Action<SongAnalysis>? analyzed, IConversionProgress progress)
     {
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(logger);
+        ArgumentNullException.ThrowIfNull(progress);
         LogOptions(options, logger);
 
+        bool verbose = logger.IsEnabled(LogEventLevel.Debug);
         string input = Path.GetFullPath(options.InputPath);
+        progress.Begin(new RunInfo(input, FormatName(options.Format), QualityName(options.Quality), Phases(options, verbose || analyzed is not null)));
+        IPhase phase = progress.Start(PhaseCheck);
         CheckInput(input);
 
         string output = OutputPaths.Resolve(options);
@@ -58,9 +72,13 @@ internal static class ConversionCommand
             }
         }
 
+        phase.Done();
+        phase = progress.Start(PhaseRead);
         ConversionNotes notes = new(logger);
         byte[] mod = ReadInput(input);
+        phase.SetTotal(mod.Length);
         ModModule module = ModReader.Read(mod, notes, options.Player);
+        phase.Advance(mod.Length);
 
         // Report sections 1–2 come right after reading, before anything that can fail later (docs/cli.md#console-report).
         ModReport.LogMetadata(logger, module, Path.GetFileName(input));
@@ -73,7 +91,12 @@ internal static class ConversionCommand
             module.Patterns.Count,
             module.SongLength);
 
+        phase.Done();
+        phase = progress.Start(PhaseScan);
         SampleUsage usage = SampleUsageScanner.Scan(module, notes);
+        phase.SetTotal(usage.RowsPlayed);
+        phase.Advance(usage.RowsPlayed);
+        progress.SetSongSize(SongSize.Rows, usage.RowsPlayed);
         logger.Debug(
             "Usage scan: {Rows} rows played, {Used} samples used, loops back: {LoopsBack}",
             usage.RowsPlayed,
@@ -84,14 +107,21 @@ internal static class ConversionCommand
         CheckFormat(options, logger);
         LogQuality(options, logger);
 
+        phase.Done();
+        phase = progress.Start(PhaseModel);
         Song song = ModToSong.Convert(module, options.AmigaClockHz, notes);
+        phase.Done();
+        phase = progress.Start(PhasePlay);
         Playback playback = ModTickPlayer.Play(module, options.AmigaClockHz, options.AmigaTickRateScale, notes);
+        progress.SetSongSize(SongSize.Ticks, playback.Ticks.Count);
+        phase.Done();
         MappingOptions mapping = MappingOptions.From(options);
-        bool verbose = logger.IsEnabled(LogEventLevel.Debug);
+        progress.SetSongSize(SongSize.Samples, Enumerable.Range(0, song.Samples.Count).Count(s => !song.Samples[s].IsEmpty && !mapping.Ignore.Contains(s)));
         if (verbose || analyzed is not null)
         {
             // Nothing uses the analysis yet (the optimizer will, plan M9); --verbose shows it (docs/adr/0068-sample-analysis.md).
-            IReadOnlyList<SampleAnalysis> analyses = SampleAnalyzer.AnalyzeSong(song, playback, mapping.Ignore);
+            phase = progress.Start(PhaseAnalyze);
+            IReadOnlyList<SampleAnalysis> analyses = SampleAnalyzer.AnalyzeSong(song, playback, mapping.Ignore, phase);
             SongAnalysis analysis = new(song, playback, analyses, SongVoices.Count(song, playback))
             {
                 Source = AnalysisSource(mod, module, options, mapping.Ignore),
@@ -105,22 +135,29 @@ internal static class ConversionCommand
             }
 
             analyzed?.Invoke(analysis);
+            phase.Done();
         }
 
+        phase = progress.Start(PhaseMap);
         GenesisPlan plan = new SimpleMapper().Map(song, playback, mapping, notes);
         logger.Debug(
             "Mapped {Orders} orders: {FmPatches} FM patches, {DacSamples} DAC samples",
             plan.Patterns.Count,
             plan.FmPatches.Count,
             plan.DacSamples.Count);
+        phase.Done();
         if (options.Format == OutputFormat.Dmf)
         {
+            phase = progress.Start(PhaseWrite);
             WriteDmf(options, output, song, plan, notes, logger);
+            phase.Done();
         }
 
         if (wav is not null)
         {
-            RenderWav(options, wav, playback, song, plan, notes, logger);
+            phase = progress.Start(PhaseRender);
+            RenderWav(options, wav, playback, song, plan, notes, logger, phase);
+            phase.Done();
         }
 
         string? written = options is { Format: OutputFormat.Dmf, InfoOnly: false } ? output : null;
@@ -161,7 +198,7 @@ internal static class ConversionCommand
     /// Plays the song with the tick player, renders the plan on the Genesis model with the format's PCM driver and writes
     /// the WAV (<c>--render-wav</c>; written with <c>--info</c> too), saying how long the render took.
     /// </summary>
-    private static void RenderWav(ConversionOptions options, string wav, Playback playback, Song song, GenesisPlan plan, ConversionNotes notes, ILogger logger)
+    private static void RenderWav(ConversionOptions options, string wav, Playback playback, Song song, GenesisPlan plan, ConversionNotes notes, ILogger logger, IWorkCounter work)
     {
         PcmDriver driver = options.Format switch
         {
@@ -170,7 +207,7 @@ internal static class ConversionCommand
             _ => PcmDriver.Dmf,
         };
         Stopwatch clock = Stopwatch.StartNew();
-        StereoAudio audio = GenesisRenderer.Render(plan, song, playback, new GenesisRenderOptions(driver, options.OutputRegion, RenderWavRate, options.Resampler), notes);
+        StereoAudio audio = GenesisRenderer.Render(plan, song, playback, new GenesisRenderOptions(driver, options.OutputRegion, RenderWavRate, options.Resampler), notes, work);
         clock.Stop();
         int clipped = WavEncoder.ClippedSamples(audio);
         if (clipped > 0)
@@ -186,6 +223,68 @@ internal static class ConversionCommand
             clock.Elapsed.TotalSeconds,
             wav);
     }
+
+    /// <summary>
+    /// The steps a run with <paramref name="options"/> goes through, in order (docs/cli-output.md#phases): the sample
+    /// analysis only when <paramref name="analyzes"/>, the DMF only for <c>--format dmf</c>, the WAV only with
+    /// <c>--render-wav</c>.
+    /// </summary>
+    internal static IReadOnlyList<PhaseInfo> Phases(ConversionOptions options, bool analyzes)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        List<(string Id, string Name, string Unit)> steps =
+        [
+            (PhaseCheck, "Check paths", string.Empty),
+            (PhaseRead, "Read MOD", "bytes"),
+            (PhaseScan, "Scan sample use", "rows"),
+            (PhaseModel, "Build song model", string.Empty),
+            (PhasePlay, "Play ticks", string.Empty),
+        ];
+        if (analyzes)
+        {
+            steps.Add((PhaseAnalyze, "Analyze samples", "samples"));
+        }
+
+        steps.Add((PhaseMap, "Map channels", string.Empty));
+        if (options.Format == OutputFormat.Dmf)
+        {
+            steps.Add((PhaseWrite, "Write DMF", string.Empty));
+        }
+
+        if (options.RenderWav)
+        {
+            steps.Add((PhaseRender, "Render WAV", "ticks"));
+        }
+
+        return [.. steps.Select((s, i) => new PhaseInfo(i + 1, s.Id, s.Name, s.Unit))];
+    }
+
+    // Phase ids: a contract of the text and json output and the timing history (docs/cli-output.md#phases).
+    private const string PhaseCheck = "check";
+    private const string PhaseRead = "read";
+    private const string PhaseScan = "scan";
+    private const string PhaseModel = "model";
+    private const string PhasePlay = "play";
+    private const string PhaseAnalyze = "analyze";
+    private const string PhaseMap = "map";
+    private const string PhaseWrite = "write";
+    private const string PhaseRender = "render";
+
+    /// <summary>The format's name as <c>--format</c> takes it.</summary>
+    private static string FormatName(OutputFormat format) => format switch
+    {
+        OutputFormat.Xgm => "xgm",
+        OutputFormat.Xgm2 => "xgm2",
+        _ => "dmf",
+    };
+
+    /// <summary>The quality's name as <c>--quality</c> takes it.</summary>
+    private static string QualityName(Quality quality) => quality switch
+    {
+        Quality.Fast => "fast",
+        Quality.Best => "best",
+        _ => "normal",
+    };
 
     /// <summary>The <c>--render-wav</c> file's sample rate.</summary>
     private const int RenderWavRate = 44_100;

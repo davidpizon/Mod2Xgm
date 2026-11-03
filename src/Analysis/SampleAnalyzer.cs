@@ -1,6 +1,7 @@
 using Mod2Xgm.Audio;
 using Mod2Xgm.Mapping;
 using Mod2Xgm.Model;
+using Mod2Xgm.Output;
 using Mod2Xgm.Scoring;
 
 namespace Mod2Xgm.Analysis;
@@ -111,9 +112,9 @@ internal static class SampleAnalyzer
     /// Analyzes every sample of <paramref name="song"/> that has sound, except those in <paramref name="ignore"/>
     /// (indexes into <c>Song.Samples</c>), with the notes <paramref name="playback"/> starts on each. A sample a channel
     /// swaps in without a note (MOD: an instrument alone, which changes the loop) counts as one note at the channel's
-    /// pitch, once per swap.
+    /// pitch, once per swap. <paramref name="work"/>, when given, counts the samples analyzed.
     /// </summary>
-    public static IReadOnlyList<SampleAnalysis> AnalyzeSong(Song song, Playback playback, IReadOnlySet<int> ignore)
+    public static IReadOnlyList<SampleAnalysis> AnalyzeSong(Song song, Playback playback, IReadOnlySet<int> ignore, IWorkCounter? work = null)
     {
         ArgumentNullException.ThrowIfNull(song);
         ArgumentNullException.ThrowIfNull(playback);
@@ -137,9 +138,17 @@ internal static class SampleAnalyzer
             }
         }
 
-        return [.. Enumerable.Range(0, song.Samples.Count)
-            .Where(s => !song.Samples[s].IsEmpty && !ignore.Contains(s))
-            .Select(s => Analyze(s, song.Samples[s], rates[s]))];
+        int[] chosen = [.. Enumerable.Range(0, song.Samples.Count).Where(s => !song.Samples[s].IsEmpty && !ignore.Contains(s))];
+        work ??= NoWork.Instance;
+        work.SetTotal(chosen.Length);
+        List<SampleAnalysis> analyses = new(chosen.Length);
+        foreach (int s in chosen)
+        {
+            analyses.Add(Analyze(s, song.Samples[s], rates[s]));
+            work.Advance();
+        }
+
+        return analyses;
     }
 
     /// <summary>Analyzes one sample, played at <paramref name="noteRatesHz"/> (one entry per note start; may be empty).</summary>
