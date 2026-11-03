@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Text;
 using Mod2Xgm.Cli;
 using Mod2Xgm.Optimizer;
 using Mod2Xgm.Output;
@@ -14,10 +15,13 @@ internal static class Program
     /// <summary>Minimum log level; raised to Debug by <c>--verbose</c>.</summary>
     internal static LoggingLevelSwitch LevelSwitch { get; } = new(); // starts at Information
 
-    /// <summary>Console line format (docs/cli.md#console-output); golden tests render the report with it.</summary>
-    internal const string ConsoleOutputTemplate = LogLinesReporter.OutputTemplate;
+    /// <summary>
+    /// The Serilog line format of the report (<c>INF …</c>, <c>WRN …</c>; docs/cli.md#console-output): the harness logs
+    /// with it, and the report's golden tests render with it.
+    /// </summary>
+    internal const string ConsoleOutputTemplate = "{Level:u3} {Message:lj}{NewLine}{Exception}";
 
-    /// <summary>How the console was attached when the run started (docs/cli-output.md#the-orchestration-layer-srcoutput-proposed).</summary>
+    /// <summary>How the console was attached when the run started (docs/cli-output.md#the-orchestration-layer-srcoutput).</summary>
     private static TerminalProbe Terminal { get; set; } = TerminalProbe.From(true, true, null, static _ => null);
 
     /// <summary>The steps of the current run, reported to its reporter (docs/cli-output.md#phases).</summary>
@@ -26,8 +30,20 @@ internal static class Program
     internal static int Main(string[] args) => Run(args, static a => CommandLineDefinition.Invoke(a, ConvertMod));
 
     /// <summary>Runs <paramref name="body"/> on the process's console; see <see cref="Run(string[], Func{string[], ExitCode}, TextWriter, TextWriter, TerminalProbe)"/>.</summary>
-    internal static int Run(string[] args, Func<string[], ExitCode> body) =>
-        Run(args, body, Console.Out, Console.Error, TerminalProbe.Current());
+    internal static int Run(string[] args, Func<string[], ExitCode> body)
+    {
+        TerminalProbe terminal = TerminalProbe.Current();
+        using TextWriter? output = terminal.OutputRedirected ? Utf8(Console.OpenStandardOutput()) : null;
+        using TextWriter? error = terminal.ErrorRedirected ? Utf8(Console.OpenStandardError()) : null;
+        return Run(args, body, output ?? Console.Out, error ?? Console.Error, terminal);
+    }
+
+    /// <summary>
+    /// A redirected stream is written in UTF-8 without a byte-order mark (docs/cli-output.md#streams): the console's own
+    /// encoding there is the OEM code page on Windows, which can't hold names like "é" or the drawing characters.
+    /// The console's code page itself is left alone.
+    /// </summary>
+    private static StreamWriter Utf8(Stream stream) => new(stream, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)) { AutoFlush = true };
 
     /// <summary>
     /// Makes the reporter <c>--progress</c> asks for (found before parsing, so parse errors use it too), logs through it
