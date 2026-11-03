@@ -6,6 +6,7 @@ using Serilog.Parsing;
 namespace Mod2Xgm.Tests.Output;
 
 /// <summary>Tests of <c>--progress json</c> (plan T17.4, docs/cli-output.md#json).</summary>
+[Collection(ProgramState.Name)]
 public sealed class JsonReporterTests
 {
     /// <summary>A whole conversion in json mode matches its golden file, and every line is one JSON object of schema 1.</summary>
