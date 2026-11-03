@@ -1,8 +1,8 @@
 # Console output for people and agents
 
-> Status: **proposed** — the design for plan milestone **M17** ([implementation-plan.md](implementation-plan.md#m17--console-output-for-people-and-agents)),
-> decided in [ADR 0077](adr/0077-console-output-modes.md). Nothing here is built yet; [cli.md](cli.md#console-output) describes
-> what the converter prints today.
+> Status: **built** (T17.1–T17.8) — the design for plan milestone **M17** ([implementation-plan.md](implementation-plan.md#m17--console-output-for-people-and-agents)),
+> decided in [ADR 0077](adr/0077-console-output-modes.md). The report's content and line format are in
+> [cli.md](cli.md#console-report).
 
 ## Goals
 
@@ -44,6 +44,10 @@ progress area prints nothing, so `fancy` prints one static line per finished ste
 
 David had no preference; this split is the proposal in ADR 0077.
 
+A redirected stdout or stderr is written in **UTF-8** (no byte-order mark) in every mode, whatever the console's code
+page: on Windows that is the OEM code page, which can't hold names like `é` or `fancy`'s drawing characters. A
+console that isn't redirected keeps its own encoding, and its code page is never changed.
+
 ## Never interactive
 
 - The converter never reads stdin and never calls `AnsiConsole.Prompt`, `Confirm`, `SelectionPrompt` or anything
@@ -57,7 +61,7 @@ David had no preference; this split is the proposal in ADR 0077.
   (`CommandApp`) is not used: it binds settings by reflection and is marked not AOT-compatible, which breaks the
   zero-warning AOT rule ([ADR 0077](adr/0077-console-output-modes.md#options-considered)).
 
-## The orchestration layer (`src/Output/`, proposed)
+## The orchestration layer (`src/Output/`)
 
 ```mermaid
 flowchart LR
@@ -95,8 +99,9 @@ flowchart LR
   notes), `Debug` events and report rows reach it through the logger. Serilog stays the logging pipeline and the 61
   stages that take a `ConversionNotes` / `ILogger` do not change. The console sink is gone from the converter: nothing
   writes to the console except the reporter.
-- **`PhaseTracker`** — knows the phase list for this run (from the options), the current step, the work done in it,
-  and times every phase with `TimeProvider` (a fake clock in tests).
+- **`PhaseTracker`** — knows the phase list for this run (`ConversionCommand.Phases`, from the options), the current
+  step, the work done in it, and times every phase with `TimeProvider` (a fake clock in tests). It passes progress to
+  the reporter at most every 100 ms.
 - **`Program.Run`** — creates the reporter first; `ConversionException` → `Failed` + its exit code (a command line
   that can't be used is a `UsageException`: its problems, the missing arguments and the usage line); any other
   exception → `Failed` (with the stack trace in `fancy`/`text`/`json`, nothing in `silent`) + exit 5.
@@ -106,24 +111,30 @@ flowchart LR
 The steps are known before the first one starts, so "step 5 of 9" is true from the start. Which steps a run has
 depends on its options:
 
-| # | Phase (`id`) | When | Work counted |
+| # | Phase (`id`) | When | Work counted (`unit`) |
 |---|---|---|---|
-| 1 | Check paths (`check`) | always | — (instant) |
-| 2 | Read MOD (`read`) | always | bytes |
-| 3 | Scan sample use (`scan`) | always | rows played |
-| 4 | Build song model (`model`) | always | patterns |
-| 5 | Play ticks (`play`) | always | orders |
-| 6 | Analyze samples (`analyze`) | `--verbose`, the harness, and (M9) the optimizer | samples |
-| 7 | Map channels (`map`) | always | orders |
-| 8 | Write DMF (`write`) | a song file is written | — (instant) |
-| 9 | Render WAV (`render`) | `--render-wav` | seconds of song rendered |
+| 1 | Check paths (`check`) | always | — |
+| 2 | Read MOD (`read`) | always | `bytes` (at the end: the read is one call) |
+| 3 | Scan sample use (`scan`) | always | `rows` played (at the end) |
+| 4 | Build song model (`model`) | always | — |
+| 5 | Play ticks (`play`) | always | — |
+| 6 | Analyze samples (`analyze`) | `--verbose`, the harness, and (M9) the optimizer | `samples`, one by one |
+| 7 | Map channels (`map`) | always | — |
+| 8 | Write DMF (`write`) | `--format dmf` (with `--info` it builds the DMF but writes nothing) | — |
+| 9 | Render WAV (`render`) | `--render-wav` | `ticks`, one by one |
+
+Steps are numbered within the run, so a plain DMF conversion has 7 (`step 6/7 map`). Only the two slow steps count
+their work as they go; the others take well under a second on real songs, and their ids, names and units are a
+contract of the `text` and `json` output and of the timing history.
 
 When the optimizer lands (plan M9) it adds its passes as phases (`fit-fm`, `fit-psg`, `fit-pcm`, `pre-mix`,
 `allocate`, `refine`), each counting candidates or rounds; `refine` under `--time-budget` counts time against the
 budget, so its bar and estimate are exact.
 
-Stages report work through a small **`IWorkCounter`** parameter (`Total`, `Advance(n)`), with a no-op default so
-tests and the harness need not pass one. Counting is cheap (an integer add); the reporter throttles what it shows:
+Stages report work through a small optional **`IWorkCounter`** parameter (`SetTotal`, `Advance(n)`;
+`SampleAnalyzer.AnalyzeSong`, `GenesisRenderer.Render`), with a no-op default so tests and the harness need not pass
+one. `ConversionCommand.Execute` takes an **`IConversionProgress`** (`Begin`, `Start(id)` → a phase with `Done()`,
+`SetSongRows`); `Program.Run` passes a `PhaseTracker` and hands its timings to the reporter at the end, success or failure. Counting is cheap (an integer add); the reporter throttles what it shows:
 `fancy` redraws at most 10 times a second, `text` writes a progress line at most every 5 s, `json` a progress
 object at most once a second, plus every start and end.
 
@@ -131,30 +142,49 @@ object at most once a second, plus every start and end.
 
 - **Current step:** once a step has done at least 2 % of its work and run for 0.5 s, remaining =
   elapsed × (total − done) / done, smoothed (exponential moving average) so it doesn't jump.
-- **Steps not started yet:** from **history**: the seconds per unit of work each phase took on earlier runs, times
-  this run's units (known once the earlier steps have run: rows after the scan, seconds of audio after playback).
-  A phase with no history counts as unknown.
+- **Steps not started yet**, and the current step until it has a pace of its own: from **history**: the seconds per
+  unit of song size each phase took on earlier runs, times this song's size in that unit. `render` scales with the
+  **ticks** played (known after `play`), `analyze` with the **samples** it analyzes (known after `play`), every other
+  phase with the **rows** played (known after `scan`). Before its size is known, and with no history, a phase's
+  estimate is unknown. `check`, `read` and `scan` run before any size is known, so they never get history; they take
+  well under a second.
+- **Measured** (2026-11-03, Debug build, history from two runs of `cancan.mod`, `--verbose --render-wav`): at the
+  start of `analyze`, `map` and `render`, the estimate of the time left was within 8 % of the real time on
+  `10kdub.mod`, `8bit_castle.mod` and `cancan.mod`. Rows alone were 37–50 % short on the other songs: a row's ticks
+  depend on the song's speed, and the render's time per tick barely varies (0.0027 s on all three).
 - **Total:** current remaining + the sum of the estimates for the steps left. When any part is unknown the total is
   shown as `about 12 s+` in `fancy`, `eta=12s+` in `text`, `"eta_s":12,"eta_partial":true` in `json`; with nothing
   known, `—` / `eta=?` / `"eta_s":null`.
 - **History file:** `timings.json` at the **root** of the candidate cache folder (`--cache-dir`, default
-  [cli.md](cli.md)), outside the per-build folders so it survives new builds. Per phase: an exponential moving
-  average of seconds per unit over the last runs, plus the machine's processor count. Written atomically (temp file +
-  rename) at the end of a run; a file that can't be read or written is ignored with a `Debug` line, never a failure.
-  `--no-cache` neither reads nor writes it, and then only the current step has an estimate. Serialized with a
-  `System.Text.Json` source-generated context (AOT-safe).
+  [cli.md](cli.md)), outside the per-build folders so it survives new builds:
+  `{"v":1,"seconds_per_unit":{"map":0.00005,"render":0.0025,…}}`. Each run moves a phase's number halfway towards its new
+  pace. Saved when the run ends, success or failure, for the phases that finished: written to a temporary file and
+  renamed over the old one. Read with `JsonDocument` and written with `Utf8JsonWriter` (no reflection). A file that
+  can't be read or written, has another `v`, or holds a value that isn't a non-negative number is ignored with a
+  `Debug` line, never a failure. `--no-cache` neither reads nor writes it, and then only the current step has an
+  estimate.
 
 ## `fancy`
 
-- A header rule: `mod2xgm 0.x · song.mod → DMF · quality normal`.
-- Report section 1 as a two-column grid, section 2 as a `Table` (the same columns as today, status colored: used,
-  unused dim, empty dim, ignored yellow), section 3 as a `Table`.
-- Live area (`AnsiConsole.Progress`) with two rows: the step (`[5/9] Map channels`, bar, %, elapsed, remaining) and the
-  **total** (`Total`, bar weighted by the time estimates, elapsed, remaining). Instant phases flash through without a
-  bar of their own; short pauses use `AnsiConsole.Status` spinners, which Spectre silences when ANSI is off.
-- Conversion notes print above the live area in yellow, `Debug` lines dimmed, as they happen (T17.7's spike
-  confirms how Spectre takes writes during a live display; if it can't, notes are printed when their step ends).
-- End: a timing table (step, time, work), then the result line in green (or the error in red).
+The default (`FancyReporter`; whole run: `tests/golden/output/fancy-conversion.txt`):
+
+- A header rule: `mod2xgm 0.x · song.mod → DMF · quality normal · 7 steps`.
+- Report section 1 as a two-column grid, section 2 as a `Table` (the same columns as the line format, status colored:
+  used green, ignored yellow, unused and empty dim), section 3 as a `Table` titled with the output's counts. A table
+  is printed when its last row has come (the next line of any other kind).
+- **Live area**, on a console that can redraw: two lines, the step (`[5/7] Map channels`, bar, %, time spent, time
+  left) and the **total** (bar weighted by the time estimates, time spent, time left), each fitting 80 columns. A
+  step whose share is unknown shows `…` and a dim bar. The bars are drawn here (`━`, done part green), not with
+  Spectre's `Progress`, which owns its loop: the conversion calls the reporter step by step, so a Spectre
+  `LiveDisplay` runs on its own thread and is fed each update (at most every 100 ms, `PhaseTracker`).
+- Conversion notes print above the live area in yellow (`note …`), `Debug` lines dimmed, as they happen: Spectre
+  prints a write made during a live display above it.
+- **Piped or `TERM=dumb`:** no live area and no escape codes (Spectre draws nothing for a live display there, the
+  T17.1 spike), so each finished step prints one static line: `✓ [5/7] Map channels 0.1 s`. A redirected output has
+  no width, so Spectre's default of 80 columns applies.
+- End: a timing table (step, time, work), then `Done → <output>, 10 conversion notes in 1.2 s`; on stderr, after the
+  live area has closed, `error <message> (exit 4)`, or for a usage error its problems, the usage line and the help
+  hint, and for a crash the stack trace.
 - **Escaping:** sample names and the title can hold `[` and `]`, which Spectre markup reads as styles. Names are
   always passed as `Text` objects or through `Markup.Escape`, never interpolated into markup (the same rule as
   Serilog's braces in [cli.md](cli.md#console-report)).
@@ -195,32 +225,45 @@ The keywords and keys are a contract: adding a key is fine, renaming or removing
 ## `json`
 
 NDJSON on stdout, UTF-8, one object per line, every object with `"v":1` (schema version) and `"type"`.
-Serialized with `Utf8JsonWriter` / a source-generated `JsonSerializerContext` — no reflection.
+Written with `Utf8JsonWriter`, so nothing is serialized by reflection. Strings are escaped as JSON requires (quotes,
+`\`, control characters as `\u0007`); other characters (é, ←) stay as they are. Nothing goes to stderr.
 
 | `type` | Fields |
 |---|---|
-| `run` | `version`, `input`, `format`, `quality`, `steps` (the phase list: `[{"n":1,"id":"check","name":"Check paths"},…]`) |
+| `run` | `version`, `input`, `format`, `quality`, `steps` (the phase list: `[{"n":1,"id":"check","name":"Check paths","unit":""},…]`) |
 | `metadata` | `file`, `bytes`, `title`, `tracker`, `tag`, `channels`, `slots`, `orders`, `restart`, `patterns`, `speed`, `bpm` |
-| `sample` | `n`, `name`, `length`, `loop_start`, `loop_length`, `volume`, `finetune`, `notes`, `status` |
-| `output` | `format`, `fm`, `psg`, `dac`, `pcm_bytes`, `instruments` (`[{"kind":"FM","n":1,"from":[1,2],"detail":"Sine patch"}]`) |
-| `phase` | `n`, `of`, `id`, `event` (`start` / `progress` / `end`), `done`, `total`, `elapsed_s`, `eta_s`, `total_eta_s`, `eta_partial` |
-| `note` | `message` (rendered), `template`, `properties` (scalar values only) |
-| `debug` | `message` |
+| `sample` | `n`, `name`, `length`, `loop_start`, `loop_length` (only when it loops), `volume`, `finetune`, `notes`, `status` |
+| `output` | `format`, `fm`, `psg`, `dac`, `pcm_bytes` |
+| `instrument` | `kind` (`FM`, `PSG`, `DAC`), `n`, `from` (sample numbers), `detail`, and for PCM `rate_hz`, `bytes`, `offset`, `volume_db` (each only when it applies) |
+| `analysis` | with `--verbose`: `n`, `name`, `kind`, `percussive`, `tonal`, `noisy`, `period_frames`, `voiced`, `deviation_cents`, `drift_cents`, `peak_db`, `attack_ms`, `decay_ms`, `sustain_db`, `loop_start`, `loop_length`, `regions` (missing facts left out) |
+| `phase` | `n`, `of`, `id`, `event` (`start` / `progress` / `end`), `done`, `total`, `unit`, `elapsed_s`, `eta_s`, `total_eta_s`, `eta_partial`; progress at most once a second |
+| `note` | `message` (rendered), `template`, `properties` (the template's values, typed) |
+| `debug` | with `--verbose`: `message`, `template`, `properties` |
 | `info` | `message` (e.g. the XGM2 extension line, verbatim) |
 | `timing` | `phases` (`[{"id":"map","seconds":4.0,"done":2,"unit":"orders"}]`), `total_s` |
-| `result` | `exit`, `output`, `wav`, `notes`, `seconds` |
-| `error` | `code`, `error` (`usage`, `input-not-found`, `invalid-input`, `output-not-writable`, `internal`, `does-not-fit`), `message`, `missing` (usage errors), `usage`, `stack` (exit 5 only) |
+| `result` | `exit`, `output` / `wav` (`null` when not written), `notes`, `seconds` |
+| `error` | `code`, `error` (`usage`, `input-not-found`, `invalid-input`, `output-not-writable`, `internal`, `does-not-fit`), `message`, `problems`, `missing` and `usage` (usage errors), `stack` (exit 5 only) |
 
 The last line of every run is `result` or `error`. The schema is documented here and checked by a test that
-parses every line of every golden run; changing a field's meaning bumps `v`.
+parses every line of the golden run (`tests/golden/output/json-conversion.jsonl`); changing a field's meaning bumps `v`.
 
 ## The harness
 
-`tools/Mod2Xgm.Harness` takes the same `--progress` modes (its usage errors keep exit 2). Its phases are per song
-(convert, reference render, candidate renders, score, plus the fit passes it was asked for) and one corpus total:
-`fancy` shows one row per running job (`--jobs`) plus the corpus bar; `text` / `json` emit the same `step` /
-`phase` records with a `song` field. Song times go to the same history file (the harness already uses the
-candidate cache folder), so a corpus rerun has an estimate from the start.
+`tools/Mod2Xgm.Harness` takes the same `--progress` modes through the same reporters. Each song is one step, id
+`song:<name>` (its file name without `.mod`), named by the song; songs run `--jobs` at a time, so steps may start out
+of order and overlap:
+
+- `fancy` titles the run `mod2xgm harness <version> · N songs, J at a time`, shows a row per song being measured plus
+  the corpus total, and ends with the timing table and `Done → <output>/report.md`. Piped, each finished song is one
+  `✓ [n/N] name` line.
+- `text` and `json` write the usual `run` (format `harness`, plus `jobs` when more than one), `step` / `phase`, `time`
+  and `result` records; the result's `out` / `output` is `report.md`.
+- The run's time left is what the running songs have left plus the songs not started, divided by the jobs.
+- Its exit codes stay its own: 0, 1 (a song failed or is off), 2 (couldn't run). An exit-2 failure is an `error`
+  record of kind `cannot-run` (libopenmpt missing, an input not found), `usage` (bad options) or `internal` (a bug, with
+  its stack).
+- Song times go to the same history file (`timings.json` in the cache folder; not with `--no-cache`), one entry per
+  song, so a corpus rerun has an estimate from the start.
 
 ## Testing
 

@@ -1,6 +1,12 @@
+run mod2xgm=VERSION input=song.mod format=dmf quality=normal steps=7
+step 1/7 check start | eta ?
+step 1/7 check done | #s
+step 2/7 read start | eta ?
 note: Sample 8 badname: the name contains unprintable bytes; the header may be damaged
 meta file=song.mod bytes=21802 title="space {debris}" format="ProTracker M.K." channels=4 slots=31 orders=2 restart=127 patterns=2 speed=4 bpm=140
 info Emulating ProTracker 2 (the default for 31-sample files; --player ust changes it)
+step 2/7 read done | #s
+step 3/7 scan start | eta ?
 note: Sample 5 never played: holds 100 bytes but is never played
 note: Sample 8 badname: holds 64 bytes but is never played
 sample 01 "bassdrum" len=4532 loop=- vol=64 fine=0 notes=2 used
@@ -35,8 +41,16 @@ sample 29 "" len=0 loop=- vol=0 fine=0 notes=0 empty
 sample 30 "" len=0 loop=- vol=0 fine=0 notes=0 empty
 sample 31 "" len=0 loop=- vol=0 fine=0 notes=0 empty
 info --quality normal: the optimizer isn't built yet (plan M9), so the simple mapper is used
+step 3/7 scan done | #s
+step 4/7 model start | eta ?
+step 4/7 model done | #s
+step 5/7 play start | eta ?
+step 5/7 play done | #s
+step 6/7 map start | eta ?
 note: Sample 4 "strings": it loops, so it is a sustained tone and is played by the Organ FM patch
 note: 3 drum notes started on the same row as a louder one and could not use the DAC; played by FM instead
+step 6/7 map done | #s
+step 7/7 write start | eta ?
 note: Sample 2 "snare [2]": its FM notes are placed at the pitch measured from the sample
 note: Sample 4 "strings": its FM notes are placed at the pitch measured from the sample
 note: Sample 7 "vocal": its FM notes are placed at the pitch measured from the sample
@@ -46,4 +60,6 @@ output dmf fm=2 psg=0 dac=1 pcm_bytes=6029
 output FM 01 <- 04 "strings" (Organ patch)
 output FM 02 <- 02 "snare [2]", 07 "vocal" (Pluck patch)
 output DAC 01 <- 01 "bassdrum" rate=11025 bytes=6029
+step 7/7 write done | #s
+time check=#s read=#s scan=#s model=#s play=#s map=#s write=#s total=#s
 result ok exit=0 out=TEMP/song.dmf notes=10 time=#s

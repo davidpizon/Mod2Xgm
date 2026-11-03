@@ -1,0 +1,84 @@
+── mod2xgm VERSION · song.mod → DMF · quality normal · 7 steps ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+✓ [1/7] Check paths #s
+note Sample 8 badname: the name contains unprintable bytes; the header may be damaged
+File         song.mod (21802 bytes)                      
+Title        "space {debris}"                            
+Format       ProTracker M.K.: 4 channels, 31 sample slots
+Song length  2 orders, restart position 127              
+Patterns     2                                           
+Tempo        speed 4, 140 BPM (initial)                  
+Emulating ProTracker 2 (the default for 31-sample files; --player ust changes it)
+✓ [2/7] Read MOD #s
+note Sample 5 never played: holds 100 bytes but is never played
+note Sample 8 badname: holds 64 bytes but is never played
+                                 Samples                                  
+╭────┬────────────────┬────────┬───────────┬─────┬──────┬───────┬────────╮
+│  # │ Name           │ Length │ Loop      │ Vol │ Fine │ Notes │ Status │
+├────┼────────────────┼────────┼───────────┼─────┼──────┼───────┼────────┤
+│ 01 │ "bassdrum"     │   4532 │ —         │  64 │    0 │     2 │ used   │
+│ 02 │ "snare [2]"    │   3870 │ —         │  48 │   -2 │     2 │ used   │
+│ 03 │ "  by Jester"  │      0 │ —         │   0 │    0 │     0 │ empty  │
+│ 04 │ "strings"      │   8000 │ 2000+6000 │  64 │    0 │     1 │ used   │
+│ 05 │ "never played" │    100 │ —         │  64 │    0 │     0 │ unused │
+│ 06 │ ""             │      0 │ —         │   0 │    0 │     0 │ empty  │
+│ 07 │ "vocal"        │   2104 │ —         │  64 │    7 │     1 │ used   │
+│ 08 │ "bad·name"     │     64 │ —         │  64 │    0 │     0 │ unused │
+│ 09 │ ""             │      0 │ —         │   0 │    0 │     0 │ empty  │
+│ 10 │ ""             │      0 │ —         │   0 │    0 │     0 │ empty  │
+│ 11 │ ""             │      0 │ —         │   0 │    0 │     0 │ empty  │
+│ 12 │ ""             │      0 │ —         │   0 │    0 │     0 │ empty  │
+│ 13 │ ""             │      0 │ —         │   0 │    0 │     0 │ empty  │
+│ 14 │ ""             │      0 │ —         │   0 │    0 │     0 │ empty  │
+│ 15 │ ""             │      0 │ —         │   0 │    0 │     0 │ empty  │
+│ 16 │ ""             │      0 │ —         │   0 │    0 │     0 │ empty  │
+│ 17 │ ""             │      0 │ —         │   0 │    0 │     0 │ empty  │
+│ 18 │ ""             │      0 │ —         │   0 │    0 │     0 │ empty  │
+│ 19 │ ""             │      0 │ —         │   0 │    0 │     0 │ empty  │
+│ 20 │ ""             │      0 │ —         │   0 │    0 │     0 │ empty  │
+│ 21 │ ""             │      0 │ —         │   0 │    0 │     0 │ empty  │
+│ 22 │ ""             │      0 │ —         │   0 │    0 │     0 │ empty  │
+│ 23 │ ""             │      0 │ —         │   0 │    0 │     0 │ empty  │
+│ 24 │ ""             │      0 │ —         │   0 │    0 │     0 │ empty  │
+│ 25 │ ""             │      0 │ —         │   0 │    0 │     0 │ empty  │
+│ 26 │ ""             │      0 │ —         │   0 │    0 │     0 │ empty  │
+│ 27 │ ""             │      0 │ —         │   0 │    0 │     0 │ empty  │
+│ 28 │ ""             │      0 │ —         │   0 │    0 │     0 │ empty  │
+│ 29 │ ""             │      0 │ —         │   0 │    0 │     0 │ empty  │
+│ 30 │ ""             │      0 │ —         │   0 │    0 │     0 │ empty  │
+│ 31 │ ""             │      0 │ —         │   0 │    0 │     0 │ empty  │
+╰────┴────────────────┴────────┴───────────┴─────┴──────┴───────┴────────╯
+--quality normal: the optimizer isn't built yet (plan M9), so the simple mapper is used
+✓ [3/7] Scan sample use #s
+✓ [4/7] Build song model #s
+✓ [5/7] Play ticks #s
+note Sample 4 "strings": it loops, so it is a sustained tone and is played by the Organ FM patch
+note 3 drum notes started on the same row as a louder one and could not use the DAC; played by FM instead
+✓ [6/7] Map channels #s
+note Sample 2 "snare [2]": its FM notes are placed at the pitch measured from the sample
+note Sample 4 "strings": its FM notes are placed at the pitch measured from the sample
+note Sample 7 "vocal": its FM notes are placed at the pitch measured from the sample
+note 1 FM notes play quieter than in the MOD: their sample is louder than its patch can play without clipping
+note 1 tremolo (7xy) effects were left out on DAC notes (the DAC plays a sample at one pitch and volume)
+        Output (DMF): 2 FM, 0 PSG, 1 DAC, 6029 B PCM         
+╭──────┬────┬────────────────────────────┬──────────────────╮
+│ Kind │  # │ From                       │ Detail           │
+├──────┼────┼────────────────────────────┼──────────────────┤
+│ FM   │ 01 │ 04 "strings"               │ Organ patch      │
+│ FM   │ 02 │ 02 "snare [2]", 07 "vocal" │ Pluck patch      │
+│ DAC  │ 01 │ 01 "bassdrum"              │ 11025 Hz, 6029 B │
+╰──────┴────┴────────────────────────────┴──────────────────╯
+✓ [7/7] Write DMF #s
+                    Time                     
+                                             
+  Step                   Time          Work  
+─────────────────────────────────────────────
+  1. Check paths        #s                
+  2. Read MOD           #s   21802 bytes  
+  3. Scan sample use    #s      128 rows  
+  4. Build song model   #s                
+  5. Play ticks         #s                
+  6. Map channels       #s                
+  7. Write DMF          #s                
+  Total                 #s                
+                                             
+Done → TEMP/song.dmf, 10 conversion notes in #s

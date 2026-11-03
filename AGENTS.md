@@ -40,7 +40,8 @@ Required behavior on every run (see [`docs/cli.md`](docs/cli.md#console-report) 
 1. **Whenever a MOD file is converted**, read and print the **MOD metadata** and the **full sample table**
    (all sample/instrument names, including empty slots, which often hold credits) right after reading —
    before mapping, for every output format, with no option to turn it off — then the output
-   instrument/sample table.
+   instrument/sample table. The one exception is `--progress silent`, which prints nothing at all
+   ([docs/cli-output.md](docs/cli-output.md)); every other mode shows the same content.
 2. Log a **capacity warning** if the samples exceed what XGM/XGM2 (or DMF) can hold.
 3. By default **consolidate** to fit — dedupe, trim, merge, and even swap a track's sound mid-song — logging
    each change as a conversion note. `--no-consolidate` fails (exit 6) instead.
@@ -223,8 +224,8 @@ compiler, analyzer, trim/AOT, NuGet or MSBuild warning fails the build.
 
 ## Logging (Serilog)
 
-- Packages: `Serilog` (the harness also uses `Serilog.Sinks.Console`). Configure **in code** in `Program.cs` — no
-  `Serilog.Settings.Configuration` / `appsettings.json` (reflection-based, not AOT-safe). The converter's only sink is
+- Packages: `Serilog` only (no console sink: the converter and the harness print through the reporters). Configure **in code** in `Program.cs` — no
+  `Serilog.Settings.Configuration` / `appsettings.json` (reflection-based, not AOT-safe). The converter's and the harness's only sink is
   the **reporter** `--progress` picks (`src/Output/`, [docs/cli-output.md](docs/cli-output.md)): nothing else writes
   to the console, and failures go to the reporter, not to `Log.Error`.
 - Use the static `Log` (or an `ILogger` passed in) — no `Console.WriteLine` for diagnostics.
