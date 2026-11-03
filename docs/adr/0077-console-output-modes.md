@@ -19,8 +19,8 @@ All decided by David on 2026-11-02 unless marked; the full design is [cli-output
 - **One switch, `--progress fancy|text|json|silent`, default `fancy`.** No `--json` / `--machine` / `--quiet`
   switches and **no auto mode**: the converter never picks a mode by itself.
 - `fancy` is for people: Spectre.Console tables, a step bar and a total bar, colored notes, a timing table. When the
-  output isn't a terminal it stays `fancy`, and Spectre itself drops animation and color and prints the static final
-  frames.
+  output isn't a terminal it stays `fancy`, and Spectre itself drops animation and color; `fancy` then prints one static line per finished
+  step (see the spike result).
 - `text` is for agents: a new compact line format (keyword + `key=value`), approved from a sample. It replaces the
   `INF`/`WRN` lines; golden report tests are regenerated.
 - `json` is for programs: every message (report, progress, notes, timings, result, errors) as NDJSON, schema `v1`.
@@ -42,6 +42,27 @@ All decided by David on 2026-11-02 unless marked; the full design is [cli-output
 - *(Proposed by Claude; David had no preference)*: streams per mode as in
   [cli-output.md](../cli-output.md#streams) (`json` all on stdout; `fancy` all on stdout until the error), and the
   timing table printed at the end of every `fancy` and `text` run.
+
+## Spike result (T17.1, 2026-11-02)
+
+A throwaway console app with the repository's settings (warnings as errors, `AnalysisLevel=latest`, `IsAotCompatible`,
+`PublishAot`, `InvariantGlobalization`, `TrimmerSingleWarn=false`) used `Rule`, `Table`, `Markup.Escape`, `Status`
+and `Progress` with custom columns (description, bar, percentage, elapsed, remaining) and wrote a line during the
+live display. Spectre.Console **0.57.2** (MIT; one dependency, Spectre.Console.Ansi, MIT):
+
+- **Native AOT publish on win-x64: zero warnings** (ILC with per-warning output). Spectre is pure managed code, so
+  the trim and AOT analysis is the same on every RID; linux-x64 and osx-arm64 are confirmed by CI's AOT
+  publish + smoke job once the converter uses it (T17.7). Spectre.Console.Cli was not tried; its own docs mark it not
+  AOT-compatible.
+- **Output redirected:** `Ansi=False`, `Interactive=False`. Tables and rules print as static text with no escape
+  codes; `Status` prints its text once; `Progress` prints **nothing**. So `fancy` writes one static line per finished
+  step itself when the console isn't interactive, so a piped run still shows where it got to.
+- A name with `[` `]` passed through `Markup.Escape`, and `{}` in a `Text` cell, printed unchanged.
+- Box-drawing characters follow the console's output encoding (the OEM code page when piped on Windows), as
+  Spectre detects it.
+
+Spectre.Console is used, so no other package was tried. Pinned in `Directory.Packages.props` (with test-only
+Spectre.Console.Testing 0.57.2) and listed in `THIRD-PARTY-NOTICES.md`.
 
 ## Options considered
 

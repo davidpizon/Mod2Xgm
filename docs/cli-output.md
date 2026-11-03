@@ -24,8 +24,8 @@
 | `silent` | scripts that only need the exit code | **Nothing at all**, not even errors or a crash; only the exit code says what happened. `--help` and `--version` still print, because they were asked for. |
 
 There is **no auto mode** (David): the converter never switches mode by itself. `fancy` stays `fancy` when the output
-is piped or redirected; Spectre.Console then turns off animation and color codes on its own and prints only the
-final, static frames. An agent passes `--progress text` (or `json`) in its tool declaration.
+is piped or redirected; Spectre.Console then turns off animation and color codes on its own: tables print as static text and the live
+progress area prints nothing, so `fancy` prints one static line per finished step instead (T17.1 spike). An agent passes `--progress text` (or `json`) in its tool declaration.
 
 `--progress silent` is the one exception to "the MOD metadata and the sample table are always printed"
 ([ADR 0008](adr/0008-report-on-every-conversion.md), superseded in part by ADR 0077). Every other mode prints them.
