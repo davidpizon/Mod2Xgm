@@ -1,4 +1,7 @@
 using System.CommandLine;
+using System.CommandLine.Help;
+using System.CommandLine.Parsing;
+using Mod2Xgm.Output;
 
 namespace Mod2Xgm.Cli;
 
@@ -140,11 +143,18 @@ internal sealed class CommandLineDefinition
         Description = "Print extra detail.",
     };
 
+    /// <summary><c>--progress</c>; also read before parsing by <see cref="ProgressModeScan"/>.</summary>
+    public Option<string> Progress { get; } = new Option<string>(ProgressModeScan.OptionName)
+    {
+        Description = "How to show the run: fancy (progress bars and tables), text (compact lines for AI agents), json (one JSON object per line) or silent (nothing; only the exit code).",
+        DefaultValueFactory = _ => "fancy",
+    }.AcceptOnlyFromAmong("fancy", "text", "json", "silent");
+
     /// <summary>
-    /// Builds the root command; <paramref name="execute"/> runs when parsing and binding succeed. Binding errors are
-    /// written to <paramref name="error"/>.
+    /// Builds the root command; <paramref name="execute"/> runs when parsing and binding succeed. Binding errors throw a
+    /// <see cref="UsageException"/>.
     /// </summary>
-    private RootCommand CreateRootCommand(Func<ConversionOptions, ExitCode> execute, TextWriter error)
+    private RootCommand CreateRootCommand(Func<ConversionOptions, ExitCode> execute)
     {
         RootCommand root = new("Convert Amiga MOD music for the Sega Genesis / Mega Drive (DefleMask DMF, SGDK XGM/XGM2).")
         {
@@ -173,6 +183,7 @@ internal sealed class CommandLineDefinition
             Info,
             Force,
             Verbose,
+            Progress,
         };
 
         root.SetAction(parseResult =>
@@ -180,12 +191,7 @@ internal sealed class CommandLineDefinition
             OptionsBinder.Result bound = OptionsBinder.Bind(this, parseResult);
             if (bound.Options is null)
             {
-                foreach (string message in bound.Errors)
-                {
-                    error.WriteLine(message);
-                }
-
-                return (int)ExitCode.UsageError;
+                throw new UsageException(bound.Errors, string.IsNullOrWhiteSpace(parseResult.GetValue(Input)) ? [Input.Name] : []);
             }
 
             return (int)execute(bound.Options);
@@ -194,11 +200,20 @@ internal sealed class CommandLineDefinition
         return root;
     }
 
-    /// <summary>Parses and runs <paramref name="args"/>; unexpected exceptions propagate to the caller.</summary>
+    /// <summary>
+    /// Parses and runs <paramref name="args"/>. A command line that can't be used throws a <see cref="UsageException"/>
+    /// naming every problem, instead of printing the whole help (docs/cli-output.md#never-interactive); <c>--help</c> and
+    /// <c>--version</c> print to <paramref name="output"/>. Unexpected exceptions propagate to the caller.
+    /// </summary>
     public static ExitCode Invoke(string[] args, Func<ConversionOptions, ExitCode> execute, TextWriter? output = null, TextWriter? error = null)
     {
         CommandLineDefinition definition = new();
-        ParseResult parseResult = definition.CreateRootCommand(execute, error ?? Console.Error).Parse(args);
+        RootCommand root = definition.CreateRootCommand(execute);
+        ParseResult parseResult = root.Parse(args);
+        if (parseResult.Errors.Count > 0 && !AsksForHelpOrVersion(root, parseResult))
+        {
+            throw definition.UsageError(parseResult);
+        }
 
         InvocationConfiguration configuration = new()
         {
@@ -217,5 +232,35 @@ internal sealed class CommandLineDefinition
         }
 
         return (ExitCode)parseResult.Invoke(configuration);
+    }
+
+    /// <summary>System.CommandLine's message for a missing argument (the process runs with invariant culture).</summary>
+    private const string MissingArgumentMessage = "Required argument missing";
+
+    /// <summary>Whether the parse runs <c>--help</c> or <c>--version</c>, which print even beside other errors.</summary>
+    private static bool AsksForHelpOrVersion(RootCommand root, ParseResult parseResult) =>
+        parseResult.Action is HelpAction
+        || root.Options.OfType<VersionOption>().Any(version => parseResult.Action == version.Action);
+
+    /// <summary>The parse errors as one usage error, with a missing input named as such.</summary>
+    private UsageException UsageError(ParseResult parseResult)
+    {
+        List<string> problems = [];
+        List<string> missing = [];
+        foreach (ParseError parseError in parseResult.Errors)
+        {
+            if (parseError.Message.StartsWith(MissingArgumentMessage, StringComparison.Ordinal))
+            {
+                missing.Add(Input.Name);
+                problems.Add($"Required argument missing: <{Input.Name}>.");
+            }
+            else
+            {
+                // One line per problem: the parser's lists of allowed values come with tabs and line breaks.
+                problems.Add(string.Join(' ', parseError.Message.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)));
+            }
+        }
+
+        return new UsageException(problems, missing);
     }
 }

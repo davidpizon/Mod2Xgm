@@ -75,8 +75,7 @@ flowchart LR
     Cmd -- phases, work done --> Tracker[PhaseTracker + EtaEstimator]
     Tracker --> R
     Cmd -- report rows --> R
-    Cmd -- ILogger --> Sink[ReporterSink<br/>Serilog sink]
-    Sink -- notes, debug --> R
+    Cmd -- ILogger: notes, debug, report rows --> R
     History[(timings.json<br/>cache folder)] <--> Tracker
 ```
 
@@ -88,13 +87,15 @@ flowchart LR
   `RunStarted`, `Metadata`, `Samples`, `OutputInstruments`, `PhaseStarted`, `PhaseProgress`, `PhaseFinished`, `Note`,
   `Debug`, `Info` (e.g. the XGM2 extension line), `Timings`, `Result`, `Error`. Each takes typed records, never
   preformatted text, so `json` gets fields and `fancy` gets table cells.
-- **`ReporterSink`** — a Serilog `ILogEventSink` that hands `Warning` events (conversion notes) and `Debug` events to
-  the reporter. Serilog stays the logging pipeline and the 61 stages that take a `ConversionNotes` / `ILogger` do not
-  change. The console sink goes away from the converter: nothing writes to the console except the reporter.
+- **The reporter is the Serilog sink** — every reporter is an `ILogEventSink`, so `Warning` events (conversion
+  notes), `Debug` events and report rows reach it through the logger. Serilog stays the logging pipeline and the 61
+  stages that take a `ConversionNotes` / `ILogger` do not change. The console sink is gone from the converter: nothing
+  writes to the console except the reporter.
 - **`PhaseTracker`** — knows the phase list for this run (from the options), the current step, the work done in it,
   and times every phase with `TimeProvider` (a fake clock in tests).
-- **`Program.Run`** — creates the reporter first; `ConversionException` → `Error` + its exit code; any other
-  exception → `Error` (with the stack trace in `fancy`/`text`/`json`, nothing in `silent`) + exit 5.
+- **`Program.Run`** — creates the reporter first; `ConversionException` → `Failed` + its exit code (a command line
+  that can't be used is a `UsageException`: its problems, the missing arguments and the usage line); any other
+  exception → `Failed` (with the stack trace in `fancy`/`text`/`json`, nothing in `silent`) + exit 5.
 
 ## Phases
 

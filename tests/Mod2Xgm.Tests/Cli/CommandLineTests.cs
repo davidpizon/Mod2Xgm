@@ -1,6 +1,7 @@
 using Mod2Xgm.Audio;
 using Mod2Xgm.Cli;
 using Mod2Xgm.Mod;
+using Mod2Xgm.Output;
 
 namespace Mod2Xgm.Tests.Cli;
 
@@ -8,22 +9,91 @@ public sealed class CommandLineTests
 {
     private sealed record Outcome(ExitCode Code, ConversionOptions? Options, string Output, string Error);
 
+    /// <summary>Parses <paramref name="args"/>; a usage error's problems become the outcome's error text.</summary>
     private static Outcome Run(params string[] args)
     {
         ConversionOptions? captured = null;
         using StringWriter output = new();
         using StringWriter error = new();
-        ExitCode code = CommandLineDefinition.Invoke(
-            args,
-            options =>
-            {
-                captured = options;
-                return ExitCode.Success;
-            },
-            output,
-            error);
-        return new Outcome(code, captured, output.ToString(), error.ToString());
+        try
+        {
+            ExitCode code = CommandLineDefinition.Invoke(
+                args,
+                options =>
+                {
+                    captured = options;
+                    return ExitCode.Success;
+                },
+                output,
+                error);
+            return new Outcome(code, captured, output.ToString(), error.ToString());
+        }
+        catch (UsageException usage)
+        {
+            return new Outcome(usage.Code, captured, output.ToString(), usage.Message);
+        }
     }
+
+    /// <summary>A missing input is named in the usage error, so an agent can fix its call.</summary>
+    [Fact]
+    public void MissingInputIsNamed()
+    {
+        UsageException usage = Assert.Throws<UsageException>(() => CommandLineDefinition.Invoke([], _ => ExitCode.Success, TextWriter.Null, TextWriter.Null));
+
+        Assert.Equal(["input.mod"], usage.Missing);
+        Assert.Equal(["Required argument missing: <input.mod>."], usage.Problems);
+    }
+
+    /// <summary>A blank input is a missing input too.</summary>
+    [Fact]
+    public void BlankInputIsNamedAsMissing()
+    {
+        UsageException usage = Assert.Throws<UsageException>(() => CommandLineDefinition.Invoke(["  "], _ => ExitCode.Success, TextWriter.Null, TextWriter.Null));
+
+        Assert.Equal(["input.mod"], usage.Missing);
+    }
+
+    /// <summary>A parse error is one line, not the parser's list over several lines, and no input is missing.</summary>
+    [Fact]
+    public void ParseErrorsAreOneLineEach()
+    {
+        UsageException usage = Assert.Throws<UsageException>(() => CommandLineDefinition.Invoke(["song.mod", "--format", "wav"], _ => ExitCode.Success, TextWriter.Null, TextWriter.Null));
+
+        string problem = Assert.Single(usage.Problems);
+        Assert.Equal("Argument 'wav' not recognized. Must be one of: 'dmf' 'xgm' 'xgm2'", problem);
+        Assert.Empty(usage.Missing);
+    }
+
+    /// <summary><c>--help</c> still prints the help when the rest of the command line is wrong.</summary>
+    [Fact]
+    public void HelpWinsOverParseErrors()
+    {
+        using StringWriter output = new();
+
+        ExitCode code = CommandLineDefinition.Invoke(["--help", "--bogus"], _ => ExitCode.Success, output, TextWriter.Null);
+
+        Assert.Equal(ExitCode.Success, code);
+        Assert.Contains("--progress", output.ToString(), StringComparison.Ordinal);
+    }
+
+    /// <summary>Every <c>--progress</c> mode is bound; the default is <c>fancy</c> and an unknown mode is a usage error.</summary>
+    [Theory]
+    [InlineData(null, nameof(OutputMode.Fancy))]
+    [InlineData("fancy", nameof(OutputMode.Fancy))]
+    [InlineData("text", nameof(OutputMode.Text))]
+    [InlineData("json", nameof(OutputMode.Json))]
+    [InlineData("silent", nameof(OutputMode.Silent))]
+    public void ProgressModes(string? mode, string expected)
+    {
+        Outcome result = mode is null ? Run("song.mod") : Run("song.mod", "--progress", mode);
+
+        Assert.Equal(Enum.Parse<OutputMode>(expected), result.Options?.Progress);
+    }
+
+    /// <summary>An unknown <c>--progress</c> mode is a usage error.</summary>
+    [Fact]
+    public void UnknownProgressModeIsAUsageError() =>
+        Assert.Equal(ExitCode.UsageError, Run("song.mod", "--progress", "auto").Code);
 
     [Fact]
     public void DefaultsMatchTheCliContract()
