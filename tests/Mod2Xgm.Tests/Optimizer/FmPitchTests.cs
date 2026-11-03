@@ -32,6 +32,23 @@ public sealed class FmPitchTests
         Assert.Equal([1, 1, 1, 1], FmPitch.Normalized(half)!.Operators.Select(o => o.Mult));
     }
 
+    /// <summary>
+    /// A modulator behind a silent carrier doesn't count either: with OP2 muted only OP3 → OP4 is heard (algorithm 4), or
+    /// only OP4 is (algorithm 0's chain), and their 2 2 plays an octave up even though OP1 is ×3. Normalizing leaves OP1 alone.
+    /// </summary>
+    [Theory]
+    [InlineData(4)]
+    [InlineData(0)]
+    public void OperatorsBehindASilentCarrierDontCount(int algorithm)
+    {
+        FmPatch lead = Lead(3, 1, 2, 2) with { Algorithm = algorithm };
+        FmPatch muted = lead with { Operators = [.. lead.Operators.Select((o, i) => i == 1 ? o with { Tl = 127 } : o)] };
+
+        Assert.True(FmPitch.Keeps(lead));
+        Assert.False(FmPitch.Keeps(muted));
+        Assert.Equal([3, 1, 1, 1], FmPitch.Normalized(muted)!.Operators.Select(o => o.Mult));
+    }
+
     /// <summary>Normalizing divides the shared factor out (½ counts as half a step), and gives up past multiple 15.</summary>
     [Theory]
     [InlineData(new[] { 2, 2, 2, 2 }, new[] { 1, 1, 1, 1 })]

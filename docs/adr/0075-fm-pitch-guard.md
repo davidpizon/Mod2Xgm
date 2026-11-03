@@ -26,8 +26,9 @@ misses a sub-octave between them. The mel score is only part of the picture.
 
 (David asked for the guard, 2026-11-02; the rule is the implementation's.)
 
-- **A fitted voice keeps the note's pitch** (`FmPitch.Keeps`). Its sounding operators (TL below 127) share no factor
-  and none is ½. In half steps (½ = 1, 1 = 2, …), their greatest common divisor is exactly 2.
+- **A fitted voice keeps the note's pitch** (`FmPitch.Keeps`). Its sounding operators share no factor and none is ½.
+  An operator sounds when its TL is below 127 and it reaches the output through operators that do too: a modulator
+  behind a silent carrier (TL 127) adds nothing, so it doesn't count and normalizing leaves it alone. In half steps (½ = 1, 1 = 2, …), their greatest common divisor is exactly 2.
 - **The genetic search** divides a child's multiples by what they share (`FmPitch.Normalized`): 2 2 2 2 becomes
   1 1 1 1, and ½ 1 becomes 1 2. That keeps the tone and puts it on the note. A child that would need a multiple above 15
   is replaced by its first parent. Random structures are normalized too.

@@ -4,14 +4,15 @@ namespace Mod2Xgm.Optimizer;
 
 /// <summary>
 /// The pitch guard on fitted patches (docs/adr/0075-fm-pitch-guard.md): a patch must repeat at the note's own pitch. Its
-/// sound is made of the operators' frequencies, multiple × the note, and repeats at their greatest common divisor. So a
-/// multiple of ½ (register value 0) on any sounding operator, or a factor every sounding multiple shares (2 and 2, 3 and
+/// sound is made of the operators' frequencies, multiple × the note, and repeats at their greatest common divisor. An
+/// operator sounds when it isn't silent and reaches an output through operators that aren't either: a modulator behind a
+/// silent carrier adds nothing. So a multiple of ½ (register value 0) on any sounding operator, or a factor every sounding multiple shares (2 and 2, 3 and
 /// 6), moves the note an octave or more however the levels are set. The harmonic score can't see it: it reads the
 /// target's harmonics, which the shifted patch also has, or misses the sub-octave between them.
 /// </summary>
 internal static class FmPitch
 {
-    /// <summary>A silent operator (TL 127) adds no frequency, so it doesn't count.</summary>
+    /// <summary>A silent operator (TL 127) adds no frequency, and passes on none from the operators that feed it.</summary>
     private const int SilentTl = 127;
 
     /// <summary>Register value of the ½ multiple.</summary>
@@ -19,6 +20,21 @@ internal static class FmPitch
 
     /// <summary>The largest multiple the chip has.</summary>
     private const int MaxMult = 15;
+
+    /// <summary>
+    /// Per algorithm, the operators that modulate each operator directly (0 = OP1), OP1 to OP4 (docs/genesis-audio.md).
+    /// </summary>
+    private static readonly int[][][] Inputs =
+    [
+        [[], [0], [1], [2]],
+        [[], [], [0, 1], [2]],
+        [[], [], [1], [0, 2]],
+        [[], [0], [], [1, 2]],
+        [[], [0], [], [2]],
+        [[], [0], [0], [0]],
+        [[], [0], [], []],
+        [[], [], [], []],
+    ];
 
     /// <summary>True when <paramref name="patch"/>'s sounding operators repeat exactly at the note's pitch.</summary>
     public static bool Keeps(FmPatch patch)
@@ -43,11 +59,12 @@ internal static class FmPitch
             return patch;
         }
 
+        bool[] sounding = SoundingMask(patch);
         int divisor = Sounding(patch).Select(o => Halves(o.Mult)).Aggregate(0, FmExhaustiveSearch.Gcd);
         FmOperator[] ops = [.. patch.Operators];
         for (int i = 0; i < ops.Length; i++)
         {
-            if (ops[i].Tl >= SilentTl)
+            if (!sounding[i])
             {
                 continue;
             }
@@ -81,7 +98,36 @@ internal static class FmPitch
             : structure with { Mult1 = mults[0], Mult2 = mults[1], Mult3 = mults[2], Mult4 = mults[3] };
     }
 
-    private static IEnumerable<FmOperator> Sounding(FmPatch patch) => patch.Operators.Where(o => o.Tl < SilentTl);
+    private static IEnumerable<FmOperator> Sounding(FmPatch patch)
+    {
+        bool[] sounding = SoundingMask(patch);
+        return patch.Operators.Where((_, i) => sounding[i]);
+    }
+
+    /// <summary>
+    /// Which operators of <paramref name="patch"/> are heard: traced back from each carrier that isn't silent through the
+    /// operators feeding it, stopping at a silent one.
+    /// </summary>
+    private static bool[] SoundingMask(FmPatch patch)
+    {
+        bool[] sounding = new bool[patch.Operators.Count];
+        Stack<int> pending = new(VoiceLevel.Carriers(patch.Algorithm));
+        while (pending.TryPop(out int op))
+        {
+            if (sounding[op] || patch.Operators[op].Tl >= SilentTl)
+            {
+                continue;
+            }
+
+            sounding[op] = true;
+            foreach (int input in Inputs[patch.Algorithm][op])
+            {
+                pending.Push(input);
+            }
+        }
+
+        return sounding;
+    }
 
     /// <summary>A multiple's register value in half steps of the note: ½ is 1, 1 is 2, 15 is 30.</summary>
     private static int Halves(int mult) => mult == HalfMult ? 1 : 2 * mult;
