@@ -1,6 +1,6 @@
 # ADR 0072: Pre-mix candidates: every group of 2–4 overlapping notes, tails pay their own bytes (T8.5a)
 
-- **Status:** Accepted; supersedes the decision "Tails share bytes where the format allows" of [ADR 0052](0052-pre-mixed-pcm.md)
+- **Status:** Accepted; supersedes the decision "Tails share bytes where the format allows" of [ADR 0052](0052-pre-mixed-pcm.md); the decision "No length cap" superseded by [ADR 0078](0078-pre-mix-budget-cap.md)
 - **Date:** 2026-11-01
 
 ## Context
