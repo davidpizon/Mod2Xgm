@@ -173,6 +173,10 @@ internal sealed class FancyReporter : IConversionReporter
             Ansi = terminal ? AnsiSupport.Detect : AnsiSupport.No,
             ColorSystem = probe.NoColor || !terminal ? ColorSystemSupport.NoColors : ColorSystemSupport.Detect,
             Interactive = terminal ? InteractionSupport.Detect : InteractionSupport.No,
+
+            // Spectre's default enrichers turn ANSI back on in CI services (GitHub Actions, …) even when it is off
+            // here; the terminal probe alone decides (docs/cli-output.md#fancy: piped output has no escape codes).
+            Enrichment = new ProfileEnrichment { UseDefaultEnrichers = false },
         });
         if (probe.Width is { } width)
         {
