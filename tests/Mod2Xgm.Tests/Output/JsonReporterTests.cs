@@ -5,76 +5,59 @@ using Serilog.Parsing;
 
 namespace Mod2Xgm.Tests.Output;
 
-/// <summary>Tests of <c>--progress json</c> (plan T17.4, docs/cli-output.md#json).</summary>
-[Collection(ProgramState.Name)]
-public sealed class JsonReporterTests
+/// <summary>Tests of <see cref="JsonReporter"/>, <c>--progress json</c> (plan T17.4, docs/cli-output.md#json). Whole runs are in <see cref="ReporterGoldenTests"/>.</summary>
+public sealed class JsonReporterTests : IDisposable
 {
-    /// <summary>A whole conversion in json mode matches its golden file, and every line is one JSON object of schema 1.</summary>
-    [Fact]
-    public void ConversionMatchesGolden()
+    private readonly StringWriter _output = new();
+    private readonly JsonReporter _sut;
+
+    /// <summary>A reporter writing to a string.</summary>
+    public JsonReporterTests() => _sut = new JsonReporter(_output);
+
+    /// <summary>Disposes the reporter and its writer.</summary>
+    public void Dispose()
     {
-        (int code, string output, string error) = OutputRuns.Convert("json");
-
-        Assert.Equal((int)ExitCode.Success, code);
-        Assert.Equal(string.Empty, error);
-        string[] lines = Lines(output);
-        foreach (string line in lines)
-        {
-            using JsonDocument document = JsonDocument.Parse(line);
-            Assert.Equal(1, document.RootElement.GetProperty("v").GetInt32());
-            Assert.False(string.IsNullOrEmpty(document.RootElement.GetProperty("type").GetString()));
-        }
-
-        Assert.Equal("result", Type(lines[^1]));
-        Golden.Verify(Path.Combine("output", "json-conversion.jsonl"), output);
+        _sut.Dispose();
+        _output.Dispose();
     }
 
-    /// <summary>A failure ends with an <c>error</c> object on stdout; stderr stays empty.</summary>
+    /// <summary>A run with steps at once (the harness) carries <c>jobs</c> on its run object.</summary>
     [Fact]
-    public void FailureIsAnErrorObject()
+    public void RunStarted_WithJobs_WritesJobs()
     {
-        (int code, string output, string error) = OutputRuns.Convert("json", "--output", "/no/such/folder/out.dmf");
+        // Act
+        _sut.RunStarted(new RunInfo("corpus", RunInfo.HarnessFormat, "normal", [new PhaseInfo(1, "song:a", "a", string.Empty)], Jobs: 2));
 
-        Assert.Equal((int)ExitCode.OutputNotWritable, code);
-        Assert.Equal(string.Empty, error);
-        using JsonDocument last = JsonDocument.Parse(Lines(output)[^1]);
-        Assert.Equal("error", last.RootElement.GetProperty("type").GetString());
-        Assert.Equal(4, last.RootElement.GetProperty("code").GetInt32());
-        Assert.Equal("output-not-writable", last.RootElement.GetProperty("error").GetString());
-    }
-
-    /// <summary>
-    /// A run with steps at once (the harness) carries <c>jobs</c>; a failure whose kind was set (the harness's
-    /// <c>cannot-run</c>) keeps it.
-    /// </summary>
-    [Fact]
-    public void HarnessRunsCarryJobsAndTheirKind()
-    {
-        using StringWriter output = new();
-        using JsonReporter reporter = new(output);
-
-        reporter.RunStarted(new RunInfo("corpus", RunInfo.HarnessFormat, "normal", [new PhaseInfo(1, "song:a", "a", string.Empty)], Jobs: 2));
-        reporter.Failed(new RunFailure((ExitCode)2, "libopenmpt not found", null, null, [], TimeSpan.Zero) { Kind = "cannot-run" });
-
-        string[] lines = Lines(output.ToString());
-        using JsonDocument run = JsonDocument.Parse(lines[0]);
-        using JsonDocument error = JsonDocument.Parse(lines[^1]);
+        // Assert
+        using JsonDocument run = JsonDocument.Parse(Lines()[0]);
         Assert.Equal(2, run.RootElement.GetProperty("jobs").GetInt32());
+    }
+
+    /// <summary>A failure whose kind was set (the harness's <c>cannot-run</c>) keeps it and its code.</summary>
+    [Fact]
+    public void Failed_WithKindSet_WritesThatKind()
+    {
+        // Act
+        _sut.Failed(new RunFailure((ExitCode)2, "libopenmpt not found", null, null, [], TimeSpan.Zero) { Kind = "cannot-run" });
+
+        // Assert
+        using JsonDocument error = JsonDocument.Parse(Lines()[^1]);
         Assert.Equal("cannot-run", error.RootElement.GetProperty("error").GetString());
         Assert.Equal(2, error.RootElement.GetProperty("code").GetInt32());
     }
 
-    /// <summary>A usage error lists its problems, the missing arguments and the usage line.</summary>
+    /// <summary>A usage error lists its problems, the missing arguments and the usage line, and no stack.</summary>
     [Fact]
-    public void UsageErrorNamesTheMissingArgument()
+    public void Failed_WithUsageError_WritesMissingArgumentAndUsageLine()
     {
-        using StringWriter output = new();
-        using JsonReporter reporter = new(output);
+        // Arrange
         UsageException usage = new(["Required argument missing: <input.mod>."], ["input.mod"]);
 
-        reporter.Failed(new RunFailure(ExitCode.UsageError, usage.Message, null, usage, [], TimeSpan.Zero));
+        // Act
+        _sut.Failed(new RunFailure(ExitCode.UsageError, usage.Message, null, usage, [], TimeSpan.Zero));
 
-        using JsonDocument document = JsonDocument.Parse(output.ToString());
+        // Assert
+        using JsonDocument document = JsonDocument.Parse(_output.ToString());
         JsonElement root = document.RootElement;
         Assert.Equal("usage", root.GetProperty("error").GetString());
         Assert.Equal("input.mod", root.GetProperty("missing")[0].GetString());
@@ -84,33 +67,33 @@ public sealed class JsonReporterTests
 
     /// <summary>A crash carries its stack trace.</summary>
     [Fact]
-    public void CrashCarriesTheStack()
+    public void Failed_WithCrash_WritesStack()
     {
-        using StringWriter output = new();
-        using JsonReporter reporter = new(output);
+        // Act
+        _sut.Failed(new RunFailure(ExitCode.InternalError, "boom", new InvalidOperationException("boom"), null, [], TimeSpan.Zero));
 
-        reporter.Failed(new RunFailure(ExitCode.InternalError, "boom", new InvalidOperationException("boom"), null, [], TimeSpan.Zero));
-
-        using JsonDocument document = JsonDocument.Parse(output.ToString());
+        // Assert
+        using JsonDocument document = JsonDocument.Parse(_output.ToString());
         Assert.Equal("internal", document.RootElement.GetProperty("error").GetString());
         Assert.StartsWith("System.InvalidOperationException: boom", document.RootElement.GetProperty("stack").GetString(), StringComparison.Ordinal);
     }
 
     /// <summary>Progress objects come at most once a second per phase; start and end always come.</summary>
     [Fact]
-    public void ProgressIsThrottled()
+    public void Phase_WithProgressEveryHalfSecond_WritesOneProgressPerSecond()
     {
-        using StringWriter output = new();
-        using JsonReporter reporter = new(output);
+        // Arrange
         PhaseInfo render = new(7, "render", "Render", "ticks");
 
-        reporter.Phase(Update(render, PhaseEvent.Start, 0, 0));
-        reporter.Phase(Update(render, PhaseEvent.Progress, 1, 0.5));
-        reporter.Phase(Update(render, PhaseEvent.Progress, 2, 1.0));
-        reporter.Phase(Update(render, PhaseEvent.Progress, 3, 1.5));
-        reporter.Phase(Update(render, PhaseEvent.End, 4, 1.6));
+        // Act
+        _sut.Phase(Update(render, PhaseEvent.Start, 0, 0));
+        _sut.Phase(Update(render, PhaseEvent.Progress, 1, 0.5));
+        _sut.Phase(Update(render, PhaseEvent.Progress, 2, 1.0));
+        _sut.Phase(Update(render, PhaseEvent.Progress, 3, 1.5));
+        _sut.Phase(Update(render, PhaseEvent.End, 4, 1.6));
 
-        string[] lines = Lines(output.ToString());
+        // Assert
+        string[] lines = Lines();
         Assert.Equal(3, lines.Length);
         using JsonDocument progress = JsonDocument.Parse(lines[1]);
         JsonElement root = progress.RootElement;
@@ -120,67 +103,83 @@ public sealed class JsonReporterTests
         Assert.Equal(12.5, root.GetProperty("total_eta_s").GetDouble());
     }
 
-    /// <summary>Notes keep their template and typed properties; info and debug lines keep their message.</summary>
+    /// <summary>A note keeps its template and its typed properties.</summary>
     [Fact]
-    public void NotesKeepTheirProperties()
+    public void Emit_WithWarning_WritesNoteWithTemplateAndTypedProperties()
     {
-        using StringWriter output = new();
-        using JsonReporter reporter = new(output);
+        // Arrange
         MessageTemplate template = new MessageTemplateParser().Parse("Sample {Sample} truncated to {Length} bytes");
-
-        reporter.Emit(new LogEvent(
+        LogEvent note = new(
             DateTimeOffset.UnixEpoch,
             LogEventLevel.Warning,
             null,
             template,
-            [new LogEventProperty("Sample", new ScalarValue("snare \"2\"")), new LogEventProperty("Length", new ScalarValue(4096))]));
-        reporter.Emit(new LogEvent(DateTimeOffset.UnixEpoch, LogEventLevel.Debug, null, new MessageTemplateParser().Parse("detail"), []));
+            [new LogEventProperty("Sample", new ScalarValue("snare \"2\"")), new LogEventProperty("Length", new ScalarValue(4096))]);
 
-        string[] lines = Lines(output.ToString());
-        using JsonDocument note = JsonDocument.Parse(lines[0]);
-        Assert.Equal("note", note.RootElement.GetProperty("type").GetString());
-        Assert.Equal("Sample {Sample} truncated to {Length} bytes", note.RootElement.GetProperty("template").GetString());
-        Assert.Equal("snare \"2\"", note.RootElement.GetProperty("properties").GetProperty("Sample").GetString());
-        Assert.Equal(4096, note.RootElement.GetProperty("properties").GetProperty("Length").GetInt32());
-        Assert.Equal("debug", Type(lines[1]));
+        // Act
+        _sut.Emit(note);
+
+        // Assert
+        using JsonDocument document = JsonDocument.Parse(Lines()[0]);
+        Assert.Equal("note", document.RootElement.GetProperty("type").GetString());
+        Assert.Equal("Sample {Sample} truncated to {Length} bytes", document.RootElement.GetProperty("template").GetString());
+        Assert.Equal("snare \"2\"", document.RootElement.GetProperty("properties").GetProperty("Sample").GetString());
+        Assert.Equal(4096, document.RootElement.GetProperty("properties").GetProperty("Length").GetInt32());
     }
 
-    /// <summary>Report rows become objects of their kind with typed fields; the result row feeds the result object.</summary>
+    /// <summary>A Debug line becomes a <c>debug</c> object.</summary>
     [Fact]
-    public void RowsAreObjects()
+    public void Emit_WithDebug_WritesDebugObject()
     {
-        using StringWriter output = new();
-        using JsonReporter reporter = new(output);
+        // Act
+        _sut.Emit(new LogEvent(DateTimeOffset.UnixEpoch, LogEventLevel.Debug, null, new MessageTemplateParser().Parse("detail"), []));
 
-        reporter.Emit(Row(new ReportRow("instrument", ("kind", "DAC"), ("n", 1), ("from", new[] { 3, 4 }), ("volume_db", -6.5))));
-        reporter.Emit(Row(ReportRow.Part));
-        reporter.Emit(Row(new ReportRow("result", ("input", "song.mod"), ("output", "song.dmf"), ("notes", 2))));
-        reporter.Completed(new RunOutcome(ExitCode.Success, [], TimeSpan.FromSeconds(1.5)));
+        // Assert
+        using JsonDocument document = JsonDocument.Parse(Lines()[0]);
+        Assert.Equal("debug", document.RootElement.GetProperty("type").GetString());
+    }
 
-        string[] lines = Lines(output.ToString());
-        Assert.Equal(2, lines.Length);
-        using JsonDocument instrument = JsonDocument.Parse(lines[0]);
+    /// <summary>Report rows become objects of their kind with typed fields; a part row writes nothing.</summary>
+    [Fact]
+    public void Emit_WithReportRow_WritesObjectOfItsKind()
+    {
+        // Act
+        _sut.Emit(Row(new ReportRow("instrument", ("kind", "DAC"), ("n", 1), ("from", new[] { 3, 4 }), ("volume_db", -6.5))));
+        _sut.Emit(Row(ReportRow.Part));
+
+        // Assert
+        using JsonDocument instrument = JsonDocument.Parse(Assert.Single(Lines()));
         Assert.Equal("instrument", instrument.RootElement.GetProperty("type").GetString());
         Assert.Equal(4, instrument.RootElement.GetProperty("from")[1].GetInt32());
         Assert.Equal(-6.5, instrument.RootElement.GetProperty("volume_db").GetDouble());
-        using JsonDocument result = JsonDocument.Parse(lines[1]);
+    }
+
+    /// <summary>The result row feeds the result object written on completion, with the run's time.</summary>
+    [Fact]
+    public void Completed_AfterResultRow_WritesResultObject()
+    {
+        // Arrange
+        _sut.Emit(Row(new ReportRow("result", ("input", "song.mod"), ("output", "song.dmf"), ("notes", 2))));
+
+        // Act
+        _sut.Completed(new RunOutcome(ExitCode.Success, [], TimeSpan.FromSeconds(1.5)));
+
+        // Assert
+        using JsonDocument result = JsonDocument.Parse(Assert.Single(Lines()));
         Assert.Equal("song.dmf", result.RootElement.GetProperty("output").GetString());
         Assert.Equal(2, result.RootElement.GetProperty("notes").GetInt32());
         Assert.Equal(JsonValueKind.Null, result.RootElement.GetProperty("wav").ValueKind);
         Assert.Equal(1.5, result.RootElement.GetProperty("seconds").GetDouble());
     }
 
-    private static string[] Lines(string text) => text.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
+    /// <summary>The non-empty lines written so far.</summary>
+    private string[] Lines() => _output.ToString().Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
 
-    private static string? Type(string line)
-    {
-        using JsonDocument document = JsonDocument.Parse(line);
-        return document.RootElement.GetProperty("type").GetString();
-    }
-
+    /// <summary>A phase update of a 10-unit phase with a 12.5 s run estimate.</summary>
     private static PhaseUpdate Update(PhaseInfo phase, PhaseEvent phaseEvent, long done, double elapsed) =>
         new(phase, 9, phaseEvent, done, 10, TimeSpan.FromSeconds(elapsed), null, TimeSpan.FromSeconds(elapsed), TimeSpan.FromSeconds(12.5), false);
 
+    /// <summary>An Information event carrying <paramref name="row"/>.</summary>
     private static LogEvent Row(ReportRow row)
     {
         LogEvent logEvent = new(DateTimeOffset.UnixEpoch, LogEventLevel.Information, null, new MessageTemplateParser().Parse("{ReportLine:l}"), []);
