@@ -14,6 +14,9 @@ tests/
 - Test data goes under `tests/data/`, each file listed in `tests/data/LICENSES.md`; never commit copyrighted MOD
   files (see `docs/testing.md`). `tests/data/corpus/` is the MOD corpus (plan T6.1): Public Domain / CC0 songs only.
 
+Every test follows [docs/testing-principles.md](../docs/testing-principles.md): Arrange/Act/Assert, `sut`,
+`Method_Scenario_ExpectedBehavior` names, and `[Trait("Category", "Integration")]` on classes that do I/O.
+
 Run everything from the repository root:
 
 ```

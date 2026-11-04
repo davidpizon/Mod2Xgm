@@ -17,6 +17,7 @@
 | [formats/xgm.txt](formats/xgm.txt) | Official SGDK XGM v1.01 spec, verbatim copy |
 | [genesis-audio.md](genesis-audio.md) | YM2612 / SN76489 facts the converter relies on |
 | [testing.md](testing.md) | Test strategy and test data rules |
+| [testing-principles.md](testing-principles.md) | How each test is written: AAA, `sut`, naming, unit vs integration, Moq |
 | [harness.md](harness.md) | Accuracy harness: scores conversions against OpenMPT on the corpus; setup, options, output |
 | [adr/](adr/README.md) | Architecture Decision Records: every decision, one file each, plus open questions ([decisions.md](decisions.md) points there) |
 

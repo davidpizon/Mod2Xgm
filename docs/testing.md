@@ -4,6 +4,9 @@ Test projects live in **`tests/`**, one folder each (see [`tests/README.md`](../
 `tests/Mod2Xgm.Tests` (**xUnit v3**); `tests/Mod2Xgm.Harness.Tests` tests the accuracy harness. Both are in the root
 `Mod2Xgm.slnx`. Run with `dotnet test`.
 
+How each test is written (AAA, `sut`, naming, unit vs integration, Moq) is in
+[testing-principles.md](testing-principles.md).
+
 ## Layers
 1. **Reader unit tests** — build MOD bytes in code (a small `ModBuilder` test helper) and assert
    every field: variant detection, 15-sample heuristics, bad tags, truncated files, loop in bytes vs words.
