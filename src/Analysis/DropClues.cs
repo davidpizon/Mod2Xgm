@@ -75,16 +75,16 @@ internal sealed record DropClues(IReadOnlyList<TrackLevel> Tracks, IReadOnlyList
     public const double MinShare = 0.75;
 
     /// <summary>Fewest shared notes that prove anything, as for locked pairs (<see cref="LockedPairs.MinOccurrences"/>).</summary>
-    public const int MinMatches = LockedPairs.MinOccurrences;
+    private const int MinMatches = LockedPairs.MinOccurrences;
 
     /// <summary>Two notes have the same pitch when at most this far apart, as for locked pairs (<see cref="LockedPairs.MaxSpreadCents"/>).</summary>
-    public const double MaxPitchCents = LockedPairs.MaxSpreadCents;
+    private const double MaxPitchCents = LockedPairs.MaxSpreadCents;
 
     /// <summary>An echo comes back within this long (David): later than that, it is a part of its own.</summary>
-    public const double MaxEchoSeconds = 1;
+    private const double MaxEchoSeconds = 1;
 
     /// <summary>An echo is at least this much quieter than what it copies: less is a repeat as loud, whatever the rounding of a tracker's volumes.</summary>
-    public const double MinEchoDropDb = 1;
+    private const double MinEchoDropDb = 1;
 
     /// <summary>
     /// A track at least this far below the song's loudest is very quiet: set by David's listening, which left 22.6 dB unheard
@@ -327,7 +327,7 @@ internal static class DropClueReport
                 "Drop clue: sample {Sample} on channel {Channel} is {Clue:l}: {Below:0.#} dB below the loudest track, {Buried} of its {Notes} notes buried",
                 t.Track.Sample + 1,
                 t.Track.Channel + 1,
-                t.Quiet && t.Buried ? "quiet and buried" : t.Quiet ? "quiet" : "buried",
+                t is { Quiet: true, Buried: true } ? "quiet and buried" : t.Quiet ? "quiet" : "buried",
                 t.BelowLoudestDb,
                 t.BuriedNotes.Count,
                 t.Notes);
