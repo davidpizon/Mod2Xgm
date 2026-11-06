@@ -119,5 +119,7 @@ at 59 %, isn't marked). No corpus song doubles a track on the same side.
 - The aim for M9 (David, 2026-11-06): try many ways of cutting the song down to fit, and choose the **combination of changes
   that is least perceptible**, with A/B listening against the original MOD wherever possible
   ([multi-pass.md](../multi-pass.md#passes)). M9 can't take a clue as proof that a change is safe.
+- A song the target can already play passes through relatively unchanged (David, 2026-11-06;
+  [multi-pass.md](../multi-pass.md#idea)): clues only come into play when it doesn't fit.
 - `--require-fm`, `--require-dac` and `--require-psg` don't filter clues: required samples may carry them, and M9's hard
   constraints keep them (T9.3).

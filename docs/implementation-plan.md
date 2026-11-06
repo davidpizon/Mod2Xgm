@@ -130,7 +130,7 @@
 | T9.1 | Target limits model (FM/CH3/PSG/PCM voices/slots/bytes, `--reserve-sfx-channels`, `--max-pcm-bytes`) | Tests per target |
 | T9.2 | Capacity check + warning; `--no-consolidate` → exit 6 | Tests |
 | T9.3 | Importance scoring; greedy allocation per section; `--require-fm` / `--require-dac` / `--require-psg` as hard constraints | Always produces a valid plan; required samples never change type; exit 6 when required PCM can't fit |
-| T9.4 | Consolidation moves (dedupe, trim, pitch quantize, half rate, merge, mid-song swap, voice stealing) as allocator moves | Tests; never a wrong pitch |
+| T9.4 | Consolidation moves (dedupe, trim, pitch quantize, half rate, merge, mid-song swap, voice stealing) as allocator moves | Tests; never a wrong pitch; a song that already fits the target gets no consolidation move and keeps every note (David, [multi-pass.md](multi-pass.md#idea)) |
 | T9.5 | Render & refine loop (worst-section re-fit / re-allocate), `--quality` / `--time-budget` / `--seed` | Deterministic; improves corpus score vs greedy |
 | T9.6 | Optimizer vs simple mapper on DMF; switch default if better | Decision logged; **0.2.0** |
 

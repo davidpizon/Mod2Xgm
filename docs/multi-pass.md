@@ -15,6 +15,11 @@ PCM is the scarce resource (voices, slots, 128 KB budget), so FM/PSG are used wh
 enough* — freeing PCM for sounds FM can't imitate (drums, voices, breaks, orchestral hits). The allocator
 decides by error and cost, not by a fixed "FM first" rule.
 
+**A song the Genesis can already play stays as it is** (David, 2026-11-06). When a song fits the target's limits, it passes
+through relatively unchanged: every note kept, with no drop, merge, voice steal or other consolidation, and only the changes the
+hardware forces, such as a sample's rate. Cutting a song down is for songs that don't fit, and then the least perceptible
+combination of changes wins ([Passes](#passes)).
+
 ## Passes
 
 | Pass | What happens |
