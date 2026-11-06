@@ -49,10 +49,10 @@ internal sealed class Song
     /// <summary>All patterns, including ones no order plays.</summary>
     public IReadOnlyList<Pattern> Patterns { get; }
 
-    /// <summary>All instrument slots, including empty ones (their names may carry credits).</summary>
+    /// <summary>All instrument slots, including empty ones.</summary>
     public IReadOnlyList<Instrument> Instruments { get; }
 
-    /// <summary>All sample slots, including empty ones.</summary>
+    /// <summary>All sample slots, including empty ones (their names may carry credits).</summary>
     public IReadOnlyList<Sample> Samples { get; }
 
     /// <summary>Speed and tempo when the song starts.</summary>

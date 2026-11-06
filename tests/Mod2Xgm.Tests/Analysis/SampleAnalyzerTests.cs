@@ -414,7 +414,7 @@ public sealed class SampleAnalyzerTests
         [0],
         null,
         [new Pattern([new Row([new Cell(null, null, null, []), new Cell(null, null, null, [])])])],
-        [new Instrument("a", 0, 1, 0), new Instrument("b", 1, 1, 0), new Instrument("c", 2, 1, 0)],
+        [new Instrument(0, 1, 0), new Instrument(1, 1, 0), new Instrument(2, 1, 0)],
         [LoopedSine(64), new Sample("empty", [], null), LoopedSine(32)],
         new Timing(6, 125));
 

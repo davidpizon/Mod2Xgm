@@ -599,7 +599,7 @@ public sealed class SimpleMapperTests
             new("hat", white, null),
             new("empty", [], null),
         ];
-        Instrument[] instruments = [.. samples.Select((s, i) => new Instrument(s.Name, i, 0.5, 0))];
+        Instrument[] instruments = [.. samples.Select((_, i) => new Instrument(i, 0.5, 0))];
         Pattern[] built = [.. patterns.Select(rows => new Pattern([.. rows.Select(r => r.Cells.Count == channels ? r : new Row([.. r.Cells.Take(channels), .. Enumerable.Repeat(Cell.Empty, channels - r.Cells.Count)]))]))];
         return new Song("test", [.. Enumerable.Repeat(new Channel(0), channels)], [.. Enumerable.Range(0, built.Length)], null, built, instruments, samples, new Timing(6, 125));
     }

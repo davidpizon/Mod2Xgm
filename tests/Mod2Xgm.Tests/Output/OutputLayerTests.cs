@@ -84,12 +84,10 @@ public sealed class OutputLayerTests
     [Fact]
     public void SilentReporter_WhenGivenEveryCall_AcceptsThem()
     {
-        // Arrange
-        using SilentReporter sut = new();
-
         // Act
         Exception? error = Record.Exception(() =>
         {
+            using SilentReporter sut = new();
             sut.Emit(Event(LogEventLevel.Warning, "dropped"));
             sut.RunStarted(new RunInfo("song.mod", "dmf", "normal", []));
             sut.Phase(Update());

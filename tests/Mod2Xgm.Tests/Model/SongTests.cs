@@ -25,7 +25,7 @@ public sealed class SongTests
         Assert.Equal("test song", sut.Title);
         Assert.Equal(new Timing(6, 125), sut.Timing);
         Assert.Equal(-1, sut.Channels[0].Pan);
-        Assert.Equal(new Instrument("kick", 0, 1.0, -12.5), sut.Instruments[0]);
+        Assert.Equal(new Instrument(0, 1.0, -12.5), sut.Instruments[0]);
         Assert.Equal("kick", sut.Samples[0].Name);
         Assert.Equal(expectedData, sut.Samples[0].Data);
         Assert.Equal(0.75, sut.Patterns[0].Rows[0].Cells[0].Volume);
@@ -90,7 +90,7 @@ public sealed class SongTests
     public void Constructor_WithInstrumentNamingNoSample_Throws()
     {
         // Arrange
-        Instrument[] instruments = [new("kick", 5, 1, 0)];
+        Instrument[] instruments = [new(5, 1, 0)];
 
         // Act & Assert
         Assert.Throws<ArgumentException>(() => Build(instruments: instruments));
@@ -177,7 +177,7 @@ public sealed class SongTests
             orders ?? [0, 1, 0],
             loopOrder,
             patterns ?? [OnePattern(), OnePattern()],
-            instruments ?? [new Instrument("kick", 0, 1, -12.5), new Instrument(string.Empty, 1, 0, 0)],
+            instruments ?? [new Instrument(0, 1, -12.5), new Instrument(1, 0, 0)],
             [new Sample("kick", [0.5f, -0.5f], null), new Sample(string.Empty, [], null)],
             new Timing(6, 125));
 }
