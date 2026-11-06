@@ -36,7 +36,7 @@ public sealed class ModToSongTests
         Assert.Empty(_notes.Messages);
     }
 
-    /// <summary>Every sample slot becomes an instrument, with its volume and finetune in cents; empty slots keep their names.</summary>
+    /// <summary>Every sample slot becomes an instrument, with its volume and finetune in cents.</summary>
     [Fact]
     public void Convert_WithSamples_MirrorsInstruments()
     {
@@ -50,11 +50,11 @@ public sealed class ModToSongTests
 
         // Assert
         Assert.Equal(31, song.Instruments.Count);
-        Assert.Equal(new Instrument("kick", 0, 0.5, -12.5), song.Instruments[0]);
-        Assert.Equal(new Instrument("  by someone", 1, 1.0, 0), song.Instruments[1]);
+        Assert.Equal(new Instrument(0, 0.5, -12.5), song.Instruments[0]);
+        Assert.Equal(new Instrument(1, 1.0, 0), song.Instruments[1]);
     }
 
-    /// <summary>Every sample slot becomes a sample with its data and loop; a slot without sound is empty and has no loop.</summary>
+    /// <summary>Every sample slot becomes a sample with its data and loop; a slot without sound is empty, has no loop and keeps its name.</summary>
     [Fact]
     public void Convert_WithSamples_MirrorsSampleData()
     {
@@ -75,6 +75,7 @@ public sealed class ModToSongTests
         Assert.Equal(new SampleLoop(16, 32), kick.Loop);
         Assert.True(song.Samples[1].IsEmpty);
         Assert.Null(song.Samples[1].Loop);
+        Assert.Equal("  by someone", song.Samples[1].Name);
     }
 
     /// <summary>8-bit sample values convert exactly to −1…+1 (value / 128).</summary>

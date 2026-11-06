@@ -148,7 +148,7 @@ internal static class ModToSong
 
     /// <summary>Default volume capped at 64, as players do; Ultimate Soundtracker had no finetune.</summary>
     private static Instrument ToInstrument(ModSample sample, int index, bool soundtracker) =>
-        new(sample.Name, index, Math.Min(sample.Volume, 64) / 64.0, soundtracker ? 0 : sample.FineTune * AmigaPitch.CentsPerFineTune);
+        new(index, Math.Min(sample.Volume, 64) / 64.0, soundtracker ? 0 : sample.FineTune * AmigaPitch.CentsPerFineTune);
 
     private static void AddNotes(Tally tally, ModModule module, ConversionNotes notes)
     {

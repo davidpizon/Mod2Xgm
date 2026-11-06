@@ -141,21 +141,22 @@ public sealed class FancyReporterTests
         Assert.Equal("✓ [1/2] Read MOD 1.5 s\n", console.Output.Replace("\r\n", "\n", StringComparison.Ordinal));
     }
 
-    /// <summary>A reporter made from the terminal probe works for a piped and a dumb terminal alike.</summary>
+    /// <summary>A reporter made from the terminal probe prints finished phases for a piped and a dumb terminal alike.</summary>
     [Theory]
     [InlineData(true, true, 100, null)]
     [InlineData(false, false, null, "dumb")]
-    public void Create_FromProbe_AcceptsPhases(bool redirected, bool interactive, int? width, string? term)
+    public void Create_FromProbe_PrintsPhases(bool redirected, bool interactive, int? width, string? term)
     {
         // Arrange
         TerminalProbe probe = TerminalProbe.From(redirected, interactive, width, v => v == "TERM" ? term : null);
-        using FancyReporter sut = FancyReporter.Create(TextWriter.Null, TextWriter.Null, probe);
+        using StringWriter output = new();
+        using FancyReporter sut = FancyReporter.Create(output, TextWriter.Null, probe);
 
         // Act
-        Exception? error = Record.Exception(() => sut.Phase(Update(Read, PhaseEvent.End, 1, 1, null)));
+        sut.Phase(Update(Read, PhaseEvent.End, 1, 1, null));
 
         // Assert
-        Assert.Null(error);
+        Assert.Contains("Read MOD", output.ToString(), StringComparison.Ordinal);
     }
 
     /// <summary>A test console that can redraw and writes escape codes, like a real terminal.</summary>

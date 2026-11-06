@@ -186,7 +186,7 @@ public sealed class SampleTraitsTests
             Assert.InRange(patch.Algorithm, 0, 7);
             Assert.InRange(patch.Feedback, 0, 7);
             Assert.Equal(4, patch.Operators.Count);
-            Assert.Contains(patch.Operators, op => op.Tl < 127);
+            Assert.InRange(patch.Operators.Min(op => op.Tl), 0, 126); // 127 is silent, so at least one operator must sound
             Assert.All(patch.Operators, AssertValidOperator);
         });
     }

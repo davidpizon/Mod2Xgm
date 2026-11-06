@@ -1,12 +1,14 @@
 namespace Mod2Xgm.Model;
 
-/// <summary>An instrument: which sample it plays and its defaults (MOD: one instrument per sample slot).</summary>
-/// <param name="Name">Name as stored (may be empty, may carry credits).</param>
+/// <summary>
+/// An instrument: which sample it plays and its defaults (MOD: one instrument per sample slot, so the slot's name is on
+/// <see cref="Sample.Name"/>).
+/// </summary>
 /// <param name="Sample">Index (0-based) into <see cref="Song.Samples"/>.</param>
 /// <param name="DefaultVolume">Volume a new note starts at, 0–1 (MOD: volume / 64).</param>
 /// <param name="FineTuneCents">Tuning offset of every note, in cents (MOD: finetune × 12.5). Cells keep their notes as
 /// written; the tick player tunes them, and the mapper takes its pitch (docs/adr/0061-dmf-pitch-from-tick-player.md).</param>
-internal sealed record Instrument(string Name, int Sample, double DefaultVolume, double FineTuneCents);
+internal sealed record Instrument(int Sample, double DefaultVolume, double FineTuneCents);
 
 /// <summary>
 /// One mono sample. The sound is stored as decimals from −1 to +1 (David, 2026-10-27): 8-bit input converts exactly

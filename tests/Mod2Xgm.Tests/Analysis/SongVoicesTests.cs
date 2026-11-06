@@ -76,7 +76,7 @@ public sealed class SongVoicesTests
         [0],
         null,
         [new Pattern([new Row([new Cell(null, null, null, []), new Cell(null, null, null, []), new Cell(null, null, null, [])])])],
-        [new Instrument("a", 0, 1, 0), new Instrument("b", 1, 1, 0)],
+        [new Instrument(0, 1, 0), new Instrument(1, 1, 0)],
         [new Sample("shot", new float[150], null), new Sample("loop", new float[100], new SampleLoop(0, 100))],
         new Timing(6, 125));
 
