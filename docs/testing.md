@@ -46,8 +46,9 @@ How each test is written (AAA, `sut`, naming, unit vs integration, Moq) is in
 
 | Trigger | Tests |
 |---|---|
-| Pull request | Skips `Speed=Slow` (build-test and coverage jobs) |
+| Pull request | Skips `Speed=Slow` |
 | Push to `main`, nightly (09:00 UTC), manual run | The whole suite |
+| The `Code coverage` job, on every trigger | Skips `Speed=Slow` |
  changing code the long-running tests cover (FM fitting, the candidate cache), run them yourself before opening
 the PR, or start the CI workflow on the branch by hand (`gh workflow run CI --ref <branch>`).
 
@@ -64,7 +65,7 @@ Tests run on **Microsoft.Testing.Platform** (MTP), selected in the root `global.
 
 Coverage comes from **Microsoft.Testing.Extensions.CodeCoverage** (Cobertura XML), configured by
 `tests/coverage.runsettings` (measures `Mod2Xgm.dll` only). The `Code coverage` job in
-`.github/workflows/ci.yml` runs on pull requests (without the long-running tests) and on pushes to `main`. It writes the line coverage to the job
+`.github/workflows/ci.yml` runs on pull requests and on pushes to `main`, always without the long-running tests. It writes the line coverage to the job
 summary and a `Line coverage` annotation, **fails below 80 %** (`MIN_LINE_COVERAGE`), and keeps the report as
 the `coverage-cobertura` artifact.
 
@@ -73,7 +74,7 @@ project in one run the reports of both would land in the same folder and CI coul
 ([ADR 0047](adr/0047-accuracy-harness.md)). Measure locally (from the repository root):
 
 ```
-dotnet test --project tests/Mod2Xgm.Tests --coverage --coverage-output-format cobertura --coverage-output coverage.cobertura.xml --coverage-settings tests/coverage.runsettings --results-directory artifacts/coverage
+dotnet test --project tests/Mod2Xgm.Tests --coverage --coverage-output-format cobertura --coverage-output coverage.cobertura.xml --coverage-settings tests/coverage.runsettings --results-directory artifacts/coverage -- --filter-not-trait "Speed=Slow"
 ```
 
 Read the line coverage (the first `line-rate` attribute; 0.934 = 93.4 %):

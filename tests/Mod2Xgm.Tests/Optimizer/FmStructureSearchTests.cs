@@ -78,7 +78,10 @@ public sealed class FmStructureSearchTests
         Assert.Equal(scores.Order(), scores);
     }
 
-    /// <summary>The exhaustive search finds a patch's own structure among its best when that patch made the target.</summary>
+    /// <summary>
+    /// The exhaustive search finds a patch's own structure among its best when that patch made the target. The budget
+    /// stops well short of the whole search (several thousand renders) but past where this structure comes in the order.
+    /// </summary>
     [Fact]
     [Trait("Speed", "Slow")]
     public void Exhaustive_WithKnownStructure_FindsIt()
@@ -88,7 +91,7 @@ public sealed class FmStructureSearchTests
         FmEvaluator evaluator = new(FmTargets.Of(known.Patch(FmPatchLibrary.Lead, "Known")));
 
         // Act
-        IReadOnlyList<FmStructure> best = FmExhaustiveSearch.Search(evaluator, FmPatchLibrary.Lead, 1, null);
+        IReadOnlyList<FmStructure> best = FmExhaustiveSearch.Search(evaluator, FmPatchLibrary.Lead, 1, 750);
 
         // Assert
         Assert.True(evaluator.Quick(best[0].Patch(FmPatchLibrary.Lead, "Fit"), null) < 0.05);

@@ -36,19 +36,23 @@ public sealed class FmFitterTests
         Assert.True(region.Renders > 0);
     }
 
-    /// <summary>Fitted patches are named after the sample and region; a fit is the same every time.</summary>
+    /// <summary>Fitted patches are named after the sample and region; a fit is the same every time. A tight budget is enough: repeating doesn't depend on how close the fit gets.</summary>
     [Fact]
     [Trait("Speed", "Slow")]
     public void Fit_Twice_IsNamedAndRepeatable()
     {
+        // Arrange
+        FmFitOptions tight = new(MaxRenders: 6);
+
         // Act
-        FmSampleFit again = FmFitter.Fit(FmTargets.Analyze(FmTargets.Saw), Small);
+        FmSampleFit once = FmFitter.Fit(FmTargets.Analyze(FmTargets.Saw), tight);
+        FmSampleFit again = FmFitter.Fit(FmTargets.Analyze(FmTargets.Saw), tight);
 
         // Assert
-        FmRegionFit first = SawFit.Value.Regions[0];
+        FmRegionFit first = once.Regions[0];
         FmRegionFit second = again.Regions[0];
         Assert.Equal("saw", again.Name);
-        Assert.Equal("Fit 1.1", first.Exhaustive!.Patch.Name);
+        Assert.Equal("Fit 1.1", first.Exhaustive?.Patch.Name);
         Assert.Equal(FmEvaluator.Key(first.Best.Patch, first.Best.LfoRate), FmEvaluator.Key(second.Best.Patch, second.Best.LfoRate));
         Assert.Equal(first.Best.Score, second.Best.Score);
         Assert.Equal(first.Renders, second.Renders);
