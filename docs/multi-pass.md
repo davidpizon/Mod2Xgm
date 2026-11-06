@@ -15,14 +15,19 @@ PCM is the scarce resource (voices, slots, 128 KB budget), so FM/PSG are used wh
 enough* — freeing PCM for sounds FM can't imitate (drums, voices, breaks, orchestral hits). The allocator
 decides by error and cost, not by a fixed "FM first" rule.
 
+**A song the Genesis can already play stays as it is** (David, 2026-11-06). When a song fits the target's limits, it passes
+through relatively unchanged: every note kept, with no drop, merge, voice steal or other consolidation, and only the changes the
+hardware forces, such as a sample's rate. Cutting a song down is for songs that don't fit, and then the least perceptible
+combination of changes wins ([Passes](#passes)).
+
 ## Passes
 
 | Pass | What happens |
 |---|---|
-| 1. Read & analyze song | Apply `--ignore-samples`; per sample: notes/pitches used, durations, volumes, trigger counts; per pair of tracks (a sample on a channel): locked-pair detection, every onset together at one pitch gap ([ADR 0073](adr/0073-ch3-locked-pairs.md)); repeated overlaps of PCM notes, with offsets ([ADR 0052](adr/0052-pre-mixed-pcm.md)) |
+| 1. Read & analyze song | Apply `--ignore-samples`; per sample: notes/pitches used, durations, volumes, trigger counts; per pair of tracks (a sample on a channel): locked-pair detection, every onset together at one pitch gap ([ADR 0073](adr/0073-ch3-locked-pairs.md)); repeated overlaps of PCM notes, with offsets ([ADR 0052](adr/0052-pre-mixed-pcm.md)); per track: drop clues, how cheap it is to drop or merge (doubles, mirrors, echoes, quiet, buried; `DropClues`, [ADR 0084](adr/0084-drop-clues.md)) |
 | 2. Analyze samples | Tonal vs percussive (and noisy), pitch stability, amplitude envelope, loop, spectral envelope per pitch region (`src/Analysis`, [ADR 0068](adr/0068-sample-analysis.md)) |
 | 3. Generate candidates | Per instrument and pitch region: **fitted FM patch(es)**, **PSG** tone/noise, **PCM variants** (target rate, per pitch for XGM/XGM2), **combined** candidates (CH3 special for locked pairs, pre-mixed PCM for repeated overlaps). Each candidate gets an error score (rendered vs original, at the pitches actually played) and a cost |
-| 4. Allocate | Assign candidates to channels over time, section by section, within the target's limits; greedy start, then local search; objective = importance-weighted total error |
+| 4. Allocate | Assign candidates to channels over time, section by section, within the target's limits; greedy start, then local search; objective = importance-weighted total error. The aim (David, 2026-11-06): try many ways of cutting the song down to fit, and choose the **combination of changes that is least perceptible**, checked by A/B listening against the original MOD wherever possible ([ADR 0084](adr/0084-drop-clues.md)) |
 | 5. Render & refine | Render the whole song in-app (Genesis model) and compare with the in-app MOD render; find the worst sections; re-fit patches or re-allocate there; repeat until no improvement or the time budget is spent |
 | 6. Write | Emit DMF / XGM / XGM2; every substitution logged as a conversion note; report section 3 lists the final instruments |
 

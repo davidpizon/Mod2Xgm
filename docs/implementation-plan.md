@@ -122,7 +122,7 @@
 | T8.5a ✅ | Pre-mixed PCM for repeated overlaps: every group of 2–4 overlapping notes, with offsets, head/tail split, a baked twin for one-shot tails, and byte dedupe ([ADR 0052](adr/0052-pre-mixed-pcm.md), [ADR 0072](adr/0072-pre-mix-candidates.md)); candidates only | Tests; seams measured with the PCM driver model (T7.4); XGM2 tail aliasing verified (rescomp stores every slot's bytes, so tails cost their own); corpus count of voice steals removed |
 | T8.5b ✅ | Locked-pair detection (the same start tick and semitone gap every time, David) and CH3 special dual voice (DMF/XGM2): two 2-operator voices, from new algorithm-4 fits and from cut-down T8.2 fits, the closer kept (David); judged together against the MOD mix ([ADR 0073](adr/0073-ch3-locked-pairs.md)); loosened to half of each track's notes together, ±10 cents, eight times or more, lone notes on their own half ([ADR 0076](adr/0076-loose-locked-pairs.md)) | Tests; CH3 never offered for XGM v1 |
 | T8.6 ✅ | Candidate cache, `--no-cache`, `--cache-dir`: every kind of candidate (David), per build; FM fits keyed per pitch region's sound, the rest per song file; the harness uses it now, the conversion in M9 ([ADR 0074](adr/0074-candidate-cache.md)) | Rerun is fast and identical |
-| T8.7 | Drop clues per song track (David): how cheap each track is to drop or thin out when the Genesis runs out of channels: a track that only echoes or doubles another, a very quiet one, one buried under louder ones, and **mirrored tracks** (the same notes, one panned left and one right) that can be merged into one voice (David) | Tests; corpus count of each clue |
+| T8.7 ✅ | Drop clues per song track (David): how cheap each track is to drop or thin out when the Genesis runs out of channels: a track that only echoes or doubles another, a very quiet one, one buried under louder ones, and **mirrored tracks** (the same notes, one panned left and one right) that can be merged into one voice (David); cutoffs set by A/B listening, and clues are hints M9 must check ([ADR 0084](adr/0084-drop-clues.md)) | Tests; corpus count of each clue |
 
 ### M9 — Allocation, consolidation and refinement (optimizer)
 | Task | Work | Acceptance |
@@ -130,7 +130,7 @@
 | T9.1 | Target limits model (FM/CH3/PSG/PCM voices/slots/bytes, `--reserve-sfx-channels`, `--max-pcm-bytes`) | Tests per target |
 | T9.2 | Capacity check + warning; `--no-consolidate` → exit 6 | Tests |
 | T9.3 | Importance scoring; greedy allocation per section; `--require-fm` / `--require-dac` / `--require-psg` as hard constraints | Always produces a valid plan; required samples never change type; exit 6 when required PCM can't fit |
-| T9.4 | Consolidation moves (dedupe, trim, pitch quantize, half rate, merge, mid-song swap, voice stealing) as allocator moves | Tests; never a wrong pitch |
+| T9.4 | Consolidation moves (dedupe, trim, pitch quantize, half rate, merge, mid-song swap, voice stealing) as allocator moves | Tests; never a wrong pitch; a song that already fits the target gets no consolidation move and keeps every note (David, [multi-pass.md](multi-pass.md#idea)) |
 | T9.5 | Render & refine loop (worst-section re-fit / re-allocate), `--quality` / `--time-budget` / `--seed` | Deterministic; improves corpus score vs greedy |
 | T9.6 | Optimizer vs simple mapper on DMF; switch default if better | Decision logged; **0.2.0** |
 

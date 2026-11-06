@@ -132,6 +132,7 @@ internal static class ConversionCommand
 
                 // Samples that must stay PCM or PSG never go on FM, so never into CH3 (docs/adr/0073-ch3-locked-pairs.md).
                 LockedPairReport.Log(logger, LockedPairs.Find(analysis, mapping.RequireDac.Union(mapping.RequirePsg).ToHashSet()));
+                DropClueReport.Log(logger, DropClues.Find(analysis));
             }
 
             analyzed?.Invoke(analysis);

@@ -131,6 +131,7 @@ internal static class Program
         Option<bool> pcmFit = new("--pcm-fit") { Description = "Also make PCM candidates for every sample and target and write pcm-fit.csv (docs/adr/0071-pcm-candidates.md)." };
         Option<bool> preMix = new("--pre-mix") { Description = "Also make pre-mixed PCM candidates for every song and target and write pre-mix.csv and voice-steals.csv (docs/adr/0072-pre-mix-candidates.md)." };
         Option<bool> ch3 = new("--ch3") { Description = "Also find locked pairs and make CH3 special-mode candidates, writing locked-pairs.csv and ch3-fit.csv (docs/adr/0073-ch3-locked-pairs.md); --fm-max-renders limits its fits." };
+        Option<bool> dropClues = new("--drop-clues") { Description = "Also find which tracks are cheap to drop or merge and write drop-clues.csv and track-levels.csv (docs/adr/0084-drop-clues.md)." };
         Option<bool> noCache = new("--no-cache") { Description = "Don't read or write the candidate cache (docs/adr/0074-candidate-cache.md)." };
         Option<string?> cacheDir = new("--cache-dir") { Description = "Folder for the candidate cache (default: the user's cache folder, as mod2xgm's)." };
         Option<int> jobs = new("--jobs", "-j") { Description = "Songs measured at once.", DefaultValueFactory = _ => DefaultJobs };
@@ -144,7 +145,7 @@ internal static class Program
 
         RootCommand root = new("Mod2Xgm accuracy harness: scores conversions against OpenMPT (docs/harness.md).")
         {
-            inputs, output, rate, libopenmpt, furnace, noFurnace, deflemask, noDefleMask, saveReference, clip, balance, fmFit, fmRenders, psgFit, pcmFit, preMix, ch3, noCache, cacheDir, jobs, verbose, progress,
+            inputs, output, rate, libopenmpt, furnace, noFurnace, deflemask, noDefleMask, saveReference, clip, balance, fmFit, fmRenders, psgFit, pcmFit, preMix, ch3, dropClues, noCache, cacheDir, jobs, verbose, progress,
         };
         root.SetAction(result =>
         {
@@ -205,7 +206,8 @@ internal static class Program
                 result.GetValue(preMix),
                 result.GetValue(ch3),
                 result.GetValue(noCache),
-                result.GetValue(cacheDir)));
+                result.GetValue(cacheDir),
+                result.GetValue(dropClues)));
         });
 
         ParseResult parsed = root.Parse(args);
@@ -269,7 +271,7 @@ internal static class Program
             logger.Information("Candidate cache: {Folder}", cache.Folder);
         }
 
-        IReadOnlyList<SongResult> results = new CorpusRun(options.OutputDirectory, options.SampleRate, options.SaveReferenceWavs, reference, candidates, logger, options.ClipSeconds, options.Balance, options.FmFit ? new FmFitOptions(options.FmMaxRenders) : null, options.PsgFit, options.PcmFit, options.PreMix, options.Ch3 ? new FmFitOptions(options.FmMaxRenders) : null, cache).Run(songs, options.Jobs, progress);
+        IReadOnlyList<SongResult> results = new CorpusRun(options.OutputDirectory, options.SampleRate, options.SaveReferenceWavs, reference, candidates, logger, options.ClipSeconds, options.Balance, options.FmFit ? new FmFitOptions(options.FmMaxRenders) : null, options.PsgFit, options.PcmFit, options.PreMix, options.Ch3 ? new FmFitOptions(options.FmMaxRenders) : null, cache, options.DropClues).Run(songs, options.Jobs, progress);
         return Report(results, options, reference.Name, logger);
     }
 
@@ -309,6 +311,12 @@ internal static class Program
         {
             File.WriteAllText(Path.Combine(options.OutputDirectory, "locked-pairs.csv"), HarnessReport.LockedPairsCsv(results));
             File.WriteAllText(Path.Combine(options.OutputDirectory, "ch3-fit.csv"), HarnessReport.Ch3FitCsv(results));
+        }
+
+        if (options.DropClues)
+        {
+            File.WriteAllText(Path.Combine(options.OutputDirectory, "drop-clues.csv"), HarnessReport.DropCluesCsv(results));
+            File.WriteAllText(Path.Combine(options.OutputDirectory, "track-levels.csv"), HarnessReport.TrackLevelsCsv(results));
         }
 
         if (options.ClipSeconds is not null)
@@ -386,6 +394,7 @@ internal static class Program
 /// <param name="Ch3">Also find locked pairs and make CH3 candidates for every song (<c>locked-pairs.csv</c>, <c>ch3-fit.csv</c>).</param>
 /// <param name="NoCache">Make every candidate again: don't read or write the candidate cache.</param>
 /// <param name="CacheDirectory">The candidate cache's folder, or <c>null</c> for the user's cache folder.</param>
+/// <param name="DropClues">Also find which tracks of every song are cheap to drop (<c>drop-clues.csv</c>, <c>track-levels.csv</c>).</param>
 internal sealed record HarnessOptions(
     IReadOnlyList<string> Inputs,
     string OutputDirectory,
@@ -407,4 +416,5 @@ internal sealed record HarnessOptions(
     bool PreMix = false,
     bool Ch3 = false,
     bool NoCache = false,
-    string? CacheDirectory = null);
+    string? CacheDirectory = null,
+    bool DropClues = false);

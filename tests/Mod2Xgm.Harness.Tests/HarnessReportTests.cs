@@ -323,6 +323,44 @@ public sealed class HarnessReportTests
         Assert.Equal(string.Empty, fits[2]);
     }
 
+    /// <summary>The drop-clue CSVs: one line per clue, copies then quiet and buried tracks; one line per track, clue or not (plan T8.7).</summary>
+    [Fact]
+    public void DropCluesCsv_WithClues_HasOneLinePerClueAndTrack()
+    {
+        // Arrange
+        SongNote note = new(1, 2, 12, 4, 8287, 0, 0.5, 0.08, false);
+        SongNote twin = note with { Channel = 0, FirstTick = 0, Volume = 1 };
+        TwinClue echo = new(TwinKind.Echo, new SongTrack(2, 1), new SongTrack(2, 0), [new TwinNote(note, twin)], 2, 12, 0.24, 6.02);
+        TrackLevel faint = new(new SongTrack(2, 1), 2, -40, 30, [note]);
+        TrackLevel covered = new(new SongTrack(3, 2), 1, -30, 20, [note]);
+        TrackLevel loud = new(new SongTrack(1, 0), 4, -10, 0, []);
+        SongResult[] results = [Results[0] with { DropClues = new DropClues([faint, covered, loud], [echo]) }, Results[1]];
+        string[] levels = HarnessReport.TrackLevelsCsv(results).Split('\n');
+
+        // Act
+        string[] clues = HarnessReport.DropCluesCsv(results).Split('\n');
+
+        // Assert
+        Assert.Equal(
+            [
+                HarnessReport.DropCluesHeader,
+                "alpha,echoes,3,2,1,2,1,0.5,12,0.24,6.02,",
+                "alpha,quiet,3,2,,2,2,1,,,,30",
+                "alpha,buried,4,3,,1,1,1,,,,20",
+                string.Empty,
+            ],
+            clues);
+        Assert.Equal(
+            [
+                HarnessReport.TrackLevelsHeader,
+                "alpha,3,2,2,-40,30,1,0.5,yes,no",
+                "alpha,4,3,1,-30,20,1,1,no,yes",
+                "alpha,2,1,4,-10,0,0,0,no,no",
+                string.Empty,
+            ],
+            levels);
+    }
+
     /// <summary>The same results give the same report: it holds no time or machine detail (plan T6.3).</summary>
     [Fact]
     public void Markdown_Twice_IsTheSame()

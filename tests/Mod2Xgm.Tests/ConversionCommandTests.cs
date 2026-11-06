@@ -230,7 +230,7 @@ public sealed class ConversionCommandTests
         Assert.Contains(debug, m => m.Contains("Samples required as PSG \"5\"", StringComparison.Ordinal));
     }
 
-    /// <summary>With <c>--verbose</c> (Debug), the conversion logs each sample's analysis (its label, then its pitch regions) and the locked pairs.</summary>
+    /// <summary>With <c>--verbose</c> (Debug), the conversion logs each sample's analysis (its label, then its pitch regions), the locked pairs and the drop clues.</summary>
     [Fact]
     public void Execute_AtDebugLevel_LogsSampleAnalysis()
     {
@@ -247,6 +247,7 @@ public sealed class ConversionCommandTests
         Assert.Contains(debug, m => m.StartsWith("Sample 1 \"kick\": ", StringComparison.Ordinal) && m.Contains("percussive", StringComparison.Ordinal));
         Assert.Contains(debug, m => m.StartsWith("Sample 1 \"kick\": 1 pitch regions: ", StringComparison.Ordinal));
         Assert.Contains(debug, m => m.EndsWith("locked pairs (candidates for CH3 special mode on DMF and XGM2)", StringComparison.Ordinal));
+        Assert.Contains(debug, m => m.EndsWith("drop clues (nothing is dropped: the optimizer weighs them)", StringComparison.Ordinal));
     }
 
     /// <summary>At Information level no Debug line is written.</summary>

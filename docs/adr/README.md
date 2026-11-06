@@ -97,6 +97,7 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0081](0081-moq-for-test-doubles.md) | Moq for test doubles (test-only) | 2026-11-04 | Accepted |
 | [0082](0082-defer-slow-tests-in-pr-ci.md) | Pull request CI defers tests of 5 s or more | 2026-11-06 | Accepted |
 | [0083](0083-no-nuget-audit-in-qodana.md) | No NuGet audit inside the Qodana scan; CI and the nightly audit still check packages | 2026-11-06 | Accepted |
+| [0084](0084-drop-clues.md) | Drop clues per song track, set by listening | 2026-11-06 | Accepted |
 
 ## Open questions
 

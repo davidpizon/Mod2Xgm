@@ -51,6 +51,12 @@ internal static class HarnessReport
     /// <summary>Header of <c>locked-pairs.csv</c>.</summary>
     public const string LockedPairsHeader = "song,sample_a,channel_a,sample_b,channel_b,onsets,lone_a,lone_b,gap_semitones,spread_cents,cached";
 
+    /// <summary>Header of <c>drop-clues.csv</c>.</summary>
+    public const string DropCluesHeader = "song,clue,sample,channel,twin_channel,notes,matches,share,delay_ticks,delay_s,quieter_db,below_loudest_db";
+
+    /// <summary>Header of <c>track-levels.csv</c>.</summary>
+    public const string TrackLevelsHeader = "song,sample,channel,notes,level_db,below_loudest_db,buried_notes,buried_share,quiet,buried";
+
     /// <summary>Header of <c>ch3-fit.csv</c>.</summary>
     public const string Ch3FitHeader =
         "song,targets,sample_a,channel_a,region_a,sample_b,channel_b,region_b,onsets,hz_a,hz_b,window_s,ops12,source_a,source_b,voice_a_db,voice_b_db,mel_db,mfcc,algorithm4_db,cut_down_db,patch,cached";
@@ -527,6 +533,109 @@ internal static class HarnessReport
         }
 
         return csv.ToString();
+    }
+
+    /// <summary>
+    /// One line per song and drop clue (<c>--drop-clues</c>, docs/adr/0084-drop-clues.md): copies first, then the quiet and
+    /// buried tracks (see <see cref="DropCluesHeader"/>). Samples and channels are 1-based; a field a clue doesn't have is empty.
+    /// </summary>
+    public static string DropCluesCsv(IReadOnlyList<SongResult> results)
+    {
+        ArgumentNullException.ThrowIfNull(results);
+        StringBuilder csv = new();
+        csv.Append(DropCluesHeader).Append('\n');
+        foreach (SongResult song in results)
+        {
+            if (song.DropClues is not { } clues)
+            {
+                continue;
+            }
+
+            foreach (TwinClue c in clues.Twins)
+            {
+                csv.AppendJoin(
+                    ',',
+                    Csv(song.Song),
+                    DropClueReport.KindName(c.Kind),
+                    (c.Track.Sample + 1).ToString(CultureInfo.InvariantCulture),
+                    (c.Track.Channel + 1).ToString(CultureInfo.InvariantCulture),
+                    (c.Twin.Channel + 1).ToString(CultureInfo.InvariantCulture),
+                    c.Notes.ToString(CultureInfo.InvariantCulture),
+                    c.Matches.Count.ToString(CultureInfo.InvariantCulture),
+                    Number(c.Share, "0.###"),
+                    c.DelayTicks.ToString(CultureInfo.InvariantCulture),
+                    Number(c.DelaySeconds, "0.###"),
+                    Number(c.QuieterDb, "0.##"),
+                    string.Empty);
+                csv.Append('\n');
+            }
+
+            foreach (TrackLevel t in clues.Tracks)
+            {
+                if (t.Quiet)
+                {
+                    AppendLevelClue(csv, song.Song, "quiet", t, t.Notes, 1);
+                }
+
+                if (t.Buried)
+                {
+                    AppendLevelClue(csv, song.Song, "buried", t, t.BuriedNotes.Count, t.BuriedShare);
+                }
+            }
+        }
+
+        return csv.ToString();
+    }
+
+    /// <summary>
+    /// One line per song and track with sound (<c>--drop-clues</c>): how loud it is and how many of its notes are buried,
+    /// clue or not, for choosing the cutoffs (see <see cref="TrackLevelsHeader"/>).
+    /// </summary>
+    public static string TrackLevelsCsv(IReadOnlyList<SongResult> results)
+    {
+        ArgumentNullException.ThrowIfNull(results);
+        StringBuilder csv = new();
+        csv.Append(TrackLevelsHeader).Append('\n');
+        foreach (SongResult song in results)
+        {
+            foreach (TrackLevel t in song.DropClues?.Tracks ?? [])
+            {
+                csv.AppendJoin(
+                    ',',
+                    Csv(song.Song),
+                    (t.Track.Sample + 1).ToString(CultureInfo.InvariantCulture),
+                    (t.Track.Channel + 1).ToString(CultureInfo.InvariantCulture),
+                    t.Notes.ToString(CultureInfo.InvariantCulture),
+                    Number(t.LevelDb, "0.##"),
+                    Number(t.BelowLoudestDb, "0.##"),
+                    t.BuriedNotes.Count.ToString(CultureInfo.InvariantCulture),
+                    Number(t.BuriedShare, "0.###"),
+                    YesNo(t.Quiet),
+                    YesNo(t.Buried));
+                csv.Append('\n');
+            }
+        }
+
+        return csv.ToString();
+    }
+
+    private static void AppendLevelClue(StringBuilder csv, string song, string clue, TrackLevel t, int matches, double share)
+    {
+        csv.AppendJoin(
+            ',',
+            Csv(song),
+            clue,
+            (t.Track.Sample + 1).ToString(CultureInfo.InvariantCulture),
+            (t.Track.Channel + 1).ToString(CultureInfo.InvariantCulture),
+            string.Empty,
+            t.Notes.ToString(CultureInfo.InvariantCulture),
+            matches.ToString(CultureInfo.InvariantCulture),
+            Number(share, "0.###"),
+            string.Empty,
+            string.Empty,
+            string.Empty,
+            Number(t.BelowLoudestDb, "0.##"));
+        csv.Append('\n');
     }
 
     /// <summary>
