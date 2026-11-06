@@ -26,25 +26,45 @@ public sealed class DurationCheckTests
         return new Playback(list, null, end);
     }
 
-    /// <summary>A CIA tick length gives back its BPM; any other length has none.</summary>
-    [Fact]
-    public void BpmIsFoundFromTheCiaTick()
+    /// <summary>A CIA tick length gives back its BPM.</summary>
+    [Theory]
+    [InlineData(128)]
+    [InlineData(32)]
+    [InlineData(255)]
+    public void Bpm_WithCiaTick_FindsBpm(int bpm)
     {
-        Assert.Equal(128, OpenMptTiming.Bpm(Cia(128)));
-        Assert.Equal(32, OpenMptTiming.Bpm(Cia(32)));
-        Assert.Equal(255, OpenMptTiming.Bpm(Cia(255)));
-        Assert.Null(OpenMptTiming.Bpm(0.0213));
+        // Act
+        int? found = OpenMptTiming.Bpm(Cia(bpm));
+
+        // Assert
+        Assert.Equal(bpm, found);
+    }
+
+    /// <summary>Any other tick length has no BPM.</summary>
+    [Fact]
+    public void Bpm_WithOtherTick_ReturnsNull()
+    {
+        // Act
+        int? found = OpenMptTiming.Bpm(0.0213);
+
+        // Assert
+        Assert.Null(found);
     }
 
     /// <summary>
     /// OpenMPT's ticks are whole samples at 48 kHz: 960 at BPM 125 (exactly 20 ms), 937 at 128 (937.5 cut down), as
     /// libopenmpt's row times on the corpus show.
     /// </summary>
-    [Fact]
-    public void TicksAreWholeSamplesAt48Khz()
+    [Theory]
+    [InlineData(125, 960)]
+    [InlineData(128, 937)]
+    public void TickDurations_At48Khz_UsesWholeSampleTicks(int bpm, int samples)
     {
-        Assert.Equal([960.0 / 48_000], OpenMptTiming.TickDurations(Ticks(PlaybackEnd.Stops, (0, 0, 0, Cia(125)))));
-        Assert.Equal([937.0 / 48_000], OpenMptTiming.TickDurations(Ticks(PlaybackEnd.Stops, (0, 0, 0, Cia(128)))));
+        // Act
+        IEnumerable<double> durations = OpenMptTiming.TickDurations(Ticks(PlaybackEnd.Stops, (0, 0, 0, Cia(bpm))));
+
+        // Assert
+        Assert.Equal([samples / 48_000.0], durations);
     }
 
     /// <summary>
@@ -53,23 +73,32 @@ public sealed class DurationCheckTests
     /// other change where it is.)
     /// </summary>
     [Fact]
-    public void ATempoChangeMovesToTheTickThatReadIt()
+    public void Of_WithTempoChange_MovesToTickThatReadIt()
     {
+        // Arrange
         IReadOnlyList<double> sameRow = OpenMptTiming.TickDurations(Ticks(PlaybackEnd.Stops, (0, 0, 0, Cia(101)), (0, 0, 1, Cia(128)), (0, 0, 2, Cia(128))));
         IReadOnlyList<double> speedOne = OpenMptTiming.TickDurations(Ticks(PlaybackEnd.Stops, (0, 0, 0, Cia(125)), (0, 1, 0, Cia(101)), (0, 2, 0, Cia(101))));
+
+        // Act
         IReadOnlyList<double> notFirstTick = OpenMptTiming.TickDurations(Ticks(PlaybackEnd.Stops, (0, 0, 1, Cia(101)), (0, 0, 2, Cia(128))));
 
+        // Assert
         Assert.Equal([OpenMpt(128), OpenMpt(128), OpenMpt(128)], sameRow);
         Assert.Equal([OpenMpt(101), OpenMpt(101), OpenMpt(101)], speedOne);
         Assert.Equal([OpenMpt(101), OpenMpt(128)], notFirstTick);
     }
 
     /// <summary>At another rate the ticks are whole samples of that rate: 882 at BPM 125 and 861 at 128 at 44.1 kHz.</summary>
-    [Fact]
-    public void TicksAreWholeSamplesAtTheGivenRate()
+    [Theory]
+    [InlineData(125, 882)]
+    [InlineData(128, 861)]
+    public void TickDurations_AtGivenRate_UsesWholeSampleTicks(int bpm, int samples)
     {
-        Assert.Equal([882.0 / 44_100], OpenMptTiming.TickDurations(Ticks(PlaybackEnd.Stops, (0, 0, 0, Cia(125))), 44_100));
-        Assert.Equal([861.0 / 44_100], OpenMptTiming.TickDurations(Ticks(PlaybackEnd.Stops, (0, 0, 0, Cia(128))), 44_100));
+        // Act
+        IEnumerable<double> durations = OpenMptTiming.TickDurations(Ticks(PlaybackEnd.Stops, (0, 0, 0, Cia(bpm))), 44_100);
+
+        // Assert
+        Assert.Equal([samples / 44_100.0], durations);
     }
 
     /// <summary>
@@ -77,36 +106,43 @@ public sealed class DurationCheckTests
     /// renders its first tick at 125 BPM (ADR 0054).
     /// </summary>
     [Fact]
-    public void AudioTimeKeepsTheTempoChangeLate()
+    public void Of_WithAudioTime_KeepsTempoChangeLate()
     {
+        // Act
         Playback playback = Ticks(PlaybackEnd.Stops, (0, 0, 0, Cia(125)), (0, 0, 1, Cia(96)), (0, 0, 2, Cia(96)));
 
+        // Assert
         Assert.Equal([882.0 / 44_100, 1148.0 / 44_100, 1148.0 / 44_100], OpenMptTiming.TickDurations(playback, 44_100, tempoOnItsTick: false));
         Assert.Equal([1148.0 / 44_100, 1148.0 / 44_100, 1148.0 / 44_100], OpenMptTiming.TickDurations(playback, 44_100));
     }
 
     /// <summary>A tick that isn't a CIA tempo (Ultimate Soundtracker's tempo byte) keeps its length, in whole samples.</summary>
     [Fact]
-    public void OtherTicksKeepTheirLength()
+    public void Of_WithOtherTicks_KeepsTheirLength()
     {
+        // Act
         IReadOnlyList<double> durations = OpenMptTiming.TickDurations(Ticks(PlaybackEnd.Stops, (0, 0, 0, 0.0213), (0, 0, 1, 0.0213)));
 
+        // Assert
         Assert.Equal([1022.0 / 48_000, 1022.0 / 48_000], durations);
     }
 
     /// <summary>Each row is listed once, at its first tick, in playing order, with both of the tick player's times and the reference's.</summary>
     [Fact]
-    public void RowsAreComparedAtTheirFirstTick()
+    public void Rows_WithTicks_ComparesAtFirstTick()
     {
+        // Arrange
         Playback playback = Ticks(PlaybackEnd.Loops, (0, 0, 0, Cia(125)), (0, 0, 1, Cia(125)), (1, 5, 0, Cia(125)), (0, 0, 0, Cia(125)));
         List<(int, int)> asked = [];
 
+        // Act
         IReadOnlyList<RowTiming> rows = DurationCheck.Rows(playback, r =>
         {
             asked.AddRange(r);
             return [0.0, 0.05];
         });
 
+        // Assert
         Assert.Equal([(0, 0), (1, 5)], asked);
         Assert.Equal(new RowTiming(0, 0, 0, 0, 0), rows[0]);
         Assert.Equal(2 * Cia(125), rows[1].TickPlayerSeconds, 12);
@@ -119,19 +155,22 @@ public sealed class DurationCheckTests
     /// further off fails it, and so does the end, unless the song stops at F00.
     /// </summary>
     [Fact]
-    public void EveryRowAndTheEndMustBeWithinOneTick()
+    public void Rows_WithEnd_MustBeWithinOneTick()
     {
+        // Arrange
         Playback playback = Ticks(PlaybackEnd.Stops, (0, 0, 0, Cia(125)), (0, 1, 0, Cia(100)), (0, 2, 0, Cia(125)));
         double length = OpenMpt(125) + OpenMpt(100) + OpenMpt(125);
         RowTiming[] onTime = [new(0, 0, 0, 0, 0), new(0, 1, 0.02, 0.02, 0.02), new(0, 2, 0.045, 0.045, 0.045)];
         RowTiming[] late = [new(0, 0, 0, 0, 0), new(0, 1, 0.02, 0.02, 0.02), new(0, 2, 0.045, 0.045, 0.1)];
-
         DurationCheck exact = DurationCheck.Of(playback, onTime, length, stopsAtF00: false);
         DurationCheck endOneTickOff = DurationCheck.Of(playback, onTime, length + OpenMpt(100), stopsAtF00: false);
         DurationCheck endTwoTicksOff = DurationCheck.Of(playback, onTime, length + 0.05, stopsAtF00: false);
         DurationCheck stopsAtF00 = DurationCheck.Of(playback, onTime, length + 2, stopsAtF00: true);
+
+        // Act
         DurationCheck rowOff = DurationCheck.Of(playback, late, length, stopsAtF00: false);
 
+        // Assert
         Assert.Equal(Cia(100), exact.ToleranceSeconds);
         Assert.Equal(length, exact.OpenMptRulesSeconds, 12);
         Assert.Equal(playback.DurationSeconds, exact.TickPlayerSeconds);
@@ -146,21 +185,26 @@ public sealed class DurationCheckTests
 
     /// <summary>A song with no ticks has no tolerance and nothing to be off.</summary>
     [Fact]
-    public void AnEmptyPlaybackHasNoTolerance()
+    public void Of_WithEmptyPlayback_HasNoTolerance()
     {
-        DurationCheck check = DurationCheck.Of(new Playback([], null, PlaybackEnd.Stops), [], 0, stopsAtF00: false);
+        // Act
+        DurationCheck sut = DurationCheck.Of(new Playback([], null, PlaybackEnd.Stops), [], 0, stopsAtF00: false);
 
-        Assert.Equal(0, check.ToleranceSeconds);
-        Assert.True(check.Within);
+        // Assert
+        Assert.Equal(0, sut.ToleranceSeconds);
+        Assert.True(sut.Within);
     }
 
     /// <summary>A song that stops on a row holding F00 ends at F00; one that loops, or stops elsewhere, doesn't.</summary>
     [Fact]
-    public void AnF00EndIsRecognised()
+    public void EndsAtF00_WithF00End_RecognisesIt()
     {
+        // Arrange
         ModCell[] cells = new ModCell[ModPattern.Rows * 4];
         cells[(3 * 4) + 2] = new ModCell(0, 0, 0xF, 0);
         cells[(5 * 4) + 1] = new ModCell(0, 0, 0xF, 6);
+
+        // Act
         ModModule module = new()
         {
             Title = "f00",
@@ -176,6 +220,7 @@ public sealed class DurationCheckTests
             Player = ModPlayer.ProTracker2,
         };
 
+        // Assert
         Assert.True(DurationCheck.EndsAtF00(module, Ticks(PlaybackEnd.Stops, (0, 3, 0, Cia(125)))));
         Assert.False(DurationCheck.EndsAtF00(module, Ticks(PlaybackEnd.Loops, (0, 3, 0, Cia(125)))));
         Assert.False(DurationCheck.EndsAtF00(module, Ticks(PlaybackEnd.Stops, (0, 5, 0, Cia(125)))));

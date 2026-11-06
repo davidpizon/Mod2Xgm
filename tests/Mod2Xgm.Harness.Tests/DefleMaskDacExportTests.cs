@@ -10,6 +10,7 @@ namespace Mod2Xgm.Harness.Tests;
 /// export of the <c>dac-sample</c> probe (plan T7.9, difference 5 of ADR 0058; docs/adr/0066-pcm-drivers-checked-against-sgdk.md).
 /// The export is made by hand in DefleMask, so the test skips until it is in the repository.
 /// </summary>
+[Trait("Category", "Integration")]
 public sealed class DefleMaskDacExportTests
 {
     /// <summary>
@@ -23,35 +24,33 @@ public sealed class DefleMaskDacExportTests
     /// on the DAC: the model's bytes, at the YM3438's rate, resampled to the export's rate.
     /// </summary>
     [Fact]
-    public void TheFirstBeepSoundsLikeTheDmfDacModel()
+    public void Generate_ForFirstBeep_SoundsLikeDefleMaskExport()
     {
+        // Arrange
         string path = TestFiles.DefleMaskDacExport;
-        if (!File.Exists(path))
-        {
-            Assert.Skip($"{path} is missing: export tests/golden/dmf-probes/dac-sample.dmf to WAV in DefleMask (steps in docs/adr/0066-pcm-drivers-checked-against-sgdk.md).");
-            return;
-        }
-
+        Assert.SkipUnless(File.Exists(path), $"{path} is missing: export tests/golden/dmf-probes/dac-sample.dmf to WAV in DefleMask (steps in docs/adr/0066-pcm-drivers-checked-against-sgdk.md).");
         AudioSignal export = WavFile.Read(path).ToMono();
         float[] samples = export.Samples.ToArray();
         int onset = Array.FindIndex(samples, v => Math.Abs(v) > 0.01f);
         Assert.True(onset >= 0, "the export is silent");
         int length = (int)(0.35 * export.SampleRate);
         float[] beep = samples[onset..Math.Min(samples.Length, onset + length)];
-
         // The model: the probe's sample, as DmfProbes builds it, on the DAC at 32 kHz.
         const int rateHz = 32000;
         short[] sine = [.. Enumerable.Range(0, (int)Math.Round(rateHz * 0.4)).Select(i => (short)Math.Round(16000 * Math.Sin(2 * Math.PI * 440 * i / rateHz)))];
-        DmfDac dac = new(Ym3438.NtscClockHz);
-        dac.SetDacMode(true);
-        dac.Play(sine, rateHz);
+        DmfDac sut = new(Ym3438.NtscClockHz);
+        sut.SetDacMode(true);
+        sut.Play(sine, rateHz);
         double ymRate = Ym3438.SampleRateHz(Ym3438.NtscClockHz);
         byte[] data = new byte[(int)(ymRate * 0.4)];
-        dac.Generate(data, new byte[data.Length]);
+
+        // Act
+        sut.Generate(data, new byte[data.Length]);
+
+        // Assert
         float[] model = SampleProcessor.Resample([.. data.Select(b => (b - 0x80) / 128f)], ymRate, export.SampleRate, ResamplingMode.Smooth);
         model = model[..Math.Min(model.Length, beep.Length)];
         beep = beep[..model.Length];
-
         double distance = SpectralMetrics.MelDistanceDb(new AudioSignal(Normalize(beep), export.SampleRate), new AudioSignal(Normalize(model), export.SampleRate));
         Assert.True(distance <= MaxMelDistanceDb, $"the export's first beep is {distance:0.00} dB from the model (bar {MaxMelDistanceDb} dB)");
     }

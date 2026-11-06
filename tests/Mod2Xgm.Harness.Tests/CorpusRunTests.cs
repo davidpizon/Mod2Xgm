@@ -7,6 +7,7 @@ namespace Mod2Xgm.Harness.Tests;
 /// Tests for <see cref="CorpusRun"/> with stand-in renderers, so they run anywhere: the real conversion and tick player
 /// run on a corpus song; the reference and candidate renders are tones.
 /// </summary>
+[Trait("Category", "Integration")]
 public sealed class CorpusRunTests
 {
     private const int Rate = 22_050;
@@ -55,16 +56,19 @@ public sealed class CorpusRunTests
     /// renderer that has a rendering; one with nothing is left out, one that fails is listed with its error.
     /// </summary>
     [Fact]
-    public void ASongIsConvertedCheckedAndScored()
+    public void Run_WithSong_ConvertsChecksAndScores()
     {
+        // Arrange
         using TempDirectory temp = new();
         Candidate same = new("same", _ => new CandidateRender(TestFiles.Tone(2.0), "a remark"));
         Candidate nothing = new("nothing", _ => null);
         Candidate failing = new("failing", _ => throw new HarnessException("broken renderer"));
-        CorpusRun run = new(temp.Path, Rate, saveReferenceWavs: true, new ToneReference(30.72), [same, nothing, failing], Logger.None);
 
-        SongResult result = Assert.Single(run.Run([TestFiles.ShortSong]));
+        // Act
+        CorpusRun sut = new(temp.Path, Rate, saveReferenceWavs: true, new ToneReference(30.72), [same, nothing, failing], Logger.None);
 
+        // Assert
+        SongResult result = Assert.Single(sut.Run([TestFiles.ShortSong]));
         Assert.Equal("fx-poly1", result.Song);
         Assert.Null(result.Error);
         Assert.True(result.ConversionNotes > 0);
@@ -72,14 +76,12 @@ public sealed class CorpusRunTests
         Assert.True(result.Duration.Within);
         Assert.Equal(30.72, result.Duration.TickPlayerSeconds, 0.01);
         Assert.Equal(["same", "failing"], result.Scores.Select(s => s.Renderer));
-
         CandidateScore score = result.Scores[0];
         Assert.NotNull(score.Score);
         Assert.Equal("a remark", score.Remark);
         Assert.True(score.Score.MelDistanceDb < 1, "an 8 kHz copy of the tone, resampled, is close to the original");
         Assert.Null(result.Scores[1].Score);
         Assert.Equal("broken renderer", result.Scores[1].Remark);
-
         SongFiles files = Assert.Single(same.Seen);
         Assert.Equal(temp.Combine("dmf", "fx-poly1.dmf"), files.DmfPath);
         Assert.True(File.Exists(files.DmfPath));
@@ -92,17 +94,20 @@ public sealed class CorpusRunTests
     /// stays 0 and is scored as it is, whole song and clip alike.
     /// </summary>
     [Fact]
-    public void RendersInReferenceTimeAreNotAligned()
+    public void Run_WithRenderInReferenceTime_DoesNotAlign()
     {
+        // Arrange
         using TempDirectory temp = new();
         float[] late = [.. new float[Rate / 10], .. TestFiles.Tone(1.9, Rate).Left];
         StereoAudio lateTone = new(late, late, Rate);
         Candidate aligned = new("aligned", _ => new CandidateRender(lateTone, null));
         Candidate kept = new("kept", _ => new CandidateRender(lateTone, null, InReferenceTime: true));
-        CorpusRun run = new(temp.Path, Rate, saveReferenceWavs: false, new ToneReference(30.72), [aligned, kept], Logger.None, clipSeconds: 1.5);
 
-        SongResult result = Assert.Single(run.Run([TestFiles.ShortSong]));
+        // Act
+        CorpusRun sut = new(temp.Path, Rate, saveReferenceWavs: false, new ToneReference(30.72), [aligned, kept], Logger.None, clipSeconds: 1.5);
 
+        // Assert
+        SongResult result = Assert.Single(sut.Run([TestFiles.ShortSong]));
         Assert.NotEqual(0, result.Scores[0].Score?.LagSeconds ?? 0);
         Assert.Equal(0, result.Scores[1].Score?.LagSeconds);
         Assert.Equal(0, result.Scores[1].Clip?.LagSeconds);
@@ -113,14 +118,17 @@ public sealed class CorpusRunTests
     /// scored on their own, next to the whole-song scores.
     /// </summary>
     [Fact]
-    public void AClipIsWrittenAndScored()
+    public void Run_WithClip_WritesAndScoresIt()
     {
+        // Arrange
         using TempDirectory temp = new();
         Candidate same = new("same", _ => new CandidateRender(TestFiles.Tone(2.0), null));
-        CorpusRun run = new(temp.Path, Rate, saveReferenceWavs: false, new ToneReference(30.72), [same], Logger.None, clipSeconds: 1.5);
 
-        SongResult result = Assert.Single(run.Run([TestFiles.ShortSong]));
+        // Act
+        CorpusRun sut = new(temp.Path, Rate, saveReferenceWavs: false, new ToneReference(30.72), [same], Logger.None, clipSeconds: 1.5);
 
+        // Assert
+        SongResult result = Assert.Single(sut.Run([TestFiles.ShortSong]));
         CandidateScore score = Assert.Single(result.Scores);
         Assert.NotNull(score.Score);
         Assert.NotNull(score.Clip);
@@ -154,15 +162,18 @@ public sealed class CorpusRunTests
     /// balance is perfect. A renderer that can't play DMFs gets no balance.
     /// </summary>
     [Fact]
-    public void BalanceIsMeasuredFromStems()
+    public void Run_WithStems_MeasuresBalance()
     {
+        // Arrange
         using TempDirectory temp = new();
         DmfCandidate player = new();
         Candidate other = new("other", _ => new CandidateRender(TestFiles.Tone(2.0), null));
-        CorpusRun run = new(temp.Path, Rate, saveReferenceWavs: false, new ToneReference(30.72), [player, other], Logger.None, clipSeconds: 1.5, balance: true);
 
-        SongResult result = Assert.Single(run.Run([TestFiles.ShortSong]));
+        // Act
+        CorpusRun sut = new(temp.Path, Rate, saveReferenceWavs: false, new ToneReference(30.72), [player, other], Logger.None, clipSeconds: 1.5, balance: true);
 
+        // Assert
+        SongResult result = Assert.Single(sut.Run([TestFiles.ShortSong]));
         BalanceResult? balance = result.Scores[0].Balance;
         Assert.NotNull(balance);
         Assert.Null(result.Scores[1].Balance);
@@ -178,13 +189,16 @@ public sealed class CorpusRunTests
 
     /// <summary>An end more than a tick away from the reference's is flagged even when every row is on time.</summary>
     [Fact]
-    public void AnEndOffByMoreThanATickIsFlagged()
+    public void Run_WithEndOffByMoreThanTick_FlagsIt()
     {
+        // Arrange
         using TempDirectory temp = new();
-        CorpusRun run = new(temp.Path, Rate, saveReferenceWavs: false, new ToneReference(31.0), [], Logger.None);
 
-        SongResult result = Assert.Single(run.Run([TestFiles.ShortSong]));
+        // Act
+        CorpusRun sut = new(temp.Path, Rate, saveReferenceWavs: false, new ToneReference(31.0), [], Logger.None);
 
+        // Assert
+        SongResult result = Assert.Single(sut.Run([TestFiles.ShortSong]));
         Assert.False(result.Duration?.Within);
         Assert.Null(result.Duration?.FirstRowOff);
         Assert.Empty(result.Scores);
@@ -196,13 +210,16 @@ public sealed class CorpusRunTests
     /// stand-in reaches every row at 0 here, so row 1 is the first off.)
     /// </summary>
     [Fact]
-    public void ARowOffByMoreThanATickIsFlagged()
+    public void Run_WithRowOffByMoreThanTick_FlagsIt()
     {
+        // Arrange
         using TempDirectory temp = new();
-        CorpusRun run = new(temp.Path, Rate, saveReferenceWavs: false, new ToneReference(30.72, onTime: false), [], Logger.None);
 
-        SongResult result = Assert.Single(run.Run([TestFiles.ShortSong]));
+        // Act
+        CorpusRun sut = new(temp.Path, Rate, saveReferenceWavs: false, new ToneReference(30.72, onTime: false), [], Logger.None);
 
+        // Assert
+        SongResult result = Assert.Single(sut.Run([TestFiles.ShortSong]));
         Assert.False(result.Duration?.Within);
         Assert.Equal((0, 1), (result.Duration?.FirstRowOff?.Order, result.Duration?.FirstRowOff?.Row));
         string[] rows = File.ReadAllLines(temp.Combine("logs", "fx-poly1.rows.csv"));
@@ -212,15 +229,18 @@ public sealed class CorpusRunTests
 
     /// <summary>A file that isn't a MOD fails its own song, with the reader's message, and the run goes on.</summary>
     [Fact]
-    public void ABadSongIsReportedAndTheRunGoesOn()
+    public void Run_WithBadSong_ReportsItAndGoesOn()
     {
+        // Arrange
         using TempDirectory temp = new();
         string bad = temp.Combine("bad.mod");
         File.WriteAllBytes(bad, [1, 2, 3]);
-        CorpusRun run = new(temp.Combine("out"), Rate, saveReferenceWavs: false, new ToneReference(30.72), [], Logger.None);
+        CorpusRun sut = new(temp.Combine("out"), Rate, saveReferenceWavs: false, new ToneReference(30.72), [], Logger.None);
 
-        IReadOnlyList<SongResult> results = run.Run([bad, TestFiles.ShortSong], jobs: 2);
+        // Act
+        IReadOnlyList<SongResult> results = sut.Run([bad, TestFiles.ShortSong], jobs: 2);
 
+        // Assert
         Assert.Equal(["bad", "fx-poly1"], results.Select(r => r.Song));
         Assert.Contains("Not a supported MOD file", results[0].Error, StringComparison.Ordinal);
         Assert.Null(results[0].Duration);
@@ -229,9 +249,12 @@ public sealed class CorpusRunTests
 
     /// <summary>Two runs over the same song give the same report files (plan T6.3: stable scores on reruns).</summary>
     [Fact]
-    public void RerunsGiveTheSameReport()
+    public void Run_Twice_GivesSameReport()
     {
+        // Arrange
         using TempDirectory temp = new();
+
+        // Act
         string Report()
         {
             Candidate copy = new("copy", _ => new CandidateRender(TestFiles.Tone(2.1, Rate, hz: 445), null));
@@ -239,6 +262,7 @@ public sealed class CorpusRunTests
             return HarnessReport.ScoresCsv(results) + HarnessReport.DurationsCsv(results) + HarnessReport.Markdown(results, "r", "v", Rate);
         }
 
+        // Assert
         Assert.Equal(Report(), Report());
     }
 }
