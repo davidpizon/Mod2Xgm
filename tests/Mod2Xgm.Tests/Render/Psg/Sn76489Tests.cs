@@ -33,45 +33,69 @@ public sealed class Sn76489Tests
     private static List<int> Edges(int[] output) => [.. Enumerable.Range(1, output.Length - 1).Where(i => output[i] != output[i - 1])];
 
     /// <summary>One sample per 16 PSG clocks: about 223.7 kHz on an NTSC Genesis.</summary>
-    [Fact]
-    public void SampleRateIsTheClockOver16()
+    [Theory]
+    [InlineData(Sn76489.NtscClockHz, 3_579_545 / 16.0)]
+    [InlineData(Sn76489.PalClockHz, 3_546_893 / 16.0)]
+    public void SampleRateHz_WithClock_IsClockOver16(double clockHz, double expected)
     {
-        Assert.Equal(3_579_545 / 16.0, Sn76489.SampleRateHz(Sn76489.NtscClockHz), 9);
-        Assert.Equal(3_546_893 / 16.0, Sn76489.SampleRateHz(Sn76489.PalClockHz), 9);
+        // Act
+        double rate = Sn76489.SampleRateHz(clockHz);
+
+        // Assert
+        Assert.Equal(expected, rate, 9);
     }
 
     /// <summary>A fresh chip is silent: every channel starts at volume 15.</summary>
     [Fact]
-    public void AFreshChipIsSilent() => Assert.All(Play(new Sn76489(), 5000), s => Assert.Equal(0, s));
+    public void Generate_OnFreshChip_IsSilent()
+    {
+        // Act & Assert
+        Assert.All(Play(new Sn76489(), 5000), s => Assert.Equal(0, s));
+    }
 
     /// <summary>Generating nothing is allowed and changes nothing.</summary>
     [Fact]
-    public void GeneratingNoSamplesIsAllowed()
+    public void Generate_WithNoSamples_DoesNothing()
     {
-        Sn76489 chip = With(0x8e, 0x0f, 0x90);
-        chip.Generate([]);
-        Assert.Equal(Play(With(0x8e, 0x0f, 0x90), 600), Play(chip, 600));
+        // Arrange
+        Sn76489 sut = With(0x8e, 0x0f, 0x90);
+
+        // Act
+        sut.Generate([]);
+
+        // Assert
+        Assert.Equal(Play(With(0x8e, 0x0f, 0x90), 600), Play(sut, 600));
     }
 
+    /// <summary>The sixteen volumes.</summary>
+    public static TheoryData<int> Volumes { get; } = new(Enumerable.Range(0, 16));
+
     /// <summary>Each volume plays Nuked-PSG's level, negated as MAME does: a high channel pulls the output down; the low half of the wave is 0.</summary>
-    [Fact]
-    public void VolumesPlayNukedsLevelsNegated()
+    [Theory]
+    [MemberData(nameof(Volumes))]
+    public void Generate_WithVolume_PlaysNukedsLevelNegated(int volume)
     {
-        for (int volume = 0; volume < 16; volume++)
-        {
-            int[] output = Play(With(0x80 | 0x0e, 0x0f, 0x90 | volume), 1000);
-            Assert.Equal(-NukedLevels[volume], output.Min());
-            Assert.Equal(0, output.Max());
-        }
+        // Arrange
+        Sn76489 sut = With(0x80 | 0x0e, 0x0f, 0x90 | volume);
+
+        // Act
+        int[] output = Play(sut, 1000);
+
+        // Assert
+        Assert.Equal(-NukedLevels[volume], output.Min());
+        Assert.Equal(0, output.Max());
     }
 
     /// <summary>All four channels high at volume 0 reach the full scale.</summary>
     [Fact]
-    public void FourLoudChannelsReachFullScale()
+    public void Generate_WithFourLoudChannels_ReachesFullScale()
     {
+        // Act
         // Period 0 flips every sample, so the three tones are high together on every other sample; the noise is
         // high once its first 1 bit comes round (white noise, rate 0).
         int[] output = Play(With(0x80, 0x00, 0xa0, 0x00, 0xc0, 0x00, 0x90, 0xb0, 0xd0, 0xe4, 0xf0), 4096);
+
+        // Assert
         Assert.Equal(-Sn76489.FullScale, output.Min());
         Assert.Equal(Sn76489.FullScale, 4 * NukedLevels[0]);
     }
@@ -82,25 +106,34 @@ public sealed class Sn76489Tests
     [InlineData(2)]
     [InlineData(254)]
     [InlineData(0x3ff)]
-    public void AToneFlipsEveryPeriod(int period)
+    public void Generate_WithTone_FlipsEveryPeriod(int period)
     {
+        // Arrange
         int[] output = Play(With(0x80 | (period & 0xf), period >> 4, 0x90), 8 * 1024);
+
+        // Act
         List<int> edges = Edges(output);
+
+        // Assert
         Assert.All(edges.Zip(edges.Skip(1)), pair => Assert.Equal(period, pair.Second - pair.First));
     }
 
     /// <summary>On Sega's chip a period of 0 stays 0 and flips every sample like period 1 (TI's acts as <c>$400</c>).</summary>
     [Fact]
-    public void PeriodZeroFlipsEverySample()
+    public void Generate_WithPeriodZero_FlipsEverySample()
     {
+        // Act
         int[] output = Play(With(0x80, 0x00, 0x90), 100);
+
+        // Assert
         Assert.All(Edges(output).Zip(Edges(output).Skip(1)), pair => Assert.Equal(1, pair.Second - pair.First));
     }
 
     /// <summary>A data byte after a period latch sets the high 6 bits; a latch byte alone changes only the low 4.</summary>
     [Fact]
-    public void PeriodBytesSetTheirOwnBits()
+    public void Write_WithPeriodBytes_SetsTheirOwnBits()
     {
+        // Act & Assert
         // $0FE, then a data byte $08 → $08E, then a latch byte with low bits 3 → $083.
         Assert.Equal(Play(With(0x83, 0x08, 0x90), 4000), Play(With(0x8e, 0x0f, 0x08, 0x83, 0x90), 4000));
     }
@@ -111,15 +144,20 @@ public sealed class Sn76489Tests
     /// remaining 150 samples).
     /// </summary>
     [Fact]
-    public void AShorterPeriodFlipsAtOnce()
+    public void Write_WithShorterPeriod_FlipsAtOnce()
     {
+        // Arrange
         // Period 200 flips at sample 200 and has counted 51 more when period 20 is written; 51 ≥ 20, so the next
         // sample shows the flip, and then every 20.
-        Sn76489 chip = With(0x88, 0x0c, 0x90);
-        Assert.Equal([200], Edges(Play(chip, 250)));
-        chip.Write(0x84);
-        chip.Write(0x01);
-        Assert.Equal([1, 21, 41], Edges(Play(chip, 50)));
+        Sn76489 sut = With(0x88, 0x0c, 0x90);
+        Play(sut, 250);
+
+        // Act
+        sut.Write(0x84);
+        sut.Write(0x01);
+
+        // Assert
+        Assert.Equal([1, 21, 41], Edges(Play(sut, 50)));
     }
 
     /// <summary>
@@ -127,15 +165,20 @@ public sealed class Sn76489Tests
     /// period (docs/adr/0065-sn76489-chip-differences.md, difference 2; MAME would flip after the old period's 50).
     /// </summary>
     [Fact]
-    public void ALongerPeriodStretchesTheHalfWave()
+    public void Write_WithLongerPeriod_StretchesHalfWave()
     {
+        // Arrange
         // Period 100 flips at sample 100 and has counted to 51 when period 300 is written: 249 more steps reach 300,
         // so the flip shows 250 samples later, and then every 300.
-        Sn76489 chip = With(0x84, 0x06, 0x90);
-        Assert.Equal([100], Edges(Play(chip, 150)));
-        chip.Write(0x8c);
-        chip.Write(0x12);
-        Assert.Equal([250, 550], Edges(Play(chip, 600)));
+        Sn76489 sut = With(0x84, 0x06, 0x90);
+        Play(sut, 150);
+
+        // Act
+        sut.Write(0x8c);
+        sut.Write(0x12);
+
+        // Assert
+        Assert.Equal([250, 550], Edges(Play(sut, 600)));
     }
 
     /// <summary>
@@ -144,16 +187,21 @@ public sealed class Sn76489Tests
     /// difference 3; MAME would keep the high bit until its next shift).
     /// </summary>
     [Fact]
-    public void ANoiseWriteSilencesTheNoiseAtOnce()
+    public void Write_WithNoiseControl_SilencesNoiseAtOnce()
     {
-        Sn76489 chip = With(0xe4, 0xf0);
+        // Arrange
         int high = Array.FindIndex(Play(With(0xe4, 0xf0), 4096), s => s != 0);
-        Assert.True(high > 0);
-        Assert.NotEqual(0, Play(chip, high + 1)[high]);
-        chip.Write(0xe4);
+        Sn76489 sut = With(0xe4, 0xf0);
+        int before = Play(sut, high + 1)[high];
 
+        // Act
+        sut.Write(0xe4);
+
+        // Assert
+        Assert.True(high > 0);
+        Assert.NotEqual(0, before);
         // 15 shifts of 32 samples, less up to one shift for where the rate counter stands.
-        Assert.All(Play(chip, (14 * 32) - 1), s => Assert.Equal(0, s));
+        Assert.All(Play(sut, (14 * 32) - 1), s => Assert.Equal(0, s));
     }
 
     /// <summary>
@@ -162,8 +210,9 @@ public sealed class Sn76489Tests
     /// on a counter of its own).
     /// </summary>
     [Fact]
-    public void Rate3ShiftsOnTone3sRise()
+    public void Generate_WithNoiseRate3_ShiftsOnTone3Rise()
     {
+        // Arrange
         // The same writes on two chips, one with only tone 3 audible and one with only the noise; the noise runs at
         // rate 0 first and switches to tone 3 at an odd moment, where a counter of its own would be out of step.
         Sn76489 toneChip = With(0xc5, 0x00, 0xd0, 0xff, 0xe4);
@@ -175,28 +224,43 @@ public sealed class Sn76489Tests
         int[] tone3 = Play(toneChip, 4096);
         int[] noise = Play(noiseChip, 4096);
         HashSet<int> rises = [.. Edges(tone3).Where(i => tone3[i] != 0)];
+
+        // Act
         List<int> noiseEdges = Edges(noise);
+
+        // Assert
         Assert.NotEmpty(noiseEdges);
         Assert.All(noiseEdges, i => Assert.Contains(i, rises));
     }
 
     /// <summary>A data byte after a volume latch sets that volume.</summary>
     [Fact]
-    public void ADataByteAfterAVolumeLatchSetsTheVolume() =>
+    public void Write_WithDataAfterVolumeLatch_SetsVolume()
+    {
+        // Act & Assert
         Assert.Equal(-NukedLevels[6], Play(With(0x8e, 0x0f, 0x90, 0x06), 1000).Min());
+    }
 
     /// <summary>The latch starts on register 3, tone 2's volume, so a data byte before any latch byte sets it (MAME, from hardware tests).</summary>
     [Fact]
-    public void ThePowerOnLatchIsTone2sVolume() =>
+    public void Write_WithDataAtPowerOn_SetsTone2Volume()
+    {
+        // Act & Assert
         Assert.Equal(-NukedLevels[0], Play(With(0x00, 0xae, 0x0f), 1000).Min());
+    }
 
     /// <summary>Periodic noise is one high bit every 16 shifts; at rate 0 it shifts every 32 samples.</summary>
     [Fact]
-    public void PeriodicNoiseIsOneBitIn16()
+    public void Generate_WithPeriodicNoise_IsOneBitIn16()
     {
+        // Arrange
         int[] output = Play(With(0xe0, 0xf0), 32 * 16 * 8);
         List<int> edges = Edges(output);
+
+        // Act
         List<int> rises = [.. edges.Where(i => output[i] != 0)];
+
+        // Assert
         Assert.True(rises.Count >= 7);
         Assert.All(rises.Zip(rises.Skip(1)), pair => Assert.Equal(32 * 16, pair.Second - pair.First));
         Assert.All(edges.Where(i => output[i] == 0), fall => Assert.Contains(fall - 32, rises));
@@ -207,10 +271,15 @@ public sealed class Sn76489Tests
     [InlineData(0, 32)]
     [InlineData(1, 64)]
     [InlineData(2, 128)]
-    public void NoiseRatesShiftAtTheirDivider(int rate, int samplesPerShift)
+    public void Generate_WithNoiseRate_ShiftsAtDivider(int rate, int samplesPerShift)
     {
+        // Arrange
         int[] output = Play(With(0xe0 | rate, 0xf0), samplesPerShift * 16 * 3);
+
+        // Act
         List<int> rises = [.. Edges(output).Where(i => output[i] != 0)];
+
+        // Assert
         Assert.All(rises.Zip(rises.Skip(1)), pair => Assert.Equal(samplesPerShift * 16, pair.Second - pair.First));
     }
 
@@ -218,10 +287,15 @@ public sealed class Sn76489Tests
     [Theory]
     [InlineData(0xc5, 0x00, 0xe3, 0xf0)]
     [InlineData(0xe3, 0xf0, 0xc5, 0x00)]
-    public void Rate3FollowsTone3(int first, int second, int third, int fourth)
+    public void Generate_WithNoiseRate3_FollowsTone3(int first, int second, int third, int fourth)
     {
+        // Arrange
         int[] output = Play(With(first, second, third, fourth), 10 * 16 * 3);
+
+        // Act
         List<int> rises = [.. Edges(output).Where(i => output[i] != 0)];
+
+        // Assert
         Assert.All(rises.Zip(rises.Skip(1)), pair => Assert.Equal(10 * 16, pair.Second - pair.First));
     }
 
@@ -230,13 +304,17 @@ public sealed class Sn76489Tests
     /// counter keeps running, so only the first bit's length can differ).
     /// </summary>
     [Fact]
-    public void ANoiseWriteRestartsTheNoise()
+    public void Write_WithNoiseControl_RestartsNoise()
     {
-        Sn76489 chip = With(0xe4, 0xf0);
-        Play(chip, 12_345);
-        chip.Write(0xe4);
-        Assert.Equal(Gaps(Play(With(0xe4, 0xf0), 40_000)), Gaps(Play(chip, 40_000)));
+        // Arrange
+        Sn76489 sut = With(0xe4, 0xf0);
+        Play(sut, 12_345);
 
+        // Act
+        sut.Write(0xe4);
+
+        // Assert
+        Assert.Equal(Gaps(Play(With(0xe4, 0xf0), 40_000)), Gaps(Play(sut, 40_000)));
         static List<int> Gaps(int[] output)
         {
             List<int> edges = Edges(output);
@@ -246,30 +324,58 @@ public sealed class Sn76489Tests
 
     /// <summary>A data byte after the noise latch sets the noise register (here: white noise at rate 1).</summary>
     [Fact]
-    public void ADataByteAfterTheNoiseLatchSetsTheNoise() =>
+    public void Write_WithDataAfterNoiseLatch_SetsNoise()
+    {
+        // Act & Assert
         Assert.Equal(Play(With(0xe5, 0xf0), 20_000)[1..], Play(With(0xf0, 0xe0, 0x05), 20_000)[1..]);
+    }
 
     /// <summary>White noise differs from periodic noise: its feedback taps bits 0 and 3.</summary>
     [Fact]
-    public void WhiteNoiseIsNotPeriodic()
+    public void Generate_WithWhiteNoise_IsNotPeriodic()
     {
+        // Arrange
         int[] white = Play(With(0xe4, 0xf0), 32 * 16 * 8);
+
+        // Act
         int[] periodic = Play(With(0xe0, 0xf0), 32 * 16 * 8);
+
+        // Assert
         Assert.NotEqual(periodic, white);
         Assert.True(Edges(white).Count > Edges(periodic).Count);
     }
 
-    /// <summary>Reset brings back the power-on state: silent, and the latch on tone 2's volume.</summary>
+    /// <summary>Reset brings back the power-on state: silent.</summary>
     [Fact]
-    public void ResetRestoresThePowerOnState()
+    public void Reset_AfterWrites_Silences()
     {
-        Sn76489 chip = With(0x8e, 0x0f, 0x90, 0xe4, 0xf0);
-        Play(chip, 777);
-        chip.Reset();
-        Assert.All(Play(chip, 2000), s => Assert.Equal(0, s));
-        chip.Write(0x00);
-        chip.Write(0xae);
-        chip.Write(0x0f);
-        Assert.Equal(Play(With(0x00, 0xae, 0x0f), 2000), Play(chip, 2000));
+        // Arrange
+        Sn76489 sut = With(0x8e, 0x0f, 0x90, 0xe4, 0xf0);
+        Play(sut, 777);
+
+        // Act
+        sut.Reset();
+
+        // Assert
+        Assert.All(Play(sut, 2000), s => Assert.Equal(0, s));
+    }
+
+    /// <summary>Reset puts the latch back on tone 2's volume, so writes after it act as on a fresh chip.</summary>
+    [Fact]
+    public void Reset_AfterWrites_RestoresLatch()
+    {
+        // Arrange
+        Sn76489 sut = With(0x8e, 0x0f, 0x90, 0xe4, 0xf0);
+        Play(sut, 777);
+        int[] fresh = Play(With(0x00, 0xae, 0x0f), 2000);
+
+        // Act
+        sut.Reset();
+
+        // Assert
+        sut.Write(0x00);
+        sut.Write(0xae);
+        sut.Write(0x0f);
+        Assert.Equal(fresh, Play(sut, 2000));
     }
 }

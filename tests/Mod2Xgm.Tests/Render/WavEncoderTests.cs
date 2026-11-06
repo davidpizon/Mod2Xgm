@@ -9,10 +9,12 @@ public sealed class WavEncoderTests
 {
     /// <summary>The header is a plain 16-bit stereo PCM one with the right sizes and rate, and points are little-endian, left first.</summary>
     [Fact]
-    public void WritesSixteenBitStereoPcm()
+    public void Encode_WithStereo_WritesSixteenBitPcm()
     {
+        // Act
         byte[] bytes = WavEncoder.Encode(new StereoAudio([0.5f, -1f], [0f, 1f], 22_050));
 
+        // Assert
         Assert.Equal("RIFF", Encoding.ASCII.GetString(bytes, 0, 4));
         Assert.Equal(36u + 8, BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(4)));
         Assert.Equal("WAVEfmt ", Encoding.ASCII.GetString(bytes, 8, 8));
@@ -29,12 +31,15 @@ public sealed class WavEncoderTests
 
     /// <summary>Points past full scale are clipped and counted on either channel.</summary>
     [Fact]
-    public void PointsPastFullScaleAreClippedAndCounted()
+    public void Encode_WithPointsPastFullScale_ClipsAndCounts()
     {
+        // Arrange
         StereoAudio audio = new([1.5f, 0.2f, -2f], [0f, 1.01f, 1f], 8000);
 
+        // Act
         byte[] bytes = WavEncoder.Encode(audio);
 
+        // Assert
         Assert.Equal(3, WavEncoder.ClippedSamples(audio));
         Assert.Equal(32_767, BinaryPrimitives.ReadInt16LittleEndian(bytes.AsSpan(44)));
         Assert.Equal(-32_767, BinaryPrimitives.ReadInt16LittleEndian(bytes.AsSpan(52)));

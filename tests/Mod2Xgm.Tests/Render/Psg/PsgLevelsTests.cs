@@ -10,33 +10,72 @@ public sealed class PsgLevelsTests
     /// channel at a time): every level it reaches, loudest first, with the loudest at MAME's 8191 instead of 8192.
     /// </summary>
     [Fact]
-    public void LevelsAreThoseNukedPlays()
+    public void Channel_ForEveryVolume_HoldsNukedsLevels()
     {
+        // Arrange
         int[] measured = [.. Sn76489ProbeTests.Reference("volumes", "nuked").Distinct().OrderDescending()];
+        int[] expected = [8191, .. measured[1..]];
+
+        // Act
+        int[] levels = PsgLevels.Channel.ToArray();
+
+        // Assert
         Assert.Equal(16, measured.Length);
         Assert.Equal(8192, measured[0]);
-        measured[0] = 8191;
-        Assert.Equal(measured, PsgLevels.Channel.ToArray());
+        Assert.Equal(expected, levels);
     }
 
     /// <summary>The loudest level is a quarter of the chip's full scale, so four loud channels reach it.</summary>
     [Fact]
-    public void LoudestIsAQuarterOfFullScale() => Assert.Equal(Sn76489.FullScale, 4 * PsgLevels.Channel[0]);
-
-    /// <summary>Every level is the whole step it belongs to, and the steps grow steeper towards the quiet end.</summary>
-    [Fact]
-    public void LevelsAreWholeStepsGrowingSteeper()
+    public void Gain_AtLoudest_IsQuarterOfFullScale()
     {
-        for (int volume = 0; volume < PsgLevels.Off; volume++)
-        {
-            Assert.Equal(volume, PsgLevels.Attenuation(PsgLevels.Gain(volume)), 1e-9);
-            Assert.Equal(volume, PsgLevels.Nearest(PsgLevels.Gain(volume)));
-        }
+        // Act & Assert
+        Assert.Equal(Sn76489.FullScale, 4 * PsgLevels.Channel[0]);
+    }
 
+    /// <summary>Every level is the whole step it belongs to: attenuation gives back the volume.</summary>
+    [Fact]
+    public void Attenuation_OfEveryGain_ReturnsVolume()
+    {
+        // Arrange
+        IEnumerable<int> volumes = Enumerable.Range(0, PsgLevels.Off);
+
+        // Act & Assert
+        Assert.All(volumes, volume => Assert.Equal(volume, PsgLevels.Attenuation(PsgLevels.Gain(volume)), 1e-9));
+    }
+
+    /// <summary>The nearest step to every level is its own.</summary>
+    [Fact]
+    public void Nearest_OfEveryGain_ReturnsVolume()
+    {
+        // Arrange
+        IEnumerable<int> volumes = Enumerable.Range(0, PsgLevels.Off);
+
+        // Act & Assert
+        Assert.All(volumes, volume => Assert.Equal(volume, PsgLevels.Nearest(PsgLevels.Gain(volume))));
+    }
+
+    /// <summary>The steps grow steeper towards the quiet end.</summary>
+    [Fact]
+    public void Gain_ForEveryAttenuation_GrowsSteeper()
+    {
+        // Act
         double[] stepsDb = [.. Enumerable.Range(0, PsgLevels.Off - 1).Select(v => 20 * Math.Log10(PsgLevels.Gain(v) / PsgLevels.Gain(v + 1)))];
+
+        // Assert
         Assert.InRange(stepsDb[0], 2.0, 2.5);
         Assert.InRange(stepsDb[^1], 6.0, 7.0);
-        Assert.Equal(PsgLevels.Off, PsgLevels.Attenuation(0));
+    }
+
+    /// <summary>A gain of 0 is the volume that means off.</summary>
+    [Fact]
+    public void Attenuation_OfZeroGain_ReturnsOff()
+    {
+        // Act
+        double attenuation = PsgLevels.Attenuation(0);
+
+        // Assert
+        Assert.Equal(PsgLevels.Off, attenuation);
     }
 
     /// <summary>
@@ -44,9 +83,12 @@ public sealed class PsgLevelsTests
     /// loudest is 0, and past the quietest it rounds to off below half the quietest level.
     /// </summary>
     [Fact]
-    public void NearestIsNearestInDecibels()
+    public void Nearest_WithGain_ReturnsNearestInDecibels()
     {
+        // Act
         double middle = Math.Sqrt(PsgLevels.Gain(5) * PsgLevels.Gain(6));
+
+        // Assert
         Assert.Equal(5.5, PsgLevels.Attenuation(middle), 1e-9);
         Assert.Equal(5, PsgLevels.Nearest(middle * 1.001));
         Assert.Equal(6, PsgLevels.Nearest(middle / 1.001));
