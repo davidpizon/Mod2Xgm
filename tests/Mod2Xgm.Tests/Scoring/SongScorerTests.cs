@@ -8,17 +8,17 @@ public sealed class SongScorerTests
 {
     private static readonly double[] Starts = [0.5, 1.0, 1.5, 2.0, 2.5];
 
-    private static ScoreReport Score(AudioSignal reference, AudioSignal candidate, ScoreOptions? options = null) =>
-        SongScorer.Compare(reference, candidate, options, new CollectingSink().CreateLogger());
-
     /// <summary>A rendering identical to the original scores 0 on every metric.</summary>
     [Fact]
-    public void AnIdenticalRenderingScoresZero()
+    public void Compare_WithIdenticalRendering_ScoresZero()
     {
+        // Arrange
         AudioSignal song = TestSignals.Bursts(Starts, 3.5);
 
+        // Act
         ScoreReport report = Score(song, song);
 
+        // Assert
         Assert.Equal(0, report.MelDistanceDb);
         Assert.Equal(0, report.MfccDistance);
         Assert.Equal(1, report.OnsetF1);
@@ -30,82 +30,132 @@ public sealed class SongScorerTests
         Assert.Equal(0, report.Combined);
     }
 
-    /// <summary>A late rendering scores nearly as well as an on-time one when aligned, and much worse when not.</summary>
+    /// <summary>A late rendering scores nearly as well as an on-time one when aligned.</summary>
     [Fact]
-    public void AlignmentRemovesAConstantDelay()
+    public void Compare_WithLateRendering_RemovesDelay()
     {
+        // Arrange
         AudioSignal reference = TestSignals.Bursts(Starts, 3.5);
         AudioSignal late = TestSignals.Bursts(Starts, 3.5, delaySeconds: 0.2);
 
-        ScoreReport aligned = Score(reference, late);
-        ScoreReport unaligned = Score(reference, late, new ScoreOptions(Align: false));
+        // Act
+        ScoreReport report = Score(reference, late);
 
-        Assert.InRange(aligned.LagSeconds, 0.19, 0.21);
-        Assert.True(aligned.Combined < 1, $"aligned: {aligned.Combined}");
-        Assert.Equal(0, unaligned.LagSeconds);
-        Assert.True(unaligned.Combined > aligned.Combined + 3, $"unaligned: {unaligned.Combined}");
-        Assert.Equal(0, unaligned.OnsetF1);
-        Assert.Equal(0, unaligned.OnsetPrecision);
-        Assert.Equal(0, unaligned.OnsetRecall);
-        Assert.Null(unaligned.OnsetTimingErrorSeconds);
+        // Assert
+        Assert.InRange(report.LagSeconds, 0.19, 0.21);
+        Assert.InRange(report.Combined, 0, 1);
+    }
+
+    /// <summary>Without alignment a late rendering scores much worse, and none of its note starts match.</summary>
+    [Fact]
+    public void Compare_WithoutAlignment_PenalizesDelay()
+    {
+        // Arrange
+        AudioSignal reference = TestSignals.Bursts(Starts, 3.5);
+        AudioSignal late = TestSignals.Bursts(Starts, 3.5, delaySeconds: 0.2);
+        double aligned = Score(reference, late).Combined;
+
+        // Act
+        ScoreReport report = Score(reference, late, new ScoreOptions(Align: false));
+
+        // Assert
+        Assert.Equal(0, report.LagSeconds);
+        Assert.True(report.Combined > aligned + 3, $"{report.Combined} against {aligned} aligned");
+        Assert.Equal(0, report.OnsetF1);
+        Assert.Equal(0, report.OnsetPrecision);
+        Assert.Equal(0, report.OnsetRecall);
+        Assert.Null(report.OnsetTimingErrorSeconds);
     }
 
     /// <summary>A rendering of a different sound is scored worse than a close one, on the combined number.</summary>
     [Fact]
-    public void ADifferentSoundScoresWorse()
+    public void Compare_WithDifferentSound_ScoresWorse()
     {
+        // Arrange
         AudioSignal reference = TestSignals.Bursts(Starts, 3.5);
         AudioSignal quieter = TestSignals.Scaled(reference, 0.7);
         AudioSignal wrongNotes = TestSignals.Bursts([0.3, 0.9, 1.7], 3.5);
 
+        // Act
         double close = Score(reference, quieter).Combined;
         double far = Score(reference, wrongNotes).Combined;
 
+        // Assert
         Assert.True(close < far, $"{close} vs {far}");
     }
 
-    /// <summary>
-    /// The length difference is reported with its sign; the combined number is the log-mel distance by default, and the
-    /// weight of the onset term can be changed.
-    /// </summary>
+    /// <summary>The length difference is reported with its sign; the combined number is the log-mel distance by default.</summary>
     [Fact]
-    public void LengthDifferenceAndOnsetWeightAreReported()
+    public void Compare_WithDefaultOptions_ReportsLengthAndMelDistance()
     {
+        // Arrange
         AudioSignal reference = TestSignals.Bursts(Starts, 3.5);
         AudioSignal wrongNotes = TestSignals.Bursts([0.3, 0.9, 1.7], 4.0);
 
-        ScoreReport light = Score(reference, wrongNotes);
-        ScoreReport heavy = Score(reference, wrongNotes, new ScoreOptions(OnsetWeight: 10));
+        // Act
+        ScoreReport report = Score(reference, wrongNotes);
 
-        Assert.Equal(0.5, light.LengthDifferenceSeconds, 3);
-        Assert.Equal(light.MelDistanceDb, light.Combined, 9);
-        Assert.Equal(light.MelDistanceDb + (10 * (1 - heavy.OnsetF1)), heavy.Combined, 9);
+        // Assert
+        Assert.Equal(0.5, report.LengthDifferenceSeconds, 3);
+        Assert.Equal(report.MelDistanceDb, report.Combined, 9);
+    }
+
+    /// <summary>The weight of the onset term can be changed.</summary>
+    [Fact]
+    public void Compare_WithOnsetWeight_AddsOnsetTerm()
+    {
+        // Arrange
+        AudioSignal reference = TestSignals.Bursts(Starts, 3.5);
+        AudioSignal wrongNotes = TestSignals.Bursts([0.3, 0.9, 1.7], 4.0);
+
+        // Act
+        ScoreReport report = Score(reference, wrongNotes, new ScoreOptions(OnsetWeight: 10));
+
+        // Assert
+        Assert.Equal(report.MelDistanceDb + (10 * (1 - report.OnsetF1)), report.Combined, 9);
     }
 
     /// <summary>The same inputs always give the same report.</summary>
     [Fact]
-    public void ScoringIsDeterministic()
+    public void Compare_WithSameInputs_GivesSameReport()
     {
+        // Arrange
         AudioSignal reference = TestSignals.Bursts(Starts, 3.5);
         AudioSignal candidate = TestSignals.Bursts(Starts, 3.5, delaySeconds: 0.1);
 
-        Assert.Equal(Score(reference, candidate), Score(reference, candidate));
+        // Act
+        ScoreReport first = Score(reference, candidate);
+        ScoreReport second = Score(reference, candidate);
+
+        // Assert
+        Assert.Equal(first, second);
     }
 
     /// <summary>Different sample rates are refused.</summary>
     [Fact]
-    public void DifferentSampleRatesAreRefused() =>
-        Assert.Throws<ArgumentException>(() => Score(TestSignals.Sine(440, 0.2), TestSignals.Sine(440, 0.2, rate: 44100)));
+    public void Compare_WithDifferentRates_Throws()
+    {
+        // Arrange
+        AudioSignal reference = TestSignals.Sine(440, 0.2);
+        AudioSignal candidate = TestSignals.Sine(440, 0.2, rate: 44100);
+
+        // Act & Assert
+        Assert.Throws<ArgumentException>(() => Score(reference, candidate));
+    }
 
     /// <summary>Every step of a comparison is described in the log.</summary>
     [Fact]
-    public void EveryStepIsLogged()
+    public void Compare_WithLateRendering_LogsEveryStep()
     {
+        // Arrange
         CollectingSink sink = new();
         AudioSignal song = TestSignals.Bursts(Starts, 3.5);
+        AudioSignal late = TestSignals.Bursts(Starts, 3.5, delaySeconds: 0.1);
 
-        SongScorer.Compare(song, TestSignals.Bursts(Starts, 3.5, delaySeconds: 0.1), null, sink.CreateLogger());
+        // Act
+        SongScorer.Compare(song, late, null, sink.CreateLogger());
 
+        // Assert
         string[] messages = [.. sink.Messages(LogEventLevel.Debug)];
         Assert.Contains(messages, m => m.StartsWith("Scoring: reference", StringComparison.Ordinal));
         Assert.Contains(messages, m => m.StartsWith("Alignment: the candidate is", StringComparison.Ordinal) && m.Contains("late", StringComparison.Ordinal));
@@ -114,4 +164,8 @@ public sealed class SongScorerTests
         Assert.Contains(messages, m => m.StartsWith("Note starts:", StringComparison.Ordinal));
         Assert.Contains(messages, m => m.StartsWith("Combined score", StringComparison.Ordinal));
     }
+
+    /// <summary>Compares two signals, logging to a sink nothing reads.</summary>
+    private static ScoreReport Score(AudioSignal reference, AudioSignal candidate, ScoreOptions? options = null) =>
+        SongScorer.Compare(reference, candidate, options, new CollectingSink().CreateLogger());
 }

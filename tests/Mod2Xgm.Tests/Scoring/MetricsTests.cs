@@ -7,145 +7,319 @@ public sealed class MetricsTests
 {
     private static readonly double[] Starts = [0.5, 1.0, 1.5, 2.0, 2.5];
 
-    /// <summary>Identical signals are 0 apart by both spectral metrics, and the distance is symmetric.</summary>
+    /// <summary>Identical signals are 0 apart by the mel distance.</summary>
     [Fact]
-    public void IdenticalSignalsAreZeroApart()
+    public void MelDistanceDb_WithIdenticalSignals_ReturnsZero()
     {
-        AudioSignal a = TestSignals.Noise(1);
-        AudioSignal b = TestSignals.Sine(440, 1);
+        // Arrange
+        AudioSignal noise = TestSignals.Noise(1);
 
-        Assert.Equal(0, SpectralMetrics.MelDistanceDb(a, a));
-        Assert.Equal(0, SpectralMetrics.MfccDistance(a, a));
-        Assert.Equal(SpectralMetrics.MelDistanceDb(a, b), SpectralMetrics.MelDistanceDb(b, a), 9);
+        // Act
+        double distance = SpectralMetrics.MelDistanceDb(noise, noise);
+
+        // Assert
+        Assert.Equal(0, distance);
+    }
+
+    /// <summary>Identical signals are 0 apart by the MFCC distance.</summary>
+    [Fact]
+    public void MfccDistance_WithIdenticalSignals_ReturnsZero()
+    {
+        // Arrange
+        AudioSignal noise = TestSignals.Noise(1);
+
+        // Act
+        double distance = SpectralMetrics.MfccDistance(noise, noise);
+
+        // Assert
+        Assert.Equal(0, distance);
+    }
+
+    /// <summary>The mel distance is the same in both directions.</summary>
+    [Fact]
+    public void MelDistanceDb_WithSwappedSignals_IsSymmetric()
+    {
+        // Arrange
+        AudioSignal noise = TestSignals.Noise(1);
+        AudioSignal sine = TestSignals.Sine(440, 1);
+
+        // Act
+        double forth = SpectralMetrics.MelDistanceDb(noise, sine);
+        double back = SpectralMetrics.MelDistanceDb(sine, noise);
+
+        // Assert
+        Assert.Equal(forth, back, 9);
     }
 
     /// <summary>Halving white noise is 6.02 dB quieter in every band, so the mel distance is 6.02 dB.</summary>
     [Fact]
-    public void HalvingTheLevelIsAboutSixDecibels()
+    public void MelDistanceDb_WithHalvedLevel_ReturnsAboutSixDb()
     {
+        // Arrange
         AudioSignal noise = TestSignals.Noise(1);
 
+        // Act
         double distance = SpectralMetrics.MelDistanceDb(noise, TestSignals.Scaled(noise, 0.5));
 
+        // Assert
         Assert.Equal(6.02, distance, 1);
     }
 
     /// <summary>The mel distance grows as the sound gets further away.</summary>
     [Fact]
-    public void FurtherSoundsScoreWorse()
+    public void MelDistanceDb_WithFurtherSounds_Grows()
     {
+        // Arrange
         AudioSignal reference = TestSignals.Sine(440, 1);
 
+        // Act
         double slightlyQuieter = SpectralMetrics.MelDistanceDb(reference, TestSignals.Scaled(reference, 0.9));
         double nearbyPitch = SpectralMetrics.MelDistanceDb(reference, TestSignals.Sine(466, 1));
         double otherPitch = SpectralMetrics.MelDistanceDb(reference, TestSignals.Sine(1760, 1));
         double noise = SpectralMetrics.MelDistanceDb(reference, TestSignals.Noise(1));
 
-        Assert.True(slightlyQuieter < nearbyPitch);
-        Assert.True(nearbyPitch < otherPitch);
-        Assert.True(otherPitch < noise);
+        // Assert
+        Assert.True(slightlyQuieter < nearbyPitch, $"{slightlyQuieter} vs {nearbyPitch}");
+        Assert.True(nearbyPitch < otherPitch, $"{nearbyPitch} vs {otherPitch}");
+        Assert.True(otherPitch < noise, $"{otherPitch} vs {noise}");
     }
 
     /// <summary>Music that is missing from the end of the candidate is penalized.</summary>
     [Fact]
-    public void ACutOffCandidateScoresWorse()
+    public void MelDistanceDb_WithCutOffCandidate_ScoresWorse()
     {
+        // Arrange
         AudioSignal reference = TestSignals.Noise(2);
         AudioSignal half = new(reference.Samples[..(reference.Length / 2)].ToArray(), reference.SampleRate);
 
-        Assert.True(SpectralMetrics.MelDistanceDb(reference, half) > 20);
-        Assert.True(SpectralMetrics.MfccDistance(reference, half) > 0);
+        // Act
+        double distance = SpectralMetrics.MelDistanceDb(reference, half);
+
+        // Assert
+        Assert.True(distance > 20, $"{distance} dB");
     }
 
-    /// <summary>MFCCs leave out overall loudness, so a level change leaves them alone while a timbre change does not.</summary>
+    /// <summary>The MFCC distance also penalizes music missing from the end.</summary>
     [Fact]
-    public void MfccFollowsTimbreNotLoudness()
+    public void MfccDistance_WithCutOffCandidate_ScoresWorse()
     {
+        // Arrange
+        AudioSignal reference = TestSignals.Noise(2);
+        AudioSignal half = new(reference.Samples[..(reference.Length / 2)].ToArray(), reference.SampleRate);
+
+        // Act
+        double distance = SpectralMetrics.MfccDistance(reference, half);
+
+        // Assert
+        Assert.True(distance > 0, $"{distance}");
+    }
+
+    /// <summary>MFCCs leave out overall loudness, so a level change leaves them alone.</summary>
+    [Fact]
+    public void MfccDistance_WithLevelChange_StaysNearZero()
+    {
+        // Arrange
         AudioSignal noise = TestSignals.Noise(1);
 
-        double quieter = SpectralMetrics.MfccDistance(noise, TestSignals.Scaled(noise, 0.5));
-        double otherTimbre = SpectralMetrics.MfccDistance(noise, TestSignals.Sine(440, 1));
+        // Act
+        double distance = SpectralMetrics.MfccDistance(noise, TestSignals.Scaled(noise, 0.5));
 
-        Assert.True(quieter < 0.01, $"quieter noise: {quieter}");
-        Assert.True(otherTimbre > 10, $"sine vs noise: {otherTimbre}");
+        // Assert
+        Assert.InRange(distance, 0, 0.01);
     }
 
-    /// <summary>Signals at different sample rates can't be compared, and an empty list of scales is refused.</summary>
+    /// <summary>MFCCs follow timbre: a sine is far from noise.</summary>
     [Fact]
-    public void MismatchedInputsAreRefused()
+    public void MfccDistance_WithOtherTimbre_IsLarge()
     {
+        // Arrange
+        AudioSignal noise = TestSignals.Noise(1);
+
+        // Act
+        double distance = SpectralMetrics.MfccDistance(noise, TestSignals.Sine(440, 1));
+
+        // Assert
+        Assert.True(distance > 10, $"{distance}");
+    }
+
+    /// <summary>Signals at different sample rates can't be compared by the mel distance.</summary>
+    [Fact]
+    public void MelDistanceDb_WithDifferentRates_Throws()
+    {
+        // Arrange
         AudioSignal a = TestSignals.Sine(440, 0.2);
         AudioSignal b = TestSignals.Sine(440, 0.2, rate: 44100);
 
+        // Act & Assert
         Assert.Throws<ArgumentException>(() => SpectralMetrics.MelDistanceDb(a, b));
+    }
+
+    /// <summary>Signals at different sample rates can't be compared by the MFCC distance.</summary>
+    [Fact]
+    public void MfccDistance_WithDifferentRates_Throws()
+    {
+        // Arrange
+        AudioSignal a = TestSignals.Sine(440, 0.2);
+        AudioSignal b = TestSignals.Sine(440, 0.2, rate: 44100);
+
+        // Act & Assert
         Assert.Throws<ArgumentException>(() => SpectralMetrics.MfccDistance(a, b));
+    }
+
+    /// <summary>An empty list of scales is refused.</summary>
+    [Fact]
+    public void MelDistanceDb_WithNoScales_Throws()
+    {
+        // Arrange
+        AudioSignal a = TestSignals.Sine(440, 0.2);
+
+        // Act & Assert
         Assert.Throws<ArgumentException>(() => SpectralMetrics.MelDistanceDb(a, a, []));
     }
 
     /// <summary>Tone bursts are found where they start, within a few milliseconds.</summary>
     [Fact]
-    public void BurstsAreFoundWhereTheyStart()
+    public void Detect_WithBursts_FindsTheirStarts()
     {
-        IReadOnlyList<double> found = OnsetMetrics.Detect(TestSignals.Bursts(Starts, 3));
+        // Arrange
+        AudioSignal bursts = TestSignals.Bursts(Starts, 3);
 
+        // Act
+        IReadOnlyList<double> found = OnsetMetrics.Detect(bursts);
+
+        // Assert
         Assert.Equal(Starts.Length, found.Count);
-        for (int i = 0; i < Starts.Length; i++)
-        {
-            Assert.InRange(found[i] - Starts[i], -0.02, 0.03);
-        }
+        Assert.All(found.Zip(Starts), pair => Assert.InRange(pair.First - pair.Second, -0.02, 0.03));
     }
 
-    /// <summary>Silence and a steady tone have no note starts.</summary>
+    /// <summary>Silence has no note starts.</summary>
     [Fact]
-    public void NothingStartsInSilenceOrASteadyTone()
+    public void Detect_WithSilence_FindsNothing()
     {
-        Assert.Empty(OnsetMetrics.Detect(new AudioSignal(new float[22050], TestSignals.Rate)));
-        Assert.Empty(OnsetMetrics.Detect(TestSignals.Sine(440, 2)));
-        Assert.Equal(256.0 / TestSignals.Rate, OnsetMetrics.CurveStepSeconds(TestSignals.Rate), 12);
+        // Arrange
+        AudioSignal silence = new(new float[22050], TestSignals.Rate);
+
+        // Act
+        IReadOnlyList<double> found = OnsetMetrics.Detect(silence);
+
+        // Assert
+        Assert.Empty(found);
     }
 
-    /// <summary>The same note starts match perfectly; both lists empty is also a perfect match.</summary>
+    /// <summary>A steady tone has no note starts.</summary>
     [Fact]
-    public void EqualOnsetListsMatchPerfectly()
+    public void Detect_WithSteadyTone_FindsNothing()
     {
-        OnsetComparison same = OnsetMetrics.Compare(Starts, Starts);
+        // Arrange
+        AudioSignal tone = TestSignals.Sine(440, 2);
 
-        Assert.Equal(1, same.F1);
-        Assert.Equal(0, same.MeanTimingErrorSeconds);
-        Assert.Equal(Starts.Length, same.Matched);
-        Assert.Equal(1, OnsetMetrics.Compare([], []).F1);
-        Assert.Null(OnsetMetrics.Compare([], []).MeanTimingErrorSeconds);
+        // Act
+        IReadOnlyList<double> found = OnsetMetrics.Detect(tone);
+
+        // Assert
+        Assert.Empty(found);
     }
 
-    /// <summary>A small delay still matches and is reported as timing error; a large one doesn't match.</summary>
+    /// <summary>The onset curve moves in steps of 256 samples.</summary>
     [Fact]
-    public void LateOnsetsAreMeasuredOrMissed()
+    public void CurveStepSeconds_WithRate_Is256Samples()
     {
-        double[] late20 = [.. Starts.Select(s => s + 0.02)];
-        double[] late100 = [.. Starts.Select(s => s + 0.1)];
+        // Act
+        double step = OnsetMetrics.CurveStepSeconds(TestSignals.Rate);
 
-        OnsetComparison near = OnsetMetrics.Compare(Starts, late20);
-        OnsetComparison far = OnsetMetrics.Compare(Starts, late100);
-
-        Assert.Equal(1, near.F1);
-        Assert.Equal(0.02, near.MeanTimingErrorSeconds!.Value, 9);
-        Assert.Equal(0, far.F1);
-        Assert.Null(far.MeanTimingErrorSeconds);
+        // Assert
+        Assert.Equal(256.0 / TestSignals.Rate, step, 12);
     }
 
-    /// <summary>Missing notes lower recall; invented notes lower precision.</summary>
+    /// <summary>The same note starts match perfectly.</summary>
     [Fact]
-    public void MissingAndExtraOnsetsAreCounted()
+    public void Compare_WithEqualOnsets_MatchesPerfectly()
     {
-        OnsetComparison missing = OnsetMetrics.Compare(Starts, [Starts[0], Starts[2], Starts[4]]);
-        OnsetComparison extra = OnsetMetrics.Compare([Starts[0]], Starts);
+        // Act
+        OnsetComparison result = OnsetMetrics.Compare(Starts, Starts);
 
-        Assert.Equal(1, missing.Precision);
-        Assert.Equal(0.6, missing.Recall, 9);
-        Assert.Equal(1, extra.Recall);
-        Assert.Equal(0.2, extra.Precision, 9);
-        Assert.Equal(0, OnsetMetrics.Compare([], Starts).F1);
-        Assert.Equal(0, OnsetMetrics.Compare(Starts, []).F1);
+        // Assert
+        Assert.Equal(1, result.F1);
+        Assert.Equal(0, result.MeanTimingErrorSeconds);
+        Assert.Equal(Starts.Length, result.Matched);
+    }
+
+    /// <summary>Both lists empty is also a perfect match, with no timing to report.</summary>
+    [Fact]
+    public void Compare_WithBothEmpty_MatchesPerfectly()
+    {
+        // Act
+        OnsetComparison result = OnsetMetrics.Compare([], []);
+
+        // Assert
+        Assert.Equal(1, result.F1);
+        Assert.Null(result.MeanTimingErrorSeconds);
+    }
+
+    /// <summary>A small delay still matches and is reported as timing error.</summary>
+    [Fact]
+    public void Compare_WithSmallDelay_MeasuresTimingError()
+    {
+        // Arrange
+        double[] late = [.. Starts.Select(s => s + 0.02)];
+
+        // Act
+        OnsetComparison result = OnsetMetrics.Compare(Starts, late);
+
+        // Assert
+        Assert.Equal(1, result.F1);
+        Assert.Equal(0.02, result.MeanTimingErrorSeconds ?? -1, 9);
+    }
+
+    /// <summary>A large delay doesn't match.</summary>
+    [Fact]
+    public void Compare_WithLargeDelay_MatchesNothing()
+    {
+        // Arrange
+        double[] late = [.. Starts.Select(s => s + 0.1)];
+
+        // Act
+        OnsetComparison result = OnsetMetrics.Compare(Starts, late);
+
+        // Assert
+        Assert.Equal(0, result.F1);
+        Assert.Null(result.MeanTimingErrorSeconds);
+    }
+
+    /// <summary>Missing notes lower recall.</summary>
+    [Fact]
+    public void Compare_WithMissingOnsets_LowersRecall()
+    {
+        // Act
+        OnsetComparison result = OnsetMetrics.Compare(Starts, [Starts[0], Starts[2], Starts[4]]);
+
+        // Assert
+        Assert.Equal(1, result.Precision);
+        Assert.Equal(0.6, result.Recall, 9);
+    }
+
+    /// <summary>Invented notes lower precision.</summary>
+    [Fact]
+    public void Compare_WithExtraOnsets_LowersPrecision()
+    {
+        // Act
+        OnsetComparison result = OnsetMetrics.Compare([Starts[0]], Starts);
+
+        // Assert
+        Assert.Equal(1, result.Recall);
+        Assert.Equal(0.2, result.Precision, 9);
+    }
+
+    /// <summary>One empty list against notes scores 0.</summary>
+    [Fact]
+    public void Compare_WithOneSideEmpty_ScoresZero()
+    {
+        // Act
+        OnsetComparison noReference = OnsetMetrics.Compare([], Starts);
+        OnsetComparison noCandidate = OnsetMetrics.Compare(Starts, []);
+
+        // Assert
+        Assert.Equal((0.0, 0.0), (noReference.F1, noCandidate.F1));
     }
 
     /// <summary>The lag between two renderings is found, late or early, to within a curve step.</summary>
@@ -153,38 +327,59 @@ public sealed class MetricsTests
     [InlineData(0.25)]
     [InlineData(-0.25)]
     [InlineData(0.0)]
-    public void TheLagIsFound(double delaySeconds)
+    public void EstimateLagSamples_WithDelay_FindsIt(double delaySeconds)
     {
+        // Arrange
         AudioSignal reference = TestSignals.Bursts(Starts, 3.5);
         AudioSignal candidate = TestSignals.Bursts(Starts, 3.5, delaySeconds: delaySeconds);
+        double expected = delaySeconds * TestSignals.Rate;
 
+        // Act
         int lag = Alignment.EstimateLagSamples(reference, candidate, 1.0);
 
-        double expected = delaySeconds * TestSignals.Rate;
+        // Assert
         Assert.InRange(lag, expected - 256, expected + 256);
     }
 
     /// <summary>Aligning removes the lag, so the aligned candidate's note starts match the original's.</summary>
     [Fact]
-    public void AligningLinesTheNotesUp()
+    public void Align_WithLateCandidate_LinesNotesUp()
     {
+        // Arrange
         AudioSignal reference = TestSignals.Bursts(Starts, 3.5);
         AudioSignal candidate = TestSignals.Bursts(Starts, 3.5, delaySeconds: 0.3);
 
+        // Act
         AudioSignal aligned = Alignment.Align(reference, candidate, 1.0, out int lag);
 
-        Assert.True(lag > 0);
+        // Assert
+        Assert.True(lag > 0, $"lag {lag}");
         Assert.Equal(1, OnsetMetrics.Compare(OnsetMetrics.Detect(reference), OnsetMetrics.Detect(aligned)).F1);
     }
 
-    /// <summary>A lag beyond the search range is not found, and signals with no notes are left alone.</summary>
+    /// <summary>A signal with no notes is left alone.</summary>
     [Fact]
-    public void LagsBeyondTheRangeAndSilenceGiveZero()
+    public void EstimateLagSamples_WithSilentCandidate_ReturnsZero()
     {
+        // Arrange
         AudioSignal reference = TestSignals.Bursts(Starts, 3.5);
         AudioSignal silent = new(new float[reference.Length], reference.SampleRate);
 
-        Assert.Equal(0, Alignment.EstimateLagSamples(reference, silent, 1.0));
+        // Act
+        int lag = Alignment.EstimateLagSamples(reference, silent, 1.0);
+
+        // Assert
+        Assert.Equal(0, lag);
+    }
+
+    /// <summary>A negative search range is refused.</summary>
+    [Fact]
+    public void EstimateLagSamples_WithNegativeRange_Throws()
+    {
+        // Arrange
+        AudioSignal reference = TestSignals.Bursts(Starts, 3.5);
+
+        // Act & Assert
         Assert.Throws<ArgumentOutOfRangeException>(() => Alignment.EstimateLagSamples(reference, reference, -1));
     }
 }
