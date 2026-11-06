@@ -14,20 +14,9 @@ public sealed class SongVoicesTests
     /// counting, a channel at volume 0 doesn't count, and a sample on two channels counts twice.
     /// </summary>
     [Fact]
-    public void NotesCountWhileTheySound()
+    public void Count_WithPlayback_CountsNotesWhileTheySound()
     {
-        Song song = new(
-            "song",
-            [new Channel(-1), new Channel(1), new Channel(1)],
-            [0],
-            null,
-            [new Pattern([new Row([new Cell(null, null, null, []), new Cell(null, null, null, []), new Cell(null, null, null, [])])])],
-            [new Instrument("a", 0, 1, 0), new Instrument("b", 1, 1, 0)],
-            [new Sample("shot", new float[150], null), new Sample("loop", new float[100], new SampleLoop(0, 100))],
-            new Timing(6, 125));
-        ChannelTick Start(int sample, int frames, SampleBlock next, double volume = 1) =>
-            new(true, new NotePitch(36, 0, Rate), volume, 0, new SampleBlock(sample, 0, frames), next);
-        ChannelTick Hold(SampleBlock next, double volume = 1) => new(true, new NotePitch(36, 0, Rate), volume, 0, null, next);
+        // Arrange
         SampleBlock end = new(0, 0, 2);
         SampleBlock loop = new(1, 0, 100);
         Playback playback = new(
@@ -40,24 +29,61 @@ public sealed class SongVoicesTests
             null,
             PlaybackEnd.Stops);
 
-        SongVoices voices = SongVoices.Count(song, playback);
+        // Act
+        SongVoices voices = SongVoices.Count(TwoSampleSong(), playback);
 
+        // Assert
         Assert.Equal(3, voices.MostAtOnce);
         Assert.Equal(2, voices.MostAtOnceOf(0));
         Assert.Equal(2, voices.MostAtOnceOf(1));
-        Assert.Equal(0, voices.MostAtOnceOf(5));
-        Assert.Equal(0, voices.MostAtOnceOf(-1));
+    }
+
+    /// <summary>A sample number the song doesn't have sounds nothing.</summary>
+    [Theory]
+    [InlineData(5)]
+    [InlineData(-1)]
+    public void MostAtOnceOf_WithUnknownSample_ReturnsZero(int sample)
+    {
+        // Arrange
+        SongVoices sut = SongVoices.Count(TwoSampleSong(), new Playback([], null, PlaybackEnd.Stops));
+
+        // Act
+        int most = sut.MostAtOnceOf(sample);
+
+        // Assert
+        Assert.Equal(0, most);
     }
 
     /// <summary>A song with no ticks sounds nothing.</summary>
     [Fact]
-    public void NoTicksNoVoices()
+    public void Count_WithNoTicks_ReturnsNoVoices()
     {
+        // Arrange
         Song song = new("song", [new Channel(0)], [], null, [], [], [new Sample("a", new float[10], null)], new Timing(6, 125));
 
+        // Act
         SongVoices voices = SongVoices.Count(song, new Playback([], null, PlaybackEnd.Stops));
 
+        // Assert
         Assert.Equal(0, voices.MostAtOnce);
         Assert.Equal([0], voices.SampleMostAtOnce);
     }
+
+    /// <summary>A three-channel song with a one-shot and a looped sample.</summary>
+    private static Song TwoSampleSong() => new(
+        "song",
+        [new Channel(-1), new Channel(1), new Channel(1)],
+        [0],
+        null,
+        [new Pattern([new Row([new Cell(null, null, null, []), new Cell(null, null, null, []), new Cell(null, null, null, [])])])],
+        [new Instrument("a", 0, 1, 0), new Instrument("b", 1, 1, 0)],
+        [new Sample("shot", new float[150], null), new Sample("loop", new float[100], new SampleLoop(0, 100))],
+        new Timing(6, 125));
+
+    /// <summary>A channel starting <paramref name="frames"/> frames of <paramref name="sample"/>.</summary>
+    private static ChannelTick Start(int sample, int frames, SampleBlock next, double volume = 1) =>
+        new(true, new NotePitch(36, 0, Rate), volume, 0, new SampleBlock(sample, 0, frames), next);
+
+    /// <summary>A channel holding its note.</summary>
+    private static ChannelTick Hold(SampleBlock next, double volume = 1) => new(true, new NotePitch(36, 0, Rate), volume, 0, null, next);
 }
