@@ -258,7 +258,8 @@ of order and overlap:
   `✓ [n/N] name` line.
 - `text` and `json` write the usual `run` (format `harness`, plus `jobs` when more than one), `step` / `phase`, `time`
   and `result` records; the result's `out` / `output` is `report.md`.
-- The run's time left is what the running songs have left plus the songs not started, divided by the jobs.
+- The run's time left is what the running songs have left plus the songs not started, divided by the jobs, and never
+  less than the longest time a running song has left.
 - Its exit codes stay its own: 0, 1 (a song failed or is off), 2 (couldn't run). An exit-2 failure is an `error`
   record of kind `cannot-run` (libopenmpt missing, an input not found), `usage` (bad options) or `internal` (a bug, with
   its stack).

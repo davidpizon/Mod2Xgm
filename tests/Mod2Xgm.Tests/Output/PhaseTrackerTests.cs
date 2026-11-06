@@ -132,10 +132,10 @@ public sealed class PhaseTrackerTests
 
     /// <summary>
     /// Phases may run at once (the harness's songs): while one of two running phases has no guess, the run's time left
-    /// is the other's, shared over the jobs, and marked partial.
+    /// is at least the other's, since the run can't end before it does, and marked partial.
     /// </summary>
     [Fact]
-    public void Advance_WithParallelPhaseUnknown_ReportsSharedPartialTimeLeft()
+    public void Advance_WithParallelPhaseUnknown_ReportsKnownPhasePartialTimeLeft()
     {
         // Arrange
         PhaseInfo third = new(3, "c", "C", "ticks");
@@ -150,7 +150,7 @@ public sealed class PhaseTrackerTests
         // Assert
         PhaseUpdate update = _updates[^1];
         Assert.Equal(TimeSpan.FromSeconds(1), update.Remaining);
-        Assert.Equal(TimeSpan.FromSeconds(0.5), update.TotalRemaining);
+        Assert.Equal(TimeSpan.FromSeconds(1), update.TotalRemaining);
         Assert.True(update.TotalPartial);
     }
 
