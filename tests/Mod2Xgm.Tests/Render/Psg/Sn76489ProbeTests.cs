@@ -13,6 +13,7 @@ namespace Mod2Xgm.Tests.Render.Psg;
 /// (docs/adr/0065-sn76489-chip-differences.md, docs/adr/0067-psg-volume-levels.md): there it must come closer to Nuked,
 /// elsewhere stay exactly MAME.
 /// </summary>
+[Trait("Category", "Integration")]
 public sealed class Sn76489ProbeTests
 {
     /// <summary>
@@ -64,8 +65,11 @@ public sealed class Sn76489ProbeTests
     /// <summary>The checked-in script is the one the builder makes (the reference tool plays the file).</summary>
     [Theory]
     [MemberData(nameof(Names))]
-    public void ScriptFileMatchesItsBuilder(string name) =>
+    public void Script_WithCheckedInFile_MatchesBuilder(string name)
+    {
+        // Act & Assert
         Golden.Verify(Path.Combine("sn76489", name + ".txt"), Sn76489Probes.All[name]().ToText());
+    }
 
     /// <summary>
     /// The port plays every probe that none of the chip's differences reaches sample for sample as MAME's Sega PSG does,
@@ -73,11 +77,13 @@ public sealed class Sn76489ProbeTests
     /// </summary>
     [Theory]
     [MemberData(nameof(UntouchedNames))]
-    public void PortMatchesMameExactly(string name)
+    public void Render_ForProbe_MatchesMameExactly(string name)
     {
+        // Act
         int[] port = Sn76489Script.Render(Script(name));
-        int[] mame = Reference(name, "mame");
 
+        // Assert
+        int[] mame = Reference(name, "mame");
         Assert.Equal(mame.Length, port.Length);
         int mismatch = port.AsSpan().CommonPrefixLength(mame);
         Assert.True(
@@ -93,14 +99,15 @@ public sealed class Sn76489ProbeTests
     /// </summary>
     [Theory]
     [MemberData(nameof(Names))]
-    public void PortSoundsLikeNuked(string name)
+    public void Render_ForProbe_SoundsLikeNuked(string name)
     {
+        // Act
         int[] port = Sn76489Script.Render(Script(name));
+
+        // Assert
         int[] nuked = Reference(name, "nuked");
         Assert.Equal(nuked.Length, port.Length);
-
         double distance = SpectralMetrics.MelDistanceDb(Signal(nuked, NukedFullScale), Signal(port, Sn76489.FullScale));
-
         (double bar, string why) = KnownDifferences.TryGetValue(name, out (double BarDb, string Difference) known)
             ? known
             : (MaxMelDistanceToNukedDb, "no known difference");
@@ -113,13 +120,15 @@ public sealed class Sn76489ProbeTests
     /// </summary>
     [Theory]
     [MemberData(nameof(TouchedNames))]
-    public void PortIsCloserToNukedThanMame(string name)
+    public void Render_ForProbe_IsCloserToNukedThanMame(string name)
     {
+        // Act
         int[] port = Sn76489Script.Render(Script(name));
+
+        // Assert
         int[] mame = Reference(name, "mame");
         AudioSignal nuked = Signal(Reference(name, "nuked"), NukedFullScale);
         string fixes = string.Join(", ", ChipDifferences.Where(d => d.Value.Contains(name)).Select(d => d.Key));
-
         Assert.False(port.AsSpan().SequenceEqual(mame), $"{name}: plays as MAME does, but is listed under {fixes}");
         double portDistance = SpectralMetrics.MelDistanceDb(nuked, Signal(port, Sn76489.FullScale));
         double mameDistance = SpectralMetrics.MelDistanceDb(nuked, Signal(mame, Sn76489.FullScale));
@@ -128,10 +137,16 @@ public sealed class Sn76489ProbeTests
 
     /// <summary>Every probe the lists name exists, so a renamed probe doesn't silently drop out of a check.</summary>
     [Fact]
-    public void ListsNameRealProbes()
+    public void All_ForProbeLists_NamesRealProbes()
     {
-        Assert.All(KnownDifferences.Keys, name => Assert.True(Sn76489Probes.All.ContainsKey(name), name));
-        Assert.All(ChipDifferences.Values.SelectMany(names => names), name => Assert.True(Sn76489Probes.All.ContainsKey(name), name));
+        // Arrange
+        IEnumerable<string> listed = KnownDifferences.Keys.Concat(ChipDifferences.Values.SelectMany(names => names));
+
+        // Act
+        IEnumerable<string> missing = listed.Where(name => !Sn76489Probes.All.ContainsKey(name));
+
+        // Assert
+        Assert.Empty(missing);
     }
 
     private static bool Touched(string name) => ChipDifferences.Values.Any(names => names.Contains(name));

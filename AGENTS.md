@@ -111,7 +111,8 @@ reflection- or serialization-adjacent, also run the AOT `publish`.
 
 CI (`.github/workflows/ci.yml`) runs on every pull request and push to `main`: build and test on Windows,
 Linux and macOS; **Native AOT publish + smoke run** of the binary on `win-x64`, `linux-x64`, `osx-arm64`; and
-code coverage. **Qodana** (`.github/workflows/code_quality.yml`, config in `qodana.yaml`) runs JetBrains' .NET
+code coverage. Pull requests skip tests tagged `[Trait("Speed", "Slow")]` (5 s or more); the whole suite runs on pushes
+to `main`, every night and on manual runs, and the coverage job always skips them ([ADR 0082](docs/adr/0082-defer-slow-tests-in-pr-ci.md)). **Qodana** (`.github/workflows/code_quality.yml`, config in `qodana.yaml`) runs JetBrains' .NET
 inspections on every PR and push to `main` and uploads the findings to GitHub code scanning, next to CodeQL; review
 new Qodana findings on your PR like any other review comment. On a PR it also keeps one comment starting with
 `<!-- qodana-findings -->` that lists every finding (severity, file:line, rule, message); read it with
@@ -182,7 +183,7 @@ compiler, analyzer, trim/AOT, NuGet or MSBuild warning fails the build.
    - Pin the version in `Directory.Packages.props`, record the addition in an ADR (`docs/adr/`), and add it to
      `THIRD-PARTY-NOTICES.md`.
    Approved so far: **Serilog**, **Serilog.Sinks.Console**, **System.CommandLine**, **NWaves** (resampling, ADR 0038);
-   test-only **xUnit v3**; harness-only **libopenmpt** (native, BSD-3, loaded at run time by `tools/Mod2Xgm.Harness`,
+   test-only **xUnit v3** and **Moq** (ADR 0081); harness-only **libopenmpt** (native, BSD-3, loaded at run time by `tools/Mod2Xgm.Harness`,
    never by the converter; ADR 0047) and **R128Net** (EBU R128 loudness, MIT, pure C#; on trial, ADR 0053); the
    **ymfm** YM3438 core ported to C# (BSD-3, ADR 0056); **MAME**'s Sega PSG (`sn76496.cpp`) ported to C# (BSD-3,
    ADR 0057); only in `tools/ym3438-reference` (never shipped, no code copied), ymfm's C++ and **Nuked-OPN2** (LGPL-2.1),
@@ -245,7 +246,10 @@ compiler, analyzer, trim/AOT, NuGet or MSBuild warning fails the build.
 
 ## Testing expectations
 
-See [`docs/testing.md`](docs/testing.md). In short: unit tests for every reader/writer field, round-trip
+See [`docs/testing.md`](docs/testing.md) for what is tested and [`docs/testing-principles.md`](docs/testing-principles.md)
+for how every test is written: Arrange/Act/Assert comments, the object under test named `sut`, names like
+`Method_Scenario_ExpectedBehavior`, no logic or shared state in tests, specific assertions, Moq for interfaces, and
+`[Trait("Category", "Integration")]` on any test class that does I/O. In short: unit tests for every reader/writer field, round-trip
 tests where the format allows it, golden-file tests for whole conversions, and never commit copyrighted
 MOD files — generate test modules in code or use files with a clear free license.
 

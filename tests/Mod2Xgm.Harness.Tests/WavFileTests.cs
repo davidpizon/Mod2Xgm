@@ -5,6 +5,7 @@ using Mod2Xgm.Render;
 namespace Mod2Xgm.Harness.Tests;
 
 /// <summary>Tests for <see cref="WavFile"/>: every sample format renderers export, and the files it rejects.</summary>
+[Trait("Category", "Integration")]
 public sealed class WavFileTests
 {
     /// <summary>Builds a WAV file: a fmt chunk of <paramref name="fmt"/>, any <paramref name="extraChunks"/> before it, and the data.</summary>
@@ -44,12 +45,15 @@ public sealed class WavFileTests
 
     /// <summary>What the harness writes reads back the same, to 16-bit precision, with clipping beyond ±1.</summary>
     [Fact]
-    public void WrittenFilesReadBack()
+    public void Write_WithAudio_ReadsBack()
     {
+        // Arrange
         StereoAudio audio = new([0f, 0.5f, -0.5f, 2f], [1f, -1f, 0.25f, -3f], 22_050);
 
+        // Act
         StereoAudio read = WavFile.Read(WavFile.ToBytes(audio));
 
+        // Assert
         Assert.Equal(22_050, read.SampleRate);
         Assert.Equal([0f, 0.5f, -0.5f, 1f], read.Left.Select(s => MathF.Round(s, 3)));
         Assert.Equal([1f, -1f, 0.25f, -1f], read.Right.Select(s => MathF.Round(s, 3)));
@@ -57,10 +61,12 @@ public sealed class WavFileTests
 
     /// <summary>The header fields <see cref="WavFile.ToBytes"/> writes: 16-bit stereo PCM, sizes and rates.</summary>
     [Fact]
-    public void WrittenHeaderIsSixteenBitStereoPcm()
+    public void ToBytes_WithAudio_WritesSixteenBitStereoPcmHeader()
     {
+        // Act
         byte[] bytes = WavFile.ToBytes(new StereoAudio([0f, 0f], [0f, 0f], 44_100));
 
+        // Assert
         Assert.Equal(52, bytes.Length);
         Assert.Equal(44u, BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(4)));
         Assert.Equal((ushort)1, BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(20)));
@@ -73,10 +79,12 @@ public sealed class WavFileTests
 
     /// <summary>Unsigned 8-bit mono: 128 is silence, and the one array serves both channels.</summary>
     [Fact]
-    public void EightBitMonoIsRead()
+    public void Read_WithEightBitMono_ReadsIt()
     {
+        // Act
         StereoAudio audio = WavFile.Read(Wav(Fmt(1, 1, 8000, 8), [128, 192, 0]));
 
+        // Assert
         Assert.Equal([0f, 0.5f, -1f], audio.Left);
         Assert.Same(audio.Left, audio.Right);
         Assert.Equal(8000, audio.SampleRate);
@@ -84,29 +92,36 @@ public sealed class WavFileTests
 
     /// <summary>Signed 24-bit stereo, including a negative value whose sign is in the top byte.</summary>
     [Fact]
-    public void TwentyFourBitStereoIsRead()
+    public void Read_WithTwentyFourBitStereo_ReadsIt()
     {
+        // Act
         // Left 0x400000 (+0.5), right 0xC00000 (−0.5).
         StereoAudio audio = WavFile.Read(Wav(Fmt(1, 2, 48_000, 24), [0x00, 0x00, 0x40, 0x00, 0x00, 0xC0]));
 
+        // Assert
         Assert.Equal([0.5f], audio.Left);
         Assert.Equal([-0.5f], audio.Right);
     }
 
     /// <summary>Signed 32-bit integer PCM.</summary>
     [Fact]
-    public void ThirtyTwoBitIntegerIsRead()
+    public void Read_WithThirtyTwoBitInteger_ReadsIt()
     {
+        // Arrange
         byte[] data = new byte[4];
+
+        // Act
         BinaryPrimitives.WriteInt32LittleEndian(data, int.MinValue / 4);
 
+        // Assert
         Assert.Equal([-0.25f], WavFile.Read(Wav(Fmt(1, 1, 8000, 32), data)).Left);
     }
 
     /// <summary>32-bit float inside a WAVE_FORMAT_EXTENSIBLE header (what openmpt123 writes), after an odd-sized chunk that is padded.</summary>
     [Fact]
-    public void ExtensibleFloatAfterAPaddedChunkIsRead()
+    public void Read_WithExtensibleFloatAfterPaddedChunk_ReadsIt()
     {
+        // Arrange
         byte[] fmt = new byte[40];
         Fmt(0xFFFE, 1, 44_100, 32).CopyTo(fmt, 0);
         BinaryPrimitives.WriteUInt16LittleEndian(fmt.AsSpan(24), 3);
@@ -114,18 +129,24 @@ public sealed class WavFileTests
         BinaryPrimitives.WriteSingleLittleEndian(data, 0.75f);
         BinaryPrimitives.WriteSingleLittleEndian(data.AsSpan(4), -0.125f);
 
+        // Act
         StereoAudio audio = WavFile.Read(Wav(fmt, data, ("LIST", [1, 2, 3])));
 
+        // Assert
         Assert.Equal([0.75f, -0.125f], audio.Left);
     }
 
     /// <summary>A data chunk whose size runs past the end of the file is read up to the end.</summary>
     [Fact]
-    public void AnOversizedDataChunkIsReadToTheEnd()
+    public void Read_WithOversizedDataChunk_ReadsToEnd()
     {
+        // Arrange
         byte[] wav = Wav(Fmt(1, 1, 8000, 16), [0, 0x40, 0, 0xC0]);
+
+        // Act
         BinaryPrimitives.WriteUInt32LittleEndian(wav.AsSpan(wav.Length - 8), 0xFFFFFFFF);
 
+        // Assert
         Assert.Equal([0.5f, -0.5f], WavFile.Read(wav).Left);
     }
 
@@ -139,8 +160,9 @@ public sealed class WavFileTests
     [InlineData("zero-rate", "sample rate 0 Hz")]
     [InlineData("twelve-bit", "12 bits per sample")]
     [InlineData("sixty-four-bit-float", "64 bits per sample")]
-    public void BadFilesAreRejected(string kind, string expected)
+    public void Read_WithBadFile_Throws(string kind, string expected)
     {
+        // Act
         byte[] wav = kind switch
         {
             "not-riff" => "RIFX....WAVE"u8.ToArray(),
@@ -153,20 +175,25 @@ public sealed class WavFileTests
             _ => Wav(Fmt(3, 1, 8000, 64), new byte[8]),
         };
 
+        // Assert
         HarnessException ex = Assert.Throws<HarnessException>(() => WavFile.Read(wav));
         Assert.Contains(expected, ex.Message, StringComparison.Ordinal);
     }
 
     /// <summary>A file on disk is written and read back, and a bad one's message names the file.</summary>
     [Fact]
-    public void FilesOnDiskNameThePathWhenBad()
+    public void Read_WithBadFileOnDisk_NamesPath()
     {
+        // Arrange
         using TempDirectory temp = new();
         string good = temp.Combine("good.wav");
         WavFile.Write(good, new StereoAudio([0.5f], [0.5f], 8000));
         string bad = temp.Combine("bad.wav");
+
+        // Act
         File.WriteAllBytes(bad, [1, 2, 3]);
 
+        // Assert
         Assert.Equal([0.5f], WavFile.Read(good).Left.Select(s => MathF.Round(s, 3)));
         HarnessException ex = Assert.Throws<HarnessException>(() => WavFile.Read(bad));
         Assert.StartsWith(bad + ":", ex.Message, StringComparison.Ordinal);

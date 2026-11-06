@@ -32,10 +32,12 @@ public sealed class FmNoteRendererTests
 
     /// <summary>A TL-0 sine carrier renders at ±1 (a full-scale sample's level), at the asked pitch, for the asked time at 44.1 kHz.</summary>
     [Fact]
-    public void ASineCarrierPlaysAtFullScaleAndPitch()
+    public void Render_WithSineCarrier_PlaysAtFullScaleAndPitch()
     {
+        // Act
         float[] note = FmNoteRenderer.Render(FmPatchLibrary.Sine, null, 440, 0.5);
 
+        // Assert
         Assert.InRange(note.Length, (SampleAnalyzer.AnalysisRateHz / 2) - 1, (SampleAnalyzer.AnalysisRateHz / 2) + 1);
         Assert.Equal(1, Peak(note, 2000), 0.03);
         Assert.Equal(440, Hz(note), 3);
@@ -43,22 +45,30 @@ public sealed class FmNoteRendererTests
 
     /// <summary>The resampler keeps a 1 kHz tone's level and removes a 25 kHz tone that would fold back to 19 kHz.</summary>
     [Fact]
-    public void TheResamplerKeepsTheBandAndRemovesWhatWouldAlias()
+    public void ToAnalysisRate_WithTones_KeepsBandAndRemovesAliases()
     {
+        // Arrange
         float[] kept = FmNoteRenderer.ToAnalysisRate(ChipSine(1000, 0.5));
+
+        // Act
         float[] removed = FmNoteRenderer.ToAnalysisRate(ChipSine(25_000, 0.5));
 
+        // Assert
         Assert.Equal(0.5, Peak(kept, 200), 0.005);
         Assert.True(Peak(removed, 200) < 0.5 * 0.003, $"peak {Peak(removed, 200)}");
     }
 
     /// <summary>Vibrato needs both the LFO and the patch's depth: a deep FMS with the LFO on changes the note; with it off it changes nothing.</summary>
     [Fact]
-    public void VibratoNeedsTheLfoAndADepth()
+    public void Render_WithVibrato_NeedsLfoAndDepth()
     {
+        // Arrange
         FmPatch deep = FmPatchLibrary.Sine with { Fms = 7 };
+
+        // Act
         float[] plain = FmNoteRenderer.Render(FmPatchLibrary.Sine, null, 440, 0.5);
 
+        // Assert
         Assert.Equal(plain, FmNoteRenderer.Render(deep, null, 440, 0.5));
         Assert.Equal(plain, FmNoteRenderer.Render(FmPatchLibrary.Sine, 7, 440, 0.5));
         Assert.NotEqual(plain, FmNoteRenderer.Render(deep, 7, 440, 0.5));
@@ -66,26 +76,45 @@ public sealed class FmNoteRendererTests
 
     /// <summary>SSG-EG reaches the chip: a repeating shape on a decaying carrier keeps the note from fading.</summary>
     [Fact]
-    public void SsgEgReachesTheChip()
+    public void Render_WithSsgEg_ReachesChip()
     {
+        // Arrange
         FmPatch fading = FmPatchLibrary.Sine with { Operators = [FmPatchLibrary.Sine.Operators[0] with { Dr = 20, Sl = 15 }, .. FmPatchLibrary.Sine.Operators.Skip(1)] };
         FmPatch repeating = fading with { Operators = [fading.Operators[0] with { SsgEg = 8 }, .. fading.Operators.Skip(1)] };
-
         float[] once = FmNoteRenderer.Render(fading, null, 440, 1);
+
+        // Act
         float[] again = FmNoteRenderer.Render(repeating, null, 440, 1);
 
+        // Assert
         Assert.True(Tail(once) < 0.05, $"fading peak {Tail(once)}");
         Assert.True(Tail(again) > 0.2, $"repeating peak {Tail(again)}");
     }
 
-    /// <summary>Bad arguments are refused.</summary>
+    /// <summary>A null patch is refused.</summary>
     [Fact]
-    public void ArgumentsAreChecked()
+    public void Render_WithNullPatch_Throws()
     {
-        Assert.Throws<ArgumentNullException>(() => FmNoteRenderer.Render(null!, null, 440, 1));
-        Assert.Throws<ArgumentOutOfRangeException>(() => FmNoteRenderer.Render(FmPatchLibrary.Sine, null, 0, 1));
-        Assert.Throws<ArgumentOutOfRangeException>(() => FmNoteRenderer.Render(FmPatchLibrary.Sine, null, 440, 0));
-        Assert.Throws<ArgumentNullException>(() => FmNoteRenderer.ToAnalysisRate(null!));
+        // Act & Assert
+        Assert.Throws<ArgumentNullException>(() => FmNoteRenderer.Render(null!, null, 440, 1)); // null on purpose, past the annotation
+    }
+
+    /// <summary>A pitch or a length of 0 is refused.</summary>
+    [Theory]
+    [InlineData(0, 1)]
+    [InlineData(440, 0)]
+    public void Render_WithBadPitchOrLength_Throws(double hz, double seconds)
+    {
+        // Act & Assert
+        Assert.Throws<ArgumentOutOfRangeException>(() => FmNoteRenderer.Render(FmPatchLibrary.Sine, null, hz, seconds));
+    }
+
+    /// <summary>Null audio is refused.</summary>
+    [Fact]
+    public void ToAnalysisRate_WithNull_Throws()
+    {
+        // Act & Assert
+        Assert.Throws<ArgumentNullException>(() => FmNoteRenderer.ToAnalysisRate(null!)); // null on purpose, past the annotation
     }
 
     /// <summary>Two sine voices on algorithm 4: OP1→OP2 and OP3→OP4 with silent modulators and full-level carriers.</summary>
@@ -97,12 +126,16 @@ public sealed class FmNoteRendererTests
 
     /// <summary>In CH3 special mode each half plays at its own pitch, and only when keyed (plan T8.5b).</summary>
     [Fact]
-    public void Ch3HalvesPlayAtTheirOwnPitches()
+    public void RenderCh3_WithHalves_PlaysEachAtItsPitch()
     {
+        // Arrange
         float[] low = FmNoteRenderer.RenderCh3(TwoSines, 220, 550, 0.5, key34: false);
         float[] high = FmNoteRenderer.RenderCh3(TwoSines, 220, 550, 0.5, key12: false);
+
+        // Act
         float[] none = FmNoteRenderer.RenderCh3(TwoSines, 220, 550, 0.5, key12: false, key34: false);
 
+        // Assert
         Assert.Equal(220, Hz(low), 3);
         Assert.Equal(550, Hz(high), 3);
         Assert.Equal(1, Peak(low, 2000), 0.03);
@@ -111,9 +144,23 @@ public sealed class FmNoteRendererTests
 
     /// <summary>With both halves at one pitch, CH3 special mode sounds exactly as the patch does on a normal channel.</summary>
     [Fact]
-    public void CH3AtOnePitchIsANormalNote()
+    public void RenderCh3_AtOnePitch_IsNormalNote()
     {
-        Assert.Equal(FmNoteRenderer.Render(FmPatchLibrary.Brass with { Algorithm = 4 }, null, 330, 0.25), FmNoteRenderer.RenderCh3(FmPatchLibrary.Brass with { Algorithm = 4 }, 330, 330, 0.25));
+        // Arrange
+        FmPatch patch = FmPatchLibrary.Brass with { Algorithm = 4 };
+
+        // Act
+        float[] ch3 = FmNoteRenderer.RenderCh3(patch, 330, 330, 0.25);
+
+        // Assert
+        Assert.Equal(FmNoteRenderer.Render(patch, null, 330, 0.25), ch3);
+    }
+
+    /// <summary>A pitch of 0 is refused.</summary>
+    [Fact]
+    public void RenderCh3_WithZeroPitch_Throws()
+    {
+        // Act & Assert
         Assert.Throws<ArgumentOutOfRangeException>(() => FmNoteRenderer.RenderCh3(TwoSines, 0, 330, 1));
     }
 }

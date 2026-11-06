@@ -21,24 +21,48 @@ public sealed class DmfDacTests
 
     /// <summary>A fresh FM6 is in FM mode: the DAC is off at 0, and a note plays no sample.</summary>
     [Fact]
-    public void FmModePlaysNoSample()
+    public void Play_InFmMode_PlaysNoSample()
     {
-        DmfDac dac = new(Ym3438.NtscClockHz);
-        Assert.False(dac.Play([0x4000], 8000));
-        DacCapture capture = DacCapture.Of(dac, 100);
+        // Arrange
+        DmfDac sut = new(Ym3438.NtscClockHz);
+
+        // Act
+        bool played = sut.Play([0x4000], 8000);
+
+        // Assert
+        DacCapture capture = DacCapture.Of(sut, 100);
+        Assert.False(played);
         Assert.All(capture.Data, b => Assert.Equal(0x80, b));
         Assert.All(capture.Enable, b => Assert.Equal(0, b));
-        Assert.False(dac.IsPlaying);
+        Assert.False(sut.IsPlaying);
     }
 
-    /// <summary><c>17 01</c> turns the DAC on and <c>17 00</c> off.</summary>
+    /// <summary><c>17 01</c> turns the DAC on.</summary>
     [Fact]
-    public void DacModeSwitchesTheDac()
+    public void SetDacMode_WithOn_EnablesDac()
     {
-        DmfDac dac = InDacMode();
-        Assert.Equal(0x80, DacCapture.Of(dac, 1).Enable[0]);
-        dac.SetDacMode(false);
-        Assert.Equal(0, DacCapture.Of(dac, 1).Enable[0]);
+        // Arrange
+        DmfDac sut = new(Ym3438.NtscClockHz);
+
+        // Act
+        sut.SetDacMode(true);
+
+        // Assert
+        Assert.Equal(0x80, DacCapture.Of(sut, 1).Enable[0]);
+    }
+
+    /// <summary><c>17 00</c> turns the DAC off.</summary>
+    [Fact]
+    public void SetDacMode_WithOff_DisablesDac()
+    {
+        // Arrange
+        DmfDac sut = InDacMode();
+
+        // Act
+        sut.SetDacMode(false);
+
+        // Assert
+        Assert.Equal(0, DacCapture.Of(sut, 1).Enable[0]);
     }
 
     /// <summary>
@@ -46,12 +70,18 @@ public sealed class DmfDacTests
     /// second, held in between, so a 2000-point sample plays in a quarter of a second.
     /// </summary>
     [Fact]
-    public void PointsStepAtTheSamplesRate()
+    public void Play_WithSample_StepsAtItsRate()
     {
-        DmfDac dac = InDacMode();
+        // Arrange
+        DmfDac sut = InDacMode();
         short[] sample = [.. Enumerable.Range(1, 2000).Select(i => (short)(((i % 120) + 1) << 8))];
-        Assert.True(dac.Play(sample, 8000));
-        DacCapture capture = DacCapture.Of(dac, NtscRate);
+
+        // Act
+        bool played = sut.Play(sample, 8000);
+
+        // Assert
+        DacCapture capture = DacCapture.Of(sut, NtscRate);
+        Assert.True(played);
         Assert.Equal(0x80, capture.Data[5]);
         Assert.Equal(0x80 + 2, capture.Data[6]);
         List<int> changes = capture.Changes();
@@ -62,89 +92,182 @@ public sealed class DmfDacTests
 
     /// <summary>Each 16-bit point goes to the DAC as its top 8 bits, rounded down: 255 is 0, −1 is −1.</summary>
     [Fact]
-    public void PointsAreCutTo8BitsRoundingDown()
+    public void Play_WithSixteenBitPoints_CutsTo8BitsRoundingDown()
     {
-        DmfDac dac = InDacMode();
-        dac.Play([short.MaxValue, short.MinValue, 255, -1, 0x1234, 0], NtscRate);
-        DacCapture capture = DacCapture.Of(dac, 5);
+        // Arrange
+        DmfDac sut = InDacMode();
+
+        // Act
+        sut.Play([short.MaxValue, short.MinValue, 255, -1, 0x1234, 0], NtscRate);
+
+        // Assert
+        DacCapture capture = DacCapture.Of(sut, 5);
         Assert.Equal([0xff, 0x00, 0x80, 0x7f, 0x80 + 0x12], capture.Data);
     }
 
     /// <summary>After the last point the DAC turns off (in the same sample) and keeps that last byte.</summary>
     [Fact]
-    public void TheSamplesEndTurnsTheDacOff()
+    public void Generate_AtSamplesEnd_TurnsDacOff()
     {
-        DmfDac dac = InDacMode();
-        dac.Play([0x1000, 0x2000, 0x3000], NtscRate);
-        DacCapture capture = DacCapture.Of(dac, 6);
+        // Arrange
+        DmfDac sut = InDacMode();
+        sut.Play([0x1000, 0x2000, 0x3000], NtscRate);
+
+        // Act
+        DacCapture capture = DacCapture.Of(sut, 6);
+
+        // Assert
         Assert.Equal([0x90, 0xa0, 0xb0, 0xb0, 0xb0, 0xb0], capture.Data);
         Assert.Equal([0x80, 0x80, 0, 0, 0, 0], capture.Enable);
-        Assert.False(dac.IsPlaying);
+        Assert.False(sut.IsPlaying);
     }
 
-    /// <summary>A note-off stops the sample and turns the DAC off; the DAC keeps its byte; the next note turns it on.</summary>
+    /// <summary>A note-off stops the sample and turns the DAC off; the DAC keeps its byte.</summary>
     [Fact]
-    public void ANoteOffStopsTheSample()
+    public void Stop_WithSamplePlaying_StopsIt()
     {
-        DmfDac dac = InDacMode();
-        dac.Play([0x1000, 0x2000, 0x3000], NtscRate);
-        DacCapture.Of(dac, 1);
-        dac.Stop();
-        DacCapture capture = DacCapture.Of(dac, 3);
+        // Arrange
+        DmfDac sut = InDacMode();
+        sut.Play([0x1000, 0x2000, 0x3000], NtscRate);
+        DacCapture.Of(sut, 1);
+
+        // Act
+        sut.Stop();
+
+        // Assert
+        DacCapture capture = DacCapture.Of(sut, 3);
         Assert.All(capture.Data, b => Assert.Equal(0x90, b));
         Assert.All(capture.Enable, b => Assert.Equal(0, b));
+    }
 
-        dac.Play([0x4000, 0x4000], NtscRate);
-        Assert.Equal(0x80, DacCapture.Of(dac, 1).Enable[0]);
+    /// <summary>The next note after a note-off turns the DAC on again.</summary>
+    [Fact]
+    public void Play_AfterStop_TurnsDacOn()
+    {
+        // Arrange
+        DmfDac sut = InDacMode();
+        sut.Play([0x1000, 0x2000, 0x3000], NtscRate);
+        DacCapture.Of(sut, 1);
+        sut.Stop();
+        DacCapture.Of(sut, 3);
+
+        // Act
+        sut.Play([0x4000, 0x4000], NtscRate);
+
+        // Assert
+        Assert.Equal(0x80, DacCapture.Of(sut, 1).Enable[0]);
     }
 
     /// <summary>A new note restarts from the first point.</summary>
     [Fact]
-    public void ANewNoteRestarts()
+    public void Play_WithSamplePlaying_Restarts()
     {
-        DmfDac dac = InDacMode();
+        // Arrange
+        DmfDac sut = InDacMode();
         short[] sample = [0x1000, 0x2000, 0x3000];
-        dac.Play(sample, NtscRate);
-        DacCapture.Of(dac, 2);
-        dac.Play(sample, NtscRate);
-        Assert.Equal(0x90, DacCapture.Of(dac, 1).Data[0]);
+        sut.Play(sample, NtscRate);
+        DacCapture.Of(sut, 2);
+
+        // Act
+        sut.Play(sample, NtscRate);
+
+        // Assert
+        Assert.Equal(0x90, DacCapture.Of(sut, 1).Data[0]);
     }
 
-    /// <summary>Turning DAC mode off pauses the sample where it is; turning it back on carries on from there.</summary>
+    /// <summary>Turning DAC mode off pauses the sample where it is.</summary>
     [Fact]
-    public void DacModeOffPausesTheSample()
+    public void SetDacMode_WithOff_PausesSample()
     {
-        DmfDac dac = InDacMode();
-        dac.Play([0x1000, 0x2000, 0x3000], NtscRate);
-        DacCapture.Of(dac, 1);
-        dac.SetDacMode(false);
-        Assert.All(DacCapture.Of(dac, 4).Data, b => Assert.Equal(0x90, b));
-        Assert.True(dac.IsPlaying);
-        dac.SetDacMode(true);
-        Assert.Equal([0xa0, 0xb0], DacCapture.Of(dac, 2).Data);
+        // Arrange
+        DmfDac sut = InDacMode();
+        sut.Play([0x1000, 0x2000, 0x3000], NtscRate);
+        DacCapture.Of(sut, 1);
+
+        // Act
+        sut.SetDacMode(false);
+
+        // Assert
+        Assert.All(DacCapture.Of(sut, 4).Data, b => Assert.Equal(0x90, b));
+        Assert.True(sut.IsPlaying);
+    }
+
+    /// <summary>Turning DAC mode back on carries a paused sample on from where it was.</summary>
+    [Fact]
+    public void SetDacMode_WithOnAfterOff_ResumesSample()
+    {
+        // Arrange
+        DmfDac sut = InDacMode();
+        sut.Play([0x1000, 0x2000, 0x3000], NtscRate);
+        DacCapture.Of(sut, 1);
+        sut.SetDacMode(false);
+        DacCapture.Of(sut, 4);
+
+        // Act
+        sut.SetDacMode(true);
+
+        // Assert
+        Assert.Equal([0xa0, 0xb0], DacCapture.Of(sut, 2).Data);
     }
 
     /// <summary>An empty sample stops at once and, as in Furnace, leaves the DAC on.</summary>
     [Fact]
-    public void AnEmptySampleStopsAtOnce()
+    public void Play_WithEmptySample_StopsAtOnce()
     {
-        DmfDac dac = InDacMode();
-        Assert.True(dac.Play([], 8000));
-        DacCapture capture = DacCapture.Of(dac, 20);
-        Assert.False(dac.IsPlaying);
+        // Arrange
+        DmfDac sut = InDacMode();
+
+        // Act
+        bool played = sut.Play([], 8000);
+
+        // Assert
+        DacCapture capture = DacCapture.Of(sut, 20);
+        Assert.True(played);
+        Assert.False(sut.IsPlaying);
         Assert.All(capture.Data, b => Assert.Equal(0x80, b));
         Assert.All(capture.Enable, b => Assert.Equal(0x80, b));
     }
 
-    /// <summary>Bad clocks, rates and buffers are refused.</summary>
-    [Fact]
-    public void BadArgumentsAreRefused()
+    /// <summary>A clock too low to step, or not a number, is refused.</summary>
+    [Theory]
+    [InlineData(100)]
+    [InlineData(double.NaN)]
+    public void Constructor_WithBadClock_Throws(double clockHz)
     {
-        Assert.Throws<ArgumentOutOfRangeException>(() => new DmfDac(100));
-        Assert.Throws<ArgumentOutOfRangeException>(() => new DmfDac(double.NaN));
-        DmfDac dac = InDacMode();
-        Assert.Throws<ArgumentOutOfRangeException>(() => dac.Play([1], 0));
-        Assert.Throws<ArgumentNullException>(() => dac.Play(null!, 8000)); // null on purpose, past the annotation
-        Assert.Throws<ArgumentException>(() => dac.Generate(new byte[1], new byte[2]));
+        // Act & Assert
+        Assert.Throws<ArgumentOutOfRangeException>(() => new DmfDac(clockHz));
+    }
+
+    /// <summary>A rate of 0 is refused.</summary>
+    [Fact]
+    public void Play_WithZeroRate_Throws()
+    {
+        // Arrange
+        DmfDac sut = InDacMode();
+
+        // Act & Assert
+        Assert.Throws<ArgumentOutOfRangeException>(() => sut.Play([1], 0));
+    }
+
+    /// <summary>A null sample is refused.</summary>
+    [Fact]
+    public void Play_WithNullSample_Throws()
+    {
+        // Arrange
+        DmfDac sut = InDacMode();
+
+        // Act & Assert
+        Assert.Throws<ArgumentNullException>(() => sut.Play(null!, 8000)); // null on purpose, past the annotation
+    }
+
+    /// <summary>The two buffers need the same length.</summary>
+    [Fact]
+    public void Generate_WithDifferentLengths_Throws()
+    {
+        // Arrange
+        DmfDac sut = InDacMode();
+
+        // Act & Assert
+        Assert.Throws<ArgumentException>(() => sut.Generate(new byte[1], new byte[2]));
     }
 }

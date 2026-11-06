@@ -14,13 +14,17 @@ public sealed class FmLocalSearchTests
 
     /// <summary>From a patch knocked off its target, the fit gets much closer, and never further.</summary>
     [Fact]
-    public void TheFitGetsCloser()
+    [Trait("Speed", "Slow")]
+    public void Refine_WithSeed_GetsCloser()
     {
+        // Arrange
         FmEvaluator evaluator = new(FmTargets.Of(FmPatchLibrary.Lead));
         double before = evaluator.Search(OffLead, null);
 
+        // Act
         FmVoiceSetting fitted = FmLocalSearch.Refine(evaluator, new FmVoiceSetting(OffLead, null), false, false, null);
 
+        // Assert
         double after = evaluator.Search(fitted.Patch, fitted.LfoRate);
         Assert.True(after < before / 3, $"{before} dB → {after} dB");
         Assert.Equal(OffLead.Algorithm, fitted.Patch.Algorithm);
@@ -28,27 +32,35 @@ public sealed class FmLocalSearchTests
 
     /// <summary>The fit stops at its budget, and leaves a patch that already matches as it is.</summary>
     [Fact]
-    public void TheFitKeepsItsBudget()
+    [Trait("Speed", "Slow")]
+    public void Refine_WithBudget_KeepsIt()
     {
+        // Arrange
         FmEvaluator evaluator = new(FmTargets.Of(FmPatchLibrary.Lead));
-
         FmLocalSearch.Refine(evaluator, new FmVoiceSetting(OffLead, null), false, true, 25);
+
+        // Act
         FmVoiceSetting same = FmLocalSearch.Refine(new FmEvaluator(FmTargets.Of(FmPatchLibrary.Organ)), new FmVoiceSetting(FmPatchLibrary.Organ, null), false, false, 40);
 
+        // Assert
         Assert.InRange(evaluator.Renders, 25, 26);
         Assert.Equal(FmEvaluator.Key(FmPatchLibrary.Organ, null), FmEvaluator.Key(same.Patch, same.LfoRate));
     }
 
     /// <summary>A target with vibrato is matched better with the LFO than without; without it, the fit leaves every LFO setting off.</summary>
     [Fact]
-    public void TheLfoIsFittedOnlyWhenAllowed()
+    [Trait("Speed", "Slow")]
+    public void Refine_WithLfoOption_FitsLfoOnlyWhenAllowed()
     {
+        // Arrange
         FmPatch vibrato = FmPatchLibrary.Sine with { Fms = 6 };
         FmEvaluator evaluator = new(FmTargets.Of(vibrato, 440, lfoRate: 6));
-
         FmVoiceSetting plain = FmLocalSearch.Refine(evaluator, new FmVoiceSetting(FmPatchLibrary.Sine, null), false, false, 300);
+
+        // Act
         FmVoiceSetting wobbling = FmLocalSearch.Refine(evaluator, plain, true, false, 300);
 
+        // Assert
         Assert.Null(plain.LfoRate);
         Assert.False(plain.Patch.UsesLfo);
         Assert.NotNull(wobbling.LfoRate);
@@ -58,12 +70,15 @@ public sealed class FmLocalSearchTests
 
     /// <summary>Taking the LFO away clears its depths and every operator's tremolo switch.</summary>
     [Fact]
-    public void WithoutLfoClearsEverything()
+    public void WithoutLfo_WithPatch_ClearsEverything()
     {
+        // Arrange
         FmPatch patch = FmPatchLibrary.Lead with { Fms = 3, Ams = 2, Operators = [.. FmPatchLibrary.Lead.Operators.Select(o => o with { Am = true })] };
 
+        // Act
         FmVoiceSetting plain = FmLocalSearch.WithoutLfo(new FmVoiceSetting(patch, 5));
 
+        // Assert
         Assert.Null(plain.LfoRate);
         Assert.Equal((0, 0), (plain.Patch.Fms, plain.Patch.Ams));
         Assert.All(plain.Patch.Operators, o => Assert.False(o.Am));
@@ -71,13 +86,17 @@ public sealed class FmLocalSearchTests
 
     /// <summary>Limited to OP3 and OP4 (one CH3 voice), the fit leaves OP1, OP2 and the feedback alone, and still gets closer.</summary>
     [Fact]
-    public void TheFitMovesOnlyTheOperatorsItIsGiven()
+    [Trait("Speed", "Slow")]
+    public void Refine_WithOperators_MovesOnlyThem()
     {
+        // Arrange
         FmPatch start = OffLead with { Feedback = 3 };
         FmEvaluator evaluator = new(FmTargets.Of(FmPatchLibrary.Lead));
 
+        // Act
         FmVoiceSetting fitted = FmLocalSearch.Refine(evaluator, new FmVoiceSetting(start, null), false, true, 200, [2, 3]);
 
+        // Assert
         Assert.Equal(start.Operators[0], fitted.Patch.Operators[0]);
         Assert.Equal(start.Operators[1], fitted.Patch.Operators[1]);
         Assert.Equal(3, fitted.Patch.Feedback);

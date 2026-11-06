@@ -14,14 +14,26 @@ public sealed class PlanVoicingTests
     [InlineData(0.33, 0)]
     [InlineData(0.34, 1)]
     [InlineData(1, 1)]
-    public void PanPicksASide(double pan, int side) => Assert.Equal(side, PlanVoicing.Side(pan));
+    public void Side_WithPan_PicksSide(double pan, int expected)
+    {
+        // Act
+        int side = PlanVoicing.Side(pan);
+
+        // Assert
+        Assert.Equal(expected, side);
+    }
 
     /// <summary>Semitones from C-0 turn into hertz around A-4 at 440 Hz.</summary>
-    [Fact]
-    public void SemitonesBecomeHertz()
+    [Theory]
+    [InlineData(PlanVoicing.A4, 440.0)]
+    [InlineData(PlanVoicing.A4 + 12, 880.0)]
+    [InlineData(48, 261.6256)]
+    public void Hz_WithSemitone_ReturnsFrequency(int semitone, double expected)
     {
-        Assert.Equal(440, PlanVoicing.Hz(PlanVoicing.A4), 9);
-        Assert.Equal(880, PlanVoicing.Hz(PlanVoicing.A4 + 12), 9);
-        Assert.Equal(261.6256, PlanVoicing.Hz(48), 3);
+        // Act
+        double hz = PlanVoicing.Hz(semitone);
+
+        // Assert
+        Assert.Equal(expected, hz, 3);
     }
 }

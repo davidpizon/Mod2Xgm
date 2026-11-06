@@ -4,6 +4,9 @@ Test projects live in **`tests/`**, one folder each (see [`tests/README.md`](../
 `tests/Mod2Xgm.Tests` (**xUnit v3**); `tests/Mod2Xgm.Harness.Tests` tests the accuracy harness. Both are in the root
 `Mod2Xgm.slnx`. Run with `dotnet test`.
 
+How each test is written (AAA, `sut`, naming, unit vs integration, Moq) is in
+[testing-principles.md](testing-principles.md).
+
 ## Layers
 1. **Reader unit tests** — build MOD bytes in code (a small `ModBuilder` test helper) and assert
    every field: variant detection, 15-sample heuristics, bad tags, truncated files, loop in bytes vs words.
@@ -37,6 +40,18 @@ Test projects live in **`tests/`**, one folder each (see [`tests/README.md`](../
 5. **CLI tests** — argument parsing (incl. `--ignore-samples` lists, ranges, hex), output naming, exit
    codes, no overwrite without `--force`, console report content (metadata, empty-slot names, statuses).
 
+## What CI runs
+ of 5 seconds or more carry `[Trait("Speed", "Slow")]` ([testing-principles.md](testing-principles.md#long-running-tests),
+[ADR 0082](adr/0082-defer-slow-tests-in-pr-ci.md)):
+
+| Trigger | Tests |
+|---|---|
+| Pull request | Skips `Speed=Slow` |
+| Push to `main`, nightly (09:00 UTC), manual run | The whole suite |
+| The `Code coverage` job, on every trigger | Skips `Speed=Slow` |
+ changing code the long-running tests cover (FM fitting, the candidate cache), run them yourself before opening
+the PR, or start the CI workflow on the branch by hand (`gh workflow run CI --ref <branch>`).
+
 ## Code coverage
 
 Requirement: **≥ 80 % line coverage** of the `Mod2Xgm` assembly and **no more than a 10-point drop** versus
@@ -50,7 +65,7 @@ Tests run on **Microsoft.Testing.Platform** (MTP), selected in the root `global.
 
 Coverage comes from **Microsoft.Testing.Extensions.CodeCoverage** (Cobertura XML), configured by
 `tests/coverage.runsettings` (measures `Mod2Xgm.dll` only). The `Code coverage` job in
-`.github/workflows/ci.yml` runs on pull requests and pushes to `main`. It writes the line coverage to the job
+`.github/workflows/ci.yml` runs on pull requests and on pushes to `main`, always without the long-running tests. It writes the line coverage to the job
 summary and a `Line coverage` annotation, **fails below 80 %** (`MIN_LINE_COVERAGE`), and keeps the report as
 the `coverage-cobertura` artifact.
 
@@ -59,7 +74,7 @@ project in one run the reports of both would land in the same folder and CI coul
 ([ADR 0047](adr/0047-accuracy-harness.md)). Measure locally (from the repository root):
 
 ```
-dotnet test --project tests/Mod2Xgm.Tests --coverage --coverage-output-format cobertura --coverage-output coverage.cobertura.xml --coverage-settings tests/coverage.runsettings --results-directory artifacts/coverage
+dotnet test --project tests/Mod2Xgm.Tests --coverage --coverage-output-format cobertura --coverage-output coverage.cobertura.xml --coverage-settings tests/coverage.runsettings --results-directory artifacts/coverage -- --filter-not-trait "Speed=Slow"
 ```
 
 Read the line coverage (the first `line-rate` attribute; 0.934 = 93.4 %):

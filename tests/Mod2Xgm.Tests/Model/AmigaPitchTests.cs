@@ -29,12 +29,17 @@ public sealed class AmigaPitchTests
         }
     }
 
+    /// <summary>Every finetune.</summary>
+    public static TheoryData<int> EveryFineTune => new(Enumerable.Range(AmigaPitch.MinFineTune, AmigaPitch.MaxFineTune - AmigaPitch.MinFineTune + 1));
+
     /// <summary>Period 428 on a PAL Amiga is the reference: exactly C-2 at 0 cents, playing at clock / 428.</summary>
     [Fact]
-    public void ReferencePeriodIsExactlyC2()
+    public void FromPeriod_WithReferencePeriod_ReturnsExactlyC2()
     {
+        // Act
         NotePitch pitch = AmigaPitch.FromPeriod(428, AmigaPitch.PalClockHz);
 
+        // Assert
         Assert.Equal(24, pitch.Semitone);
         Assert.Equal(0.0, pitch.Cents);
         Assert.Equal(3_546_895.0 / 428, pitch.PlaybackRateHz);
@@ -46,10 +51,12 @@ public sealed class AmigaPitchTests
     [InlineData(428, 24)]
     [InlineData(214, 36)]
     [InlineData(107, 48)]
-    public void OctavesAreExact(int period, int semitone)
+    public void FromPeriod_WithOctaveOfReference_IsExact(int period, int semitone)
     {
+        // Act
         NotePitch pitch = AmigaPitch.FromPeriod(period, AmigaPitch.PalClockHz);
 
+        // Assert
         Assert.Equal(semitone, pitch.Semitone);
         Assert.Equal(0.0, pitch.Cents, 1e-9);
     }
@@ -60,20 +67,26 @@ public sealed class AmigaPitchTests
     /// </summary>
     [Theory]
     [MemberData(nameof(EveryTableEntry))]
-    public void EveryTableEntryIsItsNoteWithinRounding(int fineTune, int note)
+    public void FromPeriod_WithTableEntry_IsItsNoteWithinRounding(int fineTune, int note)
     {
+        // Arrange
+        double expectedCents = ((AmigaPitch.FirstSemitone + note) * 100.0) + (fineTune * AmigaPitch.CentsPerFineTune);
+
+        // Act
         NotePitch pitch = AmigaPitch.FromPeriod(AmigaPitch.Table(fineTune)[note], AmigaPitch.PalClockHz);
 
-        double expectedCents = ((AmigaPitch.FirstSemitone + note) * 100.0) + (fineTune * AmigaPitch.CentsPerFineTune);
+        // Assert
         Assert.Equal(expectedCents, (pitch.Semitone * 100.0) + pitch.Cents, TableRoundingCents);
     }
 
     /// <summary>The same period plays 15.9 cents sharper on an NTSC Amiga, at the NTSC clock / period.</summary>
     [Fact]
-    public void NtscClockPlaysSharper()
+    public void FromPeriod_WithNtscClock_PlaysSharper()
     {
+        // Act
         NotePitch pitch = AmigaPitch.FromPeriod(428, AmigaPitch.NtscClockHz);
 
+        // Assert
         Assert.Equal(24, pitch.Semitone);
         Assert.Equal(NtscShiftCents, pitch.Cents, 1e-9);
         Assert.Equal(3_579_545.0 / 428, pitch.PlaybackRateHz);
@@ -85,84 +98,113 @@ public sealed class AmigaPitchTests
     [InlineData(1000.0)]
     [InlineData(150.5)]
     [InlineData(4095.0)]
-    public void InBetweenPeriodsKeepTheirExactPitch(double period)
+    public void FromPeriod_WithPeriodBetweenEntries_KeepsExactPitch(double period)
     {
+        // Arrange
+        double expected = 2400 + (1200 * Math.Log2(428 / period));
+
+        // Act
         NotePitch pitch = AmigaPitch.FromPeriod(period, AmigaPitch.PalClockHz);
 
-        double expected = 2400 + (1200 * Math.Log2(428 / period));
+        // Assert
         Assert.Equal(expected, (pitch.Semitone * 100.0) + pitch.Cents, 1e-9);
         Assert.Equal(AmigaPitch.PalClockHz / period, pitch.PlaybackRateHz);
     }
 
     /// <summary>Cents always lie in −50…+50 (−50 included, +50 not), on both clocks, for every whole period 1–4095.</summary>
-    [Fact]
-    public void CentsStayWithinHalfASemitone()
+    [Theory]
+    [InlineData(AmigaPitch.PalClockHz)]
+    [InlineData(AmigaPitch.NtscClockHz)]
+    public void FromPeriod_WithEveryWholePeriod_KeepsCentsWithinHalfASemitone(double clock)
     {
-        foreach (double clock in new[] { AmigaPitch.PalClockHz, AmigaPitch.NtscClockHz })
-        {
-            for (int period = 1; period <= 4095; period++)
-            {
-                double cents = AmigaPitch.FromPeriod(period, clock).Cents;
-                Assert.InRange(cents, -50.0, 50.0);
-                Assert.True(cents < 50.0, $"period {period}: {cents} cents");
-            }
-        }
+        // Act
+        double[] cents = [.. Enumerable.Range(1, 4095).Select(period => AmigaPitch.FromPeriod(period, clock).Cents)];
+
+        // Assert
+        Assert.All(cents, c => Assert.True(c is >= -50.0 and < 50.0, $"{c} cents"));
     }
 
     /// <summary><see cref="AmigaPitch.PeriodOf"/> gives back the period a pitch was made from, on both clocks.</summary>
     [Theory]
-    [InlineData(113.0)]
-    [InlineData(428.0)]
-    [InlineData(907.0)]
-    [InlineData(1234.5)]
-    public void PeriodOfInvertsFromPeriod(double period)
+    [InlineData(113.0, AmigaPitch.PalClockHz)]
+    [InlineData(428.0, AmigaPitch.PalClockHz)]
+    [InlineData(907.0, AmigaPitch.PalClockHz)]
+    [InlineData(1234.5, AmigaPitch.PalClockHz)]
+    [InlineData(113.0, AmigaPitch.NtscClockHz)]
+    [InlineData(428.0, AmigaPitch.NtscClockHz)]
+    [InlineData(907.0, AmigaPitch.NtscClockHz)]
+    [InlineData(1234.5, AmigaPitch.NtscClockHz)]
+    public void PeriodOf_WithPitchFromPeriod_ReturnsThatPeriod(double period, double clock)
     {
-        foreach (double clock in new[] { AmigaPitch.PalClockHz, AmigaPitch.NtscClockHz })
-        {
-            Assert.Equal(period, AmigaPitch.PeriodOf(AmigaPitch.FromPeriod(period, clock), clock), 1e-9);
-        }
+        // Arrange
+        NotePitch pitch = AmigaPitch.FromPeriod(period, clock);
+
+        // Act
+        double result = AmigaPitch.PeriodOf(pitch, clock);
+
+        // Assert
+        Assert.Equal(period, result, 1e-9);
     }
 
-    /// <summary>The finetune-0 table is ProTracker's familiar C-1…B-3 row, and the extremes of the other tables are right.</summary>
+    /// <summary>The finetune-0 table is ProTracker's familiar C-1…B-3 row.</summary>
     [Fact]
-    public void TablesHoldProTrackerPeriods()
+    public void Table_ForFineTuneZero_HoldsProTrackerPeriods()
     {
-        short[] plain =
+        // Arrange
+        short[] expected =
         [
             856, 808, 762, 720, 678, 640, 604, 570, 538, 508, 480, 453,
             428, 404, 381, 360, 339, 320, 302, 285, 269, 254, 240, 226,
             214, 202, 190, 180, 170, 160, 151, 143, 135, 127, 120, 113,
         ];
-        Assert.Equal(plain, AmigaPitch.Table(0).ToArray());
-        Assert.Equal(907, AmigaPitch.Table(-8)[0]);
-        Assert.Equal(120, AmigaPitch.Table(-8)[35]);
-        Assert.Equal(814, AmigaPitch.Table(7)[0]);
-        Assert.Equal(108, AmigaPitch.Table(7)[35]);
-        Assert.Equal(862, AmigaPitch.Table(-1)[0]);
-        Assert.Equal(114, AmigaPitch.Table(-1)[35]);
+
+        // Act
+        short[] table = AmigaPitch.Table(0).ToArray();
+
+        // Assert
+        Assert.Equal(expected, table);
     }
 
-    /// <summary>Every table rises in pitch note by note, and a higher finetune never gives a longer period.</summary>
-    [Fact]
-    public void TablesAreOrdered()
+    /// <summary>The other tables hold ProTracker's values at their extremes.</summary>
+    [Theory]
+    [InlineData(-8, 907, 120)]
+    [InlineData(7, 814, 108)]
+    [InlineData(-1, 862, 114)]
+    public void Table_ForOtherFineTunes_HoldsProTrackerExtremes(int fineTune, int first, int last)
     {
-        for (int fineTune = AmigaPitch.MinFineTune; fineTune <= AmigaPitch.MaxFineTune; fineTune++)
-        {
-            ReadOnlySpan<short> table = AmigaPitch.Table(fineTune);
-            Assert.Equal(AmigaPitch.NotesPerTable, table.Length);
-            for (int note = 0; note < AmigaPitch.NotesPerTable; note++)
-            {
-                if (note > 0)
-                {
-                    Assert.True(table[note] < table[note - 1], $"finetune {fineTune}, note {note}");
-                }
+        // Act
+        short[] table = AmigaPitch.Table(fineTune).ToArray();
 
-                if (fineTune > AmigaPitch.MinFineTune)
-                {
-                    Assert.True(table[note] <= AmigaPitch.Table(fineTune - 1)[note], $"finetune {fineTune}, note {note}");
-                }
-            }
-        }
+        // Assert
+        Assert.Equal((first, last), (table[0], table[35]));
+    }
+
+    /// <summary>Every table has all its notes and rises in pitch note by note.</summary>
+    [Theory]
+    [MemberData(nameof(EveryFineTune))]
+    public void Table_ForFineTune_RisesNoteByNote(int fineTune)
+    {
+        // Act
+        short[] table = AmigaPitch.Table(fineTune).ToArray();
+
+        // Assert
+        Assert.Equal(AmigaPitch.NotesPerTable, table.Length);
+        Assert.Equal(table.OrderDescending().Distinct(), table);
+    }
+
+    /// <summary>A higher finetune never gives a longer period than the finetune below it.</summary>
+    [Theory]
+    [MemberData(nameof(EveryFineTune))]
+    public void Table_ForFineTune_NeverExceedsTableBelow(int fineTune)
+    {
+        // Arrange
+        short[] below = AmigaPitch.Table(Math.Max(fineTune - 1, AmigaPitch.MinFineTune)).ToArray();
+
+        // Act
+        short[] table = AmigaPitch.Table(fineTune).ToArray();
+
+        // Assert
+        Assert.All(table.Zip(below), pair => Assert.True(pair.First <= pair.Second, $"{pair.First} > {pair.Second}"));
     }
 
     /// <summary>An instrument's tuning in cents converts back to its finetune step.</summary>
@@ -172,8 +214,14 @@ public sealed class AmigaPitchTests
     [InlineData(87.5, 7)]
     [InlineData(-12.5, -1)]
     [InlineData(-100.0, -8)]
-    public void FineTuneFromCents(double cents, int expected) =>
-        Assert.Equal(expected, AmigaPitch.FineTuneFromCents(cents));
+    public void FineTuneFromCents_WithFinetuneStep_ReturnsStep(double cents, int expected)
+    {
+        // Act
+        int fineTune = AmigaPitch.FineTuneFromCents(cents);
+
+        // Assert
+        Assert.Equal(expected, fineTune);
+    }
 
     /// <summary>A tuning that isn't a ProTracker finetune is a caller bug and throws.</summary>
     [Theory]
@@ -181,19 +229,43 @@ public sealed class AmigaPitchTests
     [InlineData(100.0)]
     [InlineData(-112.5)]
     [InlineData(double.NaN)]
-    public void FineTuneFromCentsRejectsOtherTunings(double cents) =>
-        Assert.Throws<ArgumentOutOfRangeException>(() => AmigaPitch.FineTuneFromCents(cents));
-
-    /// <summary>Periods, clocks and finetunes outside their ranges are caller bugs and throw.</summary>
-    [Fact]
-    public void OutOfRangeArgumentsThrow()
+    public void FineTuneFromCents_WithOtherTuning_Throws(double cents)
     {
-        Assert.Throws<ArgumentOutOfRangeException>(() => AmigaPitch.FromPeriod(0, AmigaPitch.PalClockHz));
-        Assert.Throws<ArgumentOutOfRangeException>(() => AmigaPitch.FromPeriod(-1, AmigaPitch.PalClockHz));
-        Assert.Throws<ArgumentOutOfRangeException>(() => AmigaPitch.FromPeriod(428, 0));
-        Assert.Throws<ArgumentOutOfRangeException>(() => AmigaPitch.PeriodOf(new NotePitch(24, 0, 0), AmigaPitch.PalClockHz));
-        Assert.Throws<ArgumentOutOfRangeException>(() => AmigaPitch.PeriodOf(new NotePitch(24, 0, 8287), 0));
-        Assert.Throws<ArgumentOutOfRangeException>(() => AmigaPitch.Table(-9).Length);
-        Assert.Throws<ArgumentOutOfRangeException>(() => AmigaPitch.Table(8).Length);
+        // Act & Assert
+        Assert.Throws<ArgumentOutOfRangeException>(() => AmigaPitch.FineTuneFromCents(cents));
+    }
+
+    /// <summary>A period or clock outside its range is a caller bug and throws.</summary>
+    [Theory]
+    [InlineData(0.0, AmigaPitch.PalClockHz)]
+    [InlineData(-1.0, AmigaPitch.PalClockHz)]
+    [InlineData(428.0, 0.0)]
+    public void FromPeriod_WithArgumentOutOfRange_Throws(double period, double clock)
+    {
+        // Act & Assert
+        Assert.Throws<ArgumentOutOfRangeException>(() => AmigaPitch.FromPeriod(period, clock));
+    }
+
+    /// <summary>A playback rate or clock of 0 is a caller bug and throws.</summary>
+    [Theory]
+    [InlineData(0.0, AmigaPitch.PalClockHz)]
+    [InlineData(8287.0, 0.0)]
+    public void PeriodOf_WithArgumentOutOfRange_Throws(double rateHz, double clock)
+    {
+        // Arrange
+        NotePitch pitch = new(24, 0, rateHz);
+
+        // Act & Assert
+        Assert.Throws<ArgumentOutOfRangeException>(() => AmigaPitch.PeriodOf(pitch, clock));
+    }
+
+    /// <summary>A finetune outside ProTracker's −8…+7 is a caller bug and throws.</summary>
+    [Theory]
+    [InlineData(-9)]
+    [InlineData(8)]
+    public void Table_WithFineTuneOutOfRange_Throws(int fineTune)
+    {
+        // Act & Assert
+        Assert.Throws<ArgumentOutOfRangeException>(() => AmigaPitch.Table(fineTune).Length);
     }
 }

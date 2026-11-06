@@ -9,6 +9,7 @@ namespace Mod2Xgm.Tests.Render.Pcm;
 /// docs/adr/0066-pcm-drivers-checked-against-sgdk.md). The captures come from <c>tools/pcm-driver-reference/run.sh</c>;
 /// run it again after changing a probe (with <c>UPDATE_GOLDEN=1</c> first, to rewrite the scripts).
 /// </summary>
+[Trait("Category", "Integration")]
 public sealed class PcmDriverProbeTests
 {
     /// <summary>The probe names, for the theories.</summary>
@@ -19,16 +20,24 @@ public sealed class PcmDriverProbeTests
     /// <summary>The checked-in script is the one the builder makes (the reference tool plays the file).</summary>
     [Theory]
     [MemberData(nameof(Names))]
-    public void ScriptFileMatchesItsBuilder(string name) =>
+    public void Script_WithCheckedInFile_MatchesBuilder(string name)
+    {
+        // Act & Assert
         Golden.Verify(Path.Combine("pcm-drivers", name + ".txt"), PcmDriverProbes.All[name]().ToText());
+    }
 
     /// <summary>The checked-in script reads back as the probe it was built from.</summary>
     [Theory]
     [MemberData(nameof(Names))]
-    public void ScriptReadsBack(string name)
+    public void Parse_WithBuiltScript_ReadsItBack(string name)
     {
+        // Arrange
         PcmDriverScript built = PcmDriverProbes.All[name]();
+
+        // Act
         PcmDriverScript parsed = PcmDriverScript.Parse(built.ToText());
+
+        // Assert
         Assert.Equal(built.Xgm2, parsed.Xgm2);
         Assert.Equal(built.Samples, parsed.Samples);
         Assert.Equal(built.Frames.Count, parsed.Frames.Count);
@@ -49,13 +58,17 @@ public sealed class PcmDriverProbeTests
     /// its own (set by when it was loaded), so the rule is checked against the phase of its first start.
     /// </summary>
     [Fact]
-    public void XgmDriverStartsOnTheFirstBlockAfterTheLead()
+    public void Capture_ForXgmDriver_StartsOnFirstBlockAfterLead()
     {
+        // Arrange
         PcmDriverScript script = PcmDriverProbes.All["xgm-starts"]();
-        List<DacWrite> capture = Capture("xgm-starts");
-        long[] starts = DriverStarts(capture, script, PcmDriverProbes.XgmStartSpacing);
         const long tolerance = 2 * PcmDriverScript.MasterClocksPerSample; // the wobble and the estimate of the driver's beat
 
+        // Act
+        List<DacWrite> capture = Capture("xgm-starts");
+        long[] starts = DriverStarts(capture, script, PcmDriverProbes.XgmStartSpacing);
+
+        // Assert
         // The driver's own beat spacing (0.04 % longer than the model's: its cycle count with the bus waits), so its
         // blocks don't drift against the rule over the probe's five seconds.
         List<DacWrite> beats = [.. capture.Where(w => w is { Register: 0x2A, Master: >= 0 })];
@@ -71,10 +84,15 @@ public sealed class PcmDriverProbeTests
 
     /// <summary>XGM: the model starts every sound on the first of its own blocks at least the lead after the song frame.</summary>
     [Fact]
-    public void XgmModelStartsOnTheFirstBlockAfterTheLead()
+    public void Render_ForXgmModel_StartsOnFirstBlockAfterLead()
     {
+        // Arrange
         PcmDriverScript script = PcmDriverProbes.All["xgm-starts"]();
+
+        // Act
         long[] starts = ModelStarts(script.Render().Data, script, PcmDriverProbes.XgmStartSpacing);
+
+        // Assert
         for (int i = 0; i < starts.Length; i++)
         {
             long earliest = (FrameOf(i, PcmDriverProbes.XgmStartSpacing) * PcmDriverScript.MasterClocksPerFrame) + (Mod2Xgm.Render.Pcm.XgmPcmDriver.StartLeadBeats * XgmBeatMaster);
@@ -85,11 +103,16 @@ public sealed class PcmDriverProbeTests
 
     /// <summary>XGM2: the model starts every sound within the driver's buffer jitter of where SGDK's driver starts it.</summary>
     [Fact]
-    public void Xgm2StartsAsTheDriverDoes()
+    public void Render_ForXgm2_StartsAsDriverDoes()
     {
+        // Arrange
         PcmDriverScript script = PcmDriverProbes.All["xgm2-starts"]();
         long[] driver = DriverStarts(Capture("xgm2-starts"), script, PcmDriverProbes.Xgm2StartSpacing);
+
+        // Act
         long[] model = ModelStarts(script.Render().Data, script, PcmDriverProbes.Xgm2StartSpacing);
+
+        // Assert
         for (int i = 0; i < driver.Length; i++)
         {
             double difference = (model[i] - driver[i]) / (double)PcmDriverScript.MasterClocksPerSample;
@@ -107,10 +130,15 @@ public sealed class PcmDriverProbeTests
     [InlineData("xgm2-mix", 5)]
     [InlineData("xgm2-starts", 6)]
     [InlineData("xgm2-half", 10)]
-    public void MixingMatchesTheDriver(string name, int untilFrame)
+    public void Render_WithMixing_MatchesDriver(string name, int untilFrame)
     {
+        // Arrange
         PcmDriverScript script = PcmDriverProbes.All[name]();
+
+        // Act
         byte[] data = script.Render().Data;
+
+        // Assert
         int end = PcmDriverScript.SampleAt(untilFrame);
         List<byte> model = Runs(data.Take(end));
         List<byte> driver = Runs(Capture(name).Where(w => w is { Register: 0x2A, Master: >= 0 } && w.Master < end * PcmDriverScript.MasterClocksPerSample).Select(w => w.Value));
@@ -124,17 +152,22 @@ public sealed class PcmDriverProbeTests
 
     /// <summary>
     /// The models' beat rates are the drivers' average, within 0.2 % (3.5 cents), over each probe whose mix doesn't clip
-    /// (clipping slows the drivers: <see cref="XgmClippingSlowsTheBeatAsTheDriverDoes"/>).
+    /// (clipping slows the drivers: <see cref="Render_WithXgmClipping_SlowsBeatAsDriverDoes"/>).
     /// </summary>
     [Theory]
     [InlineData("xgm-starts")]
     [InlineData("xgm2-starts")]
     [InlineData("xgm2-stop")]
-    public void BeatRateIsTheDriversAverage(string name)
+    public void Render_ForBeats_MatchesDriversAverageRate(string name)
     {
+        // Arrange
         PcmDriverScript script = PcmDriverProbes.All[name]();
         List<DacWrite> beats = [.. Capture(name).Where(w => w is { Register: 0x2A, Master: >= 0 })];
+
+        // Act
         double driverHz = 53_693_175.0 * (beats.Count - 1) / (beats[^1].Master - beats[0].Master);
+
+        // Assert
         Assert.True(Math.Abs((driverHz / script.BeatRateHz) - 1) <= 0.002, $"{name}: driver {driverHz:0.0} Hz, model {script.BeatRateHz:0.0} Hz");
     }
 
@@ -143,11 +176,16 @@ public sealed class PcmDriverProbeTests
     /// the model sends as many beats as SGDK's driver, within 0.3 %. Without the clip cost it sent 3 % more.
     /// </summary>
     [Fact]
-    public void XgmClippingSlowsTheBeatAsTheDriverDoes()
+    public void Render_WithXgmClipping_SlowsBeatAsDriverDoes()
     {
+        // Arrange
         const int frames = 12;
         PcmDriverScript script = PcmDriverProbes.All["xgm-mix"]();
+
+        // Act
         script.Render(frames, out long model);
+
+        // Assert
         long end = frames * PcmDriverScript.MasterClocksPerFrame;
         long driver = Capture("xgm-mix").Count(w => w is { Register: 0x2A, Master: >= 0 } && w.Master < end);
         Assert.True(Math.Abs(((double)model / driver) - 1) <= 0.003, $"model {model} beats, driver {driver}");
@@ -163,21 +201,31 @@ public sealed class PcmDriverProbeTests
     [InlineData("xgm2-starts", 3.0)]
     [InlineData("xgm2-stop", 3.0)]
     [InlineData("xgm2-half", 3.0)]
-    public void TheBeatWobbleIsSmall(string name, double maxSamples)
+    public void Render_ForBeats_WobblesLittle(string name, double maxSamples)
     {
+        // Arrange
         List<DacWrite> beats = [.. Capture(name).Where(w => w is { Register: 0x2A, Master: >= 0 })];
         long[] intervals = [.. beats.Zip(beats.Skip(1), (a, b) => b.Master - a.Master).Order()];
         long usual = intervals[intervals.Length / 2];
+
+        // Act
         double worst = intervals.Max(i => Math.Abs(i - usual)) / (double)PcmDriverScript.MasterClocksPerSample;
+
+        // Assert
         Assert.True(worst <= maxSamples, $"{name}: a beat {worst:0.00} YM3438 samples off the usual spacing");
     }
 
     /// <summary>XGM2: the model stops a sound within the start tolerance of where SGDK's driver stops it.</summary>
     [Fact]
-    public void Xgm2StopsAsTheDriverDoes()
+    public void Render_ForXgm2_StopsAsDriverDoes()
     {
+        // Arrange
         PcmDriverScript script = PcmDriverProbes.All["xgm2-stop"]();
+
+        // Act
         byte[] data = script.Render().Data;
+
+        // Assert
         long modelEnd = Array.FindLastIndex(data, v => v != 0x80) * PcmDriverScript.MasterClocksPerSample;
         long driverEnd = Capture("xgm2-stop").Last(w => w.Register == 0x2A && w.Value != 0x80).Master;
         double difference = (modelEnd - driverEnd) / (double)PcmDriverScript.MasterClocksPerSample;
@@ -192,10 +240,15 @@ public sealed class PcmDriverProbeTests
     [InlineData("xgm2-starts")]
     [InlineData("xgm2-mix")]
     [InlineData("xgm2-stop")]
-    public void Xgm2DacEnableFollowsTheDriver(string name)
+    public void Render_ForXgm2DacEnable_FollowsDriver(string name)
     {
+        // Arrange
         PcmDriverScript script = PcmDriverProbes.All[name]();
+
+        // Act
         byte[] enable = script.Render().Enable;
+
+        // Assert
         List<long> model = Changes(enable.Select((v, i) => (Master: i * PcmDriverScript.MasterClocksPerSample, On: v >= 0x80)));
         List<long> driver = Changes(Capture(name).Where(w => w is { Register: 0x2B, Master: >= 0 }).Select(w => (w.Master, On: w.Value >= 0x80)));
         Assert.Equal(driver.Count, model.Count);

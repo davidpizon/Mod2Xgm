@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <!-- Shared settings (target framework, warnings-as-errors, analyzers) live in ../Directory.Build.props. -->
   <PropertyGroup>
@@ -23,6 +23,8 @@
     <!-- The accuracy harness (tools/Mod2Xgm.Harness) runs the converter, tick player and scorer in-process. -->
     <InternalsVisibleTo Include="Mod2Xgm.Harness" />
     <InternalsVisibleTo Include="Mod2Xgm.Harness.Tests" />
+    <!-- Moq's proxies, made at test time in this dynamic assembly, implement internal interfaces (ADR 0081). -->
+    <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
   </ItemGroup>
 
 </Project>

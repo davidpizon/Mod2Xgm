@@ -34,10 +34,12 @@ public sealed class HarnessReportTests
 
     /// <summary>One CSV line per song and renderer, numbers in invariant culture, and a remark with a comma and quotes quoted.</summary>
     [Fact]
-    public void ScoresCsvHasOneLinePerRendering()
+    public void ScoresCsv_WithRenderings_HasOneLineEach()
     {
+        // Act
         string[] lines = HarnessReport.ScoresCsv(Results).Split('\n');
 
+        // Assert
         Assert.Equal(HarnessReport.ScoresHeader, lines[0]);
         Assert.Equal("alpha,furnace,4.95,4.5,30.25,0.9,0.8,0.85,12,100,-0.5,", lines[1]);
         Assert.Equal("alpha,deflemask,,,,,,,,,,\"stale, \"\"old\"\"\"", lines[2]);
@@ -46,10 +48,12 @@ public sealed class HarnessReportTests
 
     /// <summary>The clip CSV has the same columns, with each rendering's clip scores (empty where there are none).</summary>
     [Fact]
-    public void ClipScoresCsvHasTheClipScores()
+    public void ClipScoresCsv_WithClips_HasClipScores()
     {
+        // Act
         string[] lines = HarnessReport.ClipScoresCsv(Results).Split('\n');
 
+        // Assert
         Assert.Equal(HarnessReport.ScoresHeader, lines[0]);
         Assert.Equal("alpha,furnace,3.25,3.25,20.5,1,1,1,2,100,0,", lines[1]);
         Assert.Equal("alpha,deflemask,,,,,,,,,,\"stale, \"\"old\"\"\"", lines[2]);
@@ -57,11 +61,13 @@ public sealed class HarnessReportTests
 
     /// <summary>The balance CSV has one line per rendering with a balance; the instruments CSV one line per stem.</summary>
     [Fact]
-    public void BalanceCsvsHaveEveryRenderingAndStem()
+    public void BalanceCsv_WithStems_HasEveryRenderingAndStem()
     {
+        // Act
         string[] lines = HarnessReport.BalanceCsv(Results).Split('\n');
-        string[] instruments = HarnessReport.BalanceInstrumentsCsv(Results).Split('\n');
 
+        // Assert
+        string[] instruments = HarnessReport.BalanceInstrumentsCsv(Results).Split('\n');
         Assert.Equal([HarnessReport.BalanceHeader, "alpha,furnace,4.25,3.5,4,-1.5,3,0.01,0.75", string.Empty], lines);
         Assert.Equal(HarnessReport.BalanceInstrumentsHeader, instruments[0]);
         Assert.Equal("alpha,furnace,1,\"bass, low\",FM,2.5,3,200,-20,2", instruments[1]);
@@ -72,10 +78,12 @@ public sealed class HarnessReportTests
 
     /// <summary>The loudness CSV has a song line and a clip line per rendering that has them, and empty cells for a silent clip.</summary>
     [Fact]
-    public void LoudnessCsvHasTheSongAndTheClip()
+    public void LoudnessCsv_WithClip_HasSongAndClip()
     {
+        // Act
         string[] lines = HarnessReport.LoudnessCsv(Results).Split('\n');
 
+        // Assert
         Assert.Equal(
             [
                 HarnessReport.LoudnessHeader,
@@ -88,10 +96,12 @@ public sealed class HarnessReportTests
 
     /// <summary>One CSV line per song: both timings, the check, the first row off, the F00 end, and a value that rounds to zero without its minus sign.</summary>
     [Fact]
-    public void DurationsCsvHasOneLinePerSong()
+    public void DurationsCsv_WithSongs_HasOneLineEach()
     {
+        // Act
         string[] lines = HarnessReport.DurationsCsv(Results).Split('\n');
 
+        // Assert
         Assert.Equal(HarnessReport.DurationsHeader, lines[0]);
         Assert.Equal("alpha,60.05,60.02,60,0.02,0.03,0.02,yes,,no,3,", lines[1]);
         Assert.Equal("beta,,,,,,,,,,0,Not a MOD | broken", lines[2]);
@@ -102,10 +112,12 @@ public sealed class HarnessReportTests
 
     /// <summary>The markdown has the scores, the clip scores, the average per renderer and the timeline table, with table-safe text.</summary>
     [Fact]
-    public void MarkdownHasEverySection()
+    public void Markdown_WithResults_HasEverySection()
     {
+        // Act
         string md = HarnessReport.Markdown(Results, "libopenmpt 0.8.9", "0.1.0", 44_100);
 
+        // Assert
         Assert.Contains("Reference: libopenmpt 0.8.9. Converter: Mod2Xgm 0.1.0. Scored mono at 44100 Hz.", md, StringComparison.Ordinal);
         Assert.Contains("| `alpha` | furnace | 4.95 | 4.50 | 30.25 | 0.85 | 12.0 | 100 | -0.50 |  |", md, StringComparison.Ordinal);
         Assert.Contains("| `alpha` | deflemask |  |  |  |  |  |  |  | stale, \"old\" |", md, StringComparison.Ordinal);
@@ -127,14 +139,17 @@ public sealed class HarnessReportTests
 
     /// <summary>The in-app renderer's section names the worst song and says whether every song is within the bar.</summary>
     [Fact]
-    public void MarkdownChecksTheModRendererAgainstTheBar()
+    public void Markdown_WithModRenderer_ChecksItAgainstBar()
     {
+        // Arrange
         static SongResult Song(string name, double melDb) =>
             new(name, null, 0, [new(ModRendererCheck.RendererName, Score with { MelDistanceDb = melDb }, null)], null);
-
         string within = HarnessReport.Markdown([Song("alpha", 0.5), Song("beta", 1.0)], "r", "v", 8000);
+
+        // Act
         string over = HarnessReport.Markdown([Song("alpha", 0.5), Song("beta", 1.5)], "r", "v", 8000);
 
+        // Assert
         Assert.Contains("## In-app MOD renderer against the reference (plan T7.1)", within, StringComparison.Ordinal);
         Assert.Contains("Bar: whole-song log-mel ≤ 1.25 dB on every song. Worst: `beta`, 1.00 dB. ✅ Every song is within the bar.", within, StringComparison.Ordinal);
         Assert.Contains("Worst: `beta`, 1.50 dB. ❌ 1 songs are over the bar.", over, StringComparison.Ordinal);
@@ -143,10 +158,12 @@ public sealed class HarnessReportTests
 
     /// <summary>Without clip scores there is no clip section, and without loudness no loudness section.</summary>
     [Fact]
-    public void MarkdownLeavesOutTheClipSectionWithoutClips()
+    public void Markdown_WithoutClips_LeavesOutClipSection()
     {
+        // Act
         SongResult song = new("alpha", null, 0, [new("furnace", Score, null)], null);
 
+        // Assert
         Assert.DoesNotContain("First seconds", HarnessReport.Markdown([song], "r", "v", 8000), StringComparison.Ordinal);
         Assert.DoesNotContain("Instrument balance", HarnessReport.Markdown([song], "r", "v", 8000), StringComparison.Ordinal);
         Assert.DoesNotContain("Loudness (EBU R128)", HarnessReport.Markdown([song], "r", "v", 8000), StringComparison.Ordinal);
@@ -154,8 +171,9 @@ public sealed class HarnessReportTests
 
     /// <summary>The sample-analysis CSV has one line per song and sample, with the region lists separated by spaces (plan T8.1).</summary>
     [Fact]
-    public void SampleAnalysisCsvHasOneLinePerSample()
+    public void SampleAnalysisCsv_WithSamples_HasOneLineEach()
     {
+        // Arrange
         AmplitudeEnvelope held = new(8287, 0.005, [-9, -9], -9.034, 0.0049, null, 0);
         AmplitudeEnvelope hit = new(16574, 0.005, [-3, -30], -3, 0, 0.1234, null);
         RegionSpectrum spectrum = new(0.01, [], null);
@@ -173,8 +191,10 @@ public sealed class HarnessReportTests
         SampleAnalysis snare = new(4, "snare", SampleKind.Drum, 0.95, 0.1, 0.9, null, hit, null, [new PitchRegion(16574, 16574, 16574, 0, null, spectrum)]);
         SongResult[] results = [Results[0] with { Samples = [bass, snare] }, Results[1]];
 
+        // Act
         string[] lines = HarnessReport.SampleAnalysisCsv(results).Split('\n');
 
+        // Assert
         Assert.Equal(HarnessReport.SampleAnalysisHeader, lines[0]);
         Assert.Equal("alpha,1,\"bass, low\",tone,0,0.988,0.01,64,1,2.3,0,-9.03,4.9,,0,64,1,2,8287 16575,129.5 259,3 1", lines[1]);
         Assert.Equal("alpha,5,snare,drum,0.95,0.1,0.9,,,,,-3,0,123.4,,,,1,16574,,0", lines[2]);
@@ -183,8 +203,9 @@ public sealed class HarnessReportTests
 
     /// <summary>The FM fit CSV has one line per song, sample and region: library, both searches, the best and its settings (plan T8.2).</summary>
     [Fact]
-    public void FmFitCsvHasOneLinePerRegion()
+    public void FmFitCsv_WithRegions_HasOneLineEach()
     {
+        // Arrange
         FmFit library = new(FmPatchLibrary.Lead, null, FmFitSource.Library, new NoteScore(7.1234, 90.5, 9.5));
         FmFit exhaustive = new(FmPatchLibrary.Organ with { Name = "Fit 1.1" }, null, FmFitSource.Exhaustive, new NoteScore(3.5, 40.25, 4.25));
         FmFit genetic = new(FmPatchLibrary.Sine with { Fms = 2 }, 5, FmFitSource.Genetic, new NoteScore(3, 35, 4));
@@ -192,8 +213,10 @@ public sealed class HarnessReportTests
         FmRegionFit lib = new(1, library, null, null, library, library, 11, TimeSpan.FromSeconds(0.5)) { Cached = true };
         SongResult[] results = [Results[0] with { FmFits = [new FmSampleFit(0, "bass, low", [bass, lib])] }, Results[1]];
 
+        // Act
         string[] lines = HarnessReport.FmFitCsv(results).Split('\n');
 
+        // Assert
         Assert.Equal(HarnessReport.FmFitHeader, lines[0]);
         Assert.Equal("alpha,1,\"bass, low\",1,Lead,7.123,3.5,3,genetic,3,35,4,3.5,5,\"ALG 7 FB 0 MULT 1 1 1 1, LFO 5 FMS 2 AMS 0\",yes,1234,12.3,no", lines[1]);
         Assert.Equal("alpha,1,\"bass, low\",2,Lead,7.123,,,library,7.123,90.5,9.5,7.123,,\"ALG 4 FB 5 MULT 1 1 2 2, no LFO\",no,11,0.5,yes", lines[2]);
@@ -203,8 +226,9 @@ public sealed class HarnessReportTests
 
     /// <summary>The PSG fit CSV has one line per song, sample, region and try: settings, pitch, channels, room, distances, and which is best (plan T8.3).</summary>
     [Fact]
-    public void PsgFitCsvHasOneLinePerTry()
+    public void PsgFitCsv_WithTries_HasOneLineEach()
     {
+        // Arrange
         int[] loud = [0];
         PsgCandidate tone = new(new PsgSetting(PsgSound.Tone, 0, 254, loud), new NoteScore(2.5, 20.25, 3.125), 1.25, PsgRoom.SampleTooOften);
         PsgCandidate buzz = new(new PsgSetting(PsgSound.PeriodicNoise, PsgSetting.Tone3Rate, 16, loud), new NoteScore(4, 30, null), -3, PsgRoom.Fits);
@@ -212,8 +236,10 @@ public sealed class HarnessReportTests
         PsgRegionFit region = new(0, [tone, buzz, hiss], 30, TimeSpan.FromSeconds(1));
         SongResult[] results = [Results[0] with { PsgFits = [new PsgSampleFit(2, "lead, hi", 4, [region])] }, Results[1]];
 
+        // Act
         string[] lines = HarnessReport.PsgFitCsv(results).Split('\n');
 
+        // Assert
         Assert.Equal(HarnessReport.PsgFitHeader, lines[0]);
         Assert.Equal("alpha,3,\"lead, hi\",1,4,tone,,254,440.4,1.3,1,sample too often,2.5,20.25,3.125,yes,no,no", lines[1]);
         Assert.Equal("alpha,3,\"lead, hi\",1,4,periodic,3,16,436.96,-3,2,fits,4,30,,no,yes,no", lines[2]);
@@ -223,8 +249,9 @@ public sealed class HarnessReportTests
 
     /// <summary>The PCM fit CSV has one line per song, sample, target and option, then one per baked note (plan T8.4).</summary>
     [Fact]
-    public void PcmFitCsvHasOneLinePerOptionAndBakedNote()
+    public void PcmFitCsv_WithOptions_HasOneLinePerOptionAndBakedNote()
     {
+        // Arrange
         PcmCopy big = new(8287, 13_317, false, 1000, false, 1607, 1792);
         PcmCopy small = big with { HalfSpeed = true, PlayRateHz = 6658.5, Points = 804, Bytes = 1024 };
         PcmOption full = new(PcmSavings.None, [new PcmPitch(8287, 3, big, new NoteScore(1.25, 9, 2.5), 0)], PcmRoom.Fits);
@@ -233,8 +260,10 @@ public sealed class HarnessReportTests
         PcmSampleFit fit = new(1, "bass, low", PcmTarget.Xgm2, 2, [full, half], [baked], 3, 4, TimeSpan.FromSeconds(1));
         SongResult[] results = [Results[0] with { PcmFits = [fit] }, Results[1]];
 
+        // Act
         string[] lines = HarnessReport.PcmFitCsv(results).Split('\n');
 
+        // Assert
         Assert.Equal(HarnessReport.PcmFitHeader, lines[0]);
         Assert.Equal("alpha,2,\"bass, low\",xgm2,2,copies,none,fits,1,1792,3,1.25,2.5,no,,,,3,no", lines[1]);
         Assert.Equal("alpha,2,\"bass, low\",xgm2,2,copies,half speed,sample too often,1,1024,3,4.5,,yes,,,,3,no", lines[2]);
@@ -244,17 +273,20 @@ public sealed class HarnessReportTests
 
     /// <summary>The pre-mix CSVs have one line per song, target and candidate, and one per song and target for the voice steals (plan T8.5a).</summary>
     [Fact]
-    public void PreMixCsvsHaveOneLinePerCandidateAndTarget()
+    public void PreMixCsv_WithCandidates_HasOneLinePerCandidateAndTarget()
     {
+        // Arrange
         PreMixPart[] parts = [new(0, 0, 8287, 0, 1), new(4, 2, 4143.5, 512, 0.5)];
         PreMixCandidate tail = new(parts, 14, false, 0.1, 0.1167, PreMixEnd.Tail, 1792, new PreMixTail(0, 4, 1234, 4143.5, 4000, 4096), 0, new NoteScore(0.5, 2, null), new NoteScore(1.25, 4, null));
         PreMixCandidate baked = tail with { Occurrences = 1, SavesSteal = true, End = PreMixEnd.Baked, HeadBytes = 8192, Tail = null, ClipDb = 1.5, Seam = new NoteScore(0.25, 1, null) };
         PreMixSongFit fit = new(PcmTarget.Xgm, 4, 120, 40, 6, 2, [tail, baked], 30, TimeSpan.FromSeconds(1.25));
         SongResult[] results = [Results[0] with { PreMixFits = [fit] }, Results[1]];
 
+        // Act
         string[] lines = HarnessReport.PreMixCsv(results).Split('\n');
-        string[] steals = HarnessReport.VoiceStealsCsv(results).Split('\n');
 
+        // Assert
+        string[] steals = HarnessReport.VoiceStealsCsv(results).Split('\n');
         Assert.Equal(HarnessReport.PreMixHeader, lines[0]);
         Assert.Equal("alpha,xgm,1+5,0+2,8287+4144,0+512,1+0.5,14,no,0.1,0.117,tail,1792,4096,2,5,1234,4144,4000,0,0,0.5,1.25,no", lines[1]);
         Assert.Equal("alpha,xgm,1+5,0+2,8287+4144,0+512,1+0.5,1,yes,0.1,0.117,baked,8192,,1,,,,,,1.5,0.5,0.25,no", lines[2]);
@@ -266,8 +298,9 @@ public sealed class HarnessReportTests
 
     /// <summary>The CH3 CSVs have one line per song and locked pair, and one per pair of pitch regions with its candidate (plan T8.5b).</summary>
     [Fact]
-    public void Ch3CsvsHaveOneLinePerPairAndCandidate()
+    public void Ch3FitCsv_WithPairs_HasOneLinePerPairAndCandidate()
     {
+        // Arrange
         SongNote a = new(0, 2, 0, 4, 8287, 0, 1, 0.08, false);
         SongNote b = a with { Channel = 3, Sample = 4, RateHz = 16574 };
         LockedPair pair = new(2, 0, 4, 3, [new LockedOnset(a, b), new LockedOnset(a with { FirstTick = 8 }, b with { FirstTick = 8 })], 3, 2);
@@ -276,10 +309,12 @@ public sealed class HarnessReportTests
         Ch3Voice vb = new(Ch3VoiceSource.CutDown, true, patch, new NoteScore(4.25, 2, 1));
         Ch3Candidate c = new(pair, 0, 1, 2, 129.5, 259, 0.08, patch, false, va, vb, new NoteScore(5.125, 3.5, null), new NoteScore(6, 4, null), new NoteScore(5.125, 3.5, null));
         SongResult[] results = [Results[0] with { Ch3Fit = new Ch3SongFit([pair], [c], 40, TimeSpan.FromSeconds(2)) }, Results[1]];
-
         string[] pairs = HarnessReport.LockedPairsCsv(results).Split('\n');
+
+        // Act
         string[] fits = HarnessReport.Ch3FitCsv(results).Split('\n');
 
+        // Assert
         Assert.Equal(HarnessReport.LockedPairsHeader, pairs[0]);
         Assert.Equal("alpha,3,1,5,4,2,1,0,12,0,no", pairs[1]);
         Assert.Equal(string.Empty, pairs[2]);
@@ -288,14 +323,27 @@ public sealed class HarnessReportTests
         Assert.Equal(string.Empty, fits[2]);
     }
 
-    /// <summary>The same results give the same files: the report holds no time or machine detail (plan T6.3).</summary>
+    /// <summary>The same results give the same report: it holds no time or machine detail (plan T6.3).</summary>
     [Fact]
-    public void ReportsAreTheSameEachTime()
+    public void Markdown_Twice_IsTheSame()
     {
-        Assert.Equal(HarnessReport.Markdown(Results, "r", "v", 8000), HarnessReport.Markdown(Results, "r", "v", 8000));
-        Assert.Equal(HarnessReport.ScoresCsv(Results), HarnessReport.ScoresCsv(Results));
-        Assert.Equal(HarnessReport.DurationsCsv(Results), HarnessReport.DurationsCsv(Results));
-        Assert.Equal(HarnessReport.LoudnessCsv(Results), HarnessReport.LoudnessCsv(Results));
-        Assert.Equal(HarnessReport.SampleAnalysisCsv(Results), HarnessReport.SampleAnalysisCsv(Results));
+        // Act
+        string first = HarnessReport.Markdown(Results, "r", "v", 8000);
+        string second = HarnessReport.Markdown(Results, "r", "v", 8000);
+
+        // Assert
+        Assert.Equal(first, second);
+    }
+
+    /// <summary>The same results give the same CSV files, whichever one is asked for (plan T6.3).</summary>
+    [Fact]
+    public void Csvs_Twice_AreTheSame()
+    {
+        // Act
+        string[] first = [HarnessReport.ScoresCsv(Results), HarnessReport.DurationsCsv(Results), HarnessReport.LoudnessCsv(Results), HarnessReport.SampleAnalysisCsv(Results)];
+        string[] second = [HarnessReport.ScoresCsv(Results), HarnessReport.DurationsCsv(Results), HarnessReport.LoudnessCsv(Results), HarnessReport.SampleAnalysisCsv(Results)];
+
+        // Assert
+        Assert.Equal(first, second);
     }
 }

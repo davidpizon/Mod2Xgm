@@ -7,30 +7,36 @@ public sealed class BalanceMetricsTests
 {
     /// <summary>The same stems on both sides are 0 dB apart, with no gain and no offsets; each instrument keeps its id.</summary>
     [Fact]
-    public void IdenticalStemsAreBalanced()
+    public void Compare_WithIdenticalStems_IsBalanced()
     {
+        // Arrange
         (AudioSignal mix, InstrumentStem[] stems) = Song(1.0, 1.0);
 
+        // Act
         BalanceReport report = BalanceMetrics.Compare(mix, mix, stems);
 
+        // Assert
         Assert.Equal(0, report.DistanceDb, 9);
         Assert.Equal(0, report.StaticDb, 9);
         Assert.Equal(0, report.MixRelativeDb, 9);
         Assert.Equal(0, report.GainDb, 9);
         Assert.Equal([1, 2], report.Instruments.Select(i => i.Id));
         Assert.All(report.Instruments, i => Assert.Equal(0, i.OffsetDb, 9));
-        Assert.All(report.Instruments, i => Assert.True(i.Frames > 0));
+        Assert.All(report.Instruments, i => Assert.True(i.Frames > 0, $"instrument {i.Id} has no frames"));
     }
 
     /// <summary>Turning everything down by the same amount is a gain, not an imbalance.</summary>
     [Fact]
-    public void AnOverallGainIsTakenOut()
+    public void Compare_WithOverallGain_TakesItOut()
     {
+        // Arrange
         (AudioSignal mix, InstrumentStem[] stems) = Song(1.0, 1.0);
         (AudioSignal quieter, InstrumentStem[] quieterStems) = Song(0.5, 0.5);
 
+        // Act
         BalanceReport report = BalanceMetrics.Compare(mix, quieter, Pair(stems, quieterStems));
 
+        // Assert
         Assert.Equal(-6.02, report.GainDb, 1);
         Assert.Equal(0, report.DistanceDb, 1);
         Assert.Equal(0, report.MixRelativeDb, 1);
@@ -41,46 +47,53 @@ public sealed class BalanceMetricsTests
     /// louder tone, so most of the gap shows on the noise.
     /// </summary>
     [Fact]
-    public void OneInstrumentTooLoudIsSeen()
+    public void Compare_WithOneInstrumentTooLoud_ShowsGapBetweenOffsets()
     {
+        // Arrange
         (AudioSignal mix, InstrumentStem[] stems) = Song(1.0, 1.0);
         (AudioSignal louder, InstrumentStem[] louderStems) = Song(2.0, 1.0);
 
+        // Act
         BalanceReport report = BalanceMetrics.Compare(mix, louder, Pair(stems, louderStems));
 
+        // Assert
         InstrumentBalance tone = report.Instruments[0];
         InstrumentBalance noise = report.Instruments[1];
         Assert.Equal(6.02, tone.OffsetDb - noise.OffsetDb, 1);
-        Assert.True(tone.OffsetDb > 0);
-        Assert.True(noise.OffsetDb < 0);
-        Assert.True(report.DistanceDb > 1.5);
-        Assert.True(report.MixRelativeDb > 1.5);
+        Assert.True(tone.OffsetDb > 0, $"tone offset {tone.OffsetDb}");
+        Assert.True(noise.OffsetDb < 0, $"noise offset {noise.OffsetDb}");
+        Assert.True(report.DistanceDb > 1.5, $"distance {report.DistanceDb}");
+        Assert.True(report.MixRelativeDb > 1.5, $"mix-relative {report.MixRelativeDb}");
         Assert.Equal(report.StaticDb, report.DistanceDb, 1);
     }
 
     /// <summary>A missing instrument costs about how far it sits above the audible floor, and no more.</summary>
     [Fact]
-    public void AMissingInstrumentIsBounded()
+    public void Compare_WithMissingInstrument_BoundsItsOffset()
     {
+        // Arrange
         (AudioSignal mix, InstrumentStem[] stems) = Song(1.0, 1.0);
         (AudioSignal withoutTone, InstrumentStem[] withoutToneStems) = Song(0.0, 1.0);
 
+        // Act
         BalanceReport report = BalanceMetrics.Compare(mix, withoutTone, Pair(stems, withoutToneStems));
 
-        InstrumentBalance tone = report.Instruments[0];
-        Assert.True(tone.OffsetDb < -20);
-        Assert.True(tone.OffsetDb >= -BalanceMetrics.AudibleBelowMixDb - 7);
+        // Assert
+        Assert.InRange(report.Instruments[0].OffsetDb, -BalanceMetrics.AudibleBelowMixDb - 7, -20);
     }
 
     /// <summary>A stem silent on both sides counts no frames and doesn't move the distance.</summary>
     [Fact]
-    public void SilentStemsCountNothing()
+    public void Compare_WithSilentStem_CountsNothing()
     {
+        // Arrange
         (AudioSignal mix, InstrumentStem[] stems) = Song(1.0, 1.0);
         AudioSignal silence = new(new float[mix.Length], mix.SampleRate);
 
+        // Act
         BalanceReport report = BalanceMetrics.Compare(mix, mix, [.. stems, new InstrumentStem(9, silence, silence)]);
 
+        // Assert
         Assert.Equal(0, report.Instruments[2].Frames);
         Assert.Equal(BalanceMetrics.SilenceDb, report.Instruments[2].ReferenceLevelDb);
         Assert.Equal(0, report.DistanceDb, 9);
@@ -88,83 +101,205 @@ public sealed class BalanceMetricsTests
 
     /// <summary>With no audible stem at all, every number is 0.</summary>
     [Fact]
-    public void NoStemsScoreZero()
+    public void Compare_WithNoStems_ScoresZero()
     {
+        // Arrange
         (AudioSignal mix, _) = Song(1.0, 1.0);
 
+        // Act
         BalanceReport report = BalanceMetrics.Compare(mix, mix, []);
 
+        // Assert
         Assert.Equal(0, report.DistanceDb);
         Assert.Empty(report.Instruments);
     }
 
     /// <summary>A candidate shorter than the reference is padded with silence: what's missing at the end costs.</summary>
     [Fact]
-    public void AShortCandidateIsPaddedWithSilence()
+    public void Compare_WithShortCandidate_PadsWithSilence()
     {
+        // Arrange
         (AudioSignal mix, InstrumentStem[] stems) = Song(1.0, 1.0);
         AudioSignal half = new(mix.Samples[..(mix.Length / 2)].ToArray(), mix.SampleRate);
         InstrumentStem[] halves = [.. stems.Select(s => s with { Candidate = new AudioSignal(s.Candidate.Samples[..(s.Candidate.Length / 2)].ToArray(), s.Candidate.SampleRate) })];
 
+        // Act
         BalanceReport report = BalanceMetrics.Compare(mix, half, halves);
 
-        Assert.True(report.DistanceDb > 5);
+        // Assert
+        Assert.True(report.DistanceDb > 5, $"distance {report.DistanceDb}");
     }
 
     /// <summary>Stems at another rate than the mixes are refused.</summary>
     [Fact]
-    public void StemsAtAnotherRateAreRefused()
+    public void Compare_WithStemsAtOtherRate_Throws()
     {
+        // Arrange
         (AudioSignal mix, _) = Song(1.0, 1.0);
         AudioSignal other = TestSignals.Sine(440, 1, rate: 11025);
 
+        // Act & Assert
         Assert.Throws<ArgumentException>(() => BalanceMetrics.Compare(mix, mix, [new InstrumentStem(1, other, other)]));
+    }
+
+    /// <summary>A null list of stems is refused.</summary>
+    [Fact]
+    public void Compare_WithNullStems_Throws()
+    {
+        // Arrange
+        (AudioSignal mix, _) = Song(1.0, 1.0);
+
+        // Act & Assert: the null is what this test is about.
         Assert.Throws<ArgumentNullException>(() => BalanceMetrics.Compare(mix, mix, null!));
     }
 
-    /// <summary>One level per 100 ms once the first 400 ms window fits, and one level for anything shorter.</summary>
+    /// <summary>One level per 100 ms once the first 400 ms window fits.</summary>
     [Fact]
-    public void LevelsComeEveryHundredMilliseconds()
+    public void Levels_WithOneSecond_ReturnsOneLevelPer100Ms()
     {
+        // Arrange
         AudioSignal second = TestSignals.Sine(440, 1);
 
-        Assert.Equal(7, BalanceMetrics.Levels(second, second.Length).Length);
-        Assert.Single(BalanceMetrics.Levels(second, second.Length / 10));
-        Assert.Equal(BalanceMetrics.SilenceDb, BalanceMetrics.Levels(new AudioSignal(new float[100], TestSignals.Rate), 100)[0]);
+        // Act
+        double[] levels = BalanceMetrics.Levels(second, second.Length);
+
+        // Assert
+        Assert.Equal(7, levels.Length);
     }
 
-    /// <summary>K-weighting lifts high frequencies by about 4 dB and cuts deep bass, as BS.1770 specifies.</summary>
+    /// <summary>Audio shorter than the first window still has one level.</summary>
     [Fact]
-    public void KWeightingFollowsTheStandard()
+    public void Levels_WithLessThanOneWindow_ReturnsOneLevel()
     {
-        const int rate = 48000;
-        double Level(double hertz)
-        {
-            AudioSignal sine = TestSignals.Sine(hertz, 1, rate: rate);
-            return BalanceMetrics.Levels(sine, sine.Length)[^1];
-        }
+        // Arrange
+        AudioSignal second = TestSignals.Sine(440, 1);
 
-        double reference = Level(1000);
-        Assert.InRange(Level(10000) - reference, 3.3, 4.3);
-        Assert.True(Level(20) - reference < -10);
+        // Act
+        double[] levels = BalanceMetrics.Levels(second, second.Length / 10);
 
-        // A full-scale-ish 1 kHz sine of amplitude 0.5 has power 0.125 (−9.03 dB); K-weighting adds about 0.7 dB there.
-        Assert.InRange(reference, -9.03, -7.8);
+        // Assert
+        Assert.Single(levels);
     }
 
-    /// <summary>Stems that add up to the mix match its loudness; a missing stem shows where it played.</summary>
+    /// <summary>Silence measures at the floor.</summary>
     [Fact]
-    public void SumErrorShowsWhatTheStemsMiss()
+    public void Levels_WithSilence_ReturnsFloor()
     {
+        // Arrange
+        AudioSignal silence = new(new float[100], TestSignals.Rate);
+
+        // Act
+        double[] levels = BalanceMetrics.Levels(silence, 100);
+
+        // Assert
+        Assert.Equal(BalanceMetrics.SilenceDb, levels[0]);
+    }
+
+    /// <summary>K-weighting lifts high frequencies by about 4 dB, as BS.1770 specifies.</summary>
+    [Fact]
+    public void Levels_WithHighTone_LiftsItByAboutFourDb()
+    {
+        // Act
+        double difference = KWeightedLevel(10000) - KWeightedLevel(1000);
+
+        // Assert
+        Assert.InRange(difference, 3.3, 4.3);
+    }
+
+    /// <summary>K-weighting cuts deep bass, as BS.1770 specifies.</summary>
+    [Fact]
+    public void Levels_WithDeepBass_CutsIt()
+    {
+        // Act
+        double difference = KWeightedLevel(20) - KWeightedLevel(1000);
+
+        // Assert
+        Assert.True(difference < -10, $"{difference} dB");
+    }
+
+    /// <summary>A 1 kHz sine of amplitude 0.5 has power 0.125 (−9.03 dB); K-weighting adds about 0.7 dB there.</summary>
+    [Fact]
+    public void Levels_WithReferenceTone_MeasuresItsPower()
+    {
+        // Act
+        double level = KWeightedLevel(1000);
+
+        // Assert
+        Assert.InRange(level, -9.03, -7.8);
+    }
+
+    /// <summary>Stems that add up to the mix match its loudness.</summary>
+    [Fact]
+    public void SumErrorDb_WithAllStems_IsNearZero()
+    {
+        // Arrange
         (AudioSignal mix, InstrumentStem[] stems) = Song(1.0, 1.0);
-        AudioSignal silence = new(new float[mix.Length], mix.SampleRate);
 
-        Assert.InRange(BalanceMetrics.SumErrorDb(mix, stems.Select(s => s.Reference)), 0, 0.1);
-        double withoutNoise = BalanceMetrics.SumErrorDb(mix, [stems[0].Reference]);
-        Assert.InRange(withoutNoise, 0.2, 1.5);
-        Assert.InRange(BalanceMetrics.SumErrorDb(mix, []), 25, 31);
-        Assert.Equal(0, BalanceMetrics.SumErrorDb(silence, [silence]));
+        // Act
+        double error = BalanceMetrics.SumErrorDb(mix, stems.Select(s => s.Reference));
+
+        // Assert
+        Assert.InRange(error, 0, 0.1);
+    }
+
+    /// <summary>A missing stem shows where it played.</summary>
+    [Fact]
+    public void SumErrorDb_WithMissingStem_ShowsItsPart()
+    {
+        // Arrange
+        (AudioSignal mix, InstrumentStem[] stems) = Song(1.0, 1.0);
+
+        // Act
+        double error = BalanceMetrics.SumErrorDb(mix, [stems[0].Reference]);
+
+        // Assert
+        Assert.InRange(error, 0.2, 1.5);
+    }
+
+    /// <summary>No stems at all are far from the mix.</summary>
+    [Fact]
+    public void SumErrorDb_WithNoStems_IsLarge()
+    {
+        // Arrange
+        (AudioSignal mix, _) = Song(1.0, 1.0);
+
+        // Act
+        double error = BalanceMetrics.SumErrorDb(mix, []);
+
+        // Assert
+        Assert.InRange(error, 25, 31);
+    }
+
+    /// <summary>Silent stems match a silent mix.</summary>
+    [Fact]
+    public void SumErrorDb_WithSilence_IsZero()
+    {
+        // Arrange
+        AudioSignal silence = new(new float[TestSignals.Rate], TestSignals.Rate);
+
+        // Act
+        double error = BalanceMetrics.SumErrorDb(silence, [silence]);
+
+        // Assert
+        Assert.Equal(0, error);
+    }
+
+    /// <summary>A null list of stems is refused.</summary>
+    [Fact]
+    public void SumErrorDb_WithNullStems_Throws()
+    {
+        // Arrange
+        (AudioSignal mix, _) = Song(1.0, 1.0);
+
+        // Act & Assert: the null is what this test is about.
         Assert.Throws<ArgumentNullException>(() => BalanceMetrics.SumErrorDb(mix, null!));
+    }
+
+    /// <summary>The last level of a one-second sine of <paramref name="hertz"/> at 48 kHz.</summary>
+    private static double KWeightedLevel(double hertz)
+    {
+        AudioSignal sine = TestSignals.Sine(hertz, 1, rate: 48000);
+        return BalanceMetrics.Levels(sine, sine.Length)[^1];
     }
 
     /// <summary>

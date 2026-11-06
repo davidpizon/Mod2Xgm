@@ -3,6 +3,7 @@ using Serilog.Core;
 namespace Mod2Xgm.Harness.Tests;
 
 /// <summary>Tests for the harness command line (<see cref="Program"/>): options, song lists, reports and exit codes.</summary>
+[Trait("Category", "Integration")]
 public sealed class ProgramTests
 {
     private static HarnessOptions Parse(params string[] args)
@@ -18,10 +19,12 @@ public sealed class ProgramTests
 
     /// <summary>With no arguments the corpus is measured into artifacts/harness at 44.1 kHz, with every renderer found.</summary>
     [Fact]
-    public void DefaultsMeasureTheCorpus()
+    public void Invoke_WithDefaults_MeasuresCorpus()
     {
+        // Act
         HarnessOptions options = Parse();
 
+        // Assert
         Assert.Equal([Program.DefaultCorpus], options.Inputs);
         Assert.Equal(Program.DefaultOutput, options.OutputDirectory);
         Assert.Equal(44_100, options.SampleRate);
@@ -42,12 +45,14 @@ public sealed class ProgramTests
 
     /// <summary>Every option reaches <see cref="HarnessOptions"/>.</summary>
     [Fact]
-    public void EveryOptionIsRead()
+    public void Invoke_WithEveryOption_ReadsIt()
     {
+        // Act
         HarnessOptions options = Parse(
             "a.mod", "songs", "-o", "out", "--rate", "22050", "--libopenmpt", "lib", "--furnace", "f.exe", "--no-furnace",
             "--deflemask-wavs", "wavs", "--no-deflemask", "--save-reference-wavs", "--clip", "30", "--balance", "--ch3", "--cache-dir", "cache", "-j", "3", "-v");
 
+        // Assert
         Assert.Equal(["a.mod", "songs"], options.Inputs);
         Assert.Equal("out", options.OutputDirectory);
         Assert.Equal(22_050, options.SampleRate);
@@ -66,22 +71,28 @@ public sealed class ProgramTests
         Assert.Equal(3, options.Jobs);
     }
 
-    /// <summary>An unknown option, a rate, job count or clip length out of range, or a balance without clips, is a usage error.</summary>
-    [Fact]
-    public void BadOptionsAreUsageErrors()
+    /// <summary>An unknown option, a rate, job count or clip length out of range, a balance without clips, or a cache folder with no cache, is a usage error.</summary>
+    [Theory]
+    [InlineData("--no-such-option")]
+    [InlineData("--rate", "100")]
+    [InlineData("--jobs", "0")]
+    [InlineData("--clip", "0.5")]
+    [InlineData("--balance")]
+    [InlineData("--no-cache", "--cache-dir", "c")]
+    public void Invoke_WithBadOptions_ReportsUsageError(params string[] args)
     {
-        Assert.Equal("usage", Assert.Throws<HarnessException>(() => Program.Invoke(["--no-such-option"], _ => 0)).Kind);
-        Assert.Equal("usage", Assert.Throws<HarnessException>(() => Program.Invoke(["--rate", "100"], _ => 0)).Kind);
-        Assert.Throws<HarnessException>(() => Program.Invoke(["--jobs", "0"], _ => 0));
-        Assert.Throws<HarnessException>(() => Program.Invoke(["--clip", "0.5"], _ => 0));
-        Assert.Throws<HarnessException>(() => Program.Invoke(["--balance"], _ => 0));
-        Assert.Throws<HarnessException>(() => Program.Invoke(["--no-cache", "--cache-dir", "c"], _ => 0));
+        // Act
+        HarnessException error = Assert.Throws<HarnessException>(() => Program.Invoke(args, _ => 0));
+
+        // Assert
+        Assert.Equal("usage", error.Kind);
     }
 
     /// <summary>Songs are the .mod files named or inside folders named, once each, sorted; nothing found is an error.</summary>
     [Fact]
-    public void SongsAreFoundInFilesAndFolders()
+    public void FindSongs_WithFilesAndFolders_FindsSongs()
     {
+        // Arrange
         using TempDirectory temp = new();
         Directory.CreateDirectory(temp.Combine("songs"));
         File.WriteAllBytes(temp.Combine("songs", "b.MOD"), []);
@@ -89,8 +100,10 @@ public sealed class ProgramTests
         File.WriteAllBytes(temp.Combine("songs", "notes.txt"), []);
         Directory.CreateDirectory(temp.Combine("empty"));
 
+        // Act
         IReadOnlyList<string> songs = Program.FindSongs([temp.Combine("songs"), temp.Combine("songs", "a.mod")]);
 
+        // Assert
         Assert.Equal([temp.Combine("songs", "a.mod"), temp.Combine("songs", "b.MOD")], songs);
         Assert.Throws<HarnessException>(() => Program.FindSongs([temp.Combine("missing")]));
         Assert.Throws<HarnessException>(() => Program.FindSongs([temp.Combine("empty")]));
@@ -101,14 +114,18 @@ public sealed class ProgramTests
     /// than a tick off.
     /// </summary>
     [Fact]
-    public void ReportWritesFilesAndSetsTheExitCode()
+    public void Report_WithResults_WritesFilesAndSetsExitCode()
     {
+        // Arrange
         using TempDirectory temp = new();
         HarnessOptions options = new([], temp.Combine("out"), 8000, null, null, true, null, false, false);
         SongResult good = new("good", new DurationCheck(10, 10, 10, 0.02, null, false), 0, [], null);
         SongResult off = new("off", new DurationCheck(10, 10, 11, 0.02, null, false), 0, [], null);
+
+        // Act
         SongResult failed = new("failed", null, 0, [], "broken");
 
+        // Assert
         Assert.Equal(0, Program.Report([good], options, "ref", Logger.None));
         Assert.True(File.Exists(temp.Combine("out", "scores.csv")));
         Assert.True(File.Exists(temp.Combine("out", "durations.csv")));
@@ -130,8 +147,10 @@ public sealed class ProgramTests
 
     /// <summary>A whole run with the real libopenmpt and no candidate renderers (skipped where libopenmpt isn't installed).</summary>
     [Fact]
-    public void ARealRunMeasuresTheLength()
+    [Trait("Speed", "Slow")]
+    public void Execute_ForRealRun_MeasuresLength()
     {
+        // Arrange
         try
         {
             LibOpenMpt.Version();
@@ -140,11 +159,13 @@ public sealed class ProgramTests
         {
             Assert.Skip("libopenmpt isn't installed: " + ex.Message);
         }
-
         using TempDirectory temp = new();
         Directory.CreateDirectory(temp.Combine("no-exports"));
+
+        // Act
         HarnessOptions options = new([TestFiles.ShortSong], temp.Combine("out"), 8000, null, null, true, temp.Combine("no-exports"), false, false);
 
+        // Assert
         Assert.Equal(0, Program.Execute(options, Logger.None));
         Assert.Contains("fx-poly1,30.72", File.ReadAllText(temp.Combine("out", "durations.csv")), StringComparison.Ordinal);
     }

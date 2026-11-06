@@ -66,10 +66,12 @@ public sealed class DmfTimingPlannerTests
 
     /// <summary>At 125 BPM and speed 6 a PAL song is DefleMask's own 50 Hz with six ticks a row: no custom Hz, nothing to note.</summary>
     [Fact]
-    public void ThePalDefaultNeedsNoCustomHz()
+    public void Plan_WithPalDefault_NeedsNoCustomHz()
     {
+        // Act
         (DmfTimingPlan result, List<string> notes) = Run(Plan(new Timing(6, 125), 2));
 
+        // Assert
         Assert.Equal((0, 6, 6, false, false, string.Empty, (int?)null), Fields(result.Timing));
         Assert.Equal(1, result.TicksPerSourceTick);
         Assert.All(result.Changes.SelectMany(c => c), Assert.Null);
@@ -78,12 +80,16 @@ public sealed class DmfTimingPlannerTests
 
     /// <summary>An NTSC Amiga ticks at 60 Hz at 125 BPM: that is an NTSC Genesis's frame rate, but a PAL Genesis needs custom Hz.</summary>
     [Fact]
-    public void TheTickRateFollowsTheInputRegionAgainstTheOutputRegion()
+    public void Plan_WithRegions_ScalesTickRate()
     {
+        // Arrange
         (DmfTimingPlan ntscToNtsc, _) = Run(Plan(new Timing(6, 125), 1), 6.0 / 5.0, Region.Ntsc);
         (DmfTimingPlan ntscToPal, _) = Run(Plan(new Timing(6, 125), 1), 6.0 / 5.0);
+
+        // Act
         (DmfTimingPlan palToNtsc, _) = Run(Plan(new Timing(6, 125), 1), 1.0, Region.Ntsc);
 
+        // Assert
         Assert.Equal((0, 6, 6, true, false, string.Empty, (int?)null), Fields(ntscToNtsc.Timing));
         Assert.Equal((0, 6, 6, false, true, "60\0", (int?)60), Fields(ntscToPal.Timing));
         Assert.Equal((0, 6, 6, true, true, "50\0", (int?)50), Fields(palToNtsc.Timing));
@@ -91,10 +97,12 @@ public sealed class DmfTimingPlannerTests
 
     /// <summary>A tempo that makes a whole tick rate (130 BPM = 52 Hz) is written as custom Hz, ASCII digits padded with 0.</summary>
     [Fact]
-    public void AWholeTickRateBecomesCustomHz()
+    public void Plan_WithWholeTickRate_UsesCustomHz()
     {
+        // Act
         (DmfTimingPlan result, List<string> notes) = Run(Plan(new Timing(6, 130), 1));
 
+        // Assert
         Assert.Equal((0, 6, 6, false, true, "52\0", (int?)52), Fields(result.Timing));
         Assert.Equal(1, result.TicksPerSourceTick);
         Assert.Empty(notes);
@@ -102,20 +110,24 @@ public sealed class DmfTimingPlannerTests
 
     /// <summary>The custom Hz field holds three digits: 250 BPM is 100 Hz, written without padding.</summary>
     [Fact]
-    public void ThreeDigitRatesFillTheField()
+    public void Plan_WithThreeDigitRate_FillsField()
     {
+        // Act
         (DmfTimingPlan result, _) = Run(Plan(new Timing(6, 250), 1));
 
+        // Assert
         Assert.Equal("100"u8.ToArray(), result.Timing.CustomHzBytes);
         Assert.Equal(100, result.Timing.CustomHz);
     }
 
     /// <summary>123 BPM is 49.2 Hz: 49 Hz is 0.4 % off, within the 1 % bar, so it's kept and the rounding is noted.</summary>
     [Fact]
-    public void ARateThatIsNotWholeIsRoundedAndSaid()
+    public void Plan_WithFractionalRate_RoundsAndAddsNote()
     {
+        // Act
         (DmfTimingPlan result, List<string> notes) = Run(Plan(new Timing(6, 123), 1));
 
+        // Assert
         Assert.Equal(49, result.Timing.CustomHz);
         Assert.Equal(1, result.TicksPerSourceTick);
         Assert.Equal(0.0041, result.LengthError, 4);
@@ -125,10 +137,12 @@ public sealed class DmfTimingPlannerTests
 
     /// <summary>33 BPM is 13.2 Hz: 13 Hz is 1.5 % off, so the DMF ticks 3 times as fast (40 Hz, 0.99 % off) and the tick times triple.</summary>
     [Fact]
-    public void ASlowRateThatRoundsBadlyIsRaisedToAMultiple()
+    public void Plan_WithSlowRate_RaisesToMultiple()
     {
+        // Act
         (DmfTimingPlan result, List<string> notes) = Run(Plan(new Timing(6, 33), 1));
 
+        // Assert
         Assert.Equal(40, result.Timing.CustomHz);
         Assert.Equal(3, result.TicksPerSourceTick);
         Assert.Equal((18, 18), (result.Timing.TickTime1, result.Timing.TickTime2));
@@ -137,41 +151,45 @@ public sealed class DmfTimingPlannerTests
 
     /// <summary>A tempo that gives a whole number of ticks per row at the song's tick rate (125 → 150 BPM at 50 Hz is 5 ticks) is a plain tick time change on that row.</summary>
     [Fact]
-    public void ATempoChangeBecomesTickTimesOnItsRow()
+    public void Plan_WithTempoChange_SetsTickTimesOnRow()
     {
+        // Arrange
         GenesisPlan plan = Plan(new Timing(6, 125), 1, Flow(((0, 32), [new SetTempo(150)])));
 
+        // Act
         (DmfTimingPlan result, List<string> notes) = Run(plan);
 
+        // Assert
         Assert.Equal(50, result.Timing.TickRateHz);
         Assert.False(result.Timing.UsingCustomHz);
-        for (int r = 0; r < RowsPerPattern; r++)
-        {
-            // The song ends in the new tempo and DefleMask loops to order 0, so row 0 restates the first pair.
-            TickTimes? expected = r switch { 0 => new TickTimes(6, 6), 32 => new TickTimes(5, 5), _ => null };
-            Assert.Equal(expected, result.Changes[0][r]);
-        }
-
+        // The song ends in the new tempo and DefleMask loops to order 0, so row 0 restates the first pair.
+        Assert.Equal(new TickTimes(6, 6), result.Changes[0][0]);
+        Assert.Equal(new TickTimes(5, 5), result.Changes[0][32]);
+        Assert.All(Enumerable.Range(1, RowsPerPattern - 1).Where(r => r != 32), r => Assert.Null(result.Changes[0][r]));
         Assert.Contains(notes, n => n.StartsWith("The song changes tempo between 2 values", StringComparison.Ordinal));
         Assert.InRange(DmfSeconds(plan, result) / ((32 * 6 / 50.0) + (32 * 6 / 60.0)), 0.99, 1.01);
     }
 
     /// <summary>When a row takes a fraction of a tick more, the two tick times differ by one: 135 BPM is 54 Hz, so six MOD ticks are 5.56 DMF ticks, played as 6 and 5.</summary>
     [Fact]
-    public void AHalfTickIsDoneWithTwoTickTimes()
+    public void Plan_WithHalfTick_UsesTwoTickTimes()
     {
+        // Act
         (DmfTimingPlan result, _) = Run(Plan(new Timing(6, 125), 1, Flow(((0, 60), [new SetTempo(135)]))));
 
+        // Assert
         Assert.Equal(new TickTimes(6, 5), result.Changes[0][60]);
         Assert.Equal(new TickTimes(6, 6), new TickTimes(result.Timing.TickTime1, result.Timing.TickTime2));
     }
 
     /// <summary>A speed change sets both tick times to the new speed.</summary>
     [Fact]
-    public void ASpeedChangeSetsBothTickTimes()
+    public void Plan_WithSpeedChange_SetsBothTickTimes()
     {
+        // Act
         (DmfTimingPlan result, _) = Run(Plan(new Timing(6, 125), 1, Flow(((0, 20), [new SetSpeed(3)]))));
 
+        // Assert
         Assert.Equal(new TickTimes(3, 3), result.Changes[0][20]);
         Assert.Equal(new TickTimes(6, 6), result.Changes[0][0]); // the loop back to order 0 restates the first pair
         Assert.Equal(2, result.Changes.SelectMany(c => c).Count(c => c is not null));
@@ -183,22 +201,27 @@ public sealed class DmfTimingPlannerTests
 
     /// <summary>Speed and tempo on the same row are both applied before the row's tick times are worked out.</summary>
     [Fact]
-    public void SpeedAndTempoOnOneRowCountTogether()
+    public void Plan_WithSpeedAndTempoOnRow_CountsThemTogether()
     {
+        // Act
         (DmfTimingPlan result, _) = Run(Plan(new Timing(6, 125), 1, Flow(((0, 60), [new SetSpeed(4), new SetTempo(150)]))));
 
+        // Assert
         // 4 ticks at 60 Hz, at the song's 50 Hz clock: 2 × 50 × 4 / 60 = 6.67 → 7 in two rows.
         Assert.Equal(new TickTimes(4, 3), result.Changes[0][60]);
     }
 
     /// <summary>The tick rate is the one the song spends most time at, not the one it starts with.</summary>
     [Fact]
-    public void TheMostUsedTempoSetsTheTickRate()
+    public void Plan_WithSeveralTempos_UsesMostUsedForTickRate()
     {
+        // Arrange
         GenesisPlan plan = Plan(new Timing(6, 125), 1, Flow(((0, 10), [new SetTempo(150)])));
 
+        // Act
         (DmfTimingPlan result, _) = Run(plan);
 
+        // Assert
         Assert.Equal(60, result.Timing.CustomHz);
         Assert.Equal(new TickTimes(7, 7), new TickTimes(result.Timing.TickTime1, result.Timing.TickTime2));
         Assert.Equal(new TickTimes(6, 6), result.Changes[0][10]);
@@ -207,12 +230,15 @@ public sealed class DmfTimingPlannerTests
 
     /// <summary>Rows after a stop (<c>F00</c>) never play, so they don't pick the tick rate.</summary>
     [Fact]
-    public void RowsAfterAStopDoNotCount()
+    public void Plan_WithRowsAfterStop_IgnoresThem()
     {
+        // Arrange
         GenesisPlan plan = Plan(new Timing(6, 125), 1, Flow(((0, 10), [new StopSong()]), ((0, 11), [new SetTempo(150)])));
 
+        // Act
         (DmfTimingPlan result, _) = Run(plan);
 
+        // Assert
         Assert.Equal(50, result.Timing.TickRateHz);
         Assert.False(result.Timing.UsingCustomHz);
     }
@@ -222,65 +248,93 @@ public sealed class DmfTimingPlannerTests
     /// speed the song ended in, so row 0 sets the first-time pair again.
     /// </summary>
     [Fact]
-    public void TheLoopTargetRestatesTheTickTimes()
+    public void Plan_AtLoopTarget_RestatesTickTimes()
     {
+        // Arrange
         GenesisPlan plan = Plan(new Timing(6, 125), 1, Flow(((0, 10), [new SetSpeed(3)])), loopOrder: 0);
 
+        // Act
         (DmfTimingPlan result, _) = Run(plan);
 
+        // Assert
         Assert.Equal(new TickTimes(6, 6), result.Changes[0][0]);
         Assert.Equal(new TickTimes(3, 3), result.Changes[0][10]);
     }
 
     /// <summary>A song that ends where it began needs no restatement at the loop target.</summary>
     [Fact]
-    public void ALoopThatEndsInTheStartingTimingAddsNothing()
+    public void Plan_WithLoopEndingInStartTiming_AddsNothing()
     {
+        // Arrange
         GenesisPlan plan = Plan(new Timing(6, 125), 1, Flow(((0, 10), [new SetSpeed(3)]), ((0, 20), [new SetSpeed(6)])), loopOrder: 0);
 
+        // Act
         (DmfTimingPlan result, _) = Run(plan);
 
+        // Assert
         Assert.Null(result.Changes[0][0]);
     }
 
     /// <summary>A song with changes that also jumps may take a different way through them than top to bottom, which the notes say.</summary>
     [Fact]
-    public void JumpsWithTimingChangesAreNoted()
+    public void Plan_WithJumpsAndTimingChanges_AddsNote()
     {
+        // Arrange
         GenesisPlan plan = Plan(new Timing(6, 125), 2, Flow(((0, 10), [new SetSpeed(3)]), ((1, 5), [new PositionJump(0)])));
 
+        // Act
         (_, List<string> notes) = Run(plan);
 
+        // Assert
         Assert.Contains(notes, n => n.Contains("jumps or loops", StringComparison.Ordinal));
     }
 
     /// <summary>A song that never changes timing says nothing about jumps.</summary>
     [Fact]
-    public void JumpsAloneAreNotNoted()
+    public void Plan_WithJumpsAlone_AddsNoNote()
     {
+        // Act
         (_, List<string> notes) = Run(Plan(new Timing(6, 125), 2, Flow(((1, 5), [new PositionJump(0)]))));
 
+        // Assert
         Assert.Empty(notes);
     }
 
     /// <summary>A plan with no rows still gets the timing of its starting speed and tempo.</summary>
     [Fact]
-    public void AnEmptyPlanKeepsTheStartingTiming()
+    public void Plan_WithEmptyPlan_KeepsStartTiming()
     {
+        // Act
         (DmfTimingPlan result, _) = Run(Plan(new Timing(5, 130), 0));
 
+        // Assert
         Assert.Equal(52, result.Timing.CustomHz);
         Assert.Equal(5, result.Timing.TickTime1);
         Assert.Empty(result.Changes);
     }
 
     /// <summary>A starting speed or tempo that isn't positive is a bug in whoever built the plan.</summary>
-    [Fact]
-    public void BadStartingTimingIsRefused()
+    [Theory]
+    [InlineData(0, 125)]
+    [InlineData(6, 0)]
+    public void Plan_WithBadStartTiming_Throws(int speed, int tempo)
     {
-        Assert.Throws<ArgumentOutOfRangeException>(() => Run(Plan(new Timing(0, 125), 1)));
-        Assert.Throws<ArgumentOutOfRangeException>(() => Run(Plan(new Timing(6, 0), 1)));
-        Assert.Throws<ArgumentOutOfRangeException>(() => Run(Plan(new Timing(6, 125), 1), scale: 0));
+        // Arrange
+        GenesisPlan plan = Plan(new Timing(speed, tempo), 1);
+
+        // Act & Assert
+        Assert.Throws<ArgumentOutOfRangeException>(() => Run(plan));
+    }
+
+    /// <summary>A tick rate scale of 0 is a bug in the caller.</summary>
+    [Fact]
+    public void Plan_WithZeroScale_Throws()
+    {
+        // Arrange
+        GenesisPlan plan = Plan(new Timing(6, 125), 1);
+
+        // Act & Assert
+        Assert.Throws<ArgumentOutOfRangeException>(() => Run(plan, scale: 0));
     }
 
     /// <summary>
@@ -298,21 +352,23 @@ public sealed class DmfTimingPlannerTests
     [InlineData(new[] { 16, 0x87 })]
     [InlineData(new[] { 8, 0x96, 24, 0x7D, 40, 0x03, 50, 0xB4 })]
     [InlineData(new[] { 0, 0x28, 10, 0x08, 30, 0x64 })]
-    public void TheDmfLastsAsLongAsTheTickPlayersMod(int[] rowsAndParameters)
+    public void Plan_ForWholeSong_LastsAsLongAsTickPlayer(int[] rowsAndParameters)
     {
+        // Arrange
         ModBuilder builder = new ModBuilder().WithSample(1, "lead", 1024);
         for (int i = 0; i < rowsAndParameters.Length; i += 2)
         {
             builder.WithCell(0, rowsAndParameters[i], 3, 0, 0, 0xF, rowsAndParameters[i + 1]);
         }
-
         ModModule module = ModReader.Read(builder.Build(), new ConversionNotes(Logger.None));
         Song song = ModToSong.Convert(module, AmigaPitch.PalClockHz, new ConversionNotes(Logger.None));
         Playback playback = ModTickPlayer.Play(module, AmigaPitch.PalClockHz, 1.0, new ConversionNotes(Logger.None));
         GenesisPlan plan = new SimpleMapper().Map(song, playback, MappingOptions.Default, new ConversionNotes(Logger.None));
 
+        // Act
         DmfTimingPlan timing = DmfTimingPlanner.Plan(plan, 1.0, Region.Pal, new ConversionNotes(Logger.None));
 
+        // Assert
         Assert.Equal(playback.DurationSeconds, DmfSeconds(plan, timing), playback.DurationSeconds * 0.01);
     }
 }

@@ -6,51 +6,65 @@ namespace Mod2Xgm.Tests.Mapping;
 /// <summary>Tests for <see cref="SamplePitch"/>: the cycle length of looped and one-shot tones, and no pitch for noise or silence.</summary>
 public sealed class SamplePitchTests
 {
-    private static float[] Sine(int frames, double period, double phase = 0) =>
-        [.. Enumerable.Range(0, frames).Select(i => (float)Math.Sin((2 * Math.PI * i / period) + phase))];
-
     /// <summary>A one-cycle loop is a whole tone: its cycle is the loop's length, however short.</summary>
     [Theory]
     [InlineData(16)]
     [InlineData(32)]
     [InlineData(100)]
     [InlineData(512)]
-    public void ALoopOfOneCycleHasTheLoopsLength(int length)
+    public void Measure_WithOneCycleLoop_ReturnsLoopLength(int length)
     {
+        // Arrange
         Sample sample = new("wave", Sine(length, length), new SampleLoop(0, length));
 
+        // Act
         double? period = SamplePitch.Measure(sample).PeriodFrames;
 
-        Assert.NotNull(period);
-        Assert.Equal(length, period.Value, 0.05);
+        // Assert
+        Assert.Equal(length, period ?? double.NaN, 0.05);
     }
 
     /// <summary>A loop holding several cycles is measured by the cycle, not the loop.</summary>
     [Fact]
-    public void ALoopOfSeveralCyclesIsMeasuredByTheCycle()
+    public void Measure_WithSeveralCyclesInLoop_ReturnsCycle()
     {
+        // Arrange
         Sample sample = new("wave", Sine(256, 64), new SampleLoop(0, 256));
 
-        Assert.Equal(64, SamplePitch.Measure(sample).PeriodFrames!.Value, 0.05);
+        // Act
+        double? period = SamplePitch.Measure(sample).PeriodFrames;
+
+        // Assert
+        Assert.Equal(64, period ?? double.NaN, 0.05);
     }
 
     /// <summary>A one-shot tone is measured after its attack, with sub-frame precision.</summary>
     [Fact]
-    public void AOneShotToneIsMeasured()
+    public void Measure_WithOneShotTone_ReturnsCycle()
     {
+        // Arrange
         Sample sample = new("bass", Sine(8000, 75.5), null);
 
-        Assert.Equal(75.5, SamplePitch.Measure(sample).PeriodFrames!.Value, 0.1);
+        // Act
+        double? period = SamplePitch.Measure(sample).PeriodFrames;
+
+        // Assert
+        Assert.Equal(75.5, period ?? double.NaN, 0.1);
     }
 
     /// <summary>A rich wave (a saw) is measured at its fundamental, not a harmonic.</summary>
     [Fact]
-    public void ASawIsMeasuredAtItsFundamental()
+    public void Measure_WithSaw_ReturnsFundamental()
     {
+        // Arrange
         float[] saw = [.. Enumerable.Range(0, 48).Select(i => (float)((i / 24.0) - 1))];
         Sample sample = new("saw", saw, new SampleLoop(0, 48));
 
-        Assert.Equal(48, SamplePitch.Measure(sample).PeriodFrames!.Value, 0.1);
+        // Act
+        double? period = SamplePitch.Measure(sample).PeriodFrames;
+
+        // Assert
+        Assert.Equal(48, period ?? double.NaN, 0.1);
     }
 
     /// <summary>
@@ -61,33 +75,106 @@ public sealed class SamplePitchTests
     [InlineData(482, 21)]
     [InlineData(964, 42)]
     [InlineData(500, 20)]
-    public void AShortOneShotIsMeasured(int frames, int period)
+    public void Measure_WithShortOneShot_ReturnsFundamental(int frames, int cycle)
     {
-        // Harmonics 1–9 in dB against the fifth, measured from the sample.
+        // Arrange: harmonics 1–9 in dB against the fifth, measured from the sample.
         double[] db = [-11, -60, -4, -11, 0, -5, -2, -8, -8];
-        float[] blip = [.. Enumerable.Range(0, frames).Select(i => (float)db.Select((d, k) => Math.Pow(10, d / 20) * Math.Sin(2 * Math.PI * (k + 1) * i / period)).Sum())];
+        float[] blip = [.. Enumerable.Range(0, frames).Select(i => (float)db.Select((d, k) => Math.Pow(10, d / 20) * Math.Sin(2 * Math.PI * (k + 1) * i / cycle)).Sum())];
 
-        Assert.Equal(period, SamplePitch.Measure(new Sample("blip", blip, null)).PeriodFrames!.Value, 0.1);
+        // Act
+        double? period = SamplePitch.Measure(new Sample("blip", blip, null)).PeriodFrames;
+
+        // Assert
+        Assert.Equal(cycle, period ?? double.NaN, 0.1);
     }
 
-    /// <summary>Noise, silence and samples too short to measure have no pitch.</summary>
-    [Fact]
-    public void NoiseSilenceAndShortSamplesHaveNoPitch()
+    /// <summary>Noise has no pitch, long or short.</summary>
+    [Theory]
+    [InlineData(8000)]
+    [InlineData(500)]
+    public void Measure_WithNoise_HasNoPitch(int frames)
     {
-        float[] noise = [.. new Random(3).GetItems([-1f, -0.5f, 0.5f, 1f], 8000)];
+        // Arrange
+        float[] noise = [.. new Random(3).GetItems([-1f, -0.5f, 0.5f, 1f], frames)];
 
-        Assert.Null(SamplePitch.Measure(new Sample("noise", noise, null)).PeriodFrames);
-        Assert.Null(SamplePitch.Measure(new Sample("silence", new float[8000], null)).PeriodFrames);
-        Assert.Null(SamplePitch.Measure(new Sample("short noise", noise[..500], null)).PeriodFrames);
-        Assert.Null(SamplePitch.Measure(new Sample("click", Sine(100, 20), null)).PeriodFrames);
-        Assert.Null(SamplePitch.Measure(new Sample("quiet loop", new float[64], new SampleLoop(0, 64))).PeriodFrames);
+        // Act
+        double? period = SamplePitch.Measure(new Sample("noise", noise, null)).PeriodFrames;
+
+        // Assert
+        Assert.Null(period);
     }
 
-    /// <summary>The frequency at a playback rate is the rate over the cycle length; without a pitch there is none.</summary>
+    /// <summary>Silence has no pitch.</summary>
     [Fact]
-    public void FrequencyIsRateOverCycle()
+    public void Measure_WithSilence_HasNoPitch()
     {
-        Assert.Equal(259.0, new SamplePitch(32).FrequencyAt(8288)!.Value, 0.01);
-        Assert.Null(new SamplePitch(null).FrequencyAt(8288));
+        // Arrange
+        Sample sample = new("silence", new float[8000], null);
+
+        // Act
+        double? period = SamplePitch.Measure(sample).PeriodFrames;
+
+        // Assert
+        Assert.Null(period);
     }
+
+    /// <summary>A silent loop has no pitch.</summary>
+    [Fact]
+    public void Measure_WithSilentLoop_HasNoPitch()
+    {
+        // Arrange
+        Sample sample = new("quiet loop", new float[64], new SampleLoop(0, 64));
+
+        // Act
+        double? period = SamplePitch.Measure(sample).PeriodFrames;
+
+        // Assert
+        Assert.Null(period);
+    }
+
+    /// <summary>A sample too short to measure has no pitch.</summary>
+    [Fact]
+    public void Measure_WithVeryShortSample_HasNoPitch()
+    {
+        // Arrange
+        Sample sample = new("click", Sine(100, 20), null);
+
+        // Act
+        double? period = SamplePitch.Measure(sample).PeriodFrames;
+
+        // Assert
+        Assert.Null(period);
+    }
+
+    /// <summary>The frequency at a playback rate is the rate over the cycle length.</summary>
+    [Fact]
+    public void FrequencyAt_WithCycle_ReturnsRateOverCycle()
+    {
+        // Arrange
+        SamplePitch sut = new(32);
+
+        // Act
+        double? hz = sut.FrequencyAt(8288);
+
+        // Assert
+        Assert.Equal(259.0, hz ?? double.NaN, 0.01);
+    }
+
+    /// <summary>Without a pitch there is no frequency.</summary>
+    [Fact]
+    public void FrequencyAt_WithoutPitch_ReturnsNull()
+    {
+        // Arrange
+        SamplePitch sut = new(null);
+
+        // Act
+        double? hz = sut.FrequencyAt(8288);
+
+        // Assert
+        Assert.Null(hz);
+    }
+
+    /// <summary>A sine of <paramref name="period"/> frames, <paramref name="frames"/> long.</summary>
+    private static float[] Sine(int frames, double period, double phase = 0) =>
+        [.. Enumerable.Range(0, frames).Select(i => (float)Math.Sin((2 * Math.PI * i / period) + phase))];
 }

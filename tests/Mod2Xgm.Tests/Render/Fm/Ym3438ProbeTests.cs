@@ -11,6 +11,7 @@ namespace Mod2Xgm.Tests.Render.Fm;
 /// rewrite the scripts). The port is ymfm except where it models the chip as Nuked-OPN2 does
 /// (docs/adr/0064-ym3438-chip-differences.md): there it must come closer to Nuked, elsewhere stay exactly ymfm.
 /// </summary>
+[Trait("Category", "Integration")]
 public sealed class Ym3438ProbeTests
 {
     /// <summary>
@@ -93,8 +94,11 @@ public sealed class Ym3438ProbeTests
     /// <summary>The checked-in script is the one the builder makes (the reference tool plays the file).</summary>
     [Theory]
     [MemberData(nameof(Names))]
-    public void ScriptFileMatchesItsBuilder(string name) =>
+    public void Script_WithCheckedInFile_MatchesBuilder(string name)
+    {
+        // Act & Assert
         Golden.Verify(Path.Combine("ym3438", name + ".txt"), Ym3438Probes.All[name]().ToText());
+    }
 
     /// <summary>
     /// The port plays every probe that none of the chip's differences reaches sample for sample as ymfm does, so the port
@@ -102,11 +106,13 @@ public sealed class Ym3438ProbeTests
     /// </summary>
     [Theory]
     [MemberData(nameof(UntouchedNames))]
-    public void PortMatchesYmfmExactly(string name)
+    public void Render_ForProbe_MatchesYmfmExactly(string name)
     {
+        // Act
         int[] port = Ym3438Script.Render(Script(name));
-        int[] ymfm = Reference(name, "ymfm");
 
+        // Assert
+        int[] ymfm = Reference(name, "ymfm");
         Assert.Equal(ymfm.Length, port.Length);
         int mismatch = port.AsSpan().CommonPrefixLength(ymfm);
         int sample = mismatch / 2;
@@ -124,16 +130,17 @@ public sealed class Ym3438ProbeTests
     /// </summary>
     [Theory]
     [MemberData(nameof(Names))]
-    public void PortSoundsLikeNuked(string name)
+    public void Render_ForProbe_SoundsLikeNuked(string name)
     {
+        // Act
         int[] port = Ym3438Script.Render(Script(name));
+
+        // Assert
         int[] nuked = Reference(name, "nuked");
         Assert.Equal(nuked.Length, port.Length);
-
         AudioSignal a = Mono(port, 1.0);
         AudioSignal b = Mono(nuked, NukedScale);
         double distance = SpectralMetrics.MelDistanceDb(b, a);
-
         (double bar, string why) = KnownDifferences.TryGetValue(name, out (double BarDb, string Difference) known)
             ? known
             : (MaxMelDistanceToNukedDb, "no known difference");
@@ -146,13 +153,15 @@ public sealed class Ym3438ProbeTests
     /// </summary>
     [Theory]
     [MemberData(nameof(TouchedNames))]
-    public void PortIsCloserToNukedThanYmfm(string name)
+    public void Render_ForProbe_IsCloserToNukedThanYmfm(string name)
     {
+        // Act
         int[] port = Ym3438Script.Render(Script(name));
+
+        // Assert
         int[] ymfm = Reference(name, "ymfm");
         int[] nuked = Reference(name, "nuked");
         string fixes = string.Join(", ", ChipDifferences.Where(d => d.Value.Contains(name)).Select(d => d.Key));
-
         Assert.False(port.AsSpan().SequenceEqual(ymfm), $"{name}: plays as ymfm does, but is listed under {fixes}");
         double portShare = ShareLikeNuked(port, nuked);
         double ymfmShare = ShareLikeNuked(ymfm, nuked);
@@ -165,9 +174,12 @@ public sealed class Ym3438ProbeTests
     /// </summary>
     [Theory]
     [MemberData(nameof(OneChannelNames))]
-    public void PortPlaysLikeNukedSampleForSample(string name)
+    public void Render_ForProbe_PlaysLikeNukedSampleForSample(string name)
     {
+        // Act
         double share = ShareLikeNuked(Ym3438Script.Render(Script(name)), Reference(name, "nuked"));
+
+        // Assert
         Assert.True(share >= MinSamplesLikeNuked[name], $"{name}: {share:P2} of samples as Nuked-OPN2 plays them (bar {MinSamplesLikeNuked[name]:P1})");
     }
 
@@ -177,20 +189,32 @@ public sealed class Ym3438ProbeTests
     /// </summary>
     [Theory(Timeout = 60_000)]
     [MemberData(nameof(Names))]
-    public async Task EveryProbeRendersInBoundedTime(string name)
+    public async Task Render_ForEveryProbe_FinishesInBoundedTime(string name)
     {
+        // Arrange
         IReadOnlyList<Ym3438Step> script = Script(name);
+
+        // Act
         int[] port = await Task.Run(() => Ym3438Script.Render(script), TestContext.Current.CancellationToken);
+
+        // Assert
         Assert.Equal(Reference(name, "ymfm").Length, port.Length);
     }
 
     /// <summary>Every probe the lists name exists, so a renamed probe doesn't silently drop out of a check.</summary>
     [Fact]
-    public void ListsNameRealProbes()
+    public void All_ForProbeLists_NamesRealProbes()
     {
-        Assert.All(KnownDifferences.Keys, name => Assert.True(Ym3438Probes.All.ContainsKey(name), name));
-        Assert.All(ChipDifferences.Values.SelectMany(names => names), name => Assert.True(Ym3438Probes.All.ContainsKey(name), name));
-        Assert.All(MinSamplesLikeNuked.Keys, name => Assert.True(Ym3438Probes.All.ContainsKey(name), name));
+        // Arrange
+        IEnumerable<string> listed = KnownDifferences.Keys
+            .Concat(ChipDifferences.Values.SelectMany(names => names))
+            .Concat(MinSamplesLikeNuked.Keys);
+
+        // Act
+        IEnumerable<string> missing = listed.Where(name => !Ym3438Probes.All.ContainsKey(name));
+
+        // Assert
+        Assert.Empty(missing);
     }
 
     private static bool Touched(string name) => ChipDifferences.Values.Any(names => names.Contains(name));

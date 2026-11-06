@@ -110,10 +110,12 @@ public sealed class GenesisRendererTests
 
     /// <summary>An FM sine note at full volume plays at Furnace's level for a TL-0 carrier, on both sides, at the sample's measured pitch.</summary>
     [Fact]
-    public void FmSinePlaysAtFurnacesLevelAndPitch()
+    public void Render_WithFmSine_PlaysAtFurnacesLevelAndPitch()
     {
+        // Act
         StereoAudio audio = Render(PlanOf([FmPatchLibrary.Sine], [], Row((GenesisChannel.Fm1, Note(VoiceKind.Fm)))), SongOf(1, LoopedSine()), PlaybackOf(10, (r, t) => Playing(r == 0 && t == 0)));
 
+        // Assert
         Assert.Equal(52_781, audio.SampleRate);
         Assert.Equal(FurnaceFmDb, Db(audio.Left, audio.SampleRate, 0.2, 1.1), 0.15);
         Assert.Equal(FurnaceFmDb, Db(audio.Right, audio.SampleRate, 0.2, 1.1), 0.15);
@@ -122,13 +124,15 @@ public sealed class GenesisRendererTests
 
     /// <summary>Volume and pan follow the song channel tick by tick: half volume is 6 dB down, in TL steps; a pan to the left silences the right.</summary>
     [Fact]
-    public void VolumeAndPanFollowThePlayback()
+    public void Render_WithPlaybackVolumeAndPan_FollowsThem()
     {
+        // Act
         StereoAudio audio = Render(
             PlanOf([FmPatchLibrary.Sine], [], Row((GenesisChannel.Fm1, Note(VoiceKind.Fm)))),
             SongOf(1, LoopedSine()),
             PlaybackOf(20, (r, t) => Playing(r == 0 && t == 0, volume: r < 10 ? 1 : 0.5, pan: r < 15 ? 0 : -1)));
 
+        // Assert
         double full = Db(audio.Left, audio.SampleRate, 0.2, 1.1);
         double half = Db(audio.Left, audio.SampleRate, 1.3, 1.7);
         Assert.Equal(-6.0, half - full, 0.4);
@@ -138,50 +142,59 @@ public sealed class GenesisRendererTests
 
     /// <summary>A pitch change on the song channel (a slide, vibrato, arpeggio) moves the FM note: an octave up doubles it.</summary>
     [Fact]
-    public void PitchFollowsThePlayback()
+    public void Render_WithPlaybackPitch_FollowsIt()
     {
+        // Act
         StereoAudio audio = Render(
             PlanOf([FmPatchLibrary.Sine], [], Row((GenesisChannel.Fm1, Note(VoiceKind.Fm)))),
             SongOf(1, LoopedSine()),
             PlaybackOf(20, (r, t) => Playing(r == 0 && t == 0, rateHz: r < 10 ? SineRateHz : 2 * SineRateHz)));
 
+        // Assert
         Assert.Equal(880, Hz(audio.Left, audio.SampleRate, 1.3, 2.3), 2.0);
     }
 
     /// <summary>A note waits for the tick its sample starts on (EDx): silent before tick 3, sounding after.</summary>
     [Fact]
-    public void ANoteStartsOnTheTickItsSampleStarts()
+    public void Render_WithNote_StartsOnSamplesTick()
     {
+        // Act
         StereoAudio audio = Render(PlanOf([FmPatchLibrary.Sine], [], Row((GenesisChannel.Fm1, Note(VoiceKind.Fm)))), SongOf(1, LoopedSine()), PlaybackOf(2, (r, t) => Playing(r == 0 && t == 3)));
 
+        // Assert
         Assert.True(Db(audio.Left, audio.SampleRate, 0, 0.058) < -90);
         Assert.True(Db(audio.Left, audio.SampleRate, 0.07, 0.11) > -15);
     }
 
     /// <summary>A note-off lets go of the key: the FM note releases and is silent soon after.</summary>
     [Fact]
-    public void ANoteOffReleasesTheNote()
+    public void Render_WithNoteOff_ReleasesNote()
     {
+        // Act
         StereoAudio audio = Render(
             PlanOf([FmPatchLibrary.Sine], [], Row((GenesisChannel.Fm1, Note(VoiceKind.Fm))), Row((GenesisChannel.Fm1, NoteOff))),
             SongOf(1, LoopedSine()),
             PlaybackOf(10, (r, t) => Playing(r == 0 && t == 0)));
 
+        // Assert
         Assert.True(Db(audio.Left, audio.SampleRate, 0.05, 0.11) > -15);
         Assert.True(Db(audio.Left, audio.SampleRate, 0.6, 1.1) < -60);
     }
 
     /// <summary>E9x starts a decaying note again, so it is loud again after the restart; a tone portamento slides the playing note without one.</summary>
     [Fact]
-    public void RetriggerRestartsAndPortamentoSlides()
+    public void Render_WithRetriggerAndPortamento_RestartsAndSlides()
     {
+        // Arrange
         FmPatch decaying = new("decay", 7, 0, [new FmOperator(1, 0, 0, 0, 31, false, 20, 0, 15, 15), Muted(), Muted(), Muted()]);
         Song song = SongOf(1, LoopedSine());
         Playback playback = PlaybackOf(2, (r, t) => Playing((r == 0 && t == 0) || (r == 1 && t == 3)));
-
         StereoAudio restarted = Render(PlanOf([decaying], [], Row((GenesisChannel.Fm1, Note(VoiceKind.Fm))), Row((GenesisChannel.Fm1, Note(VoiceKind.Fm, effects: new Retrigger(3))))), song, playback);
+
+        // Act
         StereoAudio slid = Render(PlanOf([decaying], [], Row((GenesisChannel.Fm1, Note(VoiceKind.Fm))), Row((GenesisChannel.Fm1, Note(VoiceKind.Fm, effects: new TonePortamento(null, PitchScale.AmigaPeriod))))), song, PlaybackOf(2, (r, t) => Playing(r == 0 && t == 0)));
 
+        // Assert
         double before = Db(restarted.Left, restarted.SampleRate, 0.17, 0.18);
         double after = Db(restarted.Left, restarted.SampleRate, 0.185, 0.195);
         Assert.True(after > before + 10, $"{before} dB before the restart, {after} dB after");
@@ -190,26 +203,32 @@ public sealed class GenesisRendererTests
 
     /// <summary>A patch's SSG-EG plays in the song: a repeating shape keeps a decaying carrier sounding where it would have faded out.</summary>
     [Fact]
-    public void SsgEgPlaysInTheSong()
+    public void Render_WithSsgEg_PlaysIt()
     {
+        // Arrange
         FmPatch decaying = new("decay", 7, 0, [new FmOperator(1, 0, 0, 0, 31, false, 20, 0, 15, 15), Muted(), Muted(), Muted()]);
         FmPatch repeating = decaying with { Operators = [decaying.Operators[0] with { SsgEg = 8 }, .. decaying.Operators.Skip(1)] };
         Song song = SongOf(1, LoopedSine());
         Playback playback = PlaybackOf(10, (r, t) => Playing(r == 0 && t == 0));
-
         StereoAudio once = Render(PlanOf([decaying], [], Row((GenesisChannel.Fm1, Note(VoiceKind.Fm)))), song, playback);
+
+        // Act
         StereoAudio again = Render(PlanOf([repeating], [], Row((GenesisChannel.Fm1, Note(VoiceKind.Fm)))), song, playback);
 
+        // Assert
         Assert.True(Db(once.Left, once.SampleRate, 0.8, 1.0) < -60);
         Assert.True(Db(again.Left, again.SampleRate, 0.8, 1.0) > -30);
     }
 
     /// <summary>A note delayed past the end of its row (EDx with x ≥ speed) is left out, as ProTracker plays nothing; the render says so.</summary>
     [Fact]
-    public void ANoteDelayedPastItsRowIsLeftOut()
+    public void Render_WithNoteDelayedPastRow_LeavesItOut()
     {
+        // Arrange
         CollectingSink sink = new();
         ConversionNotes notes = new(sink.CreateLogger());
+
+        // Act
         StereoAudio audio = GenesisRenderer.Render(
             PlanOf([FmPatchLibrary.Sine], [], Row((GenesisChannel.Fm1, Note(VoiceKind.Fm, effects: new NoteDelay(8))))),
             SongOf(1, LoopedSine()),
@@ -217,6 +236,7 @@ public sealed class GenesisRendererTests
             ChipRate,
             notes);
 
+        // Assert
         Assert.True(Db(audio.Left, audio.SampleRate, 0, 0.24) < -90);
         Assert.Contains(notes.Messages, m => m.Contains("delayed past their row's end", StringComparison.Ordinal));
     }
@@ -226,13 +246,16 @@ public sealed class GenesisRendererTests
     [InlineData(nameof(PcmDriver.Dmf))]
     [InlineData(nameof(PcmDriver.Xgm))]
     [InlineData(nameof(PcmDriver.Xgm2))]
-    public void EveryDriverPlaysTheDacAtFurnacesLevel(string driver)
+    public void Render_WithEveryDriver_PlaysDacAtFurnacesLevel(string driver)
     {
+        // Arrange
         GenesisPlan plan = PlanOf([], [new DacSample(0, 16_000)], [.. Enumerable.Range(0, 8).Select(r => r == 0 ? Row((GenesisChannel.Fm6, Note(VoiceKind.Dac, rateHz: 16_000))) : r == 7 ? Row((GenesisChannel.Fm6, NoteOff)) : Row())]);
         Playback playback = PlaybackOf(12, (r, t) => Playing(r == 0 && t == 0, pan: 1, rateHz: 16_000, frames: 32_000));
 
+        // Act
         StereoAudio audio = Render(plan, SongOf(1, OneShotSine(16_000, 2)), playback, ChipRate with { Driver = Enum.Parse<PcmDriver>(driver) });
 
+        // Assert
         Assert.Equal(FurnaceFmDb, Db(audio.Right, audio.SampleRate, 0.1, 0.8), 0.3);
         Assert.True(Db(audio.Left, audio.SampleRate, 0.1, 0.8) < -90);
         Assert.Equal(440, Hz(audio.Right, audio.SampleRate, 0.1, 0.8), 3.0);
@@ -243,27 +266,33 @@ public sealed class GenesisRendererTests
     [Theory]
     [InlineData(nameof(PcmDriver.Dmf))]
     [InlineData(nameof(PcmDriver.Xgm2))]
-    public void TheDacPlaysAtTheVolumeItStartsWith(string driver)
+    public void Render_WithDacNote_PlaysAtStartingVolume(string driver)
     {
+        // Arrange
         GenesisPlan plan = PlanOf([], [new DacSample(0, 16_000)], Row((GenesisChannel.Fm6, Note(VoiceKind.Dac, rateHz: 16_000))));
         Playback playback = PlaybackOf(12, (r, t) => Playing(r == 0 && t == 0, volume: r == 0 ? 0.5 : 1, rateHz: 16_000, frames: 32_000));
 
+        // Act
         StereoAudio audio = Render(plan, SongOf(1, OneShotSine(16_000, 2)), playback, ChipRate with { Driver = Enum.Parse<PcmDriver>(driver) });
 
+        // Assert
         Assert.Equal(FurnaceFmDb - 6.0, Db(audio.Left, audio.SampleRate, 0.2, 1.2), 0.3);
     }
 
     /// <summary>White noise at full volume plays at Furnace's PSG level; it follows its sample's loudness, 12 dB down where the sample is.</summary>
     [Fact]
-    public void NoiseFollowsItsSamplesLoudness()
+    public void Render_WithNoise_FollowsSamplesLoudness()
     {
+        // Arrange
         Random random = new(1);
         float[] data = [.. Enumerable.Range(0, 16_000).Select(i => (float)((random.NextDouble() * 2) - 1) * (i < 8000 ? 1f : 0.25f))];
         Sample noise = new("noise", data, null);
         GenesisPlan plan = PlanOf([], [], Row((GenesisChannel.Psg4, Note(VoiceKind.PsgNoise, rateHz: 8000))));
 
+        // Act
         StereoAudio audio = Render(plan, SongOf(1, noise), PlaybackOf(20, (r, t) => Playing(r == 0 && t == 0, rateHz: 8000, frames: 16_000)));
 
+        // Assert
         double loud = Db(audio.Left, audio.SampleRate, 0.1, 0.9);
         Assert.Equal(FurnacePsgSquareDb, loud, 0.6);
         Assert.Equal(-12, Db(audio.Left, audio.SampleRate, 1.1, 1.9) - loud, 1.5);
@@ -273,8 +302,9 @@ public sealed class GenesisRendererTests
 
     /// <summary>A PSG square at the loudest volume has Furnace's RMS, with no DC.</summary>
     [Fact]
-    public void PsgSquarePlaysAtFurnacesLevel()
+    public void Render_WithPsgSquare_PlaysAtFurnacesLevel()
     {
+        // Arrange
         GenesisChips chips = new(Region.Ntsc, PcmDriver.Dmf);
         chips.Psg.Write(0x80 | 0x0e); // tone 1 period, low 4 bits
         chips.Psg.Write(0x0f);        // high 6 bits: period 254, about 440 Hz
@@ -282,8 +312,10 @@ public sealed class GenesisRendererTests
         float[] left = new float[(int)chips.SampleRateHz];
         float[] right = new float[left.Length];
 
+        // Act
         chips.Render(left, right);
 
+        // Assert
         Assert.Equal(FurnacePsgSquareDb, Db(left, (int)chips.SampleRateHz, 0.5, 1), 0.1);
         Assert.Equal(0, left.Skip(left.Length / 2).Average(), 3);
         Assert.Equal(53_267, chips.SampleRateHz, 1.0);
@@ -291,11 +323,15 @@ public sealed class GenesisRendererTests
 
     /// <summary>By default the render is resampled to 44.1 kHz and keeps the song's length and level.</summary>
     [Fact]
-    public void TheDefaultIs44100Hz()
+    public void Render_WithDefaultOptions_Uses44100Hz()
     {
+        // Arrange
         GenesisPlan plan = PlanOf([FmPatchLibrary.Sine], [], Row((GenesisChannel.Fm1, Note(VoiceKind.Fm))));
+
+        // Act
         StereoAudio audio = GenesisRenderer.Render(plan, SongOf(1, LoopedSine()), PlaybackOf(10, (r, t) => Playing(r == 0 && t == 0)), null, new ConversionNotes(Logger.None));
 
+        // Assert
         Assert.Equal(44_100, audio.SampleRate);
         Assert.Equal(1.2 * 44_100, audio.Length, 1.0);
         Assert.Equal(FurnaceFmDb, Db(audio.Left, audio.SampleRate, 0.2, 1.1), 0.15);
@@ -303,14 +339,17 @@ public sealed class GenesisRendererTests
 
     /// <summary>Tick lengths can be given in place of the playback's; they must match the ticks, and the playback must have the song's channels.</summary>
     [Fact]
-    public void ArgumentsAreChecked()
+    public void Render_WithBadArguments_Throws()
     {
+        // Arrange
         GenesisPlan plan = PlanOf([FmPatchLibrary.Sine], [], Row((GenesisChannel.Fm1, Note(VoiceKind.Fm))));
         Playback playback = PlaybackOf(1, (r, t) => Playing(r == 0 && t == 0));
         ConversionNotes notes = new(Logger.None);
 
+        // Act
         StereoAudio longer = GenesisRenderer.Render(plan, SongOf(1, LoopedSine()), playback, ChipRate with { TickDurations = [.. Enumerable.Repeat(0.04, TicksPerRow)] }, notes);
 
+        // Assert
         Assert.Equal(0.24 * 52_781.2, longer.Length, 1.0);
         Assert.Throws<ArgumentException>(() => GenesisRenderer.Render(plan, SongOf(1, LoopedSine()), playback, ChipRate with { TickDurations = [0.02] }, notes));
         Assert.Throws<ArgumentException>(() => GenesisRenderer.Render(plan, SongOf(1, LoopedSine()), playback, ChipRate with { TickDurations = [.. Enumerable.Repeat(-1.0, TicksPerRow)] }, notes));
@@ -320,10 +359,12 @@ public sealed class GenesisRendererTests
 
     /// <summary>An NTSC Genesis runs its chips faster: the chip rate is the NTSC YM3438's.</summary>
     [Fact]
-    public void NtscUsesTheNtscClocks()
+    public void Render_WithNtsc_UsesNtscClocks()
     {
+        // Act
         StereoAudio audio = Render(PlanOf([FmPatchLibrary.Sine], [], Row((GenesisChannel.Fm1, Note(VoiceKind.Fm)))), SongOf(1, LoopedSine()), PlaybackOf(1, (r, t) => Playing(r == 0 && t == 0)), ChipRate with { Region = Region.Ntsc });
 
+        // Assert
         Assert.Equal(53_267, audio.SampleRate);
     }
 

@@ -21,5 +21,7 @@
     <PackageVersion Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.12.0" />
     <PackageVersion Include="Microsoft.Testing.Extensions.HangDump" Version="2.5.1" />
     <PackageVersion Include="Spectre.Console.Testing" Version="0.57.2" />
+    <!-- Test doubles (ADR 0081); never referenced from src/. -->
+    <PackageVersion Include="Moq" Version="4.21.0" />
   </ItemGroup>
 </Project>

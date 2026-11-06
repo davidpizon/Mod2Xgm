@@ -19,13 +19,16 @@ public sealed class StereoAudioTests
 
     /// <summary>Resampling keeps the length in seconds, a mono recording stays one shared array, and the mix averages the channels.</summary>
     [Fact]
-    public void ResamplesAndMixes()
+    public void At_WithOtherRate_ResamplesAndMixes()
     {
+        // Arrange
         StereoAudio mono = Tone(1.0);
         StereoAudio stereo = new([1f, 0f], [0f, -1f], 8000);
 
+        // Act
         StereoAudio up = mono.At(16_000);
 
+        // Assert
         Assert.Same(mono, mono.At(8000));
         Assert.Equal(16_000, up.Length);
         Assert.Same(up.Left, up.Right);
@@ -33,21 +36,48 @@ public sealed class StereoAudioTests
         Assert.Equal([0.5f, -0.5f], stereo.ToMono().Samples.ToArray());
     }
 
-    /// <summary>The head is the first seconds of both channels, or the whole audio when it is shorter.</summary>
+    /// <summary>The head is the first seconds of both channels.</summary>
     [Fact]
-    public void HeadCutsBothChannels()
+    public void Head_WithSeconds_CutsBothChannels()
     {
-        StereoAudio mono = Tone(1.0);
-        StereoAudio stereo = new([1f, 2f, 3f, 4f], [5f, 6f, 7f, 8f], 4);
+        // Arrange
+        StereoAudio sut = new([1f, 2f, 3f, 4f], [5f, 6f, 7f, 8f], 4);
 
-        StereoAudio head = stereo.Head(0.5);
+        // Act
+        StereoAudio head = sut.Head(0.5);
 
+        // Assert
         Assert.Equal([1f, 2f], head.Left);
         Assert.Equal([5f, 6f], head.Right);
         Assert.Equal(0.5, head.Seconds);
-        Assert.Same(stereo, stereo.Head(2));
-        StereoAudio monoHead = mono.Head(0.25);
-        Assert.Same(monoHead.Left, monoHead.Right);
-        Assert.Equal(2000, monoHead.Length);
+    }
+
+    /// <summary>A head longer than the audio is the audio itself.</summary>
+    [Fact]
+    public void Head_WithSecondsPastEnd_ReturnsSameAudio()
+    {
+        // Arrange
+        StereoAudio sut = new([1f, 2f, 3f, 4f], [5f, 6f, 7f, 8f], 4);
+
+        // Act
+        StereoAudio head = sut.Head(2);
+
+        // Assert
+        Assert.Same(sut, head);
+    }
+
+    /// <summary>The head of mono audio stays mono: both channels are one array.</summary>
+    [Fact]
+    public void Head_WithMonoAudio_StaysMono()
+    {
+        // Arrange
+        StereoAudio sut = Tone(1.0);
+
+        // Act
+        StereoAudio head = sut.Head(0.25);
+
+        // Assert
+        Assert.Same(head.Left, head.Right);
+        Assert.Equal(2000, head.Length);
     }
 }

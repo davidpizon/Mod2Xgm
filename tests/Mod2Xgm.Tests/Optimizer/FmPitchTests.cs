@@ -19,15 +19,20 @@ public sealed class FmPitchTests
     [InlineData(3, 6, 3, 9, false)]
     [InlineData(1, 1, 1, 0, false)]
     [InlineData(0, 0, 0, 0, false)]
-    public void APatchKeepsThePitchWhenItsMultiplesShareNoFactor(int m1, int m2, int m3, int m4, bool keeps) =>
+    public void Keeps_WithCoprimeMultiples_ReturnsTrue(int m1, int m2, int m3, int m4, bool keeps)
+    {
+        // Act & Assert
         Assert.Equal(keeps, FmPitch.Keeps(Lead(m1, m2, m3, m4)));
+    }
 
     /// <summary>Silent operators don't count: a CH3 half is judged by its own two operators.</summary>
     [Fact]
-    public void SilentOperatorsDontCount()
+    public void Keeps_WithSilentOperators_IgnoresThem()
     {
+        // Act
         FmPatch half = Lead(1, 1, 2, 2) with { Operators = [.. Lead(1, 1, 2, 2).Operators.Select((o, i) => i < 2 ? o with { Tl = 127 } : o)] };
 
+        // Assert
         Assert.False(FmPitch.Keeps(half));
         Assert.Equal([1, 1, 1, 1], FmPitch.Normalized(half)!.Operators.Select(o => o.Mult));
     }
@@ -39,38 +44,75 @@ public sealed class FmPitchTests
     [Theory]
     [InlineData(4)]
     [InlineData(0)]
-    public void OperatorsBehindASilentCarrierDontCount(int algorithm)
+    public void Keeps_BehindSilentCarrier_IgnoresOperators(int algorithm)
     {
+        // Arrange
         FmPatch lead = Lead(3, 1, 2, 2) with { Algorithm = algorithm };
+
+        // Act
         FmPatch muted = lead with { Operators = [.. lead.Operators.Select((o, i) => i == 1 ? o with { Tl = 127 } : o)] };
 
+        // Assert
         Assert.True(FmPitch.Keeps(lead));
         Assert.False(FmPitch.Keeps(muted));
         Assert.Equal([3, 1, 1, 1], FmPitch.Normalized(muted)!.Operators.Select(o => o.Mult));
     }
 
-    /// <summary>Normalizing divides the shared factor out (½ counts as half a step), and gives up past multiple 15.</summary>
+    /// <summary>Normalizing a patch divides the shared factor out (½ counts as half a step), and the result keeps the pitch.</summary>
     [Theory]
     [InlineData(new[] { 2, 2, 2, 2 }, new[] { 1, 1, 1, 1 })]
     [InlineData(new[] { 3, 6, 3, 9 }, new[] { 1, 2, 1, 3 })]
     [InlineData(new[] { 0, 1, 1, 3 }, new[] { 1, 2, 2, 6 })]
     [InlineData(new[] { 1, 2, 4, 1 }, new[] { 1, 2, 4, 1 })]
-    public void NormalizingDividesTheSharedFactorOut(int[] mults, int[] expected)
+    public void Normalized_WithSharedFactor_DividesItOut(int[] mults, int[] expected)
     {
-        FmPatch normalized = FmPitch.Normalized(Lead(mults))!;
+        // Act
+        FmPatch? normalized = FmPitch.Normalized(Lead(mults));
 
+        // Assert
+        Assert.NotNull(normalized);
         Assert.Equal(expected, normalized.Operators.Select(o => o.Mult));
         Assert.True(FmPitch.Keeps(normalized));
+    }
+
+    /// <summary>Normalizing a structure divides the same factor out.</summary>
+    [Theory]
+    [InlineData(new[] { 2, 2, 2, 2 }, new[] { 1, 1, 1, 1 })]
+    [InlineData(new[] { 3, 6, 3, 9 }, new[] { 1, 2, 1, 3 })]
+    [InlineData(new[] { 0, 1, 1, 3 }, new[] { 1, 2, 2, 6 })]
+    [InlineData(new[] { 1, 2, 4, 1 }, new[] { 1, 2, 4, 1 })]
+    public void Normalized_WithStructure_DividesFactorOut(int[] mults, int[] expected)
+    {
+        // Arrange
         FmStructure structure = new(4, 0, mults[0], mults[1], mults[2], mults[3], FmStructure.DefaultModulatorTl);
-        Assert.Equal(expected, FmPitch.Normalized(structure) is { } s ? [s.Mult1, s.Mult2, s.Mult3, s.Mult4] : null);
+
+        // Act
+        FmStructure? normalized = FmPitch.Normalized(structure);
+
+        // Assert
+        Assert.Equal(expected, normalized is { } s ? [s.Mult1, s.Mult2, s.Mult3, s.Mult4] : null);
     }
 
     /// <summary>A ½ beside a multiple above 7 can't be doubled onto the grid, so there is no normalized patch.</summary>
     [Fact]
-    public void NormalizingGivesUpPastFifteen()
+    public void Normalized_PastFifteen_GivesUp()
     {
-        Assert.Null(FmPitch.Normalized(Lead(0, 8, 1, 1)));
-        Assert.Null(FmPitch.Normalized(new FmStructure(4, 0, 0, 8, 1, 1, FmStructure.DefaultModulatorTl)));
+        // Act
+        FmPatch? normalized = FmPitch.Normalized(Lead(0, 8, 1, 1));
+
+        // Assert
+        Assert.Null(normalized);
+    }
+
+    /// <summary>The same goes for a structure.</summary>
+    [Fact]
+    public void Normalized_WithStructurePastFifteen_GivesUp()
+    {
+        // Act
+        FmStructure? normalized = FmPitch.Normalized(new FmStructure(4, 0, 0, 8, 1, 1, FmStructure.DefaultModulatorTl));
+
+        // Assert
+        Assert.Null(normalized);
     }
 
     /// <summary>
@@ -78,12 +120,16 @@ public sealed class FmPitchTests
     /// of OP1 from 1 to 2 would match it, and play every note an octave high.
     /// </summary>
     [Fact]
-    public void TheLevelFitNeverLeavesTheNotesPitch()
+    [Trait("Speed", "Slow")]
+    public void Fit_WithLevels_KeepsNotePitch()
     {
+        // Arrange
         FmEvaluator evaluator = new(FmTargets.Of(Lead(2, 2, 2, 2)));
 
+        // Act
         FmVoiceSetting fitted = FmLocalSearch.Refine(evaluator, new FmVoiceSetting(Lead(1, 2, 2, 2), null), false, false, 150);
 
+        // Assert
         Assert.True(FmPitch.Keeps(fitted.Patch), string.Join(' ', fitted.Patch.Operators.Select(o => o.Mult)));
     }
 }

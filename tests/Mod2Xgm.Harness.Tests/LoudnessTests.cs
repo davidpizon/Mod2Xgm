@@ -12,15 +12,18 @@ public sealed class LoudnessTests
 {
     /// <summary>BS.1770's calibration: a full-scale 997 Hz sine in one channel of a stereo pair reads −3.01 LUFS.</summary>
     [Fact]
-    public void AFullScaleSineInOneChannelReadsMinus3Lufs()
+    public void Of_WithFullScaleSineInOneChannel_ReadsMinus3Lufs()
     {
+        // Arrange
         StereoAudio tone = TestFiles.Tone(5, 48_000, 997, 1f);
         StereoAudio left = new(tone.Left, new float[tone.Length], tone.SampleRate);
 
-        Loudness loudness = Loudness.Of(left);
+        // Act
+        Loudness sut = Loudness.Of(left);
 
-        Assert.Equal(-3.01, loudness.IntegratedLufs ?? double.NaN, 2);
-        Assert.Equal(0, loudness.TruePeakDbtp ?? double.NaN, 1);
+        // Assert
+        Assert.Equal(-3.01, sut.IntegratedLufs ?? double.NaN, 2);
+        Assert.Equal(0, sut.TruePeakDbtp ?? double.NaN, 1);
     }
 
     /// <summary>
@@ -28,41 +31,50 @@ public sealed class LoudnessTests
     /// integrated loudness drops only by the few blocks that straddle the end of the tone.
     /// </summary>
     [Fact]
-    public void SilenceIsGatedOut()
+    public void GatedLufs_WithSilence_GatesItOut()
     {
+        // Arrange
         StereoAudio tone = TestFiles.Tone(5, 44_100, 440, 0.25f);
         float[] padded = [.. tone.Left, .. new float[tone.Length]];
-
         Loudness alone = Loudness.Of(tone);
+
+        // Act
         Loudness withSilence = Loudness.Of(new StereoAudio(padded, padded, tone.SampleRate));
 
+        // Assert
         Assert.InRange((alone.IntegratedLufs - withSilence.IntegratedLufs) ?? double.NaN, 0, 0.2);
         Assert.Equal(20 * Math.Log10(0.25), withSilence.TruePeakDbtp ?? double.NaN, 1);
     }
 
     /// <summary>Silent audio has no loudness and no peak, rather than −∞.</summary>
     [Fact]
-    public void SilenceHasNoLoudness()
+    public void Of_WithSilence_HasNoLoudness()
     {
+        // Arrange
         float[] silence = new float[44_100];
 
-        Loudness loudness = Loudness.Of(new StereoAudio(silence, silence, 44_100));
+        // Act
+        Loudness sut = Loudness.Of(new StereoAudio(silence, silence, 44_100));
 
-        Assert.Null(loudness.IntegratedLufs);
-        Assert.Null(loudness.TruePeakDbtp);
+        // Assert
+        Assert.Null(sut.IntegratedLufs);
+        Assert.Null(sut.TruePeakDbtp);
         Assert.Null(Loudness.GatedLufs(new AudioSignal(silence, 44_100)));
-        Assert.Null(new LoudnessComparison(loudness, Loudness.Of(TestFiles.Tone(1))).DifferenceLu);
+        Assert.Null(new LoudnessComparison(sut, Loudness.Of(TestFiles.Tone(1))).DifferenceLu);
     }
 
     /// <summary>A mono meter reads one channel: 3.01 LU below the same signal in both channels of a stereo meter.</summary>
     [Fact]
-    public void MonoReadsOneChannel()
+    public void Of_WithMono_ReadsOneChannel()
     {
+        // Arrange
         StereoAudio tone = TestFiles.Tone(2, 44_100, 1000);
 
+        // Act
         double stereo = Loudness.Of(tone).IntegratedLufs ?? double.NaN;
-        double mono = Loudness.GatedLufs(tone.ToMono()) ?? double.NaN;
 
+        // Assert
+        double mono = Loudness.GatedLufs(tone.ToMono()) ?? double.NaN;
         Assert.Equal(stereo - 3.01, mono, 2);
     }
 
@@ -77,8 +89,9 @@ public sealed class LoudnessTests
     [InlineData(44_100)]
     [InlineData(48_000)]
     [InlineData(22_050)]
-    public void BalanceLevelsMatchMomentaryLoudness(int rate)
+    public void Of_WithBalanceLevels_MatchesMomentaryLoudness(int rate)
     {
+        // Arrange
         int window = (int)(0.4 * rate);
         float[] samples = new float[window];
         for (int i = 0; i < window; i++)
@@ -86,12 +99,13 @@ public sealed class LoudnessTests
             double t = (double)i / rate;
             samples[i] = (float)((0.3 * Math.Sin(2 * Math.PI * 30 * t)) + (0.2 * Math.Sin(2 * Math.PI * 1000 * t)) + (0.2 * Math.Sin(2 * Math.PI * 6000 * t)));
         }
-
         using LoudnessMeter meter = new(1, rate, LoudnessModes.Momentary);
         meter.AddFrames(samples.AsSpan());
 
+        // Act
         double level = BalanceMetrics.Levels(new AudioSignal(samples, rate), window)[0];
 
+        // Assert
         Assert.InRange(level - 0.691 - meter.MomentaryLoudness, -0.3, 0);
     }
 }
