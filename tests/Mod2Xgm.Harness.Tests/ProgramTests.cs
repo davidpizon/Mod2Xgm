@@ -50,7 +50,7 @@ public sealed class ProgramTests
         // Act
         HarnessOptions options = Parse(
             "a.mod", "songs", "-o", "out", "--rate", "22050", "--libopenmpt", "lib", "--furnace", "f.exe", "--no-furnace",
-            "--deflemask-wavs", "wavs", "--no-deflemask", "--save-reference-wavs", "--clip", "30", "--balance", "--ch3", "--cache-dir", "cache", "-j", "3", "-v");
+            "--deflemask-wavs", "wavs", "--no-deflemask", "--save-reference-wavs", "--clip", "30", "--balance", "--ch3", "--drop-clues", "--cache-dir", "cache", "-j", "3", "-v");
 
         // Assert
         Assert.Equal(["a.mod", "songs"], options.Inputs);
@@ -65,6 +65,7 @@ public sealed class ProgramTests
         Assert.Equal(30, options.ClipSeconds);
         Assert.True(options.Balance);
         Assert.True(options.Ch3);
+        Assert.True(options.DropClues);
         Assert.Equal("cache", options.CacheDirectory);
         Assert.True(Parse("--no-cache").NoCache);
         Assert.True(options.Verbose);
@@ -143,6 +144,10 @@ public sealed class ProgramTests
         Assert.Equal(0, Program.Report([good], options with { Ch3 = true }, "ref", Logger.None));
         Assert.True(File.Exists(temp.Combine("out", "locked-pairs.csv")));
         Assert.True(File.Exists(temp.Combine("out", "ch3-fit.csv")));
+        Assert.False(File.Exists(temp.Combine("out", "drop-clues.csv")));
+        Assert.Equal(0, Program.Report([good], options with { DropClues = true }, "ref", Logger.None));
+        Assert.True(File.Exists(temp.Combine("out", "drop-clues.csv")));
+        Assert.True(File.Exists(temp.Combine("out", "track-levels.csv")));
     }
 
     /// <summary>A whole run with the real libopenmpt and no candidate renderers (skipped where libopenmpt isn't installed).</summary>

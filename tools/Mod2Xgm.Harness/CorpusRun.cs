@@ -45,6 +45,7 @@ namespace Mod2Xgm.Harness;
 /// <paramref name="fmFit"/> made them (docs/adr/0073-ch3-locked-pairs.md); <c>null</c> to skip.
 /// </param>
 /// <param name="cache">Where candidates made before are found and new ones kept (docs/adr/0074-candidate-cache.md); <c>null</c> to make every one.</param>
+/// <param name="dropClues">Also find which tracks of every song are cheap to drop (docs/adr/0084-drop-clues.md).</param>
 internal sealed class CorpusRun(
     string outputDirectory,
     int sampleRate,
@@ -59,7 +60,8 @@ internal sealed class CorpusRun(
     bool pcmFit = false,
     bool preMix = false,
     FmFitOptions? ch3 = null,
-    CandidateCache? cache = null)
+    CandidateCache? cache = null,
+    bool dropClues = false)
 {
     /// <summary>The step id of the song at <paramref name="modPath"/> (docs/cli-output.md#the-harness).</summary>
     public static string PhaseId(string modPath) => "song:" + Path.GetFileNameWithoutExtension(modPath);
@@ -145,6 +147,7 @@ internal sealed class CorpusRun(
                 PcmFits = FitPcm(name, analysis),
                 PreMixFits = FitPreMix(name, analysis),
                 Ch3Fit = FitCh3(name, analysis, fmFits),
+                DropClues = dropClues && analysis is not null ? DropClues.Find(analysis) : null,
             };
         }
         catch (Exception ex) when (ex is HarnessException or ConversionException or IOException)

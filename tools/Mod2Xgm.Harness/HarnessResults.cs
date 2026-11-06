@@ -236,4 +236,7 @@ internal sealed record SongResult(string Song, DurationCheck? Duration, int Conv
 
     /// <summary>The locked pairs and CH3 candidates (<c>--ch3</c>, docs/adr/0073-ch3-locked-pairs.md); <c>null</c> when not asked for.</summary>
     public Ch3SongFit? Ch3Fit { get; init; }
+
+    /// <summary>The clues to which tracks are cheap to drop (<c>--drop-clues</c>, docs/adr/0084-drop-clues.md); <c>null</c> when not asked for.</summary>
+    public DropClues? DropClues { get; init; }
 }
