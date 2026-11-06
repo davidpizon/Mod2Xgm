@@ -110,8 +110,8 @@ at 59 %, isn't marked). No corpus song doubles a track on the same side.
   from. M9 can be stricter, since the exact share is kept.
 - **One grade per track:** fixes the weights before M9 exists and hides why a track was marked.
 - **Clues per section:** more work now; keeping the note lists leaves it open.
-- **Removing the buried clue, as nothing proved it safe:** the plan asks for it, and as a hint of what to try first it costs
-  little. If M9 finds it misleads, it can go.
+- **Removing the buried clue, as nothing proved it safe:** David chose to keep it as a hint, knowing he heard every track it
+  tried. As a hint of what to try first it costs little. If M9 finds it misleads, it can go.
 
 ## Consequences
 
