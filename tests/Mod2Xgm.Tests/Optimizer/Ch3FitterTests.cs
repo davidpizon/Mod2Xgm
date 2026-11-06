@@ -91,6 +91,7 @@ public sealed class Ch3FitterTests
 
     /// <summary>The voices of the candidate keep only their own half sounding.</summary>
     [Fact]
+    [Trait("Speed", "Slow")]
     public void Fit_WithPair_SoundsEachVoiceOnItsHalf()
     {
         // Act
@@ -200,6 +201,7 @@ public sealed class Ch3FitterTests
 
     /// <summary>The report logs a line per candidate and a summary at Debug level.</summary>
     [Fact]
+    [Trait("Speed", "Slow")]
     public void Log_WithCandidates_LogsEach()
     {
         // Arrange

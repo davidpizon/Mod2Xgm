@@ -32,6 +32,7 @@ public sealed class PsgFitterTests
 
     /// <summary>Every region gets the tone, the noise at every fixed rate in both modes, the tuned hiss and the tuned buzz.</summary>
     [Fact]
+    [Trait("Speed", "Slow")]
     public void Fit_WithRegion_MakesEveryTry()
     {
         // Act
@@ -176,6 +177,7 @@ public sealed class PsgFitterTests
 
     /// <summary>The report logs one Debug line per region with the tone, the best noise and the best that fits.</summary>
     [Fact]
+    [Trait("Speed", "Slow")]
     public void Log_WithRegions_LogsEach()
     {
         // Arrange

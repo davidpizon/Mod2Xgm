@@ -91,6 +91,7 @@ public sealed class FmFitterTests
 
     /// <summary>The report logs one Debug line per region with the library's, both searches' and the best's distances.</summary>
     [Fact]
+    [Trait("Speed", "Slow")]
     public void Log_WithRegions_LogsEach()
     {
         // Arrange

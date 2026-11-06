@@ -33,8 +33,7 @@ many fast tests (goldens, probes) that a pull request should keep running.
 
 ## Consequences
 
-- In local runs `Mod2Xgm.Tests` went from 4m17s to about 23 s (1m42s with coverage), and `Mod2Xgm.Harness.Tests` from
-  1m06s to about 10 s.
+- In local runs `Mod2Xgm.Tests` went from 4m17s to about 34 s, and `Mod2Xgm.Harness.Tests` from 1m06s to about 14 s.
 - A pull request can break a long-running test and still be green; the break then shows up on `main` or in the night's
   run. After changing what those tests cover, run them before opening the PR or start the workflow on the branch.
 - The coverage number on a pull request is a little lower than on `main`, because it leaves those tests out. The

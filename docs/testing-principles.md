@@ -166,8 +166,9 @@ dotnet test --project tests/Mod2Xgm.Tests -- --filter-not-trait "Category=Integr
 
 **A test that takes 5 seconds or more** carries `[Trait("Speed", "Slow")]` on the method, whether it does I/O or
 only heavy computing (most are FM fits). Pull request CI skips them; they run on pushes to `main`, every night and on
-demand ([ADR 0082](adr/0082-defer-slow-tests-in-pr-ci.md)). Make a test faster before tagging it. Run what a pull
-request runs with:
+demand ([ADR 0082](adr/0082-defer-slow-tests-in-pr-ci.md)). Make a test faster before tagging it. Tag every test that
+reads a shared `Lazy` fit too, not just the one measured slow: whichever runs first pays for the fit, so with the others
+filtered out an untagged one would take its full time. Run what a pull request runs with:
 
 ```
 dotnet test -- --filter-not-trait "Speed=Slow"
