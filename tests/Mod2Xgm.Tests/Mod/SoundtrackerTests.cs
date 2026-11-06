@@ -446,7 +446,7 @@ public sealed class SoundtrackerTests
         ModBuilder sut = Soundtracker().WithSample(16, "s", 64);
 
         // Act & Assert
-        Assert.Throws<InvalidOperationException>(() => sut.Build());
+        Assert.Throws<InvalidOperationException>(sut.Build);
     }
 
     /// <summary>A 15-sample builder whose byte 471 holds 120, as Soundtracker files do.</summary>
