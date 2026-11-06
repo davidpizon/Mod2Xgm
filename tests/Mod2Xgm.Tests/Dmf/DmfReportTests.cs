@@ -10,6 +10,7 @@ namespace Mod2Xgm.Tests.Dmf;
 /// each FM patch with every sample it stands in for, the noise instruments, and each DAC sample copy with its rate, size,
 /// start point and loudness. Songs are MODs built in code and run through the real pipeline (<see cref="DmfConversion"/>).
 /// </summary>
+[Trait("Category", "Integration")]
 public sealed class DmfReportTests
 {
     /// <summary>ProTracker period of C-2 (finetune 0).</summary>
@@ -46,12 +47,15 @@ public sealed class DmfReportTests
 
     /// <summary>The summary counts what the file holds; one line follows per instrument, then per DAC sample, in file order.</summary>
     [Fact]
-    public void ListsEveryInstrumentAndSampleWithItsSource()
+    public void Lines_WithSong_ListsInstrumentsAndSamplesWithSources()
     {
+        // Arrange
         DmfConversion.Result result = Convert();
 
+        // Act
         IReadOnlyList<string> lines = DmfReport.Lines(result.Built, result.Song);
 
+        // Assert
         Assert.Equal(
             [
                 "Output (DMF): 1 FM instrument, 1 PSG noise instrument, 3 DAC samples, 13 KB PCM",
@@ -66,10 +70,12 @@ public sealed class DmfReportTests
 
     /// <summary>The sources match the file: one per instrument and one per sample, with the names the builder gave them.</summary>
     [Fact]
-    public void SourcesMatchTheFile()
+    public void Lines_WithBuiltSong_NamesFileSources()
     {
+        // Act
         DmfConversion.Result result = Convert();
 
+        // Assert
         Assert.Equal(result.File.Instruments.Count, result.Built.Instruments.Count);
         Assert.Equal(result.File.Samples.Count, result.Built.Samples.Count);
         Assert.Equal([VoiceKind.Fm, VoiceKind.PsgNoise], result.Built.Instruments.Select(i => i.Kind));
@@ -78,22 +84,27 @@ public sealed class DmfReportTests
 
     /// <summary>A song with nothing to play says so in the summary and lists no instruments; one copy needs no plural.</summary>
     [Fact]
-    public void AnEmptySongListsNothing()
+    public void Lines_WithEmptySong_ListsNothing()
     {
+        // Act
         DmfConversion.Result result = DmfConversion.Convert(new ModBuilder().Build());
 
+        // Assert
         Assert.Equal(["Output (DMF): 0 FM instruments, 0 PSG noise instruments, 0 DAC samples, 0 KB PCM"], DmfReport.Lines(result.Built, result.Song));
     }
 
     /// <summary>Each line is logged as a property at <c>Information</c>, so braces in names are printed, not read as holes.</summary>
     [Fact]
-    public void LinesAreLoggedAsTheyAre()
+    public void Log_WithLines_LogsThemUnchanged()
     {
+        // Arrange
         DmfConversion.Result result = Convert();
         CollectingSink sink = new();
 
+        // Act
         DmfReport.Log(sink.CreateLogger(), result.Built, result.Song);
 
+        // Assert
         Assert.Equal(DmfReport.Lines(result.Built, result.Song), sink.Messages(LogEventLevel.Information));
     }
 }

@@ -9,6 +9,7 @@ namespace Mod2Xgm.Tests.Dmf;
 /// converter: each probe's MOD, its DMF, and a description of the DMF with the conversion notes. Run with
 /// <c>UPDATE_GOLDEN=1</c> to rewrite them after a change, then re-render the WAV files (README.md there).
 /// </summary>
+[Trait("Category", "Integration")]
 public sealed class DmfEffectProbeTests
 {
     /// <summary>The probe names, for the theories.</summary>
@@ -19,10 +20,13 @@ public sealed class DmfEffectProbeTests
     /// <summary>The checked-in MOD is what the probe builds, byte for byte.</summary>
     [Theory]
     [MemberData(nameof(Names))]
-    public void ModFileMatchesItsBuilder(string name)
+    public void All_ForProbe_MatchesCommittedMod(string name)
     {
+        // Arrange
         byte[] mod = DmfEffectProbes.All[name].Mod().Build();
         string path = Path.Combine(ProbeDirectory, name + ".mod");
+
+        // Act
         if (Environment.GetEnvironmentVariable("UPDATE_GOLDEN") == "1")
         {
             Directory.CreateDirectory(ProbeDirectory);
@@ -30,6 +34,7 @@ public sealed class DmfEffectProbeTests
             return;
         }
 
+        // Assert
         Assert.True(File.Exists(path), $"Probe {path} is missing. Run the tests with UPDATE_GOLDEN=1 to create it.");
         Assert.Equal(mod, File.ReadAllBytes(path));
     }
@@ -40,9 +45,12 @@ public sealed class DmfEffectProbeTests
     /// </summary>
     [Theory]
     [MemberData(nameof(Names))]
-    public void DmfFileMatchesTheConverter(string name)
+    public void Convert_ForProbe_MatchesCommittedDmf(string name)
     {
+        // Act
         DmfConversion.Result result = Convert(name);
+
+        // Assert
         string path = Path.Combine(ProbeDirectory, name + ".dmf");
         if (Environment.GetEnvironmentVariable("UPDATE_GOLDEN") == "1")
         {
@@ -50,7 +58,6 @@ public sealed class DmfEffectProbeTests
             File.WriteAllBytes(path, result.Bytes);
             return;
         }
-
         Assert.True(File.Exists(path), $"Probe {path} is missing. Run the tests with UPDATE_GOLDEN=1 to create it.");
         Assert.Equal(DmfReader.Decompress(result.Bytes), DmfReader.Decompress(File.ReadAllBytes(path)));
     }
@@ -58,16 +65,20 @@ public sealed class DmfEffectProbeTests
     /// <summary>Each probe's description and conversion notes (checked in next to it, for review) are current.</summary>
     [Theory]
     [MemberData(nameof(Names))]
-    public void ProbeIsDescribed(string name)
+    public void Describe_ForProbe_MatchesCommittedDescription(string name)
     {
+        // Arrange
         DmfConversion.Result result = Convert(name);
+
+        // Act
         StringBuilder text = new(DmfDescription.Describe(result.File));
+
+        // Assert
         text.Append("conversion notes:\n");
         foreach (string note in result.Notes)
         {
             text.Append("  ").Append(note).Append('\n');
         }
-
         Golden.Verify(Path.Combine("dmf-effect-probes", name + ".txt"), text.ToString());
     }
 

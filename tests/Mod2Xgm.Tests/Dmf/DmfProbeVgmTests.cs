@@ -7,6 +7,7 @@ namespace Mod2Xgm.Tests.Dmf;
 /// <c>tests/golden/dmf-probes/vgm/</c>: the chip writes that prove each rule in docs/formats/dmf.md, so the results
 /// don't rest on listening alone.
 /// </summary>
+[Trait("Category", "Integration")]
 public sealed class DmfProbeVgmTests
 {
     /// <summary>Allowed pitch error: 1 %, far below a semitone (6 %), well above F-number rounding.</summary>
@@ -30,10 +31,12 @@ public sealed class DmfProbeVgmTests
     /// algorithm 4. A-4 plays at 440 Hz and C-5 (note 12 of octave 4) at 523 Hz, 0.72 s (6 rows) later.
     /// </summary>
     [Fact]
-    public void FmNoteUsesRegisterOrderAndTheCRule()
+    public void Parse_ForFmNote_UsesRegisterOrderAndCRule()
     {
+        // Act
         VgmLog vgm = Vgm("fm-note");
 
+        // Assert
         Assert.Equal(0, vgm.Ym(0x48).Last().Value);
         int[] silent = [0x40, 0x44, 0x4C];
         Assert.All(silent, register => Assert.Equal(0x7F, vgm.Ym(register).Last().Value));
@@ -48,11 +51,13 @@ public sealed class DmfProbeVgmTests
     /// noise channel then gets white noise at a fixed rate (<c>2001</c>).
     /// </summary>
     [Fact]
-    public void PsgNotesSoundTwoOctavesAboveTheirName()
+    public void Parse_ForPsgNotes_SoundTwoOctavesAboveName()
     {
+        // Act
         VgmLog vgm = Vgm("psg-note");
-        int[] psg = [.. vgm.Events.Where(e => e.Chip == VgmChip.Sn76489).Select(e => e.Register)];
 
+        // Assert
+        int[] psg = [.. vgm.Events.Where(e => e.Chip == VgmChip.Sn76489).Select(e => e.Register)];
         int latch = Array.IndexOf(psg, 0x80); // channel 0 tone, low 4 bits 0
         int period = ((psg[latch + 1] & 0x3F) << 4) | (psg[latch] & 0x0F);
         Assert.Equal(64, period);
@@ -65,10 +70,12 @@ public sealed class DmfProbeVgmTests
     /// C#3 plays sample 1 at 8 kHz: rate codes 5 and 1. DefleMask stores the samples as 8-bit, one byte each.
     /// </summary>
     [Fact]
-    public void DacNotesPickSamplesAtTheirRate()
+    public void Parse_ForDacNotes_PicksSamplesAtRate()
     {
+        // Act
         VgmLog vgm = Vgm("dac-sample");
 
+        // Assert
         Assert.Contains(vgm.Ym(0x2B), e => e.Value == 0x80);
         Assert.Equal([12800, 3200], vgm.DataBlockSizes);
         Assert.Equal([32000, 32000, 8000], vgm.Stream(0x92).Select(e => BinaryPrimitives.ReadInt32LittleEndian(Data(e).AsSpan(1))));
@@ -78,10 +85,12 @@ public sealed class DmfProbeVgmTests
 
     /// <summary>Custom Hz "25" with speed 5: a row every 0.2 s, so the beeps on rows 0, 5, 10, 15 key on once a second.</summary>
     [Fact]
-    public void CustomHzSetsTheTickRate()
+    public void Parse_WithCustomHz_SetsTickRate()
     {
+        // Act
         VgmLog vgm = Vgm("custom-hz");
 
+        // Assert
         Assert.Equal([0.0, 1.0, 2.0, 3.0], KeyOns(vgm, 0));
         Assert.Equal(4 * (int)VgmLog.SampleRate, vgm.TotalSamples);
     }
@@ -91,11 +100,13 @@ public sealed class DmfProbeVgmTests
     /// (AD/A9, AE/AA, AC/A8, A6/A2) to C-4, E-4, G-4, C-5 and key them on one by one.
     /// </summary>
     [Fact]
-    public void ExtendedChannel3PlaysOneNotePerOperator()
+    public void Parse_ForExtendedChannel3_PlaysOneNotePerOperator()
     {
+        // Act
         VgmLog vgm = Vgm("ext-ch3");
-        int Row(int row) => (int)(row * 0.12 * VgmLog.SampleRate);
 
+        // Assert
+        int Row(int row) => (int)(row * 0.12 * VgmLog.SampleRate);
         Assert.Contains(vgm.Ym(0x27), e => e.Value == 0x40);
         AssertHz(261.63, vgm.FmHz(0xAD, 0xA9, Row(0)));
         AssertHz(329.63, vgm.FmHz(0xAE, 0xAA, Row(2)));

@@ -36,10 +36,12 @@ public sealed class PreMixerTests
 
     /// <summary>The kick over the bass is found each time; the bass goes on as a tail, or is baked to where the next cuts it.</summary>
     [Fact]
-    public void ARepeatedOverlapIsOfferedWithATailAndBaked()
+    public void Fit_WithRepeatedOverlap_OffersTailAndBaked()
     {
+        // Act
         PreMixSongFit fit = PreMixer.Fit(KickAndBass.Value, PcmTarget.Xgm);
 
+        // Assert
         PreMixCandidate tail = Assert.Single(fit.Candidates, c => c.End == PreMixEnd.Tail);
         Assert.Equal([0, 1], tail.Parts.Select(p => p.Sample));
         Assert.Equal([0, 0], tail.Parts.Select(p => p.OffsetTicks));
@@ -56,7 +58,6 @@ public sealed class PreMixerTests
         Assert.InRange(tail.Score.MelDb, 0, 6);
         Assert.NotNull(tail.Seam);
         Assert.Equal(0, tail.ClipDb);
-
         PreMixCandidate baked = Assert.Single(fit.Candidates, c => c.End == PreMixEnd.Baked);
         Assert.Equal(3, baked.Occurrences);
         Assert.Null(baked.Tail);
@@ -70,10 +71,12 @@ public sealed class PreMixerTests
 
     /// <summary>DMF's one DAC steals each bass from its kick; the pre-mixes give every note a voice, and the tail starts on the window's tick.</summary>
     [Fact]
-    public void OnDmfThePreMixesRemoveTheSteals()
+    public void Fit_OnDmf_RemovesSteals()
     {
+        // Act
         PreMixSongFit fit = PreMixer.Fit(KickAndBass.Value, PcmTarget.Dmf);
 
+        // Assert
         Assert.Equal(1, fit.Voices);
         Assert.Equal(4, fit.Steals);
         Assert.Equal(0, fit.StealsWithPreMix);
@@ -87,8 +90,9 @@ public sealed class PreMixerTests
 
     /// <summary>Three notes that sound together give every group of two and the three, on every target.</summary>
     [Fact]
-    public void EveryGroupOfOverlappingNotesIsOffered()
+    public void FitSong_WithOverlappingNotes_OffersEveryGroup()
     {
+        // Arrange
         SongAnalysis song = PcmSongs.Analyze(Rows(
             new ModBuilder()
                 .WithSample(1, "a", 1024, data: Kick)
@@ -99,7 +103,11 @@ public sealed class PreMixerTests
             (1, 2),
             (2, 3)).Build());
 
-        foreach (PreMixSongFit fit in PreMixer.FitSong(song))
+        // Act
+        IEnumerable<PreMixSongFit> fits = PreMixer.FitSong(song);
+
+        // Assert
+        Assert.All(fits, fit =>
         {
             Assert.Equal(
                 ["1+2", "1+2+3", "1+3", "2+3"],
@@ -107,13 +115,14 @@ public sealed class PreMixerTests
             Assert.All(fit.Candidates, c => Assert.Equal(PreMixEnd.None, c.End));
             Assert.All(fit.Candidates, c => Assert.Equal(2, c.Occurrences));
             Assert.Equal(4, fit.Overlaps / 2);
-        }
+        });
     }
 
     /// <summary>Two drums that each overlap a long note but not each other make two windows, never one with a gap.</summary>
     [Fact]
-    public void AGapMakesTwoWindows()
+    public void Fit_WithGap_MakesTwoWindows()
     {
+        // Arrange
         ModBuilder mod = new ModBuilder()
             .WithSample(1, "kick", 512, data: Kick)
             .WithSample(2, "pad", 64, loopStart: 0, loopLength: 64, data: i => (sbyte)(Math.Sin(i * 2 * Math.PI / 64) * 50))
@@ -124,10 +133,12 @@ public sealed class PreMixerTests
                 .WithCell(0, row: row, channel: 1, sample: 2, period: 428)
                 .WithCell(0, row: row + 4, channel: 2, sample: 3, period: 428);
         }
-
         SongAnalysis song = PcmSongs.Analyze(mod.WithCell(0, row: 32, channel: 1, sample: 2, period: 0, effect: 0xC, parameter: 0).Build());
+
+        // Act
         PreMixSongFit fit = PreMixer.Fit(song, PcmTarget.Xgm2);
 
+        // Assert
         Assert.DoesNotContain(fit.Candidates, c => c.Parts.Count > 2);
         Assert.DoesNotContain(fit.Candidates, c => PreMixReport.Samples(c) == "1+3");
         PreMixCandidate snare = Assert.Single(fit.Candidates, c => PreMixReport.Samples(c) == "2+3");
@@ -138,8 +149,9 @@ public sealed class PreMixerTests
 
     /// <summary>A snare that starts on the tick the kick stops, over a pad, is no gap: two notes sound all along, so the three make one window.</summary>
     [Fact]
-    public void ANoteHandingOverToAnotherOverAPadIsOneWindow()
+    public void Fit_WithHandoverOverPad_MakesOneWindow()
     {
+        // Arrange
         ModBuilder mod = new ModBuilder()
             .WithSample(1, "kick", 64, loopStart: 0, loopLength: 64, data: i => (sbyte)(i < 32 ? 60 : -60))
             .WithSample(2, "pad", 64, loopStart: 0, loopLength: 64, data: i => (sbyte)(Math.Sin(i * 2 * Math.PI / 64) * 50))
@@ -150,10 +162,12 @@ public sealed class PreMixerTests
                 .WithCell(0, row: row, channel: 1, sample: 2, period: 428)
                 .WithCell(0, row: row + 1, channel: 0, sample: 3, period: 428);
         }
-
         SongAnalysis song = PcmSongs.Analyze(mod.Build());
+
+        // Act
         PreMixSongFit fit = PreMixer.Fit(song, PcmTarget.Xgm2);
 
+        // Assert
         PreMixCandidate three = Assert.Single(fit.Candidates, c => c.Parts.Count == 3);
         Assert.Equal("1+2+3", PreMixReport.Samples(three));
         Assert.Equal(2, three.Occurrences);
@@ -161,8 +175,9 @@ public sealed class PreMixerTests
 
     /// <summary>Two notes that play the same way until one stops go on as different tails depending on which one stops.</summary>
     [Fact]
-    public void WhichNoteGoesOnMakesADifferentCandidate()
+    public void Fit_WithOtherNoteGoingOn_MakesOtherCandidate()
     {
+        // Arrange
         ModBuilder mod = new ModBuilder()
             .WithSample(1, "square", 64, loopStart: 0, loopLength: 64, data: i => (sbyte)(i < 32 ? 50 : -50))
             .WithSample(2, "sine", 64, loopStart: 0, loopLength: 64, data: i => (sbyte)(Math.Sin(i * 2 * Math.PI / 64) * 50))
@@ -173,10 +188,12 @@ public sealed class PreMixerTests
                 .WithCell(0, row: row, channel: 1, sample: 2, period: 428)
                 .WithCell(0, row: row + 1, channel: stops, sample: 3, period: 428);
         }
-
         SongAnalysis song = PcmSongs.Analyze(mod.Build());
+
+        // Act
         PreMixSongFit fit = PreMixer.Fit(song, PcmTarget.Dmf);
 
+        // Assert
         PreMixCandidate[] pairs = [.. fit.Candidates.Where(c => PreMixReport.Samples(c) == "1+2" && c.End == PreMixEnd.Tail)];
         Assert.Equal([0, 1], pairs.Select(c => c.Tail!.Sample).Order());
         Assert.All(pairs, c => Assert.Equal(1, c.Occurrences));
@@ -184,8 +201,9 @@ public sealed class PreMixerTests
 
     /// <summary>A one-shot that outlasts the window's tick but runs out before the next frame has no tail: the pre-mix holds it to its end.</summary>
     [Fact]
-    public void ANoteThatRunsOutBeforeTheSwitchHasNoTail()
+    public void Fit_WithNoteEndingBeforeSwitch_HasNoTail()
     {
+        // Arrange
         // At C-2 (8287 Hz) the kick ends in tick 3 (0.058 s); the bass outlasts that tick but runs out at 0.065 s, before the 0.067 s frame.
         SongAnalysis song = PcmSongs.Analyze(Rows(
             new ModBuilder()
@@ -195,8 +213,10 @@ public sealed class PreMixerTests
             (0, 1),
             (1, 2)).Build());
 
+        // Act
         PreMixSongFit fit = PreMixer.Fit(song, PcmTarget.Xgm);
 
+        // Assert
         PreMixCandidate mix = Assert.Single(fit.Candidates);
         Assert.Equal(PreMixEnd.None, mix.End);
         Assert.Null(mix.Tail);
@@ -205,8 +225,9 @@ public sealed class PreMixerTests
 
     /// <summary>A loud mix is turned down so it doesn't clip, by how much it went over: two full squares are at least twice full scale, more where the resampler rings.</summary>
     [Fact]
-    public void ALoudMixIsTurnedDown()
+    public void Fit_WithLoudMix_TurnsItDown()
     {
+        // Act
         SongAnalysis song = PcmSongs.Analyze(Rows(
             new ModBuilder()
                 .WithSample(1, "square", 1024, data: i => (sbyte)(i % 64 < 32 ? 127 : -128))
@@ -215,36 +236,70 @@ public sealed class PreMixerTests
             (0, 1),
             (1, 2)).Build());
 
+        // Assert
         PreMixCandidate mix = Assert.Single(PreMixer.Fit(song, PcmTarget.Xgm).Candidates);
-
         Assert.InRange(mix.ClipDb, 6, 9);
     }
 
-    /// <summary>An overlap played once is offered only where it saves a voice steal, and samples kept out never go into one.</summary>
-    [Fact]
-    public void OnceOnlyWhereItSavesAStealAndKeptOutSamplesNever()
-    {
-        SongAnalysis song = PcmSongs.Analyze(Rows(
-            new ModBuilder()
-                .WithSample(1, "kick", 1024, data: Kick)
-                .WithSample(2, "hat", 1024, data: i => (sbyte)((i * 37 % 255) - 127)),
-            [0],
-            (0, 1),
-            (1, 2)).Build());
+    /// <summary>A song with one overlap of a kick and a hat, played once.</summary>
+    private static SongAnalysis OneOverlap() => PcmSongs.Analyze(Rows(
+        new ModBuilder()
+            .WithSample(1, "kick", 1024, data: Kick)
+            .WithSample(2, "hat", 1024, data: i => (sbyte)((i * 37 % 255) - 127)),
+        [0],
+        (0, 1),
+        (1, 2)).Build());
 
-        Assert.Empty(PreMixer.Fit(song, PcmTarget.Xgm).Candidates);
-        Assert.Single(PreMixer.Fit(song, PcmTarget.Dmf).Candidates);
-        PreMixSongFit kept = PreMixer.Fit(song, PcmTarget.Dmf, new HashSet<int> { 1 });
-        Assert.Empty(kept.Candidates);
-        Assert.Equal(1, kept.PcmNotes);
-        Assert.Equal(0, kept.Steals);
+    /// <summary>An overlap played once is not offered where it saves no voice steal: XGM has the voices.</summary>
+    [Fact]
+    public void Fit_WithSingleOverlapAndVoicesFree_OffersNothing()
+    {
+        // Arrange
+        SongAnalysis song = OneOverlap();
+
+        // Act
+        PreMixSongFit fit = PreMixer.Fit(song, PcmTarget.Xgm);
+
+        // Assert
+        Assert.Empty(fit.Candidates);
+    }
+
+    /// <summary>An overlap played once is offered where it saves a voice steal: DMF has one voice.</summary>
+    [Fact]
+    public void Fit_WithSingleOverlapSavingSteal_OffersIt()
+    {
+        // Arrange
+        SongAnalysis song = OneOverlap();
+
+        // Act
+        PreMixSongFit fit = PreMixer.Fit(song, PcmTarget.Dmf);
+
+        // Assert
+        Assert.Single(fit.Candidates);
+    }
+
+    /// <summary>Samples kept out never go into a pre-mix, and their notes don't count.</summary>
+    [Fact]
+    public void Fit_WithKeptOutSample_LeavesItOut()
+    {
+        // Arrange
+        SongAnalysis song = OneOverlap();
+
+        // Act
+        PreMixSongFit fit = PreMixer.Fit(song, PcmTarget.Dmf, new HashSet<int> { 1 });
+
+        // Assert
+        Assert.Empty(fit.Candidates);
+        Assert.Equal(1, fit.PcmNotes);
+        Assert.Equal(0, fit.Steals);
     }
 
     /// <summary>A candidate bigger than the song's whole PCM budget is never offered, on every target; one that just fits is.</summary>
     [Fact]
     [Trait("Speed", "Slow")]
-    public void ACandidateOverTheBudgetIsNeverOffered()
+    public void Fit_WithCandidateOverBudget_NeverOffersIt()
     {
+        // Act
         foreach (PcmTarget target in PcmTargets.All)
         {
             PreMixSongFit all = PreMixer.Fit(KickAndBass.Value, target);
@@ -258,18 +313,22 @@ public sealed class PreMixerTests
             }
         }
 
+        // Assert
         Assert.Throws<ArgumentOutOfRangeException>(() => PreMixer.Fit(KickAndBass.Value, PcmTarget.Xgm, maxPcmBytes: 0));
     }
 
     /// <summary>The report logs a line per target and one per candidate.</summary>
     [Fact]
-    public void TheReportLogsEveryTargetAndCandidate()
+    public void Log_WithCandidates_LogsTargetsAndCandidates()
     {
+        // Arrange
         CollectingSink sink = new();
         PreMixSongFit fit = PreMixer.Fit(KickAndBass.Value, PcmTarget.Xgm);
 
+        // Act
         PreMixReport.Log(sink.CreateLogger(), [fit]);
 
+        // Assert
         Assert.Equal(1 + fit.Candidates.Count, sink.Events.Count(e => e.Level == LogEventLevel.Debug));
         Assert.Contains(sink.Messages(LogEventLevel.Debug), m => m.StartsWith("Pre-mix, xgm: 2 candidates (1 with a tail, 1 baked) from 4 overlaps of 8 PCM notes", StringComparison.Ordinal));
         Assert.Contains(sink.Messages(LogEventLevel.Debug), m => m.Contains("samples 1+2 (ticks 0+0) 4 times, tail", StringComparison.Ordinal));

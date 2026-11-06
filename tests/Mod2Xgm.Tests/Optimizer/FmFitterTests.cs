@@ -21,10 +21,10 @@ public sealed class FmFitterTests
     /// </summary>
     [Fact]
     [Trait("Speed", "Slow")]
-    public void FittedPatchesBeatTheLibrary()
+    public void Fit_WithSearches_BeatsLibrary()
     {
+        // Act & Assert
         FmRegionFit region = Assert.Single(SawFit.Value.Regions);
-
         Assert.True(region.FittedBeatsLibrary, $"library {region.Library.Score.MelDb} dB, fitted {region.Fitted?.Score.MelDb} dB");
         Assert.NotNull(region.Exhaustive);
         Assert.NotNull(region.Genetic);
@@ -39,12 +39,14 @@ public sealed class FmFitterTests
     /// <summary>Fitted patches are named after the sample and region; a fit is the same every time.</summary>
     [Fact]
     [Trait("Speed", "Slow")]
-    public void FitsAreNamedAndRepeatable()
+    public void Fit_Twice_IsNamedAndRepeatable()
     {
+        // Act
         FmSampleFit again = FmFitter.Fit(FmTargets.Analyze(FmTargets.Saw), Small);
+
+        // Assert
         FmRegionFit first = SawFit.Value.Regions[0];
         FmRegionFit second = again.Regions[0];
-
         Assert.Equal("saw", again.Name);
         Assert.Equal("Fit 1.1", first.Exhaustive!.Patch.Name);
         Assert.Equal(FmEvaluator.Key(first.Best.Patch, first.Best.LfoRate), FmEvaluator.Key(second.Best.Patch, second.Best.LfoRate));
@@ -55,14 +57,17 @@ public sealed class FmFitterTests
     /// <summary>One region per pitch region: a sample played two octaves apart gets two fits; a silent sample none.</summary>
     [Fact]
     [Trait("Speed", "Slow")]
-    public void EveryRegionWithSoundIsFitted()
+    public void Fit_WithSoundingRegions_FitsEach()
     {
+        // Arrange
         FmFitOptions exhaustiveOnly = Small with { Genetic = false, Lfo = false, SsgEg = false, MaxRenders = 20 };
         SampleAnalysis twoRegions = SampleAnalyzer.Analyze(2, FmTargets.Saw, [FmTargets.C2, FmTargets.C2 * 4]);
         SampleAnalysis silent = SampleAnalyzer.Analyze(3, new Sample("quiet", new float[64], new SampleLoop(0, 64)), [FmTargets.C2]);
 
+        // Act
         FmSampleFit fit = FmFitter.Fit(twoRegions, exhaustiveOnly);
 
+        // Assert
         Assert.Equal([0, 1], fit.Regions.Select(r => r.Region));
         Assert.Equal("Fit 3.2", fit.Regions[1].Exhaustive!.Patch.Name);
         Assert.All(fit.Regions, r => Assert.Null(r.Genetic));
@@ -71,10 +76,12 @@ public sealed class FmFitterTests
 
     /// <summary>With neither search, the library patch is the best and there is no fitted patch to beat it.</summary>
     [Fact]
-    public void WithoutSearchesTheLibraryWins()
+    public void Fit_WithoutSearches_UsesLibrary()
     {
+        // Act
         FmRegionFit region = FmFitter.FitRegion(0, FmTargets.Of(FmTargets.Saw), new FmFitOptions(Exhaustive: false, Genetic: false), "Fit");
 
+        // Assert
         Assert.Null(region.Fitted);
         Assert.False(region.FittedBeatsLibrary);
         Assert.Same(region.Library, region.Best);
@@ -84,12 +91,15 @@ public sealed class FmFitterTests
 
     /// <summary>The report logs one Debug line per region with the library's, both searches' and the best's distances.</summary>
     [Fact]
-    public void TheReportLogsEveryRegion()
+    public void Log_WithRegions_LogsEach()
     {
+        // Arrange
         CollectingSink sink = new();
 
+        // Act
         FmFitReport.Log(sink.CreateLogger(), [SawFit.Value, new FmSampleFit(5, "empty", [])]);
 
+        // Assert
         string line = Assert.Single(sink.Messages(LogEventLevel.Debug));
         Assert.StartsWith("Sample 1 \"saw\", region 1: library ", line, StringComparison.Ordinal);
         Assert.Contains("; exhaustive ", line, StringComparison.Ordinal);
@@ -100,11 +110,15 @@ public sealed class FmFitterTests
 
     /// <summary>A fit's settings read as text: structure, multiples, LFO and SSG-EG.</summary>
     [Fact]
-    public void SettingsReadAsText()
+    public void ToString_WithSettings_ReadsAsText()
     {
+        // Arrange
         FmPatch patch = FmPatchLibrary.Lead with { Fms = 2, Ams = 1, Operators = [FmPatchLibrary.Lead.Operators[0] with { SsgEg = 9 }, .. FmPatchLibrary.Lead.Operators.Skip(1)] };
+
+        // Act
         NoteScore score = new(1, 2, 3);
 
+        // Assert
         Assert.Equal("ALG 4 FB 5 MULT 1 1 2 2, LFO 3 FMS 2 AMS 1, SSG-EG", FmFitReport.Settings(new FmFit(patch, 3, FmFitSource.Genetic, score)));
         Assert.Equal("ALG 7 FB 0 MULT 1 1 1 1, no LFO", FmFitReport.Settings(new FmFit(FmPatchLibrary.Sine, null, FmFitSource.Library, score)));
         Assert.Equal(["library", "exhaustive", "genetic"], Enum.GetValues<FmFitSource>().Select(FmFitReport.SourceName));

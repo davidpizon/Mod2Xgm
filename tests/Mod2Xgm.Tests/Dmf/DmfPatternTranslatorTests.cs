@@ -11,6 +11,7 @@ namespace Mod2Xgm.Tests.Dmf;
 /// 0–7), and with looped samples on the DAC. Plans are made by the real pipeline and, where a MOD can't express the case,
 /// edited before timing.
 /// </summary>
+[Trait("Category", "Integration")]
 public sealed class DmfPatternTranslatorTests
 {
     private const int C2 = 428;
@@ -45,13 +46,15 @@ public sealed class DmfPatternTranslatorTests
     /// and restates the pan, which can't be known after a jump.
     /// </summary>
     [Fact]
-    public void WhereAJumpLandsRunningEffectsAreStopped()
+    public void Build_AtJumpTarget_StopsRunningEffects()
     {
+        // Act
         DmfConversion.Result result = DmfConversion.Convert(Song()
             .WithCell(0, 0, 0, Lead, C2)
             .WithCell(0, 63, 0, 0, 0, 0x4, 0x48)
             .Build());
 
+        // Assert
         Assert.Contains(result.Effects(GenesisChannel.Fm1, 63), e => e is { Code: 0x04, Value: > 0 });
         Assert.Contains((0x04, 0x00), result.Effects(GenesisChannel.Fm1, 0));
         Assert.Contains((0x08, 0x10), result.Effects(GenesisChannel.Fm1, 0));
@@ -59,13 +62,17 @@ public sealed class DmfPatternTranslatorTests
 
     /// <summary>A cell needing more than four effects keeps the most important four and says how many went.</summary>
     [Fact]
-    public void ACellKeepsItsFourMostImportantEffects()
+    public void Build_WithManyEffects_KeepsFourMostImportant()
     {
+        // Arrange
         Effect[] many = [new Arpeggio(3, 7), new Retrigger(2), new NoteCut(4), new Tremolo(4 / 64.0, 0.25), new SetVibratoWaveform(Waveform.Square, false)];
+
+        // Act
         DmfConversion.Result result = DmfConversion.Convert(
             Song().WithCell(0, 0, 0, Lead, C2).Build(),
             transform: Edit(GenesisChannel.Fm1, 0, cell => cell with { Effects = many }));
 
+        // Assert
         List<(int Code, int Value)> kept = result.Effects(GenesisChannel.Fm1, 0);
         Assert.Equal(4, kept.Count);
         Assert.Contains((0x08, 0x10), kept);
@@ -76,26 +83,32 @@ public sealed class DmfPatternTranslatorTests
 
     /// <summary>The vibrato waveform (<c>E4x</c>) becomes DefleMask's shape effect <c>E3xx</c>; a pan effect sets the side.</summary>
     [Fact]
-    public void VibratoShapeAndPanAreTranslated()
+    public void Build_WithVibratoShapeAndPan_TranslatesThem()
     {
+        // Act
         DmfConversion.Result result = DmfConversion.Convert(
             Song().WithCell(0, 0, 0, Lead, C2).Build(),
             transform: plan => Edit(GenesisChannel.Fm1, 2, cell => cell with { Effects = [new SetVibratoWaveform(Waveform.RampDown, false), new SetPan(1)], Source = 0 })(plan));
 
+        // Assert
         Assert.Contains((0xE3, 5), result.Effects(GenesisChannel.Fm1, 2));
         Assert.Contains((0x08, 0x01), result.Effects(GenesisChannel.Fm1, 2));
     }
 
     /// <summary>Effects with nothing playing, and effects with no DMF equivalent, are counted in notes.</summary>
     [Fact]
-    public void LeftOutEffectsAreCounted()
+    public void Build_WithEffectsLeftOut_CountsThem()
     {
+        // Arrange
         Effect[] untranslatable = [new SetGlissando(true), new SetTremoloWaveform(Waveform.Square, false), new InvertLoop(3), new UnsupportedEffect("E8x with x = 3"), new SampleOffset(256)];
+
+        // Act
         DmfConversion.Result result = DmfConversion.Convert(
             Song().WithCell(0, 0, 0, Lead, C2).Build(),
             transform: plan => Edit(GenesisChannel.Fm1, 1, cell => cell with { Effects = untranslatable, Source = 0 })(
                 Edit(GenesisChannel.Fm2, 1, cell => cell with { Effects = [new Retrigger(2)], Source = 1 })(plan)));
 
+        // Assert
         Assert.Contains(result.Notes, n => n.Contains("glissando (E3x)", StringComparison.Ordinal));
         Assert.Contains(result.Notes, n => n.Contains("tremolo waveform (E7x)", StringComparison.Ordinal));
         Assert.Contains(result.Notes, n => n.Contains("invert loop (EFx)", StringComparison.Ordinal));
@@ -106,14 +119,16 @@ public sealed class DmfPatternTranslatorTests
 
     /// <summary>A pattern delay longer than 255 ticks is cut to 255; a jump past the song's end goes to order 0.</summary>
     [Fact]
-    public void FlowLimitsGetNotes()
+    public void Build_PastFlowLimits_AddsNotes()
     {
+        // Act
         DmfConversion.Result result = DmfConversion.Convert(Song()
             .WithCell(0, 0, 0, Lead, C2, 0xF, 0x1F)
             .WithCell(0, 2, 0, 0, 0, 0xE, 0xEF)
             .WithCell(0, 4, 0, 0, 0, 0xB, 0x30)
             .Build());
 
+        // Assert
         Assert.Contains((0x09, 255), result.RowEffects(2));
         Assert.Contains((0x0B, 0), result.RowEffects(4));
         Assert.Contains(result.Notes, n => n.Contains("at most 255 ticks", StringComparison.Ordinal));
@@ -122,49 +137,57 @@ public sealed class DmfPatternTranslatorTests
 
     /// <summary>An FM note above octave 7 is moved down by octaves, with a note.</summary>
     [Fact]
-    public void FmNotesStayWithinDefleMasksOctaves()
+    public void Build_WithFmNote_StaysWithinOctaves()
     {
+        // Act
         DmfConversion.Result result = DmfConversion.Convert(
             Song().WithCell(0, 0, 0, Lead, C2).Build(),
             transform: Edit(GenesisChannel.Fm1, 0, cell => cell with { Note = new NotePitch(48, 0, 8287 * 64) }));
 
+        // Assert
         Assert.InRange(result.Cell(GenesisChannel.Fm1, 0).Octave, 0, 7);
         Assert.Contains(result.Notes, n => n.Contains("octaves 0–7", StringComparison.Ordinal));
     }
 
     /// <summary>A note with no measurable pitch is placed two octaves above its name: ProTracker C-2 is C-4.</summary>
     [Fact]
-    public void WithoutAPitchFmNotesMoveTwoOctaves()
+    public void Build_WithoutPitch_MovesFmNotesTwoOctaves()
     {
+        // Act
         DmfConversion.Result result = DmfConversion.Convert(
             Song().WithCell(0, 0, 0, Hiss, C2).Build(),
             MappingOptions.Default with { RequireFm = new HashSet<int> { Hiss - 1 } });
 
+        // Assert
         Assert.Contains(result.Notes, n => n.Contains("no clear pitch found", StringComparison.Ordinal));
     }
 
     /// <summary>FM6 playing FM after the DAC is switched back with <c>1700</c>.</summary>
     [Fact]
-    public void Fm6SwitchesBackFromTheDac()
+    public void Build_WithFmAfterDac_SwitchesFm6Back()
     {
+        // Act
         DmfConversion.Result result = DmfConversion.Convert(
             Song().WithCell(0, 0, 0, Drum, C2).WithCell(0, 4, 0, Lead, C2).Build(),
             transform: plan => Edit(GenesisChannel.Fm6, 8, _ => plan.Patterns[0][4].Cells[(int)GenesisChannel.Fm1])(plan));
 
+        // Assert
         Assert.Contains((0x17, 0x01), result.Effects(GenesisChannel.Fm6, 0));
         Assert.Contains((0x17, 0x00), result.Effects(GenesisChannel.Fm6, 8));
     }
 
     /// <summary>A DAC note started past its sample's end, or quieter than −45 dB, is silent: a note off.</summary>
     [Fact]
-    public void SilentDacNotesAreNoteOffs()
+    public void Build_WithSilentDacNote_WritesNoteOff()
     {
+        // Act
         DmfConversion.Result result = DmfConversion.Convert(Song()
             .WithCell(0, 0, 0, Drum, C2)
             .WithCell(0, 2, 0, Drum, C2, 0x9, 0x40)
             .WithCell(0, 4, 0, Drum, C2, 0xC)
             .Build());
 
+        // Assert
         Assert.Equal(100, result.Cell(GenesisChannel.Fm6, 2).Note);
         Assert.Equal(100, result.Cell(GenesisChannel.Fm6, 4).Note);
         Assert.Contains(result.Notes, n => n.Contains("start past their sample's end", StringComparison.Ordinal));
@@ -176,8 +199,9 @@ public sealed class DmfPatternTranslatorTests
     /// get a note.
     /// </summary>
     [Fact]
-    public void Past144CopiesTheNearestIsUsed()
+    public void Build_Past144Copies_UsesNearest()
     {
+        // Arrange
         // 15 start points × 11 loudnesses (64, 45, 32 … 2: one 3 dB step apart) = 165 copies of the drum. A row sets the
         // volume (Cxx) and the next plays the drum without an instrument, which keeps it, from a start point (9xx).
         int[] volumes = [64, 45, 32, 23, 16, 11, 8, 6, 4, 3, 2];
@@ -193,10 +217,12 @@ public sealed class DmfPatternTranslatorTests
                 at++;
             }
         }
-
         mod.WithCell(5, 60, 0, Long, C2);
+
+        // Act
         DmfConversion.Result result = DmfConversion.Convert(mod.Build());
 
+        // Assert
         Assert.Equal(DmfPatternTranslator.MaxDacNotes, result.File.Samples.Count);
         Assert.Equal(100, result.Cell(GenesisChannel.Fm6, 60, order: 5).Note);
         Assert.Contains(result.Notes, n => n.Contains("nearest existing copy", StringComparison.Ordinal));
@@ -205,12 +231,14 @@ public sealed class DmfPatternTranslatorTests
 
     /// <summary>A looped sample on the DAC (<c>--require-dac</c>) is played out as long as its longest note: here the whole song.</summary>
     [Fact]
-    public void LoopedDacSamplesArePlayedOutForTheirLongestNote()
+    public void Build_WithLoopedDacSample_PlaysOutLongestNote()
     {
+        // Act
         DmfConversion.Result result = DmfConversion.Convert(
             Song().WithCell(0, 0, 0, Lead, C2).Build(),
             MappingOptions.Default with { RequireDac = new HashSet<int> { 0 } });
 
+        // Assert
         DmfSample sample = Assert.Single(result.File.Samples);
         double seconds = sample.Data.Count / (double)sample.RateHz;
         Assert.InRange(seconds, 7.6, 7.8);
@@ -218,12 +246,14 @@ public sealed class DmfPatternTranslatorTests
 
     /// <summary>A looped DAC note held longer than 10 s is cut to 10 s, with a note.</summary>
     [Fact]
-    public void LongLoopedDacNotesAreCut()
+    public void Build_WithLongLoopedDacNote_CutsIt()
     {
+        // Act
         DmfConversion.Result result = DmfConversion.Convert(
             Song().WithOrders(0, 1).WithCell(0, 0, 0, Lead, C2).Build(),
             MappingOptions.Default with { RequireDac = new HashSet<int> { 0 } });
 
+        // Assert
         DmfSample sample = Assert.Single(result.File.Samples);
         Assert.InRange(sample.Data.Count / (double)sample.RateHz, 9.9, 10.1);
         Assert.Contains(result.Notes, n => n.Contains("holds its loop for", StringComparison.Ordinal));
@@ -231,19 +261,22 @@ public sealed class DmfPatternTranslatorTests
 
     /// <summary>A song longer than DMF's 127 orders keeps the first 127, with a note.</summary>
     [Fact]
-    public void MoreThan127OrdersAreCut()
+    public void Build_WithMoreThan127Orders_CutsThem()
     {
+        // Act
         DmfConversion.Result result = DmfConversion.Convert(
             Song().WithOrders([.. Enumerable.Repeat(0, 128)]).WithCell(0, 0, 0, Lead, C2).Build());
 
+        // Assert
         Assert.Equal(DmfSongBuilder.MaxMatrixRows, result.File.MatrixRows);
         Assert.Contains(result.Notes, n => n.Contains("DMF holds 127", StringComparison.Ordinal));
     }
 
     /// <summary>A plan without orders can't be written.</summary>
     [Fact]
-    public void APlanWithoutOrdersIsRefused()
+    public void Build_WithoutOrders_Throws()
     {
+        // Act & Assert
         Assert.Throws<ArgumentException>(() => DmfConversion.Convert(
             Song().WithCell(0, 0, 0, Lead, C2).Build(),
             transform: plan => plan with { Patterns = [] }));
@@ -251,13 +284,15 @@ public sealed class DmfPatternTranslatorTests
 
     /// <summary>The DMF ticks twice as fast as a 33 BPM MOD, so arpeggio steps are slowed with <c>E0xx</c> and tick counts doubled.</summary>
     [Fact]
-    public void AFasterDmfScalesTickEffects()
+    public void Build_WithFasterTickRate_ScalesTickEffects()
     {
+        // Act
         DmfConversion.Result result = DmfConversion.Convert(Song()
             .WithCell(0, 0, 0, Lead, C2, 0xF, 33)
             .WithCell(0, 1, 0, 0, 0, 0xE, 0xC2)
             .Build());
 
+        // Assert
         (int _, int factor) = result.RowEffects(0).Single(e => e.Code == 0xE0);
         Assert.True(factor > 1);
         Assert.Contains((0xEC, 2 * factor), result.Effects(GenesisChannel.Fm1, 1));

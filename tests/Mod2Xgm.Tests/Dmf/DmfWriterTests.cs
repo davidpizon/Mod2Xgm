@@ -37,8 +37,9 @@ public sealed class DmfWriterTests
 
     /// <summary>A small song spelled out byte by byte from DMF_SPECS.txt is written exactly so.</summary>
     [Fact]
-    public void HandSpelledFileFromTheSpec()
+    public void Serialize_WithHandSpelledSong_MatchesSpec()
     {
+        // Arrange
         List<byte> expected =
         [
             .. ".DelekDefleMask."u8,
@@ -60,9 +61,7 @@ public sealed class DmfWriterTests
                 ? [12, 0, 3, 0, 0x40, 0, 0x17, 0, 1, 0, 0, 0] // C-4 (note 12, octave 3), volume 40, 1701, instrument 0
                 : [0, 0, 0, 0, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]); // empty
         }
-
         expected.AddRange([1, 2, 0, 0, 0, 1, (byte)'s', 5, 5, 50, 16, 0xFF, 0x7F, 0x00, 0x80]); // sample "s": 32 kHz, 7FFF, 8000
-
         DmfCell note = new(12, 3, 0x40, [new DmfEffect(0x17, 1)], 0);
         DmfChannel[] channels =
         [
@@ -72,8 +71,10 @@ public sealed class DmfWriterTests
         DmfSample sample = new("s", 5, 5, 50, 16, null, null, [short.MaxValue, short.MinValue]);
         DmfFile file = new(24, DmfSystem.Genesis, "A", string.Empty, 4, 16, new DmfTiming(0, 6, 3, true, true, [], 125), 1, channels, [instrument], [], [sample], 0);
 
+        // Act
         (byte[] bytes, List<string> notes) = Serialize(file);
 
+        // Assert
         Assert.Equal([.. expected], bytes);
         Assert.Empty(notes);
     }
@@ -84,20 +85,24 @@ public sealed class DmfWriterTests
     /// </summary>
     [Theory]
     [MemberData(nameof(Names))]
-    public void ProbesAreWrittenByteForByte(string name)
+    public void Write_ForProbe_MatchesFileByteForByte(string name)
     {
+        // Arrange
         DmfBuilder builder = DmfProbes.All[name]();
         DmfFile probe = DmfReader.Read(builder.Build());
 
+        // Act
         byte[] written = DmfWriter.Write(probe, SilentNotes());
 
+        // Assert
         Assert.Equal(builder.BuildDecompressed(), DmfReader.Decompress(written));
     }
 
     /// <summary>A song using every section (both instrument kinds, a wavetable, effect columns, both sample sizes) survives write → read.</summary>
     [Fact]
-    public void EverySectionRoundTrips()
+    public void Write_WithEverySection_RoundTrips()
     {
+        // Arrange
         DmfBuilder builder = new()
         {
             System = (int)DmfSystem.GenesisExtendedChannel3,
@@ -124,8 +129,10 @@ public sealed class DmfWriterTests
             .WithSample(new DmfSample("small", 0, 4, 100, 8, null, null, [0, 128, 255]));
         DmfFile original = DmfReader.Read(builder.Build());
 
+        // Act
         DmfFile roundTripped = DmfReader.Read(DmfWriter.Write(original, SilentNotes()));
 
+        // Assert
         Assert.Equal(DmfDescription.Describe(original), DmfDescription.Describe(roundTripped));
         Assert.Equal(DmfDescription.Describe(original), DmfDescription.Describe(DmfReader.Read(builder.Build())));
         Assert.Equal(0, roundTripped.TrailingBytes);
@@ -135,19 +142,23 @@ public sealed class DmfWriterTests
 
     /// <summary>The same song always gives the same bytes.</summary>
     [Fact]
-    public void WritingIsDeterministic()
+    public void Write_Twice_GivesSameBytes()
     {
+        // Act
         DmfFile file = EmptySong();
 
+        // Assert
         Assert.Equal(DmfWriter.Write(file, SilentNotes()), DmfWriter.Write(file, SilentNotes()));
     }
 
     /// <summary>The file is one zlib stream (header and Adler-32), not raw deflate.</summary>
     [Fact]
-    public void OutputIsZlib()
+    public void Write_WithSong_ProducesZlib()
     {
+        // Act
         byte[] written = DmfWriter.Write(EmptySong(), SilentNotes());
 
+        // Assert
         Assert.Equal(0x78, written[0]); // zlib header: deflate, 32 KB window
         Assert.Equal(0, ((written[0] << 8) | written[1]) % 31); // header check bits
         Assert.Equal(DmfWriter.Serialize(EmptySong(), SilentNotes()), DmfReader.Decompress(written));
@@ -161,12 +172,15 @@ public sealed class DmfWriterTests
     [InlineData(999, true, true, "999")]
     [InlineData(null, false, false, "50\0")]
     [InlineData(null, false, true, "60\0")]
-    public void CustomHzDigits(int? hz, bool usingCustomHz, bool ntsc, string expected)
+    public void Serialize_WithCustomHz_WritesDigits(int? hz, bool usingCustomHz, bool ntsc, string expected)
     {
+        // Arrange
         DmfFile file = EmptySong() with { Timing = new DmfTiming(0, 6, 6, ntsc, usingCustomHz, [], hz) };
 
+        // Act
         DmfFile read = DmfReader.Read(DmfWriter.Write(file, SilentNotes()));
 
+        // Assert
         Assert.Equal(expected.Select(c => (byte)c), read.Timing.CustomHzBytes);
         Assert.Equal(usingCustomHz, read.Timing.UsingCustomHz);
         Assert.Equal(ntsc, read.Timing.Ntsc);
@@ -176,33 +190,39 @@ public sealed class DmfWriterTests
     [Theory]
     [InlineData(0x02, 10)]
     [InlineData(0x42, 13)]
-    public void SystemsHaveTheirChannelCount(int system, int channels)
+    public void Serialize_WithSystem_UsesItsChannelCount(int system, int channels)
     {
+        // Act
         DmfFile read = DmfReader.Read(DmfWriter.Write(EmptySong((DmfSystem)system), SilentNotes()));
 
+        // Assert
         Assert.Equal((DmfSystem)system, read.System);
         Assert.Equal(channels, read.Channels.Count);
     }
 
     /// <summary>A cell with fewer effects than its channel has columns is padded with empty ones.</summary>
     [Fact]
-    public void ShortEffectListsArePadded()
+    public void Serialize_WithShortEffectList_PadsIt()
     {
+        // Arrange
         DmfCell cell = new(1, 4, 5, [new DmfEffect(0x0F, 3)], -1);
         DmfFile file = EmptySong() with
         {
             Channels = [new DmfChannel([0], null, 3, [[cell, Empty()]]), .. EmptySong().Channels.Skip(1)],
         };
 
+        // Act
         DmfCell read = DmfReader.Read(DmfWriter.Write(file, SilentNotes())).Channels[0].Patterns[0][0];
 
+        // Assert
         Assert.Equal([new DmfEffect(0x0F, 3), DmfEffect.Empty, DmfEffect.Empty], read.Effects);
     }
 
     /// <summary>Names with characters outside printable ASCII are written with ? and a conversion note each.</summary>
     [Fact]
-    public void NonAsciiTextBecomesQuestionMarks()
+    public void Write_WithNonAsciiText_UsesQuestionMarks()
     {
+        // Arrange
         DmfFile file = EmptySong() with
         {
             Name = "Café",
@@ -210,10 +230,12 @@ public sealed class DmfWriterTests
             Instruments = [new DmfInstrument("Lösung\t1", null, new DmfStdInstrument(new DmfMacro([], -1), new DmfMacro([], -1), 0, new DmfMacro([], -1), new DmfMacro([], -1)))],
             Samples = [new DmfSample("日本", 0, 5, 50, 16, null, null, [])],
         };
-
         (byte[] bytes, List<string> notes) = Serialize(file);
+
+        // Act
         DmfFile read = DmfReader.ReadDecompressed(bytes);
 
+        // Assert
         Assert.Equal("Caf?", read.Name);
         Assert.Equal("plain", read.Author);
         Assert.Equal("L?sung?1", read.Instruments[0].Name);
@@ -226,12 +248,15 @@ public sealed class DmfWriterTests
 
     /// <summary>Text over 255 characters is cut to 255, with a note.</summary>
     [Fact]
-    public void LongTextIsCut()
+    public void Write_WithLongText_CutsIt()
     {
+        // Arrange
         DmfFile file = EmptySong() with { Name = new string('x', 300) };
 
+        // Act
         (byte[] bytes, List<string> notes) = Serialize(file);
 
+        // Assert
         Assert.Equal(new string('x', 255), DmfReader.ReadDecompressed(bytes).Name);
         string note = Assert.Single(notes);
         Assert.Contains("Song name", note, StringComparison.Ordinal);
@@ -240,23 +265,28 @@ public sealed class DmfWriterTests
 
     /// <summary>Text the format holds as it is gives no note.</summary>
     [Fact]
-    public void PlainTextGivesNoNotes()
+    public void Write_WithPlainText_AddsNoNotes()
     {
+        // Act
         (_, List<string> notes) = Serialize(EmptySong() with { Name = new string('x', 255), Author = " ~ " });
 
+        // Assert
         Assert.Empty(notes);
     }
 
     /// <summary>Songs the format can't hold are refused with <see cref="ArgumentException"/> naming the problem; nothing is written.</summary>
     [Theory]
     [MemberData(nameof(BadSongNames))]
-    public void BadSongsAreRefused(string description)
+    public void Write_WithBadSong_Throws(string description)
     {
+        // Arrange
         (Func<DmfFile, DmfFile> spoil, string message) = BadSongs[description];
+
+        // Act
         DmfFile bad = spoil(EmptySong());
 
+        // Assert
         ArgumentException error = Assert.Throws<ArgumentException>(() => DmfWriter.Write(bad, SilentNotes()));
-
         Assert.Contains(message, error.Message, StringComparison.Ordinal);
     }
 

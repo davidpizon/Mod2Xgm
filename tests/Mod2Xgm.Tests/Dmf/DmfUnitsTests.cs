@@ -13,7 +13,11 @@ public sealed class DmfUnitsTests
     [InlineData(0.25, 0x7F - 16)]
     [InlineData(0.0, 0)]
     [InlineData(1e-9, 0)]
-    public void FmVolumeIsInThreeQuarterDecibelSteps(double volume, int expected) => Assert.Equal(expected, DmfUnits.FmVolume(volume));
+    public void FmVolume_WithAttenuation_UsesThreeQuarterDecibelSteps(double volume, int expected)
+    {
+        // Act & Assert
+        Assert.Equal(expected, DmfUnits.FmVolume(volume));
+    }
 
     /// <summary>
     /// PSG volume is the chip's nearest level counted down from F (docs/adr/0067-psg-volume-levels.md): half volume
@@ -25,57 +29,146 @@ public sealed class DmfUnitsTests
     [InlineData(0.0089 * 0.6, 1)]
     [InlineData(0.0089 * 0.4, 0)]
     [InlineData(0.0, 0)]
-    public void PsgVolumeIsTheNearestChipLevel(double volume, int expected) => Assert.Equal(expected, DmfUnits.PsgVolume(volume));
-
-    /// <summary>The exact steps for a channel kind are unrounded and kept in range; on the PSG, the chip's levels are whole steps.</summary>
-    [Fact]
-    public void ExactVolumeIsUnrounded()
+    public void PsgVolume_WithLevel_ReturnsNearestChipLevel(double volume, int expected)
     {
-        Assert.Equal(0x7F - 8.03, DmfUnits.ExactVolume(0.5, psg: false), 0.01);
-        Assert.Equal(0xF - 2.88, DmfUnits.ExactVolume(0.5, psg: true), 0.01);
-        Assert.Equal(0xF - 3, DmfUnits.ExactVolume(PsgLevels.Gain(3), psg: true), 1e-9);
-        Assert.Equal(0x7F, DmfUnits.ExactVolume(2, psg: false));
+        // Act & Assert
+        Assert.Equal(expected, DmfUnits.PsgVolume(volume));
     }
 
-    /// <summary>The F-number of C is the same in every octave; an octave's B is just under twice it.</summary>
-    [Fact]
-    public void FnumRepeatsEveryOctave()
-    {
-        Assert.Equal(DmfUnits.FnumOfC, DmfUnits.Fnum(48), 1e-9);
-        Assert.Equal(DmfUnits.FnumOfC, DmfUnits.Fnum(-12), 1e-9);
-        Assert.Equal(DmfUnits.FnumOfC * Math.Pow(2, 11.0 / 12), DmfUnits.Fnum(59), 1e-9);
-    }
-
-    /// <summary>
-    /// A slide's F-number distance is its change in log-frequency times the F-number halfway along; sliding down from C is
-    /// measured in the octave below, where F-numbers are nearly twice as large.
-    /// </summary>
-    [Fact]
-    public void FnumDistanceIsMeasuredHalfwayAlong()
-    {
-        Assert.Equal(DmfUnits.Fnum(48.5) * Math.Log(2) / 12, DmfUnits.FnumDistance(48, 1), 1e-9);
-        Assert.Equal(DmfUnits.Fnum(47.5) * Math.Log(2) / 12, DmfUnits.FnumDistance(48, -1), 1e-9);
-        Assert.True(DmfUnits.FnumDistance(48, -1) > 1.8 * DmfUnits.FnumDistance(48, 1));
-    }
-
-    /// <summary>Semitones between periods; a step past the period is no change.</summary>
-    [Fact]
-    public void SemitonesBetweenPeriods()
-    {
-        Assert.Equal(12, DmfUnits.Semitones(428, 214), 1e-9);
-        Assert.Equal(0, DmfUnits.Semitones(10, 20));
-    }
-
-    /// <summary>Digits are 1–15 once above 0; byte values 1–255.</summary>
+    /// <summary>The exact steps for a channel kind are unrounded.</summary>
     [Theory]
-    [InlineData(0.0, 0, 0)]
-    [InlineData(0.2, 1, 1)]
-    [InlineData(7.5, 8, 8)]
-    [InlineData(40, 15, 40)]
-    [InlineData(400, 15, 255)]
-    public void DigitsAndBytesAreClamped(double value, int digit, int byteValue)
+    [InlineData(false, 0x7F - 8.03)]
+    [InlineData(true, 0xF - 2.88)]
+    public void ExactVolume_WithLevel_IsUnrounded(bool psg, double expected)
     {
-        Assert.Equal(digit, DmfUnits.Digit(value));
-        Assert.Equal(byteValue, DmfUnits.ByteValue(value));
+        // Act
+        double volume = DmfUnits.ExactVolume(0.5, psg);
+
+        // Assert
+        Assert.Equal(expected, volume, 0.01);
+    }
+
+    /// <summary>On the PSG, the chip's levels are whole steps.</summary>
+    [Fact]
+    public void ExactVolume_WithPsgChipLevel_IsWholeStep()
+    {
+        // Act
+        double volume = DmfUnits.ExactVolume(PsgLevels.Gain(3), psg: true);
+
+        // Assert
+        Assert.Equal(0xF - 3, volume, 1e-9);
+    }
+
+    /// <summary>A level past full scale is kept in range.</summary>
+    [Fact]
+    public void ExactVolume_PastFullScale_StaysInRange()
+    {
+        // Act
+        double volume = DmfUnits.ExactVolume(2, psg: false);
+
+        // Assert
+        Assert.Equal(0x7F, volume);
+    }
+
+    /// <summary>The F-number of C is the same in every octave.</summary>
+    [Theory]
+    [InlineData(48)]
+    [InlineData(-12)]
+    public void Fnum_WithC_RepeatsEveryOctave(int semitone)
+    {
+        // Act
+        double fnum = DmfUnits.Fnum(semitone);
+
+        // Assert
+        Assert.Equal(DmfUnits.FnumOfC, fnum, 1e-9);
+    }
+
+    /// <summary>An octave's B is just under twice its C.</summary>
+    [Fact]
+    public void Fnum_WithB_IsJustUnderTwiceC()
+    {
+        // Act
+        double fnum = DmfUnits.Fnum(59);
+
+        // Assert
+        Assert.Equal(DmfUnits.FnumOfC * Math.Pow(2, 11.0 / 12), fnum, 1e-9);
+    }
+
+    /// <summary>A slide's F-number distance is its change in log-frequency times the F-number halfway along.</summary>
+    [Theory]
+    [InlineData(1, 48.5)]
+    [InlineData(-1, 47.5)]
+    public void FnumDistance_WithSemitone_MeasuresHalfwayAlong(int semitones, double halfway)
+    {
+        // Act
+        double distance = DmfUnits.FnumDistance(48, semitones);
+
+        // Assert
+        Assert.Equal(DmfUnits.Fnum(halfway) * Math.Log(2) / 12, distance, 1e-9);
+    }
+
+    /// <summary>Sliding down from C is measured in the octave below, where F-numbers are nearly twice as large.</summary>
+    [Fact]
+    public void FnumDistance_DownFromC_IsNearlyTwiceUp()
+    {
+        // Act
+        double down = DmfUnits.FnumDistance(48, -1);
+
+        // Assert
+        Assert.True(down > 1.8 * DmfUnits.FnumDistance(48, 1));
+    }
+
+    /// <summary>Half the period is 12 semitones up.</summary>
+    [Fact]
+    public void Semitones_WithPeriods_ReturnsDistance()
+    {
+        // Act
+        double semitones = DmfUnits.Semitones(428, 214);
+
+        // Assert
+        Assert.Equal(12, semitones, 1e-9);
+    }
+
+    /// <summary>A step past the period is no change.</summary>
+    [Fact]
+    public void Semitones_WithStepPastPeriod_ReturnsZero()
+    {
+        // Act
+        double semitones = DmfUnits.Semitones(10, 20);
+
+        // Assert
+        Assert.Equal(0, semitones);
+    }
+
+    /// <summary>Digits are 1–15 once above 0.</summary>
+    [Theory]
+    [InlineData(0.0, 0)]
+    [InlineData(0.2, 1)]
+    [InlineData(7.5, 8)]
+    [InlineData(40, 15)]
+    [InlineData(400, 15)]
+    public void Digit_WithValue_IsClamped(double value, int expected)
+    {
+        // Act
+        int digit = DmfUnits.Digit(value);
+
+        // Assert
+        Assert.Equal(expected, digit);
+    }
+
+    /// <summary>Byte values are 1–255 once above 0.</summary>
+    [Theory]
+    [InlineData(0.0, 0)]
+    [InlineData(0.2, 1)]
+    [InlineData(7.5, 8)]
+    [InlineData(40, 40)]
+    [InlineData(400, 255)]
+    public void ByteValue_WithValue_IsClamped(double value, int expected)
+    {
+        // Act
+        int result = DmfUnits.ByteValue(value);
+
+        // Assert
+        Assert.Equal(expected, result);
     }
 }

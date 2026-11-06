@@ -18,10 +18,10 @@ public sealed class PsgFitterTests
     /// <summary>A square wave is closest as a PSG tone, at the note's pitch to within a few cents.</summary>
     [Fact]
     [Trait("Speed", "Slow")]
-    public void ASquareIsBestAsATone()
+    public void Fit_WithSquare_PrefersTone()
     {
+        // Act & Assert
         PsgRegionFit region = Assert.Single(SquareFit.Value.Regions);
-
         Assert.Equal(PsgSound.Tone, region.Best.Setting.Sound);
         Assert.Same(region.Tone, region.Best);
         Assert.InRange(region.Best.CentsOff!.Value, -10, 10);
@@ -32,10 +32,12 @@ public sealed class PsgFitterTests
 
     /// <summary>Every region gets the tone, the noise at every fixed rate in both modes, the tuned hiss and the tuned buzz.</summary>
     [Fact]
-    public void EveryTryIsMade()
+    public void Fit_WithRegion_MakesEveryTry()
     {
+        // Act
         PsgRegionFit region = SquareFit.Value.Regions[0];
 
+        // Assert
         Assert.Equal(9, region.Candidates.Count);
         Assert.Equal(1, region.Candidates.Count(c => c.Setting.Sound == PsgSound.Tone));
         Assert.Equal(4, region.Candidates.Count(c => c.Setting.Sound == PsgSound.WhiteNoise));
@@ -43,7 +45,6 @@ public sealed class PsgFitterTests
         Assert.Equal(2, region.Candidates.Count(c => c.Setting.Channels == 2));
         Assert.True(region.Renders > region.Candidates.Count);
         Assert.All(region.Candidates.Where(c => c.Setting.Sound == PsgSound.WhiteNoise), c => Assert.Null(c.CentsOff));
-
         PsgCandidate buzz = region.Candidates.Single(c => c.Setting is { Sound: PsgSound.PeriodicNoise, NoiseRate: PsgSetting.Tone3Rate });
         Assert.InRange(buzz.CentsOff!.Value, -50, 50);
     }
@@ -51,14 +52,17 @@ public sealed class PsgFitterTests
     /// <summary>Hiss is closest as PSG noise, and fades with the sample, a step every 1/60 s.</summary>
     [Fact]
     [Trait("Speed", "Slow")]
-    public void AFadingHissIsBestAsNoise()
+    public void Fit_WithFadingHiss_PrefersNoise()
     {
+        // Arrange
         Random random = new(7);
         float[] data = [.. Enumerable.Range(0, 8000).Select(i => (float)((random.NextDouble() - 0.5) * Math.Exp(-i / 2000.0)))];
+
+        // Act
         SampleAnalysis analysis = SampleAnalyzer.Analyze(1, new Sample("hat", data, null), [FmTargets.C2]);
 
+        // Assert
         PsgRegionFit region = Assert.Single(PsgFitter.Fit(analysis, Quiet).Regions);
-
         Assert.Equal(PsgSound.WhiteNoise, region.Best.Setting.Sound);
         IReadOnlyList<int> volumes = region.Best.Setting.Volumes;
         Assert.Equal(0, volumes.Take(3).Min());
@@ -68,14 +72,17 @@ public sealed class PsgFitterTests
     /// <summary>A note below a tone channel's range gets no tone, but the buzz tuned to it.</summary>
     [Fact]
     [Trait("Speed", "Slow")]
-    public void ANoteTooLowForAToneGetsTheBuzz()
+    public void Fit_WithNoteTooLowForTone_UsesBuzz()
     {
+        // Arrange
         PsgSetting low = new(PsgSound.PeriodicNoise, PsgSetting.Tone3Rate, PsgSetting.NearestPeriod(50 * 16), [.. Enumerable.Repeat(0, 60)]);
         float[] sound = PsgNoteRenderer.Render(low, SampleAnalyzer.RegionSeconds);
         NoteTarget target = new(50, 50, SampleAnalyzer.Spectrum(sound, 50));
 
+        // Act
         PsgRegionFit region = PsgFitter.FitRegion(0, target, 1, 4);
 
+        // Assert
         Assert.Null(region.Tone);
         Assert.Equal(8, region.Candidates.Count);
         Assert.Equal(low.Period, region.Best.Setting.Period);
@@ -86,10 +93,12 @@ public sealed class PsgFitterTests
     /// <summary>The tries are the same every run.</summary>
     [Fact]
     [Trait("Speed", "Slow")]
-    public void FitsAreRepeatable()
+    public void Fit_Twice_Repeats()
     {
+        // Act
         PsgSampleFit again = PsgFitter.Fit(FmTargets.Analyze(FmTargets.Square), Quiet);
 
+        // Assert
         Assert.Equal(
             SquareFit.Value.Regions[0].Candidates.Select(c => (c.Setting.Period, c.Score.MelDb)),
             again.Regions[0].Candidates.Select(c => (c.Setting.Period, c.Score.MelDb)));
@@ -100,13 +109,17 @@ public sealed class PsgFitterTests
     /// channel 3 also needs a Genesis channel to spare.
     /// </summary>
     [Fact]
-    public void TriesAreMarkedForRoom()
+    public void Room_WithFit_MarksTries()
     {
+        // Arrange
         int[] loud = [0];
         PsgSetting tone = new(PsgSound.Tone, 0, 100, loud);
         PsgSetting hiss = new(PsgSound.WhiteNoise, 0, 0, loud);
+
+        // Act
         PsgSetting tuned = new(PsgSound.WhiteNoise, PsgSetting.Tone3Rate, 100, loud);
 
+        // Assert
         Assert.Equal(PsgRoom.Fits, PsgFitter.Room(tone, 3, 10));
         Assert.Equal(PsgRoom.SampleTooOften, PsgFitter.Room(tone, 4, 4));
         Assert.Equal(PsgRoom.Fits, PsgFitter.Room(hiss, 1, 10));
@@ -119,10 +132,12 @@ public sealed class PsgFitterTests
     /// <summary>A sample the song sounds on two channels at once keeps its noise tries, marked as having no room.</summary>
     [Fact]
     [Trait("Speed", "Slow")]
-    public void TriesWithoutRoomAreKept()
+    public void Fit_WithoutRoom_KeepsTries()
     {
+        // Act
         PsgSampleFit fit = PsgFitter.Fit(FmTargets.Analyze(FmTargets.Square), new SongVoices(2, [2]));
 
+        // Assert
         PsgRegionFit region = fit.Regions[0];
         Assert.Equal(2, fit.MostAtOnce);
         Assert.Equal(9, region.Candidates.Count);
@@ -132,12 +147,15 @@ public sealed class PsgFitterTests
 
     /// <summary>The volumes follow the loudness: the loudest step at 0, quieter steps higher, silence off.</summary>
     [Fact]
-    public void VolumesFollowTheLoudness()
+    public void Volumes_WithLoudness_FollowIt()
     {
+        // Arrange
         float[] fading = [.. Enumerable.Range(0, SampleAnalyzer.AnalysisRateHz).Select(i => (float)(Math.Sin(2 * Math.PI * 440 * i / SampleAnalyzer.AnalysisRateHz) * Math.Exp(-i / 4000.0)))];
 
+        // Act
         int[] volumes = PsgFitter.Volumes(SampleAnalyzer.Spectrum(fading, 440));
 
+        // Assert
         Assert.Equal(PsgSetting.StepsPerSecond, volumes.Length);
         Assert.Equal(0, volumes.Min());
         Assert.True(volumes[40] > volumes[10]);
@@ -147,21 +165,26 @@ public sealed class PsgFitterTests
 
     /// <summary>A silent sample gets no tries.</summary>
     [Fact]
-    public void ASilentSampleGetsNoTries()
+    public void Fit_WithSilentSample_MakesNoTries()
     {
+        // Act
         SampleAnalysis silent = SampleAnalyzer.Analyze(0, new Sample("silent", new float[256], null), [FmTargets.C2]);
 
+        // Assert
         Assert.Empty(PsgFitter.Fit(silent, Quiet).Regions);
     }
 
     /// <summary>The report logs one Debug line per region with the tone, the best noise and the best that fits.</summary>
     [Fact]
-    public void TheReportLogsEveryRegion()
+    public void Log_WithRegions_LogsEach()
     {
+        // Arrange
         CollectingSink sink = new();
 
+        // Act
         PsgFitReport.Log(sink.CreateLogger(), [SquareFit.Value, new PsgSampleFit(5, "empty", 0, [])]);
 
+        // Assert
         string line = Assert.Single(sink.Messages(LogEventLevel.Debug));
         Assert.StartsWith("Sample 1 \"square\", region 1: PSG tone tone, period ", line, StringComparison.Ordinal);
         Assert.Contains(" cents off: ", line, StringComparison.Ordinal);
@@ -172,10 +195,12 @@ public sealed class PsgFitterTests
 
     /// <summary>Settings and room marks read as words.</summary>
     [Fact]
-    public void SettingsReadAsText()
+    public void ToString_WithSettings_ReadsAsText()
     {
+        // Act
         int[] loud = [0];
 
+        // Assert
         Assert.Equal("tone, period 254", PsgFitReport.Settings(new PsgSetting(PsgSound.Tone, 0, 254, loud)));
         Assert.Equal("white noise, rate 2", PsgFitReport.Settings(new PsgSetting(PsgSound.WhiteNoise, 2, 0, loud)));
         Assert.Equal("periodic noise, rate 3, period 40", PsgFitReport.Settings(new PsgSetting(PsgSound.PeriodicNoise, 3, 40, loud)));
