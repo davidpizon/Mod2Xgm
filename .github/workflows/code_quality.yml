@@ -45,8 +45,14 @@ jobs:
                   # Keep the raw report (qodana.sarif.json, logs) as the `qodana-report` artifact: findings
                   # can be inspected without re-running, and it is the source for the baseline above.
                   upload-result: true
+                  # Hands NuGetAudit (below) to the linter container, which otherwise gets no host variables.
+                  env-vars-to-linter: NuGetAudit
               env:
                   QODANA_TOKEN: ${{ secrets.QODANA_TOKEN }}
+                  # The linter image's SDK can lag a .NET security release, and its restore then fails the
+                  # whole scan on a package the scan never runs. CI and the nightly audit still check
+                  # dependencies (docs/adr/0083-no-nuget-audit-in-qodana.md).
+                  NuGetAudit: 'false'
             # The .NET linter reports paths relative to the analyzed solution (or as container paths under
             # /data/project). GitHub accepts such paths and creates alerts, but alerts whose path isn't a
             # file in this repository anchor to nothing and never appear inline on the PR. Rewrite every
