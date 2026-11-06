@@ -90,7 +90,7 @@ public sealed class SongTests
     public void Constructor_WithInstrumentNamingNoSample_Throws()
     {
         // Arrange
-        Instrument[] instruments = [new Instrument("kick", 5, 1, 0)];
+        Instrument[] instruments = [new("kick", 5, 1, 0)];
 
         // Act & Assert
         Assert.Throws<ArgumentException>(() => Build(instruments: instruments));

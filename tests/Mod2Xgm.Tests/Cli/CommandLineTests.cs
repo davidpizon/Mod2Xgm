@@ -393,7 +393,7 @@ public sealed class CommandLineTests
         Assert.Equal(ExitCode.DoesNotFit, code);
     }
 
-    /// <summary>An exception from the conversion isn't caught here (<see cref="Program.Run"/> handles it).</summary>
+    /// <summary>An exception from the conversion isn't caught here (<see cref="Program.Run(string[], Func{string[], ExitCode}, TextWriter, TextWriter, TerminalProbe)"/> handles it).</summary>
     [Fact]
     public void Invoke_WhenConversionThrows_PropagatesException()
     {

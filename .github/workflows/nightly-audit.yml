@@ -127,8 +127,14 @@ jobs:
           upload-result: false
           use-caches: false
           results-dir: ${{ runner.temp }}/qodana/results
+          # Hands NuGetAudit (below) to the linter container, which otherwise gets no host variables.
+          env-vars-to-linter: NuGetAudit
         env:
           QODANA_TOKEN: ${{ secrets.QODANA_TOKEN }}
+          # The linter image's SDK can lag a .NET security release, and its restore then fails the
+          # whole scan on a package the scan never runs. The dependency job above still checks
+          # packages (docs/adr/0083-no-nuget-audit-in-qodana.md).
+          NuGetAudit: 'false'
 
       - name: File smell and code vulnerability issues
         env:

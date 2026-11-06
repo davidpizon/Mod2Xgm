@@ -151,7 +151,7 @@ public sealed class ModEffectsTests
         DecodedEffect decoded = Decode(command);
 
         // Assert
-        Assert.Equal(expected, decoded.Effects.Cast<object>());
+        Assert.Equal(expected, decoded.Effects);
         Assert.Null(decoded.Volume);
         Assert.Null(decoded.Issue);
     }
@@ -303,7 +303,7 @@ public sealed class ModEffectsTests
         DecodedEffect decoded = DecodeSoundtracker(command);
 
         // Assert
-        Assert.Equal(expected, decoded.Effects.Cast<object>());
+        Assert.Equal(expected, decoded.Effects);
         Assert.Null(decoded.Issue);
     }
 
