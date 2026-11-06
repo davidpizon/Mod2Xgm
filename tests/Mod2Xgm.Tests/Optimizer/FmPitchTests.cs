@@ -78,6 +78,7 @@ public sealed class FmPitchTests
     /// of OP1 from 1 to 2 would match it, and play every note an octave high.
     /// </summary>
     [Fact]
+    [Trait("Speed", "Slow")]
     public void TheLevelFitNeverLeavesTheNotesPitch()
     {
         FmEvaluator evaluator = new(FmTargets.Of(Lead(2, 2, 2, 2)));

@@ -130,6 +130,7 @@ public sealed class ProgramTests
 
     /// <summary>A whole run with the real libopenmpt and no candidate renderers (skipped where libopenmpt isn't installed).</summary>
     [Fact]
+    [Trait("Speed", "Slow")]
     public void ARealRunMeasuresTheLength()
     {
         try

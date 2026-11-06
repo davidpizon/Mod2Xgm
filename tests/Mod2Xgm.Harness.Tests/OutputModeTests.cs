@@ -63,6 +63,7 @@ public sealed class OutputModeTests
     [InlineData("text")]
     [InlineData("json")]
     [InlineData("silent")]
+    [Trait("Speed", "Slow")]
     public void AWholeRunShowsEachSong(string mode)
     {
         try

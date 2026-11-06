@@ -40,6 +40,17 @@ How each test is written (AAA, `sut`, naming, unit vs integration, Moq) is in
 5. **CLI tests** — argument parsing (incl. `--ignore-samples` lists, ranges, hex), output naming, exit
    codes, no overwrite without `--force`, console report content (metadata, empty-slot names, statuses).
 
+## What CI runs
+ of 5 seconds or more carry `[Trait("Speed", "Slow")]` ([testing-principles.md](testing-principles.md#long-running-tests),
+[ADR 0082](adr/0082-defer-slow-tests-in-pr-ci.md)):
+
+| Trigger | Tests |
+|---|---|
+| Pull request | Skips `Speed=Slow` (build-test and coverage jobs) |
+| Push to `main`, nightly (09:00 UTC), manual run | The whole suite |
+ changing code the long-running tests cover (FM fitting, the candidate cache), run them yourself before opening
+the PR, or start the CI workflow on the branch by hand (`gh workflow run CI --ref <branch>`).
+
 ## Code coverage
 
 Requirement: **≥ 80 % line coverage** of the `Mod2Xgm` assembly and **no more than a 10-point drop** versus
@@ -53,7 +64,7 @@ Tests run on **Microsoft.Testing.Platform** (MTP), selected in the root `global.
 
 Coverage comes from **Microsoft.Testing.Extensions.CodeCoverage** (Cobertura XML), configured by
 `tests/coverage.runsettings` (measures `Mod2Xgm.dll` only). The `Code coverage` job in
-`.github/workflows/ci.yml` runs on pull requests and pushes to `main`. It writes the line coverage to the job
+`.github/workflows/ci.yml` runs on pull requests (without the long-running tests) and on pushes to `main`. It writes the line coverage to the job
 summary and a `Line coverage` annotation, **fails below 80 %** (`MIN_LINE_COVERAGE`), and keeps the report as
 the `coverage-cobertura` artifact.
 

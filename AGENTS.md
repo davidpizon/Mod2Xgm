@@ -111,7 +111,8 @@ reflection- or serialization-adjacent, also run the AOT `publish`.
 
 CI (`.github/workflows/ci.yml`) runs on every pull request and push to `main`: build and test on Windows,
 Linux and macOS; **Native AOT publish + smoke run** of the binary on `win-x64`, `linux-x64`, `osx-arm64`; and
-code coverage. **Qodana** (`.github/workflows/code_quality.yml`, config in `qodana.yaml`) runs JetBrains' .NET
+code coverage. Pull requests skip tests tagged `[Trait("Speed", "Slow")]` (5 s or more); the whole suite runs on pushes
+to `main`, every night and on manual runs ([ADR 0082](docs/adr/0082-defer-slow-tests-in-pr-ci.md)). **Qodana** (`.github/workflows/code_quality.yml`, config in `qodana.yaml`) runs JetBrains' .NET
 inspections on every PR and push to `main` and uploads the findings to GitHub code scanning, next to CodeQL; review
 new Qodana findings on your PR like any other review comment. On a PR it also keeps one comment starting with
 `<!-- qodana-findings -->` that lists every finding (severity, file:line, rule, message); read it with

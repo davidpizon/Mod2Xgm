@@ -165,6 +165,7 @@ public sealed class RendererTests
 
     /// <summary>The Genesis renderer plays the conversion's plan in OpenMPT's time, so it is scored unaligned; its speed goes to the log.</summary>
     [Fact]
+    [Trait("Speed", "Slow")]
     public void GenesisRendererCheckRendersThePlan()
     {
         MessageSink sink = new();

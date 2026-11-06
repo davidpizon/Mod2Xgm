@@ -50,6 +50,7 @@ public sealed class Ch3FitterTests
     /// scored where both play; the note one plays alone is left to its own half.
     /// </summary>
     [Fact]
+    [Trait("Speed", "Slow")]
     public void ALockedPairGetsACandidate()
     {
         Ch3SongFit fit = Fitted.Value;
@@ -87,6 +88,7 @@ public sealed class Ch3FitterTests
 
     /// <summary>Same song, same options, same candidate; given the T8.2 fits, the fitter cuts them down instead of fitting again.</summary>
     [Fact]
+    [Trait("Speed", "Slow")]
     public void TheFitIsRepeatableAndReusesGivenFits()
     {
         SongAnalysis song = SawAndSquare.Value;

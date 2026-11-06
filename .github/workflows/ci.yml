@@ -5,6 +5,9 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  schedule:
+    # The whole suite every night, long-running tests included (ADR 0082). Cron is UTC.
+    - cron: "0 9 * * *"
 
 permissions:
   contents: read
@@ -34,7 +37,12 @@ jobs:
         run: dotnet restore
       - name: Build (warnings are errors)
         run: dotnet build --no-restore -c Release
-      - name: Test
+      - name: Test (long-running tests deferred)
+        # Pull requests skip tests tagged Speed=Slow; they run on main, every night and on demand (ADR 0082).
+        if: github.event_name == 'pull_request'
+        run: dotnet test --no-build -c Release -- --filter-not-trait "Speed=Slow"
+      - name: Test (whole suite)
+        if: github.event_name != 'pull_request'
         run: dotnet test --no-build -c Release
       - name: Upload hung-test logs
         # A test that runs 10 minutes is stopped and named in TestResults/*_hang.log (ADR 0079); the dump stays behind.
@@ -109,13 +117,16 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
+          # Pull requests skip tests tagged Speed=Slow (ADR 0082).
+          filter=()
+          if [ "${{ github.event_name }}" = pull_request ]; then filter=(-- --filter-not-trait "Speed=Slow"); fi
           # Mod2Xgm.Tests only: the converter's tests, and the one report the next step reads (ADR 0047).
           dotnet test -c Release --project tests/Mod2Xgm.Tests \
             --coverage \
             --coverage-output-format cobertura \
             --coverage-output coverage.cobertura.xml \
             --coverage-settings "$PWD/tests/coverage.runsettings" \
-            --results-directory "$PWD/artifacts/coverage" 2>&1 | tee test-output.log
+            --results-directory "$PWD/artifacts/coverage" "${filter[@]}" 2>&1 | tee test-output.log
       - name: Report test failure output
         # Surfaces the end of the test output as an annotation, readable without downloading logs.
         if: failure()

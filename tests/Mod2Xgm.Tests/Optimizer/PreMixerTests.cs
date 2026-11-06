@@ -242,6 +242,7 @@ public sealed class PreMixerTests
 
     /// <summary>A candidate bigger than the song's whole PCM budget is never offered, on every target; one that just fits is.</summary>
     [Fact]
+    [Trait("Speed", "Slow")]
     public void ACandidateOverTheBudgetIsNeverOffered()
     {
         foreach (PcmTarget target in PcmTargets.All)

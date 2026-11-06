@@ -30,6 +30,7 @@ public sealed class CandidateCacheTests
 
     /// <summary>Every kind of candidate read back from the cache is the one made, byte for byte, with how long it took then.</summary>
     [Fact]
+    [Trait("Speed", "Slow")]
     public void ARerunGivesTheSameCandidates()
     {
         using TempDirectory folder = new();
@@ -50,6 +51,7 @@ public sealed class CandidateCacheTests
 
     /// <summary>A CH3 candidate's pair is one of the fit's pairs when read back, as when made.</summary>
     [Fact]
+    [Trait("Speed", "Slow")]
     public void ACh3CandidateKeepsItsPair()
     {
         using TempDirectory folder = new();
@@ -62,6 +64,7 @@ public sealed class CandidateCacheTests
 
     /// <summary>A region's FM fits are keyed by its sound: the same sample as another number, in another song, is fitted once and renamed.</summary>
     [Fact]
+    [Trait("Speed", "Slow")]
     public void FmFitsAreSharedBetweenSamplesThatSoundTheSame()
     {
         using TempDirectory folder = new();
@@ -80,6 +83,7 @@ public sealed class CandidateCacheTests
 
     /// <summary>Other fit options, or another sound, are other keys.</summary>
     [Fact]
+    [Trait("Speed", "Slow")]
     public void OtherOptionsOrSoundsAreFittedAgain()
     {
         using TempDirectory folder = new();
@@ -94,6 +98,7 @@ public sealed class CandidateCacheTests
 
     /// <summary>A song without a <see cref="SongAnalysis.Source"/> can't be matched, so its candidates are made every time and never kept.</summary>
     [Fact]
+    [Trait("Speed", "Slow")]
     public void ASongWithoutASourceIsNeverCached()
     {
         using TempDirectory folder = new();
@@ -121,6 +126,7 @@ public sealed class CandidateCacheTests
 
     /// <summary>A damaged entry is made again and replaced, said at Debug only.</summary>
     [Fact]
+    [Trait("Speed", "Slow")]
     public void ADamagedEntryIsMadeAgain()
     {
         using TempDirectory folder = new();
@@ -171,6 +177,7 @@ public sealed class CandidateCacheTests
 
     /// <summary>A cache folder that can't be written is reported once, and the candidates are made anyway.</summary>
     [Fact]
+    [Trait("Speed", "Slow")]
     public void AnUnwritableCacheIsReportedOnce()
     {
         using TempDirectory folder = new();

@@ -59,6 +59,7 @@ public sealed class FmStructureSearchTests
 
     /// <summary>The exhaustive search finds a patch's own structure among its best when that patch made the target.</summary>
     [Fact]
+    [Trait("Speed", "Slow")]
     public void TheExhaustiveSearchFindsAKnownStructure()
     {
         FmStructure known = new(4, FmPatchLibrary.Lead.Feedback, 1, 1, 2, 2, FmStructure.DefaultModulatorTl);
@@ -71,6 +72,7 @@ public sealed class FmStructureSearchTests
 
     /// <summary>The genetic search keeps its budget and, from the same seed, finds the same structures; another seed searches differently.</summary>
     [Fact]
+    [Trait("Speed", "Slow")]
     public void TheGeneticSearchIsRepeatable()
     {
         NoteTarget target = FmTargets.Of(FmTargets.Saw);

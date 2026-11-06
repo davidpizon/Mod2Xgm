@@ -20,6 +20,7 @@ public sealed class FmFitterTests
     /// patch. The best fit is never worse than the library's, and its twin uses no LFO.
     /// </summary>
     [Fact]
+    [Trait("Speed", "Slow")]
     public void FittedPatchesBeatTheLibrary()
     {
         FmRegionFit region = Assert.Single(SawFit.Value.Regions);
@@ -37,6 +38,7 @@ public sealed class FmFitterTests
 
     /// <summary>Fitted patches are named after the sample and region; a fit is the same every time.</summary>
     [Fact]
+    [Trait("Speed", "Slow")]
     public void FitsAreNamedAndRepeatable()
     {
         FmSampleFit again = FmFitter.Fit(FmTargets.Analyze(FmTargets.Saw), Small);
@@ -52,6 +54,7 @@ public sealed class FmFitterTests
 
     /// <summary>One region per pitch region: a sample played two octaves apart gets two fits; a silent sample none.</summary>
     [Fact]
+    [Trait("Speed", "Slow")]
     public void EveryRegionWithSoundIsFitted()
     {
         FmFitOptions exhaustiveOnly = Small with { Genetic = false, Lfo = false, SsgEg = false, MaxRenders = 20 };

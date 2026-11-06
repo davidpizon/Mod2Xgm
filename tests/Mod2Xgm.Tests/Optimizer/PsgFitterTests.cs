@@ -17,6 +17,7 @@ public sealed class PsgFitterTests
 
     /// <summary>A square wave is closest as a PSG tone, at the note's pitch to within a few cents.</summary>
     [Fact]
+    [Trait("Speed", "Slow")]
     public void ASquareIsBestAsATone()
     {
         PsgRegionFit region = Assert.Single(SquareFit.Value.Regions);
@@ -49,6 +50,7 @@ public sealed class PsgFitterTests
 
     /// <summary>Hiss is closest as PSG noise, and fades with the sample, a step every 1/60 s.</summary>
     [Fact]
+    [Trait("Speed", "Slow")]
     public void AFadingHissIsBestAsNoise()
     {
         Random random = new(7);
@@ -65,6 +67,7 @@ public sealed class PsgFitterTests
 
     /// <summary>A note below a tone channel's range gets no tone, but the buzz tuned to it.</summary>
     [Fact]
+    [Trait("Speed", "Slow")]
     public void ANoteTooLowForAToneGetsTheBuzz()
     {
         PsgSetting low = new(PsgSound.PeriodicNoise, PsgSetting.Tone3Rate, PsgSetting.NearestPeriod(50 * 16), [.. Enumerable.Repeat(0, 60)]);
@@ -82,6 +85,7 @@ public sealed class PsgFitterTests
 
     /// <summary>The tries are the same every run.</summary>
     [Fact]
+    [Trait("Speed", "Slow")]
     public void FitsAreRepeatable()
     {
         PsgSampleFit again = PsgFitter.Fit(FmTargets.Analyze(FmTargets.Square), Quiet);
@@ -114,6 +118,7 @@ public sealed class PsgFitterTests
 
     /// <summary>A sample the song sounds on two channels at once keeps its noise tries, marked as having no room.</summary>
     [Fact]
+    [Trait("Speed", "Slow")]
     public void TriesWithoutRoomAreKept()
     {
         PsgSampleFit fit = PsgFitter.Fit(FmTargets.Analyze(FmTargets.Square), new SongVoices(2, [2]));

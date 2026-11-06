@@ -14,6 +14,7 @@ public sealed class FmLocalSearchTests
 
     /// <summary>From a patch knocked off its target, the fit gets much closer, and never further.</summary>
     [Fact]
+    [Trait("Speed", "Slow")]
     public void TheFitGetsCloser()
     {
         FmEvaluator evaluator = new(FmTargets.Of(FmPatchLibrary.Lead));
@@ -28,6 +29,7 @@ public sealed class FmLocalSearchTests
 
     /// <summary>The fit stops at its budget, and leaves a patch that already matches as it is.</summary>
     [Fact]
+    [Trait("Speed", "Slow")]
     public void TheFitKeepsItsBudget()
     {
         FmEvaluator evaluator = new(FmTargets.Of(FmPatchLibrary.Lead));
@@ -41,6 +43,7 @@ public sealed class FmLocalSearchTests
 
     /// <summary>A target with vibrato is matched better with the LFO than without; without it, the fit leaves every LFO setting off.</summary>
     [Fact]
+    [Trait("Speed", "Slow")]
     public void TheLfoIsFittedOnlyWhenAllowed()
     {
         FmPatch vibrato = FmPatchLibrary.Sine with { Fms = 6 };
@@ -71,6 +74,7 @@ public sealed class FmLocalSearchTests
 
     /// <summary>Limited to OP3 and OP4 (one CH3 voice), the fit leaves OP1, OP2 and the feedback alone, and still gets closer.</summary>
     [Fact]
+    [Trait("Speed", "Slow")]
     public void TheFitMovesOnlyTheOperatorsItIsGiven()
     {
         FmPatch start = OffLead with { Feedback = 3 };

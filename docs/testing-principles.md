@@ -147,7 +147,8 @@ dedicated assertion, `Assert.True(cond, message)` is fine when the message gives
 
 Some tests need files or other programs: goldens (`Golden`), the DMF / YM3438 / SN76489 / PCM-driver probes, the
 corpus, end-to-end CLI runs, and the harness tests. They are **integration tests**. They carry
-`[Trait("Category", "Integration")]` on the class, and only they may:
+`[Trait("Category", "Integration")]` on the class (or on the method, when only one test in the class needs it), and
+only they may:
 
 - read and write files, always under a `TempDirectory` (a fresh folder deleted on dispose) or read-only under
   `tests/golden/` / `tests/data/`;
@@ -159,6 +160,17 @@ Run only unit tests while iterating:
 
 ```
 dotnet test --project tests/Mod2Xgm.Tests -- --filter-not-trait "Category=Integration"
+```
+
+## Long-running tests
+
+**A test that takes 5 seconds or more** carries `[Trait("Speed", "Slow")]` on the method, whether it does I/O or
+only heavy computing (most are FM fits). Pull request CI skips them; they run on pushes to `main`, every night and on
+demand ([ADR 0082](adr/0082-defer-slow-tests-in-pr-ci.md)). Make a test faster before tagging it. Run what a pull
+request runs with:
+
+```
+dotnet test -- --filter-not-trait "Speed=Slow"
 ```
 
 ## Anti-patterns
@@ -178,7 +190,8 @@ dotnet test --project tests/Mod2Xgm.Tests -- --filter-not-trait "Category=Integr
 1. Name is `Method_Scenario_ExpectedBehavior` and the `/// <summary>` says the same.
 2. `// Arrange`, `// Act`, `// Assert` (or `// Act & Assert`), in order, once each.
 3. The object under test is `sut` (or the static call itself).
-4. Input built in code. No I/O unless the class is tagged `Category=Integration`.
+4. Input built in code. No I/O unless the test or its class is tagged `Category=Integration`. A test of 5 s or more is
+   tagged `Speed=Slow`.
 5. No mutable statics, no unseeded randomness, no clock.
 6. Cases are `[Theory]` rows, not loops. Collections use `Assert.All`.
 7. Assertions are the most specific available.

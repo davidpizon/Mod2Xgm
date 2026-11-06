@@ -95,6 +95,7 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0079](0079-hung-test-timeout.md) | A test that runs 10 minutes is stopped, with a dump naming it (MTP hang-dump extension, per test) | 2026-11-03 | Accepted |
 | [0080](0080-testing-principles.md) | Tests follow written principles: AAA, `sut`, `Method_Scenario_Expected`, unit vs integration | 2026-11-04 | Accepted |
 | [0081](0081-moq-for-test-doubles.md) | Moq for test doubles (test-only) | 2026-11-04 | Accepted |
+| [0082](0082-defer-slow-tests-in-pr-ci.md) | Pull request CI defers tests of 5 s or more | 2026-11-06 | Accepted |
 
 ## Open questions
 
