@@ -8,17 +8,19 @@ namespace Mod2Xgm.Tests.Model;
 /// Plan T3.1 acceptance, "no MOD types leak": the song model (IR) must not depend on the MOD reader, so mappers and
 /// writers built on it never see MOD types (docs/architecture.md#why-an-ir).
 /// </summary>
+[Trait("Category", "Integration")]
 public sealed partial class ModelBoundaryTests
 {
     private const string ModNamespace = "Mod2Xgm.Mod";
 
     /// <summary>No source file under <c>src/Model</c> names the MOD namespace, fully or relative to <c>Mod2Xgm</c>.</summary>
     [Fact]
-    public void ModelSourceNeverNamesTheModNamespace()
+    public void ModelSource_ForEveryFile_NeverNamesModNamespace()
     {
+        // Arrange
         string[] files = Directory.GetFiles(Path.Combine(RepoPaths.Root, "src", "Model"), "*.cs", SearchOption.AllDirectories);
-        Assert.NotEmpty(files);
 
+        // Act
         string[] offenders =
         [
             .. files.SelectMany(file => File.ReadLines(file)
@@ -27,17 +29,20 @@ public sealed partial class ModelBoundaryTests
                 .Select(l => $"{Path.GetFileName(file)}:{l.index + 1}: {l.line.Trim()}")),
         ];
 
-        Assert.True(offenders.Length == 0, "src/Model refers to the MOD reader:\n" + string.Join("\n", offenders));
+        // Assert
+        Assert.NotEmpty(files);
+        Assert.Empty(offenders);
     }
 
     /// <summary>No model type has a field, property, constructor or method whose signature involves a MOD type.</summary>
     [Fact]
-    public void ModelSignaturesNeverUseModTypes()
+    public void ModelTypes_ForEveryMember_NeverUseModTypes()
     {
+        // Arrange
         Type[] modelTypes = [.. typeof(Song).Assembly.GetTypes().Where(t => t.Namespace == typeof(Song).Namespace)];
-        Assert.Contains(typeof(Effect), modelTypes);
-
         const BindingFlags all = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly;
+
+        // Act
         string[] offenders =
         [
             .. modelTypes.SelectMany(type =>
@@ -50,15 +55,18 @@ public sealed partial class ModelBoundaryTests
                     .Select(m => m.Member)),
         ];
 
-        Assert.True(offenders.Length == 0, "Model members use MOD types: " + string.Join(", ", offenders));
+        // Assert
+        Assert.Contains(typeof(Effect), modelTypes);
+        Assert.Empty(offenders);
     }
 
+    /// <summary>Whether <paramref name="type"/> is a MOD type, or an array or generic of one.</summary>
     private static bool IsModType(Type type) =>
         type.Namespace == ModNamespace
         || (type.HasElementType && type.GetElementType() is { } element && IsModType(element))
         || (type.IsGenericType && type.GetGenericArguments().Any(IsModType));
 
-    // "Mod2Xgm.Mod" not followed by more of a name (so "Mod2Xgm.Model" is fine), or "Mod." used relative to Mod2Xgm.
+    /// <summary>"Mod2Xgm.Mod" not followed by more of a name (so "Mod2Xgm.Model" is fine), or "Mod." used relative to Mod2Xgm.</summary>
     [GeneratedRegex(@"\bMod2Xgm\.Mod\b|(?<![\w.])Mod\.[A-Z]")]
     private static partial Regex ModReference();
 }

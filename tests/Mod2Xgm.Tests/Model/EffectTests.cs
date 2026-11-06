@@ -5,7 +5,7 @@ namespace Mod2Xgm.Tests.Model;
 /// <summary>Tests for the effect types of the song model (plan T3.1).</summary>
 public sealed class EffectTests
 {
-    /// <summary>One example of every effect kind; <see cref="EveryEffectKindHasAnExample"/> keeps the list complete.</summary>
+    /// <summary>One example of every effect kind; <see cref="Effect_ForEveryConcreteType_HasAnExample"/> keeps the list complete.</summary>
     private static readonly Effect[] Examples =
     [
         new Arpeggio(4, 7),
@@ -38,17 +38,20 @@ public sealed class EffectTests
 
     /// <summary>Every concrete effect type in the model appears in <see cref="Examples"/>, once.</summary>
     [Fact]
-    public void EveryEffectKindHasAnExample()
+    public void Effect_ForEveryConcreteType_HasAnExample()
     {
+        // Act
         Type[] kinds = [.. typeof(Effect).Assembly.GetTypes().Where(t => t.IsSubclassOf(typeof(Effect)) && !t.IsAbstract).OrderBy(t => t.Name, StringComparer.Ordinal)];
 
+        // Assert
         Assert.Equal(kinds, Examples.Select(e => e.GetType()).OrderBy(t => t.Name, StringComparer.Ordinal));
     }
 
     /// <summary>Every parameter keeps the value it was given, under the name the docs give it (catches swapped parameters).</summary>
     [Fact]
-    public void EveryEffectKeepsItsParameters()
+    public void Constructor_ForEveryEffect_KeepsParameters()
     {
+        // Act
         bool[] matches =
         [
             Examples[0] is Arpeggio { FirstSemitones: 4, SecondSemitones: 7 },
@@ -79,28 +82,55 @@ public sealed class EffectTests
             Examples[25] is UnsupportedEffect { Description: "E8x with x = 3" },
         ];
 
+        // Assert
         Assert.Equal(Examples.Length, matches.Length);
         Assert.DoesNotContain(false, matches);
     }
 
-    /// <summary>Effects compare by value, so tests and mappers can match them directly.</summary>
+    /// <summary>Effects of the same kind with the same values are equal, so tests and mappers can match them directly.</summary>
     [Fact]
-    public void EffectsCompareByValue()
+    public void Equals_WithSameKindAndValues_ReturnsTrue()
     {
-        Assert.Equal(new VolumeSlide(0.5, SlideTiming.EveryTickAfterFirst), new VolumeSlide(0.5, SlideTiming.EveryTickAfterFirst));
-        Assert.NotEqual<Effect>(new SetSpeed(3), new SetTempo(3));
-        Assert.NotEqual(new SetVibratoWaveform(Waveform.Square, false), new SetVibratoWaveform(Waveform.RampDown, false));
+        // Act & Assert
         Assert.All(Examples, e => Assert.Equal(e, e with { }));
+    }
+
+    /// <summary>Effects of another kind with the same number aren't equal.</summary>
+    [Fact]
+    public void Equals_WithOtherKind_ReturnsFalse()
+    {
+        // Arrange
+        Effect speed = new SetSpeed(3);
+        Effect tempo = new SetTempo(3);
+
+        // Act & Assert
+        Assert.NotEqual(speed, tempo);
+    }
+
+    /// <summary>Effects of the same kind with another value aren't equal.</summary>
+    [Fact]
+    public void Equals_WithOtherValue_ReturnsFalse()
+    {
+        // Arrange
+        SetVibratoWaveform square = new(Waveform.Square, false);
+        SetVibratoWaveform ramp = new(Waveform.RampDown, false);
+
+        // Act & Assert
+        Assert.NotEqual(square, ramp);
     }
 
     /// <summary>A cell can carry several effects, in order (one MOD command may become two).</summary>
     [Fact]
-    public void ACellCanCarrySeveralEffects()
+    public void Cell_WithSeveralEffects_KeepsThemInOrder()
     {
-        Cell cell = Cell.Empty with { Effects = [new TonePortamento(null, PitchScale.AmigaPeriod), new VolumeSlide(1 / 64.0, SlideTiming.EveryTickAfterFirst)] };
+        // Arrange
+        Effect[] effects = [new TonePortamento(null, PitchScale.AmigaPeriod), new VolumeSlide(1 / 64.0, SlideTiming.EveryTickAfterFirst)];
 
-        Assert.IsType<TonePortamento>(cell.Effects[0]);
-        Assert.IsType<VolumeSlide>(cell.Effects[1]);
+        // Act
+        Cell cell = Cell.Empty with { Effects = effects };
+
+        // Assert
+        Assert.Equal(effects, cell.Effects);
         Assert.Null(cell.Note);
     }
 }
