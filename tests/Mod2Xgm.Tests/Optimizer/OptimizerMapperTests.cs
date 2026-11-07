@@ -452,7 +452,7 @@ public sealed class OptimizerMapperTests
         sut.Map(song, PlaybackOf(song), MappingOptions.Default, notes);
 
         // Assert
-        Assert.Equal(1, notes.Count);
+        Assert.Contains(notes.Messages, m => m.Contains("1 FM notes also sound a quiet PSG tone", StringComparison.Ordinal));
     }
 
     /// <summary>A volume change on a layered note reaches both of its voices.</summary>

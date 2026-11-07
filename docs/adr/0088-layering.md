@@ -65,6 +65,7 @@ the 6 dB tone, which beat or matched no tone. Its gain is small, and the grades 
 - PSG tones can't pan, so a tone under a panned FM note plays in the centre. No grade pointed at this.
 - **Still open, for later tasks, all heard in these rounds and none caused by layering:**
   - David suggests a second FM channel for kc's chords, its weakest part: an FM plus FM layer, not tried here.
+  - David would like kc's horns to have "more of a sharp brass sound" (a note from T9.3's last round, on versions without layers). The 6 dB tone was already too crisp, so a louder tone isn't the way.
   - xlr8 lacks the original's long held chords.
   - hawks_claw restarts a note that should sustain from 0:17 to 0:20.
   - kc's bass doesn't have the original's shape.
