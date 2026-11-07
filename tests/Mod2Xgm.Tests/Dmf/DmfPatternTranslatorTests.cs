@@ -118,13 +118,13 @@ public sealed class DmfPatternTranslatorTests
         Assert.True(result.Cell(GenesisChannel.Psg2, 0).Volume < result.Cell(GenesisChannel.Psg1, 0).Volume);
     }
 
-    /// <summary>A voice's cents reach the file as a fine pitch: 12 cents is 15 of DefleMask's 128 steps to the semitone.</summary>
+    /// <summary>A voice's cents reach the file as a fine pitch: 12.5 cents is exactly 16 of DefleMask's 128 steps to the semitone, so rounding can't move it.</summary>
     [Fact]
     public void Build_WithCents_WritesFinePitch()
     {
         // Arrange
         byte[] mod = Song().WithCell(0, 0, 0, Lead, C2).Build();
-        Func<GenesisPlan, GenesisPlan> sharper = Edit(GenesisChannel.Fm1, 0, c => c with { Cents = 12 });
+        Func<GenesisPlan, GenesisPlan> sharper = Edit(GenesisChannel.Fm1, 0, c => c with { Cents = 12.5 });
         static int FineOf(DmfConversion.Result result) =>
             result.Effects(GenesisChannel.Fm1, 0).Where(e => e.Code == 0xE5).Select(e => e.Value).DefaultIfEmpty(DmfUnits.FinePitchCentre).Single();
 
@@ -133,7 +133,7 @@ public sealed class DmfPatternTranslatorTests
         DmfConversion.Result result = DmfConversion.Convert(mod, transform: sharper);
 
         // Assert
-        Assert.Equal(15, FineOf(result) - FineOf(plain));
+        Assert.Equal(16, FineOf(result) - FineOf(plain));
     }
 
     /// <summary>A cell needing more than four effects keeps the most important four and says how many went.</summary>
