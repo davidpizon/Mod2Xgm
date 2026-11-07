@@ -838,7 +838,7 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
                 }
             }
 
-            foreach (IGrouping<int, PlannedNote> layered in _planned.Where(n => n.LayerColumn >= 0 && n.Kind is not null).GroupBy(n => n.Sample).OrderBy(g => g.Key))
+            foreach (IGrouping<int, PlannedNote> layered in _planned.Where(n => n is { LayerColumn: >= 0, Kind: not null }).GroupBy(n => n.Sample).OrderBy(g => g.Key))
             {
                 _notes.Add("Sample {Sample}: {Count} FM notes also sound a quiet PSG tone", Label(layered.Key, _song.Samples[layered.Key].Name), layered.Count());
             }
