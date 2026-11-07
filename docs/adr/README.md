@@ -101,6 +101,7 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0085](0085-target-limits.md) | One rule book of target limits; XGM's and XGM2's limits never bind a DMF | 2026-11-06 | Accepted |
 | [0086](0086-capacity-check.md) | The capacity check counts only recordings, as the drivers store them | 2026-11-06 | Accepted |
 | [0087](0087-greedy-allocator.md) | A greedy allocator, its sounds and levels chosen by ear | 2026-11-06 | Accepted |
+| [0088](0088-layering.md) | Layering: a quiet PSG tone under an FM note, chosen by ear | 2026-11-07 | Accepted |
 
 ## Open questions
 

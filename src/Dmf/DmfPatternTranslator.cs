@@ -618,6 +618,7 @@ internal sealed class DmfPatternTranslator
             draft.Instrument = translator._noiseInstruments[sample];
             double volume = cell.Volume ?? track.ModVolume;
             (track.Gain, bool limited) = translator._voicing.ToneLevel(sample);
+            track.Gain *= cell.Level;
             if (limited)
             {
                 Tally("{Count} PSG tone notes play quieter than in the MOD: their sample is louder than the PSG at full volume");

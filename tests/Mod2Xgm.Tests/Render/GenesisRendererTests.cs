@@ -336,6 +336,23 @@ public sealed class GenesisRendererTests
         Assert.Equal(440, Hz(audio.Left, audio.SampleRate, 0.2, 1.0), 5.0);
     }
 
+    /// <summary>A layer's level turns its PSG tone down: a quarter is 12 dB, within what the PSG's 2 dB steps allow.</summary>
+    [Fact]
+    public void Render_WithLayerLevel_PlaysToneQuieter()
+    {
+        // Arrange
+        GenesisPlan full = PlanOf([], [], Row((GenesisChannel.Psg1, Note(VoiceKind.PsgTone))));
+        GenesisPlan quarter = PlanOf([], [], Row((GenesisChannel.Psg1, Note(VoiceKind.PsgTone) with { Level = 0.25 })));
+        Playback playback = PlaybackOf(20, (r, t) => Playing(r == 0 && t == 0));
+
+        // Act
+        StereoAudio loud = Render(full, SongOf(1, LoopedSine()), playback);
+        StereoAudio quiet = Render(quarter, SongOf(1, LoopedSine()), playback);
+
+        // Assert
+        Assert.Equal(-12, Db(quiet.Left, quiet.SampleRate, 0.2, 1.0) - Db(loud.Left, loud.SampleRate, 0.2, 1.0), 1.5);
+    }
+
     /// <summary>Several recordings at once play on the PCM columns of a plan with more than one PCM voice.</summary>
     [Fact]
     public void Render_WithSecondPcmColumn_AddsItToTheMix()
