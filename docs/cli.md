@@ -22,7 +22,7 @@ mod2xgm <input.mod> [options]
 | `--require-dac <list>` | none | MOD samples that **must** be played on the DAC as digitized PCM (never replaced by FM or PSG). Same list syntax. Renamed from `--require-pcm` ([ADR 0041](adr/0041-require-dac-require-psg.md)). |
 | `--require-psg <list>` | none | MOD samples that **must** be played by the PSG (never FM or the DAC). The simple mapper uses the PSG noise channel. Same list syntax. See [ADR 0041](adr/0041-require-dac-require-psg.md). |
 | `--no-dac` | off | Don't use the DAC (digitized PCM): every sample is played by FM or the PSG, drums included. The DAC is the one place the Genesis plays recordings; by default the mapper puts one-shot samples there. Can't be combined with `--require-dac` (exit 1). See [ADR 0040](adr/0040-simple-mapper.md). |
-| `--no-consolidate` | off | Don't consolidate samples; if the song doesn't fit the target, print the capacity report and exit 6. |
+| `--no-consolidate` | off | Don't change the song to fit: only the free tidying runs. If the song's recordings still pass a limit of the target (slots, voices at once, bytes), print the capacity report, write nothing and exit 6 ([ADR 0086](adr/0086-capacity-check.md)). |
 | `--max-pcm-bytes <n>` | 128K | PCM byte budget per song for XGM/XGM2 (suffixes `K`, `M`). Over budget → capacity warning + consolidation. |
 | `--quality <fast\|normal\|best>` | `normal` | `fast`: simple mapper, no fitting. `normal`: multi-pass with a 5-minute budget. `best`: run until no improvement. See [multi-pass.md](multi-pass.md). Until the optimizer exists (plan M9) every quality uses the simple mapper, and `normal`/`best` print a line saying so. |
 | `--time-budget <duration>` | per quality | Overrides the optimizer time limit (`90s`, `5m`). |

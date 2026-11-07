@@ -38,6 +38,23 @@ public sealed class SongVoicesTests
         Assert.Equal(2, voices.MostAtOnceOf(1));
     }
 
+    /// <summary>Asked about some samples only, the most at once counts just those; each sample's own count stays whole.</summary>
+    [Fact]
+    public void Count_WithOnlySomeSamples_CountsJustThoseAtOnce()
+    {
+        // Arrange
+        SampleBlock end = new(0, 0, 2);
+        SampleBlock loop = new(1, 0, 100);
+        Playback playback = new([new PlaybackTick(0, 0.02, 0, 0, 0, false, [Start(0, 150, end), Start(0, 150, end), Start(1, 100, loop)])], null, PlaybackEnd.Stops);
+
+        // Act
+        SongVoices voices = SongVoices.Count(TwoSampleSong(), playback, new HashSet<int> { 1 });
+
+        // Assert
+        Assert.Equal(1, voices.MostAtOnce);
+        Assert.Equal(2, voices.MostAtOnceOf(0));
+    }
+
     /// <summary>A sample number the song doesn't have sounds nothing.</summary>
     [Theory]
     [InlineData(5)]

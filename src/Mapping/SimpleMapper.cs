@@ -135,7 +135,8 @@ internal sealed class SimpleMapper : IChannelMapper
 
             ReportTallies();
             DacSample[] dac = [.. _dacSamples.Select(sample => new DacSample(sample, DacRate(sample)))];
-            return new GenesisPlan(_song.Title, patterns, _song.LoopOrder, _song.Timing, _patches, dac);
+            HashSet<int> recordings = [.. _song.Instruments.Where((_, i) => _routes[i].Primary == Primary.Dac).Select(instrument => instrument.Sample)];
+            return new GenesisPlan(_song.Title, patterns, _song.LoopOrder, _song.Timing, _patches, dac) { PcmSamples = recordings };
         }
 
         /// <summary>Decides how one instrument's notes are played; lossy choices get a note.</summary>

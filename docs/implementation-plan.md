@@ -128,7 +128,7 @@
 | Task | Work | Acceptance |
 |---|---|---|
 | T9.1 ✅ | Target limits model (FM/CH3/PSG/PCM voices/slots/bytes, `--reserve-sfx-channels`, `--max-pcm-bytes`): `TargetLimits`, each `--format` with its own; XGM's and XGM2's limits never bind a DMF (David), which has all 6 FM channels and no byte limit; XGM2 holds 123 samples ([ADR 0085](adr/0085-target-limits.md)) | Tests per target |
-| T9.2 | Capacity check + warning; `--no-consolidate` → exit 6 | Tests |
+| T9.2 ✅ | Capacity check + warning; `--no-consolidate` → exit 6: only recordings count, as the drivers store them, and voices count whatever you'd hear together (David, [ADR 0086](adr/0086-capacity-check.md)) | Tests |
 | T9.3 | Importance scoring; greedy allocation per section; `--require-fm` / `--require-dac` / `--require-psg` as hard constraints | Always produces a valid plan; required samples never change type; exit 6 when required PCM can't fit |
 | T9.4 | Consolidation moves (dedupe, trim, pitch quantize, half rate, merge, mid-song swap, voice stealing) as allocator moves | Tests; never a wrong pitch; a song that already fits the target gets no consolidation move and keeps every note (David, [multi-pass.md](multi-pass.md#idea)) |
 | T9.5 | Render & refine loop (worst-section re-fit / re-allocate), `--quality` / `--time-budget` / `--seed` | Deterministic; improves corpus score vs greedy |

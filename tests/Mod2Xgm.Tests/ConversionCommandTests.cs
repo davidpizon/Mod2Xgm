@@ -566,6 +566,58 @@ public sealed class ConversionCommandTests
         Assert.DoesNotContain("NOTE: SGDK expects XGM2 files to use the .XGM file extension.", sink.Messages(LogEventLevel.Information));
     }
 
+    /// <summary>Two recordings ringing together don't fit a DMF: by default the run warns and still writes the file.</summary>
+    [Fact]
+    public void Execute_WithOverlappingRecordings_WarnsAndWrites()
+    {
+        // Arrange
+        using TempDirectory temp = new();
+        CollectingSink sink = new();
+        ConversionOptions options = new() { InputPath = temp.CreateFile("song.mod", OverlappingRecordings()) };
+
+        // Act
+        ExitCode code = ConversionCommand.Execute(options, sink.CreateLogger());
+
+        // Assert
+        Assert.Equal(ExitCode.Success, code);
+        Assert.Contains("DMF capacity exceeded: needs 2 simultaneous PCM voices (limit 1)", sink.Messages(LogEventLevel.Warning));
+        Assert.Contains("Consolidating samples to fit (use --no-consolidate to fail instead)", sink.Messages(LogEventLevel.Warning));
+        Assert.True(File.Exists(temp.Combine("song.dmf")));
+    }
+
+    /// <summary>With <c>--no-consolidate</c> the same song stops with exit 6 and writes nothing.</summary>
+    [Fact]
+    public void Execute_WithNoConsolidateAndOverlappingRecordings_ThrowsDoesNotFit()
+    {
+        // Arrange
+        using TempDirectory temp = new();
+        ConversionOptions options = new() { InputPath = temp.CreateFile("song.mod", OverlappingRecordings()), NoConsolidate = true };
+
+        // Act
+        ConversionException error = Assert.Throws<ConversionException>(() => ConversionCommand.Execute(options, new CollectingSink().CreateLogger()));
+
+        // Assert
+        Assert.Equal(ExitCode.DoesNotFit, error.Code);
+        Assert.False(File.Exists(temp.Combine("song.dmf")));
+    }
+
+    /// <summary>A song that fits converts with <c>--no-consolidate</c>, and no capacity warning.</summary>
+    [Fact]
+    public void Execute_WithNoConsolidateAndSongThatFits_ReturnsSuccessWithoutWarning()
+    {
+        // Arrange
+        using TempDirectory temp = new();
+        CollectingSink sink = new();
+        ConversionOptions options = new() { InputPath = temp.CreateFile("song.mod"), NoConsolidate = true };
+
+        // Act
+        ExitCode code = ConversionCommand.Execute(options, sink.CreateLogger());
+
+        // Assert
+        Assert.Equal(ExitCode.Success, code);
+        Assert.DoesNotContain(sink.Messages(LogEventLevel.Warning), m => m.Contains("capacity exceeded", StringComparison.Ordinal));
+    }
+
     /// <summary><c>fast</c> is the simple mapper, so nothing about the optimizer is said.</summary>
     [Fact]
     public void Execute_WithFastQuality_SaysNothingAboutOptimizer()
@@ -761,4 +813,12 @@ public sealed class ConversionCommandTests
 
     /// <summary>The exit code of the <see cref="ConversionException"/> <paramref name="action"/> throws.</summary>
     private static ExitCode CodeOf(Action action) => Assert.Throws<ConversionException>(action).Code;
+
+    /// <summary>A MOD whose second one-shot starts a row after the first, which rings on for about a second.</summary>
+    private static byte[] OverlappingRecordings() => new ModBuilder()
+        .WithSample(1, "kick", 8000)
+        .WithSample(2, "snare", 8000, data: i => (sbyte)(i % 32))
+        .WithCell(0, row: 0, channel: 0, sample: 1, period: 428)
+        .WithCell(0, row: 1, channel: 1, sample: 2, period: 428)
+        .Build();
 }

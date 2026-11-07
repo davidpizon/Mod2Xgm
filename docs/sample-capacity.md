@@ -64,14 +64,22 @@ This is a row-level walk. Exact tick-by-tick playback is plan M3 (T3.4), which m
 
 ## Capacity check (always runs)
 
-After mapping, the converter computes the **required** variant count, peak simultaneous PCM voices and
-PCM bytes, and compares them with the target's limits. If any limit is exceeded it logs a **conversion
-note at `Warning` level** before doing anything about it, e.g.:
+After mapping, `CapacityCheck` (`src/Optimizer/CapacityCheck.cs`, [ADR 0086](adr/0086-capacity-check.md)) computes the
+**required** variant count, peak simultaneous PCM voices and PCM bytes, and compares them with the target's limits. If
+any limit is exceeded it logs a **conversion note at `Warning` level**, listing the limits passed, e.g.:
 
 ```
 WRN XGM2 capacity exceeded: needs 187 sample slots (limit 123), 4 simultaneous PCM voices (limit 3), 412 KB PCM (budget 128 KB)
 WRN Consolidating samples to fit (use --no-consolidate to fail instead)
 ```
+
+Only **recordings** count: samples the mapper plays as PCM, even if a clash moved their notes elsewhere. FM and PSG notes
+store nothing. After the free steps 0–3 below:
+
+- **Slots:** one copy per sample, starting pitch, 3 dB of loudness and start point. Held length sets a copy's size, not
+  how many there are, because a shorter note can stop a copy early.
+- **Voices:** the most recordings sounding at once, tick by tick. A kick still ringing when a snare starts counts as two.
+- **Bytes:** every copy on the target, at full rate, as long as its longest note (at most 10 s of a loop).
 
 ## Consolidation (default)
 
@@ -116,8 +124,9 @@ most noticeable) and for notes on downbeats. The lowest-scoring items are substi
 
 ### `--no-consolidate`
 
-Turns steps 4–9 off. If the song still doesn't fit after steps 0–3, the converter prints the capacity
-report and exits with code **6**.
+Turns steps 4–9 off. If the song still doesn't fit after steps 0–3, on any limit including voices, the converter prints
+the capacity report, writes no file and exits with code **6**. So a DMF with two recordings sounding at once stops
+there, as moving one to FM would change the song ([ADR 0086](adr/0086-capacity-check.md)).
 
 ## Required FM, DAC and PSG samples
 
