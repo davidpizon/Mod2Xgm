@@ -266,7 +266,8 @@ internal sealed class GenesisPlanPlayer
 
                 LoadPatch(c, voice.Index);
                 track.Centred = _voicing.CentredBass(ch.Pitch, sample, ch.Pan);
-                track.Gain = FmGain(track, sample, voice.Index);
+                track.Gain = FmGain(track, sample, voice.Index) * cell.Level;
+                track.Cents = cell.Cents;
                 track.Sounding = true;
                 Update(c, t);
                 KeyOn(c);
@@ -395,7 +396,7 @@ internal sealed class GenesisPlanPlayer
     {
         if (ch.Pitch.PlaybackRateHz > 0)
         {
-            double hz = PlanVoicing.Hz(_voicing.HeardSemitones(ch.Pitch, track.Sample, out _));
+            double hz = PlanVoicing.Hz(_voicing.HeardSemitones(ch.Pitch, track.Sample, out _) + (track.Cents / 100));
             int blockFnum = BlockFnum(hz);
             if (blockFnum != track.BlockFnum)
             {
@@ -638,6 +639,9 @@ internal sealed class GenesisPlanPlayer
 
         /// <summary>The song sample the note plays.</summary>
         public int Sample { get; set; } = -1;
+
+        /// <summary>How far an FM note plays from its pitch (<see cref="PlanCell.Cents"/>).</summary>
+        public double Cents { get; set; }
 
         /// <summary>The voice the note plays with.</summary>
         public PlanVoice Voice { get; set; }

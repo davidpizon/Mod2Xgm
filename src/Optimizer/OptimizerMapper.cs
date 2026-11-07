@@ -11,7 +11,7 @@ namespace Mod2Xgm.Optimizer;
 /// MOD for its notes. A note whose sound has no room takes the next best; with none left it is cut. A sample with no
 /// steady pitch never takes a tuned voice unless the user requires it, so its notes can be cut while tuned voices sit
 /// free (David: it plays as wrong notes). <c>--require-*</c> samples only ever use their kind. An FM note may also sound a
-/// quiet PSG tone, on a channel no note needs (docs/adr/0088-layering.md).
+/// quiet PSG tone, or a chord a second FM voice, on a channel no note needs (docs/adr/0088-layering.md, docs/adr/0089-fm-layer.md).
 /// </summary>
 /// <param name="limits">What the target holds.</param>
 /// <param name="menu">What each sample can sound like.</param>
@@ -105,6 +105,9 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
 
         /// <summary>The column of a second voice under it, or −1 (docs/adr/0088-layering.md).</summary>
         public int LayerColumn { get; set; } = -1;
+
+        /// <summary>What the second voice is, when it has one.</summary>
+        public VoiceKind LayerKind { get; set; }
     }
 
     /// <summary>One pass over a song.</summary>
@@ -541,7 +544,8 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
         /// </summary>
         private void AddLayers()
         {
-            int[] layerOn = [.. Enumerable.Repeat(-1, _song.Channels.Count)];
+            int[] toneOn = [.. Enumerable.Repeat(-1, _song.Channels.Count)];
+            int[] fmOn = [.. Enumerable.Repeat(-1, _song.Channels.Count)];
             foreach (IGrouping<int, PlannedNote> section in _planned.GroupBy(n => n.Order).OrderBy(g => g.Key))
             {
                 foreach (IGrouping<(int Channel, int Sample), PlannedNote> track in section.GroupBy(n => (n.Channel, n.Sample))
@@ -549,24 +553,32 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
                     .ThenBy(t => t.Key.Channel)
                     .ThenBy(t => t.Key.Sample))
                 {
-                    if (track.All(TakesLayer))
+                    List<PlannedNote> notes = [.. track.OrderBy(n => n.FirstTick)];
+                    if (notes.All(TakesSecondFm))
                     {
-                        layerOn[track.Key.Channel] = PlaceLayers([.. track.OrderBy(n => n.FirstTick)], layerOn[track.Key.Channel]);
+                        fmOn[track.Key.Channel] = PlaceLayers(notes, VoiceKind.Fm, fmOn[track.Key.Channel]);
+                    }
+                    else if (notes.All(TakesLayer))
+                    {
+                        toneOn[track.Key.Channel] = PlaceLayers(notes, VoiceKind.PsgTone, toneOn[track.Key.Channel]);
                     }
                 }
             }
         }
 
-        /// <summary>Gives every one of <paramref name="notes"/> a free tone column, staying on the one the channel last used (<paramref name="last"/>), or leaves them all without. Returns the column the channel used last.</summary>
-        private int PlaceLayers(List<PlannedNote> notes, int last)
+        /// <summary>Gives every one of <paramref name="notes"/> a free column of <paramref name="kind"/>, staying on the one the channel last used (<paramref name="last"/>), or leaves them all without. FM6 stays free as the first DAC voice's only column. Returns the column the channel used last.</summary>
+        private int PlaceLayers(List<PlannedNote> notes, VoiceKind kind, int last)
         {
+            int[] columns = kind == VoiceKind.Fm
+                ? [.. Enumerable.Range(0, Math.Min(_limits.FmChannels, (int)GenesisChannel.Fm6))]
+                : [.. Enumerable.Range((int)GenesisChannel.Psg1, _limits.PsgTones)];
             List<(PlannedNote Note, int Column, List<(int From, int To)> Spans)> placed = [];
             int previous = last;
             foreach (PlannedNote note in notes)
             {
                 List<(int From, int To)> spans = [.. note.Plays.Select(p => (p.FirstTick, p.FirstTick + p.Ticks))];
                 int stay = previous;
-                int column = Enumerable.Range((int)GenesisChannel.Psg1, _limits.PsgTones)
+                int column = columns
                     .OrderBy(c => c == stay ? 0 : 1)
                     .ThenBy(c => c)
                     .FirstOrDefault(c => !spans.Any(s => _busy[c].Any(b => s.From < b.To && b.From < s.To)) && !placed.Any(p => p.Column == c && p.Spans.Any(o => spans.Any(s => s.From < o.To && o.From < s.To))), -1);
@@ -582,6 +594,7 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
             foreach ((PlannedNote note, int column, List<(int From, int To)> spans) in placed)
             {
                 note.LayerColumn = column;
+                note.LayerKind = kind;
                 _busy[column].AddRange(spans);
             }
 
@@ -594,6 +607,11 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
             && !_options.RequireFm.Contains(note.Sample)
             && _menu[note.Sample].SteadyPitch
             && _menu[note.Sample].RegionAt(note.Plays[0].RateHz)?.ToneDb is not null;
+
+        /// <summary>True when <paramref name="note"/> can take a second FM voice: an FM note of a chord, which the voice can follow unless it slides (the slide's cell has one column).</summary>
+        private bool TakesSecondFm(PlannedNote note) =>
+            note is { Kind: VoiceKind.Fm, Column: >= 0, Slides: false }
+            && _menu[note.Sample].RegionAt(note.Plays[0].RateHz)?.Second is not null;
 
         /// <summary>
         /// The columns that can play <paramref name="note"/>, best first: the one its channel just played on, then its
@@ -706,10 +724,12 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
                     PlanVoice voice = new(kind, kind switch
                     {
                         VoiceKind.Dac => IndexOf(recordings, recordingIndex, (StoredAs(note.Sample), note.Plays[0].RateHz)),
-                        VoiceKind.Fm => IndexOfPatch(patches, patchIndex, note),
+                        VoiceKind.Fm => IndexOfPatch(patches, patchIndex, _menu[note.Sample].RegionAt(note.Plays[0].RateHz)?.Patch ?? FmPatchLibrary.Sine),
                         _ => 0,
                     });
-                    cells[note.Column] = new PlanCell(note.Pitch, voice, note.Volume, false, effects, c, note.Sample);
+                    double level = note is { LayerColumn: >= 0, LayerKind: VoiceKind.Fm } ? _menu[note.Sample].RegionAt(note.Plays[0].RateHz)?.FirstLevel ?? 1 : 1;
+                    double spread = note is { LayerColumn: >= 0, LayerKind: VoiceKind.Fm } ? _menu[note.Sample].RegionAt(note.Plays[0].RateHz)?.SpreadCents ?? 0 : 0;
+                    cells[note.Column] = new PlanCell(note.Pitch, voice, note.Volume, false, effects, c, note.Sample) { Level = level, Cents = -spread / 2 };
                     on[c] = note.Column;
                     owner[note.Column] = c;
                     voiceOn[note.Column] = voice;
@@ -743,8 +763,11 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
                 layerOn[c] = null;
                 if (note.LayerColumn >= 0)
                 {
-                    PlanVoice layer = new(VoiceKind.PsgTone, 0);
-                    cells[note.LayerColumn] = new PlanCell(note.Pitch, layer, note.Volume, false, effects, c, note.Sample) { Level = ToneLayerLevel };
+                    bool fm = note.LayerKind == VoiceKind.Fm;
+                    PlanVoice layer = fm
+                        ? new(VoiceKind.Fm, IndexOfPatch(patches, patchIndex, _menu[note.Sample].RegionAt(note.Plays[0].RateHz)?.Second ?? FmPatchLibrary.Sine))
+                        : new(VoiceKind.PsgTone, 0);
+                    cells[note.LayerColumn] = new PlanCell(note.Pitch, layer, note.Volume, false, effects, c, note.Sample) { Level = fm ? 1 : ToneLayerLevel, Cents = fm ? (_menu[note.Sample].RegionAt(note.Plays[0].RateHz)?.SpreadCents ?? 0) / 2 : 0 };
                     layerOn[c] = note.LayerColumn;
                     owner[note.LayerColumn] = c;
                     voiceOn[note.LayerColumn] = layer;
@@ -805,9 +828,8 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
             return i;
         }
 
-        private int IndexOfPatch(List<FmPatch> list, Dictionary<FmPatch, int> index, PlannedNote note)
+        private static int IndexOfPatch(List<FmPatch> list, Dictionary<FmPatch, int> index, FmPatch patch)
         {
-            FmPatch patch = _menu[note.Sample].RegionAt(note.Plays[0].RateHz)?.Patch ?? FmPatchLibrary.Sine;
             if (!index.TryGetValue(patch, out int i))
             {
                 i = list.Count;
@@ -838,9 +860,12 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
                 }
             }
 
-            foreach (IGrouping<int, PlannedNote> layered in _planned.Where(n => n is { LayerColumn: >= 0, Kind: not null }).GroupBy(n => n.Sample).OrderBy(g => g.Key))
+            foreach (IGrouping<(int Sample, VoiceKind Kind), PlannedNote> layered in _planned.Where(n => n is { LayerColumn: >= 0, Kind: not null }).GroupBy(n => (n.Sample, n.LayerKind)).OrderBy(g => g.Key.Sample))
             {
-                _notes.Add("Sample {Sample}: {Count} FM notes also sound a quiet PSG tone", Label(layered.Key, _song.Samples[layered.Key].Name), layered.Count());
+                _notes.Add(
+                    layered.Key.Kind == VoiceKind.Fm ? "Sample {Sample}: a chord, so its {Count} FM notes also sound a second FM voice" : "Sample {Sample}: {Count} FM notes also sound a quiet PSG tone",
+                    Label(layered.Key.Sample, _song.Samples[layered.Key.Sample].Name),
+                    layered.Count());
             }
 
             Tally("{Count} notes were played before their channel had an instrument; left out", _noInstrument);

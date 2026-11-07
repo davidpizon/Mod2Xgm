@@ -1,3 +1,4 @@
+using System.Globalization;
 using Mod2Xgm.Analysis;
 using Mod2Xgm.Mapping;
 using Mod2Xgm.Output;
@@ -11,7 +12,10 @@ namespace Mod2Xgm.Optimizer;
 /// <param name="FmDb">How far <paramref name="Patch"/> is.</param>
 /// <param name="ToneDb">How far a PSG tone is, or <c>null</c> when the note is below the tone channels or the PSG wasn't fitted.</param>
 /// <param name="NoiseDb">How far the PSG's hiss at the plan's fixed rate is, or <c>null</c> when the PSG wasn't fitted.</param>
-internal sealed record RegionSounds(double LowRateHz, double HighRateHz, FmPatch? Patch, double? FmDb, double? ToneDb, double? NoiseDb);
+/// <param name="Second">A second FM voice that sounds together with <paramref name="Patch"/>, for a chord (docs/adr/0089-fm-layer.md), or <c>null</c>.</param>
+/// <param name="FirstLevel">The factor on <paramref name="Patch"/>'s level when <paramref name="Second"/> sounds with it, as the pair's share of its level.</param>
+/// <param name="SpreadCents">How far apart the two voices play, half either side of the note.</param>
+internal sealed record RegionSounds(double LowRateHz, double HighRateHz, FmPatch? Patch, double? FmDb, double? ToneDb, double? NoiseDb, FmPatch? Second = null, double FirstLevel = 1, double SpreadCents = 0);
 
 /// <summary>What the allocator can play one sample with.</summary>
 /// <param name="Sample">Index into <c>Song.Samples</c>.</param>
@@ -47,6 +51,60 @@ internal static class SoundMenu
     {
         ArgumentNullException.ThrowIfNull(analysis);
         return analysis.Kind is not (SampleKind.Drum or SampleKind.Noise) && analysis.Pitch is { DeviationCents: <= MaxSteadyCents };
+    }
+
+    /// <summary>How far below a sample's loudest harmonic its two lowest must be, in dB, for it to be a chord: the note the analysis finds is then the notes' common root, which doesn't sound. kc's and cancan's chords measure 34 dB or more; cancan's Banjo, the nearest thing that isn't a chord, 10 dB.</summary>
+    private const double ChordGapDb = 20;
+
+    /// <summary>How far apart a chord's two voices play, in cents: what kc's chords measure between the two peaks of a partial, so the voices beat as the sample does (docs/adr/0089-fm-layer.md).</summary>
+    private const double ChordSpreadCents = 22;
+
+    /// <summary>How far a chord's two voices together sit under the sample, in dB: David preferred this on kc, where the chords overpowered the melody, and couldn't separate it from full level on cancan (docs/adr/0089-fm-layer.md).</summary>
+    private const double ChordDownDb = 3;
+
+    /// <summary>
+    /// True when the sound in <paramref name="harmonicsDb"/> is several notes stored as one sample (kc's SynthFMaj is C-F-A,
+    /// harmonics 3, 4 and 5 of the root the analysis measures): its loudest harmonic is the third or above, and the two
+    /// lowest are well under it (docs/adr/0089-fm-layer.md).
+    /// </summary>
+    internal static bool IsChord(IReadOnlyList<float[]> harmonicsDb)
+    {
+        ArgumentNullException.ThrowIfNull(harmonicsDb);
+        if (harmonicsDb.Count == 0 || harmonicsDb[0].Length < 3)
+        {
+            return false;
+        }
+
+        double[] db = [.. Enumerable.Range(0, harmonicsDb[0].Length).Select(h => 10 * Math.Log10(harmonicsDb.Average(frame => Math.Pow(10, frame[h] / 10))))];
+        double loudest = db.Max();
+        return Array.IndexOf(db, loudest) >= 2 && db[0] <= loudest - ChordGapDb && db[1] <= loudest - ChordGapDb;
+    }
+
+    /// <summary>
+    /// A chord's second FM voice: a copy of <paramref name="first"/>, the two <see cref="ChordSpreadCents"/> apart and together
+    /// <see cref="ChordDownDb"/> under the sample (docs/adr/0089-fm-layer.md). Its <see cref="FmPatch.HeardRms"/> is the pair's level,
+    /// so <see cref="Mapping.PlanVoicing.FmLevel"/> plays it as its share of the pair; the first voice's share comes back as
+    /// <c>FirstLevel</c>. None when the region isn't a chord.
+    /// </summary>
+    internal static (FmPatch? Second, double FirstLevel, double SpreadCents) SecondVoice(PitchRegion region, FmPatch first, bool loops, string name)
+    {
+        ArgumentNullException.ThrowIfNull(region);
+        ArgumentNullException.ThrowIfNull(first);
+        if (NoteTarget.Of(region) is not { Spectrum.HarmonicsDb: { } harmonics } target || !IsChord(harmonics) || first.HeardRms is not { } alone)
+        {
+            return (null, 1, 0);
+        }
+
+        double down = Math.Pow(2, -ChordSpreadCents / 2400);
+        float[] pair = NoteMix.Add(FmNoteRenderer.Render(first, null, target.NoteHz * down, SampleAnalyzer.RegionSeconds), FmNoteRenderer.Render(first, null, target.NoteHz / down, SampleAnalyzer.RegionSeconds));
+        double together = VoiceLevel.Heard(pair, SampleAnalyzer.AnalysisRateHz, loops);
+        if (together <= 0)
+        {
+            return (null, 1, 0);
+        }
+
+        double quieter = Math.Pow(10, -ChordDownDb / 20);
+        return (first with { Name = name, HeardRms = together / quieter }, Math.Min(1, alone / together) * quieter, ChordSpreadCents);
     }
 
     /// <summary>The TL that mutes an operator (docs/genesis-audio.md): such a carrier stays muted.</summary>
@@ -135,7 +193,9 @@ internal static class SoundMenu
             FmFit? fit = fm?.Regions.FirstOrDefault(f => f.Region == r)?.NoLfo;
             PsgRegionFit? tries = psg?.Regions.FirstOrDefault(f => f.Region == r);
             PsgCandidate? noise = tries?.Candidates.FirstOrDefault(c => c.Setting is { Sound: PsgSound.WhiteNoise } s && s.NoiseRate == noiseRate);
-            regions.Add(new RegionSounds(region.LowRateHz, region.HighRateHz, fit is null ? null : Measured(AtFullLevel(fit.Patch), NoteTarget.Of(region)?.NoteHz, played.Loop is not null), fit?.Score.MelDb, tries?.Tone?.Score.MelDb, noise?.Score.MelDb));
+            FmPatch? patch = fit is null ? null : Measured(AtFullLevel(fit.Patch), NoteTarget.Of(region)?.NoteHz, played.Loop is not null);
+            (FmPatch? second, double firstLevel, double spread) = patch is null ? (null, 1, 0) : SecondVoice(region, patch, played.Loop is not null, string.Create(CultureInfo.InvariantCulture, $"Fit {sample + 1}.{r + 1} second"));
+            regions.Add(new RegionSounds(region.LowRateHz, region.HighRateHz, patch, fit?.Score.MelDb, tries?.Tone?.Score.MelDb, noise?.Score.MelDb, second, firstLevel, spread));
         }
 
         Dictionary<double, double> recordings = [];
