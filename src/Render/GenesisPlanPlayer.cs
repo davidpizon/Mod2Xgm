@@ -3,6 +3,7 @@ using Mod2Xgm.Audio;
 using Mod2Xgm.Dmf;
 using Mod2Xgm.Mapping;
 using Mod2Xgm.Model;
+using Mod2Xgm.Optimizer;
 using Mod2Xgm.Render.Pcm;
 using Mod2Xgm.Render.Psg;
 
@@ -13,7 +14,8 @@ namespace Mod2Xgm.Render;
 /// channel follows the song channel its last note came from (<see cref="PlanCell.Source"/>): a note starts on the tick
 /// the tick player starts its sample (so <c>EDx</c> delays it and <c>E9x</c> restarts it), and until the next note or
 /// note-off the channel takes that song channel's pitch, volume and pan from every tick. What the hardware can't change
-/// stays as the note started: a DAC note's pitch (its sample's one rate, ADR 0040) and volume, a noise note's rate.
+/// stays as the note started: a DAC note's pitch (its sample's one rate, ADR 0040) and volume, a noise note's rate, a PSG
+/// tone's pitch (as its DMF notes, which can't slide; docs/adr/0087-greedy-allocator.md).
 /// </summary>
 internal sealed class GenesisPlanPlayer
 {
@@ -30,9 +32,6 @@ internal sealed class GenesisPlanPlayer
     /// <summary>The priority the music's PCM plays at, the highest, so a new note always takes over (the XGM writers, M10–M11, set the real one).</summary>
     private const int PcmPriority = 15;
 
-    /// <summary>The PCM channel music notes play on.</summary>
-    private const int PcmChannel = 0;
-
     // YM3438 registers (docs/genesis-audio.md).
     private const byte RegKeyOn = 0x28;
     private const byte RegLfo = 0x22;
@@ -44,10 +43,14 @@ internal sealed class GenesisPlanPlayer
     private const byte PanLeft = 0x80;
     private const byte PanRight = 0x40;
 
-    /// <summary>The PSG noise channel's control byte (noise register) and volume byte, before their low 4 bits.</summary>
+    /// <summary>The PSG noise channel's control byte (noise register), before its low 4 bits.</summary>
     private const byte PsgNoiseControl = 0xe0;
 
-    private const byte PsgNoiseVolume = 0xf0;
+    /// <summary>A PSG channel's volume latch byte for channel 0, before the channel (bits 6–5) and the volume (low 4 bits).</summary>
+    private const byte PsgVolumeLatch = 0x90;
+
+    /// <summary>A PSG tone channel's period latch byte for channel 0, before the channel (bits 6–5) and the period's low 4 bits.</summary>
+    private const byte PsgPeriodLatch = 0x80;
 
     /// <summary>The noise register's white-noise bit.</summary>
     private const byte PsgWhiteNoise = 0x04;
@@ -83,7 +86,7 @@ internal sealed class GenesisPlanPlayer
         _resampler = resampler;
         _notes = notes;
         _voicing = new PlanVoicing(plan, song);
-        _tracks = [.. Enumerable.Range(0, GenesisPlan.ChannelCount).Select(_ => new Track())];
+        _tracks = [.. Enumerable.Range(0, GenesisPlan.ColumnCount).Select(_ => new Track())];
         if (_ticks.Count > 0 && _ticks[0].Channels.Count != song.Channels.Count)
         {
             throw new ArgumentException($"The playback has {_ticks[0].Channels.Count} channels; the song has {song.Channels.Count}.", nameof(playback));
@@ -168,7 +171,7 @@ internal sealed class GenesisPlanPlayer
             track.Pending = null;
             track.StartTick = -1;
             track.RestartRow = false;
-            if (cells?[c] is not { } cell)
+            if (cells is null || c >= cells.Count || cells[c] is not { } cell)
             {
                 continue;
             }
@@ -262,13 +265,20 @@ internal sealed class GenesisPlanPlayer
                 }
 
                 LoadPatch(c, voice.Index);
-                track.Gain = _voicing.FmLevel(sample, voice.Index).Gain;
+                track.Centred = _voicing.CentredBass(ch.Pitch, sample, ch.Pan);
+                track.Gain = FmGain(track, sample, voice.Index);
                 track.Sounding = true;
                 Update(c, t);
                 KeyOn(c);
                 break;
             case VoiceKind.Dac:
-                track.Sounding = PlayDac(_plan.DacSamples[voice.Index], voice.Index, ch);
+                track.Sounding = PlayDac(c, _plan.DacSamples[voice.Index], voice.Index, ch);
+                track.Centred = false;
+                break;
+            case VoiceKind.PsgTone:
+                WriteTonePeriod(c, PsgSetting.NearestPeriod(PlanVoicing.Hz(_voicing.HeardSemitones(ch.Pitch, sample, out _))));
+                track.Gain = _voicing.ToneLevel(sample).Gain;
+                StartNoise(track, ch, t);
                 break;
             default:
                 int rate = 2 - _voicing.NoiseNote(sample);
@@ -291,7 +301,7 @@ internal sealed class GenesisPlanPlayer
                 KeyOn(c);
                 break;
             case VoiceKind.Dac:
-                track.Sounding = PlayDac(_plan.DacSamples[track.Voice.Index], track.Voice.Index, ch);
+                track.Sounding = PlayDac(c, _plan.DacSamples[track.Voice.Index], track.Voice.Index, ch);
                 break;
             default:
                 StartNoise(track, ch, t);
@@ -318,11 +328,15 @@ internal sealed class GenesisPlanPlayer
                 LoadPatch(c, voice.Index);
             }
 
-            track.Gain = _voicing.FmLevel(sample, voice.Index).Gain;
+            track.Gain = FmGain(track, sample, voice.Index);
         }
 
         track.Voice = voice;
     }
+
+    /// <summary>The factor on the MOD volume of <paramref name="sample"/> on FM patch <paramref name="patch"/>, as this note is panned.</summary>
+    private double FmGain(Track track, int sample, int patch) =>
+        _voicing.FmLevel(sample, patch).Gain * (track.Centred ? PlanVoicing.CentredGain : 1);
 
     private void Stop(int c)
     {
@@ -338,10 +352,10 @@ internal sealed class GenesisPlanPlayer
                 KeyOff(c);
                 break;
             case VoiceKind.Dac:
-                StopDac();
+                StopDac(c);
                 break;
             default:
-                WriteNoiseVolume(track, PsgOff);
+                WritePsgVolume(c, track, PsgOff);
                 break;
         }
 
@@ -355,7 +369,7 @@ internal sealed class GenesisPlanPlayer
         ChannelTick ch = _ticks[t].Channels[track.Source];
         if (c <= (int)GenesisChannel.Fm6)
         {
-            int side = PlanVoicing.Side(ch.Pan);
+            int side = track.Centred ? 0 : PlanVoicing.Side(ch.Pan);
             byte pan = side < 0 ? PanLeft : side > 0 ? PanRight : (byte)(PanLeft | PanRight);
             if (pan != track.Pan)
             {
@@ -371,7 +385,8 @@ internal sealed class GenesisPlanPlayer
                 UpdateFm(c, track, ch);
                 break;
             case VoiceKind.PsgNoise:
-                UpdateNoise(track, ch, _durations[t]);
+            case VoiceKind.PsgTone:
+                UpdateNoise(c, track, ch, _durations[t]);
                 break;
         }
     }
@@ -448,24 +463,35 @@ internal sealed class GenesisPlanPlayer
     /// The noise follows its sample's loudness tick by tick, as the DMF's noise instrument does: the tick's stretch of the
     /// sample against its loudest stretch, times the MOD volume, at the nearest of the chip's levels (docs/adr/0067-psg-volume-levels.md). Past a one-shot sample's end it is silent.
     /// </summary>
-    private void UpdateNoise(Track track, ChannelTick ch, double seconds)
+    private void UpdateNoise(int c, Track track, ChannelTick ch, double seconds)
     {
         Sample sample = _song.Samples[track.Sample];
         double rms = WindowRms(sample, (int)track.NoiseFrame, track.NoiseWindow);
         double level = ch.Volume * track.Gain * (track.NoisePeak > 0 ? rms / track.NoisePeak : 0);
         int volume = PsgLevels.Nearest(level);
-        WriteNoiseVolume(track, volume);
+        WritePsgVolume(c, track, volume);
         track.NoiseFrame += ch.Pitch.PlaybackRateHz * seconds;
     }
 
-    private void WriteNoiseVolume(Track track, int volume)
+    private void WritePsgVolume(int c, Track track, int volume)
     {
         if (volume != track.Volume)
         {
-            _chips.Psg.Write((byte)(PsgNoiseVolume | volume));
+            _chips.Psg.Write((byte)(PsgVolumeLatch | ((c - (int)GenesisChannel.Psg1) << 5) | volume));
             track.Volume = volume;
         }
     }
+
+    /// <summary>Sets a PSG tone channel's 10-bit period: the latch byte's low 4 bits, then the high 6.</summary>
+    private void WriteTonePeriod(int c, int period)
+    {
+        int clamped = Math.Clamp(period, 1, PsgSetting.MaxPeriod);
+        _chips.Psg.Write((byte)(PsgPeriodLatch | ((c - (int)GenesisChannel.Psg1) << 5) | (clamped & 0xf)));
+        _chips.Psg.Write((byte)(clamped >> 4));
+    }
+
+    /// <summary>The PCM channel column <paramref name="c"/> plays on: FM6 is the first, then the extra PCM columns.</summary>
+    private static int PcmChannel(int c) => c == (int)GenesisChannel.Fm6 ? 0 : c - (int)GenesisChannel.Pcm2 + 1;
 
     /// <summary>The loudest stretch of <paramref name="frames"/> frames in the noise sample, as the DMF's macro is scaled to.</summary>
     private double NoisePeak(int index, int frames)
@@ -509,12 +535,12 @@ internal sealed class GenesisPlanPlayer
     }
 
     /// <summary>Plays a DAC note: its sample from the frame the tick player starts at, at the volume it starts with. False when it stays silent.</summary>
-    private bool PlayDac(DacSample dac, int index, ChannelTick ch)
+    private bool PlayDac(int c, DacSample dac, int index, ChannelTick ch)
     {
         int offset = ch.Started?.StartFrame ?? 0;
         if (Prepare(dac, index, offset, ch.Volume) is not { } pcm)
         {
-            StopDac();
+            StopDac(c);
             return false;
         }
 
@@ -525,17 +551,17 @@ internal sealed class GenesisPlanPlayer
                 dmf.Play(pcm.Data16!, pcm.RateHz);
                 break;
             case XgmPcmDriver xgm:
-                xgm.Play(PcmChannel, pcm.Data8!, PcmPriority);
+                xgm.Play(PcmChannel(c), pcm.Data8!, PcmPriority);
                 break;
             case Xgm2PcmDriver xgm2:
-                xgm2.Play(PcmChannel, pcm.Data8!, PcmPriority, halfSpeed: false);
+                xgm2.Play(PcmChannel(c), pcm.Data8!, PcmPriority, halfSpeed: false);
                 break;
         }
 
         return true;
     }
 
-    private void StopDac()
+    private void StopDac(int c)
     {
         switch (_chips.Dac)
         {
@@ -543,10 +569,10 @@ internal sealed class GenesisPlanPlayer
                 dmf.Stop();
                 break;
             case XgmPcmDriver xgm:
-                xgm.Stop(PcmChannel, PcmPriority);
+                xgm.Stop(PcmChannel(c), PcmPriority);
                 break;
             case Xgm2PcmDriver xgm2:
-                xgm2.Stop(PcmChannel);
+                xgm2.Stop(PcmChannel(c));
                 break;
         }
     }
@@ -615,6 +641,9 @@ internal sealed class GenesisPlanPlayer
 
         /// <summary>The voice the note plays with.</summary>
         public PlanVoice Voice { get; set; }
+
+        /// <summary>True when an FM note plays centred whatever its channel's pan (<see cref="PlanVoicing.CentredBass"/>).</summary>
+        public bool Centred { get; set; }
 
         /// <summary>The kind of <see cref="Voice"/>.</summary>
         public VoiceKind Kind => Voice.Kind;

@@ -37,6 +37,15 @@ internal sealed record ConversionOptions
 
     public string? Mapping { get; init; }
 
+    /// <summary>The <c>--mapping</c> name of the simple mapper.</summary>
+    public const string SimpleMapping = "simple";
+
+    /// <summary>The <c>--mapping</c> name of the greedy allocator (docs/adr/0087-greedy-allocator.md).</summary>
+    public const string OptimizerMapping = "optimizer";
+
+    /// <summary>True when <c>--mapping optimizer</c> was given; it wins over <c>--quality fast</c>.</summary>
+    public bool UsesOptimizer => Mapping == OptimizerMapping;
+
     /// <summary>MOD sample numbers (1-based) to leave out.</summary>
     public IReadOnlySet<int> IgnoreSamples { get; init; } = new HashSet<int>();
 

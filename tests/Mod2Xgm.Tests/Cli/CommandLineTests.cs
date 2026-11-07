@@ -293,6 +293,7 @@ public sealed class CommandLineTests
     [InlineData("song.mod", "--output-region", "japan")]
     [InlineData("song.mod", "--region", "pal")]
     [InlineData("song.mod", "--player", "openmpt")]
+    [InlineData("song.mod", "--mapping", "clever")]
     [InlineData("song.mod", "--resampler", "linear")]
     [InlineData("song.mod", "--quality", "ultra")]
     [InlineData("song.mod", "--seed", "abc")]

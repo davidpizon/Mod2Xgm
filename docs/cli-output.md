@@ -119,17 +119,18 @@ depends on its options:
 | 4 | Build song model (`model`) | always | — |
 | 5 | Play ticks (`play`) | always | — |
 | 6 | Analyze samples (`analyze`) | `--verbose`, the harness, and (M9) the optimizer | `samples`, one by one |
-| 7 | Map channels (`map`) | always | — |
-| 8 | Write DMF (`write`) | `--format dmf` (with `--info` it builds the DMF but writes nothing) | — |
-| 9 | Render WAV (`render`) | `--render-wav` | `ticks`, one by one |
+| 7 | Fit sounds (`fit`) | `--mapping optimizer` | `samples`, one by one |
+| 8 | Map channels (`map`) | always | — |
+| 9 | Write DMF (`write`) | `--format dmf` (with `--info` it builds the DMF but writes nothing) | — |
+| 10 | Render WAV (`render`) | `--render-wav` | `ticks`, one by one |
 
 Steps are numbered within the run, so a plain DMF conversion has 7 (`step 6/7 map`). Only the two slow steps count
 their work as they go; the others take well under a second on real songs, and their ids, names and units are a
 contract of the `text` and `json` output and of the timing history.
 
-When the optimizer lands (plan M9) it adds its passes as phases (`fit-fm`, `fit-psg`, `fit-pcm`, `pre-mix`,
-`allocate`, `refine`), each counting candidates or rounds; `refine` under `--time-budget` counts time against the
-budget, so its bar and estimate are exact.
+`--mapping optimizer` adds `fit`, which makes the sounds the allocator chooses from ([ADR 0087](adr/0087-greedy-allocator.md)). Later
+optimizer passes will add their own phases (`pre-mix`, `refine`), each counting candidates or rounds; `refine` under
+`--time-budget` counts time against the budget, so its bar and estimate are exact.
 
 Stages report work through a small optional **`IWorkCounter`** parameter (`SetTotal`, `Advance(n)`;
 `SampleAnalyzer.AnalyzeSong`, `GenesisRenderer.Render`), with a no-op default so tests and the harness need not pass

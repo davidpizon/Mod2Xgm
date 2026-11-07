@@ -17,7 +17,7 @@ flowchart TD
 
     bytes -- "ModReader (src/Mod): big-endian parse + validation" --> module
     module -- "ModToSong (src/Mod): notes, instruments, samples, effects decoded (T3.3)" --> song
-    song -- "IChannelMapper (src/Mapping): SimpleMapper, then multi-pass Optimizer, see multi-pass.md" --> plan
+    song -- "IChannelMapper (src/Mapping): SimpleMapper, OptimizerMapper (greedy, ADR 0087), then the multi-pass optimizer, see multi-pass.md" --> plan
     song -. "IChannelMapper renders and scores candidates with" .-> tools
     plan -- "SampleBudgeter (src/Mapping): capacity check + consolidation, see sample-capacity.md" --> fits
     fits -- "SampleProcessor (src/Audio): resample, 8/16-bit, loops, length limits" --> processed

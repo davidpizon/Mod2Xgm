@@ -618,6 +618,70 @@ public sealed class ConversionCommandTests
         Assert.DoesNotContain(sink.Messages(LogEventLevel.Warning), m => m.Contains("capacity exceeded", StringComparison.Ordinal));
     }
 
+    /// <summary><c>--mapping optimizer</c> plays each of two overlapping recordings with something: a readable DMF, with the step that fits sounds, even with <c>--quality fast</c>.</summary>
+    [Fact]
+    [Trait("Speed", "Slow")]
+    public void Execute_WithOptimizerMapping_WritesDmfAndSaysWhatMoved()
+    {
+        // Arrange
+        using TempDirectory temp = new();
+        CollectingSink sink = new();
+        ConversionOptions options = new()
+        {
+            InputPath = temp.CreateFile("song.mod", OverlappingRecordings()),
+            Mapping = ConversionOptions.OptimizerMapping,
+            Quality = Quality.Fast,
+            NoCache = true,
+        };
+
+        // Act
+        ExitCode code = ConversionCommand.Execute(options, sink.CreateLogger());
+
+        // Assert
+        Assert.Equal(ExitCode.Success, code);
+        Assert.True(File.Exists(temp.Combine("song.dmf")));
+        Assert.Contains(sink.Messages(LogEventLevel.Warning), m => m.Contains("capacity exceeded", StringComparison.Ordinal));
+    }
+
+    /// <summary>The optimizer stops under <c>--no-consolidate</c> when a recording would lose its place, and writes nothing.</summary>
+    [Fact]
+    [Trait("Speed", "Slow")]
+    public void Execute_WithOptimizerMappingAndNoConsolidate_ThrowsDoesNotFit()
+    {
+        // Arrange
+        using TempDirectory temp = new();
+        ConversionOptions options = new()
+        {
+            InputPath = temp.CreateFile("song.mod", OverlappingRecordings()),
+            Mapping = ConversionOptions.OptimizerMapping,
+            NoConsolidate = true,
+            NoCache = true,
+        };
+
+        // Act
+        ConversionException error = Assert.Throws<ConversionException>(() => ConversionCommand.Execute(options, new CollectingSink().CreateLogger()));
+
+        // Assert
+        Assert.Equal(ExitCode.DoesNotFit, error.Code);
+        Assert.False(File.Exists(temp.Combine("song.dmf")));
+    }
+
+    /// <summary>A run with the optimizer lists the step that fits sounds, after the analysis; one without doesn't.</summary>
+    [Theory]
+    [InlineData(ConversionOptions.OptimizerMapping, true)]
+    [InlineData(null, false)]
+    public void Phases_WithMapping_ListsFitOnlyForOptimizer(string? mapping, bool expected)
+    {
+        // Arrange
+        ConversionOptions options = new() { InputPath = "song.mod", Mapping = mapping };
+
+        // Act
+        bool fits = ConversionCommand.Phases(options, analyzes: expected).Any(p => p.Id == "fit");
+
+        // Assert
+        Assert.Equal(expected, fits);
+    }
+
     /// <summary><c>fast</c> is the simple mapper, so nothing about the optimizer is said.</summary>
     [Fact]
     public void Execute_WithFastQuality_SaysNothingAboutOptimizer()

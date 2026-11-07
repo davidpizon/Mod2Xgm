@@ -37,6 +37,15 @@ internal enum GenesisChannel
 
     /// <summary>SN76489 noise.</summary>
     Psg4,
+
+    /// <summary>The second PCM voice of XGM and XGM2 (their first plays on <see cref="Fm6"/>); never in a DMF plan.</summary>
+    Pcm2,
+
+    /// <summary>The third PCM voice of XGM and XGM2.</summary>
+    Pcm3,
+
+    /// <summary>The fourth PCM voice of XGM.</summary>
+    Pcm4,
 }
 
 /// <summary>How a note is sounded.</summary>
@@ -50,11 +59,14 @@ internal enum VoiceKind
 
     /// <summary>The PSG noise channel.</summary>
     PsgNoise,
+
+    /// <summary>A PSG square wave at the note's pitch (<see cref="GenesisChannel.Psg1"/>–<see cref="GenesisChannel.Psg3"/>).</summary>
+    PsgTone,
 }
 
 /// <summary>The sound a note is played with.</summary>
 /// <param name="Kind">What kind of voice.</param>
-/// <param name="Index">Into <see cref="GenesisPlan.FmPatches"/> or <see cref="GenesisPlan.DacSamples"/>; 0 for noise.</param>
+/// <param name="Index">Into <see cref="GenesisPlan.FmPatches"/> or <see cref="GenesisPlan.DacSamples"/>; 0 for the PSG.</param>
 internal readonly record struct PlanVoice(VoiceKind Kind, int Index);
 
 /// <summary>What one Genesis channel does on one row.</summary>
@@ -72,7 +84,7 @@ internal sealed record PlanCell(NotePitch? Note, PlanVoice? Voice, double? Volum
 }
 
 /// <summary>One row of the plan.</summary>
-/// <param name="Cells">One per <see cref="GenesisChannel"/>, in that order.</param>
+/// <param name="Cells">In <see cref="GenesisChannel"/> order: <see cref="GenesisPlan.ChannelCount"/> of them, or <see cref="GenesisPlan.ColumnCount"/> in a plan with several PCM voices.</param>
 /// <param name="Flow">Song-wide effects on this row (jumps, breaks, loops, speed, tempo, stop), from any MOD channel.</param>
 internal sealed record PlanRow(IReadOnlyList<PlanCell> Cells, IReadOnlyList<Effect> Flow);
 
@@ -97,7 +109,8 @@ internal sealed record FmOperator(int Mult, int Detune, int Tl, int Rs, int Ar, 
 /// <param name="Operators">OP1, OP2, OP3, OP4 in Yamaha order (the DMF file lists them OP1, OP3, OP2, OP4).</param>
 /// <param name="Fms">LFO vibrato depth (frequency modulation sensitivity), 0–7; 0 = none.</param>
 /// <param name="Ams">LFO tremolo depth (amplitude modulation sensitivity) for operators with <see cref="FmOperator.Am"/>, 0–3; 0 = none.</param>
-internal sealed record FmPatch(string Name, int Algorithm, int Feedback, IReadOnlyList<FmOperator> Operators, int Fms = 0, int Ams = 0)
+/// <param name="HeardRms">The level a render of the patch measured at full volume, on <see cref="VoiceLevel"/>'s scale, or <c>null</c> to work it out from the registers.</param>
+internal sealed record FmPatch(string Name, int Algorithm, int Feedback, IReadOnlyList<FmOperator> Operators, int Fms = 0, int Ams = 0, double? HeardRms = null)
 {
     /// <summary>True when the patch needs the chip's LFO: some vibrato, or some tremolo on an operator that takes it.</summary>
     public bool UsesLfo => Fms > 0 || (Ams > 0 && Operators.Any(o => o.Am));
@@ -105,7 +118,7 @@ internal sealed record FmPatch(string Name, int Algorithm, int Feedback, IReadOn
 
 /// <summary>A song sample played on the DAC.</summary>
 /// <param name="Sample">Index into <see cref="Song.Samples"/>.</param>
-/// <param name="PlaybackRateHz">The rate it plays at: the rate of the pitch the song plays it at most often. The DAC can't change pitch per note.</param>
+/// <param name="PlaybackRateHz">The rate it plays at. The DAC can't change pitch per note, so the simple mapper picks the pitch the song plays it at most often; the optimizer gives each pitch a <see cref="DacSample"/> of its own.</param>
 internal sealed record DacSample(int Sample, double PlaybackRateHz);
 
 /// <summary>
@@ -127,12 +140,21 @@ internal sealed record GenesisPlan(
     IReadOnlyList<FmPatch> FmPatches,
     IReadOnlyList<DacSample> DacSamples)
 {
-    /// <summary>Number of columns in every row.</summary>
+    /// <summary>The Genesis's own channels: the columns of a plan with one PCM voice, which is all a DMF has.</summary>
     public const int ChannelCount = 10;
+
+    /// <summary>The columns of a plan with several PCM voices: the channels, then <see cref="GenesisChannel.Pcm2"/>–<see cref="GenesisChannel.Pcm4"/> (docs/adr/0087-greedy-allocator.md).</summary>
+    public const int ColumnCount = 13;
 
     /// <summary>
     /// The song samples the mapper plays as recordings, even if a clash moved all of their notes to another voice: what the
     /// capacity check counts (docs/adr/0086-capacity-check.md).
     /// </summary>
     public IReadOnlySet<int> PcmSamples { get; init; } = new HashSet<int>();
+
+    /// <summary>
+    /// True for the levels and pans David chose by ear for the optimizer: quieter noise and centred bass
+    /// (<see cref="PlanVoicing"/>, docs/adr/0087-greedy-allocator.md). The simple mapper stays as graded in ADR 0049.
+    /// </summary>
+    public bool TunedByEar { get; init; }
 }

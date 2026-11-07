@@ -60,6 +60,44 @@ public sealed class DmfPatternTranslatorTests
         Assert.Contains((0x08, 0x10), result.Effects(GenesisChannel.Fm1, 0));
     }
 
+    /// <summary>A plan tuned by ear plays a bass note centred on a channel the MOD pans, and at the quieter centred level; a plain plan pans it.</summary>
+    [Fact]
+    public void Build_WithBassInPlanTunedByEar_CentresPanAndLowersVolume()
+    {
+        // Arrange: at period 856 the lead's 32-frame cycle sounds at about 130 Hz.
+        byte[] mod = Song().WithCell(0, 0, 0, Lead, 856).Build();
+
+        // Act
+        DmfConversion.Result plain = DmfConversion.Convert(mod);
+        DmfConversion.Result tuned = DmfConversion.Convert(mod, transform: plan => plan with { TunedByEar = true });
+
+        // Assert
+        Assert.Contains((0x08, 0x10), plain.Effects(GenesisChannel.Fm1, 0));
+        Assert.Contains((0x08, 0x11), tuned.Effects(GenesisChannel.Fm1, 0));
+        Assert.True(tuned.Cell(GenesisChannel.Fm1, 0).Volume < plain.Cell(GenesisChannel.Fm1, 0).Volume);
+    }
+
+    /// <summary>A PSG tone note reaches its tone channel in the file, with a note and a volume.</summary>
+    [Fact]
+    public void Build_WithPsgTone_WritesNoteOnToneChannel()
+    {
+        // Arrange
+        byte[] mod = Song().WithCell(0, 0, 0, Lead, C2).Build();
+        Func<GenesisPlan, GenesisPlan> toTone = plan =>
+        {
+            PlanCell lead = plan.Patterns[0][0].Cells[(int)GenesisChannel.Fm1];
+            return Edit(GenesisChannel.Psg1, 0, _ => lead with { Voice = new PlanVoice(VoiceKind.PsgTone, 0) })(
+                Edit(GenesisChannel.Fm1, 0, _ => PlanCell.Empty)(plan));
+        };
+
+        // Act
+        DmfConversion.Result result = DmfConversion.Convert(mod, transform: toTone);
+
+        // Assert
+        Assert.True(result.Cell(GenesisChannel.Psg1, 0).Note > 0);
+        Assert.True(result.Cell(GenesisChannel.Psg1, 0).Volume >= 0);
+    }
+
     /// <summary>A cell needing more than four effects keeps the most important four and says how many went.</summary>
     [Fact]
     public void Build_WithManyEffects_KeepsFourMostImportant()
