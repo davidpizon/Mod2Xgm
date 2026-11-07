@@ -26,7 +26,7 @@ internal static class DmfConversion
 
         /// <summary>Every effect on a row, all channels together.</summary>
         public List<(int Code, int Value)> RowEffects(int row, int order = 0) =>
-            [.. Enum.GetValues<GenesisChannel>().SelectMany(c => Effects(c, row, order))];
+            [.. Enum.GetValues<GenesisChannel>().Where(c => (int)c < GenesisPlan.ChannelCount).SelectMany(c => Effects(c, row, order))];
     }
 
     /// <summary>Converts <paramref name="mod"/> (PAL in and out, smooth resampling).</summary>

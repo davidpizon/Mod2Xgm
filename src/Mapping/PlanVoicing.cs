@@ -30,6 +30,15 @@ internal sealed class PlanVoicing(GenesisPlan plan, Song song)
     /// <summary>Pan beyond this from the centre plays on one side only: the Genesis has left, right or both, nothing between.</summary>
     private const double PanSide = 1.0 / 3;
 
+    /// <summary>The factor on a centred bass note's level: the same power on both sides as it had on one (<see cref="CentredBass"/>).</summary>
+    public static readonly double CentredGain = Math.Sqrt(0.5);
+
+    /// <summary>Notes heard below this are bass (<see cref="CentredBass"/>); David preferred them centred on the two songs he graded.</summary>
+    private const double CentredBassHz = 250;
+
+    /// <summary>What's left of a noise sample's highs on the PSG: 12 dB down, David's pick over 6 dB, as the PSG's noise reaches far higher than the MOD's samples (docs/adr/0087-greedy-allocator.md).</summary>
+    private const double TunedNoiseGain = 0.25;
+
     private readonly Dictionary<int, SamplePitch> _pitches = [];
     private readonly Dictionary<int, int> _noiseNotes = [];
     private readonly Dictionary<(int Sample, int Patch), (double Gain, bool Limited)> _fmLevels = [];
@@ -64,18 +73,25 @@ internal sealed class PlanVoicing(GenesisPlan plan, Song song)
     {
         if (!_noiseNotes.TryGetValue(sample, out int note))
         {
-            double brightness = SampleTraits.Analyze(song.Samples[sample]).Brightness;
-            note = brightness > BrightNoise ? 2 : brightness > MiddleNoise ? 1 : 0;
+            note = NoiseNoteOf(song.Samples[sample]);
             _noiseNotes[sample] = note;
         }
 
         return note;
     }
 
+    /// <summary>The note that picks a fixed noise rate for <paramref name="sample"/> (<see cref="NoiseNote"/>).</summary>
+    public static int NoiseNoteOf(Sample sample)
+    {
+        double brightness = SampleTraits.Analyze(sample).Brightness;
+        return brightness > BrightNoise ? 2 : brightness > MiddleNoise ? 1 : 0;
+    }
+
     /// <summary>
     /// The factor on the MOD volume that plays <paramref name="sample"/> on patch <paramref name="patch"/> as loud as the
     /// MOD does (ADR 0050): the sample's level over the patch's. It is at most the patch's ceiling, full volume or lower
-    /// where the carriers would add up past full scale; <c>Limited</c> says the sample is louder than that.
+    /// where the carriers would add up past full scale; <c>Limited</c> says the sample is louder than that. A patch that
+    /// was rendered and measured (<see cref="FmPatch.HeardRms"/>) uses that level instead of the one worked out from its registers.
     /// </summary>
     public (double Gain, bool Limited) FmLevel(int sample, int patch)
     {
@@ -83,7 +99,7 @@ internal sealed class PlanVoicing(GenesisPlan plan, Song song)
         {
             Sample played = song.Samples[sample];
             FmPatch fm = plan.FmPatches[patch];
-            double rms = VoiceLevel.Fm(fm, sustained: played.Loop is not null).Rms;
+            double rms = fm.HeardRms ?? VoiceLevel.Fm(fm, sustained: played.Loop is not null).Rms;
             double peak = VoiceLevel.Fm(fm, sustained: false).Peak;
             level = Limit(rms > 0 ? VoiceLevel.Sample(played) / rms : 1, peak > 1 ? 1 / peak : 1);
             _fmLevels[(sample, patch)] = level;
@@ -92,8 +108,25 @@ internal sealed class PlanVoicing(GenesisPlan plan, Song song)
         return level;
     }
 
-    /// <summary>The factor on the MOD volume that plays noise sample <paramref name="sample"/> as loud as the MOD does, at most 1 (ADR 0050).</summary>
-    public (double Gain, bool Limited) NoiseLevel(int sample) => Limit(VoiceLevel.Loudest(song.Samples[sample]) / VoiceLevel.PsgNoise, 1);
+    /// <summary>
+    /// The factor on the MOD volume for noise sample <paramref name="sample"/>, at most 1: as loud as the MOD plays it
+    /// (ADR 0050), or in a plan <see cref="GenesisPlan.TunedByEar"/>, its highs alone, turned down by
+    /// <see cref="TunedNoiseGain"/> (docs/adr/0087-greedy-allocator.md).
+    /// </summary>
+    public (double Gain, bool Limited) NoiseLevel(int sample) => plan.TunedByEar
+        ? Limit(VoiceLevel.LoudestHigh(song.Samples[sample]) * TunedNoiseGain / VoiceLevel.PsgNoise, 1)
+        : ToneLevel(sample);
+
+    /// <summary>The factor on the MOD volume that plays sample <paramref name="sample"/> on a PSG tone as loud as the MOD does, at most 1 (ADR 0050).</summary>
+    public (double Gain, bool Limited) ToneLevel(int sample) => Limit(VoiceLevel.Loudest(song.Samples[sample]) / VoiceLevel.PsgNoise, 1);
+
+    /// <summary>
+    /// True when an FM note plays centred though its channel is panned, in a plan <see cref="GenesisPlan.TunedByEar"/>: a
+    /// bass panned to one side leaves that side too heavy, where the MOD's 75/25 keeps it near the middle. Play it at
+    /// <see cref="CentredGain"/> (docs/adr/0087-greedy-allocator.md).
+    /// </summary>
+    public bool CentredBass(NotePitch note, int sample, double pan) =>
+        plan.TunedByEar && Side(pan) != 0 && Hz(HeardSemitones(note, sample, out _)) < CentredBassHz;
 
     /// <summary>The side a pan of −1 (left) to +1 (right) plays on: −1 left only, +1 right only, 0 both.</summary>
     public static int Side(double pan) => pan < -PanSide ? -1 : pan > PanSide ? 1 : 0;

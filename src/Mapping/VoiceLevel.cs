@@ -19,6 +19,12 @@ internal static class VoiceLevel
     /// <summary>Frames per window when finding a sample's loudest moment (about 30 ms at 8 kHz).</summary>
     private const int WindowFrames = 256;
 
+    /// <summary>The pole of the one-pole high-pass in <see cref="LoudestHigh"/>: about 2 kHz at 16574 Hz.</summary>
+    private const float HighPassPole = 0.569f;
+
+    /// <summary>The window of <see cref="Heard"/>: about as long as <see cref="WindowFrames"/> at 8 kHz.</summary>
+    private const double HeardWindowSeconds = 0.03;
+
     /// <summary>Attenuation of one TL step, in dB (docs/genesis-audio.md).</summary>
     private const double TlStepDb = 0.75;
 
@@ -100,6 +106,54 @@ internal static class VoiceLevel
         5 or 6 => [1, 2, 3],
         _ => [0, 1, 2, 3],
     };
+
+    /// <summary>
+    /// The RMS of the sample's loudest window of <see cref="WindowFrames"/> frames above about 2 kHz, read as if played at
+    /// 16574 Hz: the part of a drum the PSG's noise can stand in for, which a kick has little of (docs/adr/0087-greedy-allocator.md).
+    /// </summary>
+    public static double LoudestHigh(Sample sample)
+    {
+        ArgumentNullException.ThrowIfNull(sample);
+        ReadOnlySpan<float> data = sample.Data.AsSpan(0, sample.Length);
+        float[] high = new float[data.Length];
+        float y = 0;
+        float last = 0;
+        for (int i = 0; i < data.Length; i++)
+        {
+            y = HighPassPole * (y + data[i] - last);
+            last = data[i];
+            high[i] = y;
+        }
+
+        double loudest = 0;
+        for (int start = 0; start < high.Length; start += WindowFrames / 2)
+        {
+            loudest = Math.Max(loudest, Rms(high.AsSpan(start, Math.Min(WindowFrames, high.Length - start))));
+        }
+
+        return loudest;
+    }
+
+    /// <summary>
+    /// The level of a rendered note at <paramref name="rateHz"/>: the RMS of all of it for a sample that loops, what a held
+    /// note sounds like; for one that doesn't, of its loudest <see cref="HeardWindowSeconds"/>, how hard it hits.
+    /// </summary>
+    public static double Heard(ReadOnlySpan<float> sound, int rateHz, bool loops)
+    {
+        int window = (int)(HeardWindowSeconds * rateHz);
+        if (loops || sound.Length <= window)
+        {
+            return Rms(sound);
+        }
+
+        double loudest = 0;
+        for (int start = 0; start + window <= sound.Length; start += window / 2)
+        {
+            loudest = Math.Max(loudest, Rms(sound.Slice(start, window)));
+        }
+
+        return loudest;
+    }
 
     private static double Rms(ReadOnlySpan<float> data)
     {

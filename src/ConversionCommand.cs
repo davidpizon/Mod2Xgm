@@ -52,7 +52,7 @@ internal static class ConversionCommand
 
         bool verbose = logger.IsEnabled(LogEventLevel.Debug);
         string input = Path.GetFullPath(options.InputPath);
-        progress.Begin(new RunInfo(input, FormatName(options.Format), QualityName(options.Quality), Phases(options, verbose || analyzed is not null)));
+        progress.Begin(new RunInfo(input, FormatName(options.Format), QualityName(options.Quality), Phases(options, verbose || analyzed is not null || options.UsesOptimizer)));
         IPhase phase = progress.Start(PhaseCheck);
         CheckInput(input);
 
@@ -120,12 +120,13 @@ internal static class ConversionCommand
         phase.Done();
         MappingOptions mapping = MappingOptions.From(options);
         progress.SetSongSize(SongSize.Samples, Enumerable.Range(0, song.Samples.Count).Count(s => !song.Samples[s].IsEmpty && !mapping.Ignore.Contains(s)));
-        if (verbose || analyzed is not null)
+        SongAnalysis? analysis = null;
+        if (verbose || analyzed is not null || options.UsesOptimizer)
         {
-            // Nothing uses the analysis yet (the optimizer will, plan M9); --verbose shows it (docs/adr/0068-sample-analysis.md).
+            // The optimizer reads it; --verbose shows it (docs/adr/0068-sample-analysis.md).
             phase = progress.Start(PhaseAnalyze);
             IReadOnlyList<SampleAnalysis> analyses = SampleAnalyzer.AnalyzeSong(song, playback, mapping.Ignore, phase);
-            SongAnalysis analysis = new(song, playback, analyses, SongVoices.Count(song, playback))
+            analysis = new(song, playback, analyses, SongVoices.Count(song, playback))
             {
                 Source = AnalysisSource(mod, module, options, mapping.Ignore),
             };
@@ -142,8 +143,16 @@ internal static class ConversionCommand
             phase.Done();
         }
 
+        OptimizerMapper? optimizer = null;
+        if (analysis is not null && options.UsesOptimizer)
+        {
+            phase = progress.Start(PhaseFit);
+            optimizer = new OptimizerMapper(limits, FitSounds(analysis, limits, mapping, options, logger, phase));
+            phase.Done();
+        }
+
         phase = progress.Start(PhaseMap);
-        GenesisPlan plan = new SimpleMapper().Map(song, playback, mapping, notes);
+        GenesisPlan plan = (optimizer ?? (IChannelMapper)new SimpleMapper()).Map(song, playback, mapping, notes);
         logger.Debug(
             "Mapped {Orders} orders: {FmPatches} FM patches, {DacSamples} DAC samples",
             plan.Patterns.Count,
@@ -152,6 +161,11 @@ internal static class ConversionCommand
         CapacityCheck capacity = CapacityCheck.Measure(plan, song, playback, limits);
         logger.Debug("Recordings need {Slots} PCM slots, {Voices} PCM voices at once, {Bytes} PCM bytes", capacity.Slots, capacity.Voices, capacity.Bytes);
         capacity.Enforce(options.NoConsolidate, notes);
+        if (options.NoConsolidate && optimizer is { NotesMoved: > 0 } moved)
+        {
+            throw new ConversionException(ExitCode.DoesNotFit, $"{moved.NotesMoved} notes can't have their closest sound on {PcmTargets.Name(limits.Target)}. --no-consolidate was given, so nothing was changed to make it fit and no file was written.");
+        }
+
         phase.Done();
         if (options.Format == OutputFormat.Dmf)
         {
@@ -179,6 +193,14 @@ internal static class ConversionCommand
         }
 
         return ExitCode.Success;
+    }
+
+    /// <summary>Makes what the allocator chooses from: the plan has no LFO yet, so FM is fitted without it (docs/adr/0087-greedy-allocator.md).</summary>
+    private static IReadOnlyList<SampleSounds> FitSounds(SongAnalysis analysis, TargetLimits limits, MappingOptions mapping, ConversionOptions options, ILogger logger, IWorkCounter work)
+    {
+        CandidateCache? cache = options.NoCache ? null : new CandidateCache(options.CacheDirectory ?? CandidateCache.DefaultRoot, logger);
+        FmFitOptions fm = new(SoundMenu.FmRendersPerStep, options.Seed, Lfo: false);
+        return SoundMenu.Make(analysis, limits.Target, mapping, fm, cache, work);
     }
 
     /// <summary>Plans the DMF's timing, builds it, prints report section 3 and writes the file (unless <c>--info</c>).</summary>
@@ -252,6 +274,11 @@ internal static class ConversionCommand
             steps.Add((PhaseAnalyze, "Analyze samples", "samples"));
         }
 
+        if (options.UsesOptimizer)
+        {
+            steps.Add((PhaseFit, "Fit sounds", "samples"));
+        }
+
         steps.Add((PhaseMap, "Map channels", string.Empty));
         if (options.Format == OutputFormat.Dmf)
         {
@@ -273,6 +300,7 @@ internal static class ConversionCommand
     private const string PhaseModel = "model";
     private const string PhasePlay = "play";
     private const string PhaseAnalyze = "analyze";
+    private const string PhaseFit = "fit";
     private const string PhaseMap = "map";
     private const string PhaseWrite = "write";
     private const string PhaseRender = "render";
@@ -341,10 +369,10 @@ internal static class ConversionCommand
     /// <summary>The line every <c>--format xgm2</c> run prints, verbatim (docs/cli.md#console-output).</summary>
     private const string Xgm2ExtensionNote = "NOTE: SGDK expects XGM2 files to use the .XGM file extension.";
 
-    /// <summary>The optimizer (plan M9) isn't built yet, so every quality uses the simple mapper; a run asking for more says so (ADR 0045).</summary>
+    /// <summary>Until plan T9.6 every quality uses the simple mapper unless <c>--mapping optimizer</c> is given; a run asking for more says so (ADR 0045).</summary>
     private static void LogQuality(ConversionOptions options, ILogger logger)
     {
-        if (options.Quality != Quality.Fast)
+        if (options.Quality != Quality.Fast && !options.UsesOptimizer)
         {
             logger.Information(
                 "--quality {Quality:l}: the optimizer isn't built yet (plan M9), so the simple mapper is used",

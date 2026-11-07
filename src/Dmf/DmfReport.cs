@@ -59,7 +59,7 @@ internal static class DmfReport
                 ("kind", source.Kind == VoiceKind.Fm ? "FM" : "PSG"),
                 ("n", i + 1),
                 ("from", source.Samples.Select(s => s + 1)),
-                ("detail", source.Kind == VoiceKind.Fm ? Invariant($"{dmf.File.Instruments[i].Name} patch") : "noise")));
+                ("detail", source.Kind == VoiceKind.Fm ? Invariant($"{dmf.File.Instruments[i].Name} patch") : source.Kind == VoiceKind.PsgTone ? "tone" : "noise")));
         }
 
         for (int i = 0; i < dmf.Samples.Count; i++)
@@ -87,18 +87,20 @@ internal static class DmfReport
         ArgumentNullException.ThrowIfNull(song);
 
         int fm = dmf.Instruments.Count(i => i.Kind == VoiceKind.Fm);
-        int noise = dmf.Instruments.Count - fm;
+        int tones = dmf.Instruments.Count(i => i.Kind == VoiceKind.PsgTone);
+        int noise = dmf.Instruments.Count - fm - tones;
+        string toneCount = tones > 0 ? Count(tones, "PSG tone instrument") + ", " : string.Empty;
         long pcmBytes = dmf.File.Samples.Sum(s => (long)s.Data.Count * GenesisBytesPerFrame);
         List<string> lines =
         [
-            Invariant($"Output (DMF): {Count(fm, "FM instrument")}, {Count(noise, "PSG noise instrument")}, {Count(dmf.File.Samples.Count, "DAC sample")}, {Kilobytes(pcmBytes)} KB PCM"),
+            Invariant($"Output (DMF): {Count(fm, "FM instrument")}, {toneCount}{Count(noise, "PSG noise instrument")}, {Count(dmf.File.Samples.Count, "DAC sample")}, {Kilobytes(pcmBytes)} KB PCM"),
         ];
 
         for (int i = 0; i < dmf.Instruments.Count; i++)
         {
             DmfInstrumentSource source = dmf.Instruments[i];
             string from = string.Join(", ", source.Samples.Select(s => Label(s, song)));
-            string what = source.Kind == VoiceKind.Fm ? Invariant($"({dmf.File.Instruments[i].Name} patch)") : "(noise)";
+            string what = source.Kind == VoiceKind.Fm ? Invariant($"({dmf.File.Instruments[i].Name} patch)") : source.Kind == VoiceKind.PsgTone ? "(tone)" : "(noise)";
             string kind = source.Kind == VoiceKind.Fm ? "FM " : "PSG";
             lines.Add(from.Length == 0 ? Invariant($" {kind} {i + 1:D2}  {what}") : Invariant($" {kind} {i + 1:D2}  ← {from} {what}"));
         }

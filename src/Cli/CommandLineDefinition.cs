@@ -50,10 +50,10 @@ internal sealed class CommandLineDefinition
         DefaultValueFactory = _ => "smooth",
     }.AcceptOnlyFromAmong("smooth", "amiga");
 
-    public Option<string?> Mapping { get; } = new("--mapping")
+    public Option<string?> Mapping { get; } = new Option<string?>("--mapping")
     {
-        Description = "Channel-mapping strategy (see docs/channel-mapping.md).",
-    };
+        Description = "Which channel mapper to use: simple, or optimizer (fits sounds to the song; slower). Without it: simple, until plan T9.6 compares them.",
+    }.AcceptOnlyFromAmong(ConversionOptions.SimpleMapping, ConversionOptions.OptimizerMapping);
 
     public Option<string[]> IgnoreSamples { get; } = new("--ignore-samples")
     {
