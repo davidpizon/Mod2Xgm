@@ -82,10 +82,10 @@ public sealed class GenesisRendererTests
     private static StereoAudio Render(GenesisPlan plan, Song song, Playback playback, GenesisRenderOptions? options = null) =>
         GenesisRenderer.Render(plan, song, playback, options ?? ChipRate, new ConversionNotes(Logger.None));
 
-    /// <summary>The RMS of <paramref name="data"/> from <paramref name="fromSeconds"/> to <paramref name="toSeconds"/>, in dBFS.</summary>
     /// <summary>How often a signal crosses zero going up: a measure of a sine's pitch.</summary>
     private static int Crossings(float[] data) => Enumerable.Range(1, data.Length - 1).Count(i => data[i - 1] < 0 && data[i] >= 0);
 
+    /// <summary>The RMS of <paramref name="data"/> from <paramref name="fromSeconds"/> to <paramref name="toSeconds"/>, in dBFS.</summary>
     private static double Db(float[] data, int rate, double fromSeconds, double toSeconds)
     {
         int from = (int)(fromSeconds * rate);
