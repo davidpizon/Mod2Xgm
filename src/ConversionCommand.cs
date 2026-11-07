@@ -106,7 +106,8 @@ internal static class ConversionCommand
         ModReport.LogSamples(logger, module, usage, options.IgnoreSamples);
         CheckSampleNumbers(options, module);
         CheckFormat(options, logger);
-        LogLimits(TargetLimits.For(options, notes), logger);
+        TargetLimits limits = TargetLimits.For(options, notes);
+        LogLimits(limits, logger);
         LogQuality(options, logger);
 
         phase.Done();
@@ -148,6 +149,9 @@ internal static class ConversionCommand
             plan.Patterns.Count,
             plan.FmPatches.Count,
             plan.DacSamples.Count);
+        CapacityCheck capacity = CapacityCheck.Measure(plan, song, playback, limits);
+        logger.Debug("Recordings need {Slots} PCM slots, {Voices} PCM voices at once, {Bytes} PCM bytes", capacity.Slots, capacity.Voices, capacity.Bytes);
+        capacity.Enforce(options.NoConsolidate, notes);
         phase.Done();
         if (options.Format == OutputFormat.Dmf)
         {

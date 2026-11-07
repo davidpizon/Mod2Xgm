@@ -34,6 +34,10 @@ internal sealed class DmfPatternTranslator
     /// <summary>Quieter than this many steps (45 dB) a DAC note is left silent.</summary>
     public const int MaxDacVolumeSteps = 15;
 
+    /// <summary>How many steps quieter than full a DAC note at <paramref name="volume"/> (0–1) is; <see cref="int.MaxValue"/> at 0. Negative above full.</summary>
+    public static int DacVolumeSteps(double volume) =>
+        volume <= 0 ? int.MaxValue : (int)Math.Round(-20 * Math.Log10(volume) / DacVolumeStepDb, MidpointRounding.AwayFromZero);
+
     /// <summary>Highest FM octave DefleMask plays.</summary>
     private const int MaxOctave = 7;
 
@@ -600,7 +604,7 @@ internal sealed class DmfPatternTranslator
             }
 
             double volume = cell.Volume ?? track.ModVolume;
-            int steps = volume <= 0 ? int.MaxValue : (int)Math.Round(-20 * Math.Log10(volume) / DacVolumeStepDb, MidpointRounding.AwayFromZero);
+            int steps = DacVolumeSteps(volume);
             int length = translator._song.Samples[sample].Length;
             if (offset >= length)
             {

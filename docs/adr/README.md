@@ -99,6 +99,7 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0083](0083-no-nuget-audit-in-qodana.md) | No NuGet audit inside the Qodana scan; CI and the nightly audit still check packages | 2026-11-06 | Accepted |
 | [0084](0084-drop-clues.md) | Drop clues per song track, set by listening | 2026-11-06 | Accepted |
 | [0085](0085-target-limits.md) | One rule book of target limits; XGM's and XGM2's limits never bind a DMF | 2026-11-06 | Accepted |
+| [0086](0086-capacity-check.md) | The capacity check counts only recordings, as the drivers store them | 2026-11-06 | Accepted |
 
 ## Open questions
 

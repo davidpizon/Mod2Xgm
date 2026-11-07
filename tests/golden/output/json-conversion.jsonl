@@ -49,6 +49,8 @@
 {"v":1,"type":"phase","n":6,"of":7,"id":"map","event":"start","done":0,"total":0,"unit":"","elapsed_s":0,"eta_s":0,"total_eta_s":0,"eta_partial":true}
 {"v":1,"type":"note","message":"Sample 4 \"strings\": it loops, so it is a sustained tone and is played by the Organ FM patch","template":"Sample {Sample}: it loops, so it is a sustained tone and is played by the {Patch} FM patch","properties":{"Sample":"4 \"strings\"","Patch":"Organ"}}
 {"v":1,"type":"note","message":"3 drum notes started on the same row as a louder one and could not use the DAC; played by FM instead","template":"{Count} drum notes started on the same row as a louder one and could not use the DAC; played by FM instead","properties":{"Count":3}}
+{"v":1,"type":"note","message":"DMF capacity exceeded: needs 3 simultaneous PCM voices (limit 1)","template":"{Report:l}","properties":{"Report":"DMF capacity exceeded: needs 3 simultaneous PCM voices (limit 1)"}}
+{"v":1,"type":"note","message":"Consolidating samples to fit (use --no-consolidate to fail instead)","template":"Consolidating samples to fit (use --no-consolidate to fail instead)","properties":{}}
 {"v":1,"type":"phase","n":6,"of":7,"id":"map","event":"end","done":0,"total":0,"unit":"","elapsed_s":0,"eta_s":0,"total_eta_s":0,"eta_partial":true}
 {"v":1,"type":"phase","n":7,"of":7,"id":"write","event":"start","done":0,"total":0,"unit":"","elapsed_s":0,"eta_s":0,"total_eta_s":0,"eta_partial":true}
 {"v":1,"type":"note","message":"Sample 2 \"snare [2]\": its FM notes are placed at the pitch measured from the sample","template":"Sample {Sample}: its FM notes are placed at the pitch measured from the sample","properties":{"Sample":"2 \"snare [2]\""}}
@@ -62,4 +64,4 @@
 {"v":1,"type":"instrument","kind":"DAC","n":1,"from":[1],"rate_hz":11025,"bytes":6029}
 {"v":1,"type":"phase","n":7,"of":7,"id":"write","event":"end","done":0,"total":0,"unit":"","elapsed_s":0,"eta_s":0,"total_eta_s":0,"eta_partial":false}
 {"v":1,"type":"timing","phases":[{"id":"check","seconds":0,"done":0,"unit":""},{"id":"read","seconds":0,"done":21802,"unit":"bytes"},{"id":"scan","seconds":0,"done":128,"unit":"rows"},{"id":"model","seconds":0,"done":0,"unit":""},{"id":"play","seconds":0,"done":0,"unit":""},{"id":"map","seconds":0,"done":0,"unit":""},{"id":"write","seconds":0,"done":0,"unit":""}],"total_s":0}
-{"v":1,"type":"result","exit":0,"output":"TEMP/song.dmf","wav":null,"notes":10,"seconds":0}
+{"v":1,"type":"result","exit":0,"output":"TEMP/song.dmf","wav":null,"notes":12,"seconds":0}

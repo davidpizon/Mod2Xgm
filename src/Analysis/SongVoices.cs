@@ -19,7 +19,10 @@ internal sealed record SongVoices(int MostAtOnce, IReadOnlyList<int> SampleMostA
     /// sample's parts (<see cref="ChannelTick.Started"/>, then <see cref="ChannelTick.Next"/> each time a part ends) at its
     /// playback rate. A tick counts a channel that sounds at its start.
     /// </summary>
-    public static SongVoices Count(Song song, Playback playback)
+    /// <param name="song">The song.</param>
+    /// <param name="playback">The song played tick by tick.</param>
+    /// <param name="only">When given, <see cref="MostAtOnce"/> counts only these samples (the capacity check's recordings).</param>
+    public static SongVoices Count(Song song, Playback playback, IReadOnlySet<int>? only = null)
     {
         ArgumentNullException.ThrowIfNull(song);
         ArgumentNullException.ThrowIfNull(playback);
@@ -43,7 +46,7 @@ internal sealed record SongVoices(int MostAtOnce, IReadOnlyList<int> SampleMostA
 
                 if (channel is { Playing: true, Volume: > 0 } && part[c] is { IsSilence: false, Sample: { } sample })
                 {
-                    now++;
+                    now += only is null || only.Contains(sample) ? 1 : 0;
                     if (sample < sampleNow.Length)
                     {
                         sampleNow[sample]++;

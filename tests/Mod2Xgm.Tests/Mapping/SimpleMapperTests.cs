@@ -190,6 +190,18 @@ public sealed class SimpleMapperTests
         Assert.Equal(winnerSample, plan.DacSamples[CellAt(plan, GenesisChannel.Fm6).Voice!.Value.Index].Sample);
     }
 
+    /// <summary>A drum that loses every clash for the DAC still counts as a recording, so the capacity check sees what it wanted.</summary>
+    [Fact]
+    public void Map_WithDrumThatAlwaysLosesDac_KeepsItAmongPcmSamples()
+    {
+        // Act
+        (GenesisPlan plan, _) = Map(Build([[RowOf(Play(Kick, volume: 0.9), Play(Tom, 40, volume: 0.3))]]));
+
+        // Assert
+        Assert.Equal(Kick, Assert.Single(plan.DacSamples).Sample);
+        Assert.Contains(Tom, plan.PcmSamples);
+    }
+
     /// <summary>A tonal drum that loses the DAC plays on its own FM channel instead, with a note saying so.</summary>
     [Fact]
     public void Map_WithTonalDrumLosingDac_MovesItToFm()

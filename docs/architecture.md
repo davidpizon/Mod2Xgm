@@ -167,8 +167,11 @@ each instrument's loudness over time from stems (each instrument alone), after t
 full sample table from `ModModule` right after reading (before any later stage can fail), and the output instrument table after budgeting. See
 [cli.md](cli.md#console-report).
 
-**SampleBudgeter** — computes required sample slots, simultaneous PCM voices and PCM bytes for the target,
-logs the capacity warning, and runs the consolidation steps (dedupe, trim, pitch quantize, merge, mid-song
+**CapacityCheck** (`src/Optimizer`, plan T9.2, [ADR 0086](adr/0086-capacity-check.md)) — computes required sample slots,
+simultaneous PCM voices and PCM bytes of the song's recordings for the target, logs the capacity warning, and stops with
+exit 6 under `--no-consolidate`.
+
+**SampleBudgeter** (proposed; plan T9.4) — runs the consolidation steps (dedupe, trim, pitch quantize, merge, mid-song
 substitution, voice stealing). Applies `--ignore-samples` before anything else.
 
 **SampleProcessor** (`src/Audio`, plan T5.1) — Converts sample data to what the target accepts: resamples (`smooth`

@@ -116,7 +116,7 @@ internal static class PcmFitter
     private const double MinLoopSeconds = 0.5;
 
     /// <summary>A copy, or a baked note, plays at most this long (as the DMF writer's copies).</summary>
-    private const double MaxLoopSeconds = 10;
+    internal const double MaxLoopSeconds = 10;
 
     /// <summary>Scores look at least this much of a note: about two of the scorer's spectrum frames.</summary>
     private const double MinScoreSeconds = 0.1;

@@ -129,4 +129,10 @@ internal sealed record GenesisPlan(
 {
     /// <summary>Number of columns in every row.</summary>
     public const int ChannelCount = 10;
+
+    /// <summary>
+    /// The song samples the mapper plays as recordings, even if a clash moved all of their notes to another voice: what the
+    /// capacity check counts (docs/adr/0086-capacity-check.md).
+    /// </summary>
+    public IReadOnlySet<int> PcmSamples { get; init; } = new HashSet<int>();
 }
