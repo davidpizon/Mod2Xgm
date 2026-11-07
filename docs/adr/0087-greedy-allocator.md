@@ -56,7 +56,7 @@ sharpojects_cantpleaseeveryone, 188 s. `--time-budget` (T9.5) replaces it.
 - **Trust the ruler's distances for recordings.** It preferred FM on drums and "random pitches" followed. David's ears win.
 - **Let pitched "drums" and loops use FM, and match FM level over a note's first quarter second.** This measured far better on
   hawks_claw: level −17.9 dB against the original's −17.6 (before, −21.2), bass within 0.2 dB, and 16 notes cut rather than
-  about 360. David graded it **3 against 5**: "crackly", with wrong instruments at 16 s. Rejected, and the reason every rule
+  about 360. David graded it **3 against 5**: crackling at the start and an inaccurate slide note at 16 s, while the version kept was "perfect". Rejected, and the reason every rule
   here is tested blind against the version he already liked.
 - **A darker noise rate instead of a lower level.** Measured the same in neon's opening, so never played to David.
 - **Centre everything, or centre the bass without lowering it.** Centring everything loses the stereo picture; without
@@ -76,7 +76,7 @@ sharpojects_cantpleaseeveryone, 188 s. `--time-budget` (T9.5) replaces it.
 - `DacSample` now has one entry per pitch, and `GenesisPlan.PcmSamples` lists the samples whose first choice is a recording, even
   if clashes moved all their notes ([ADR 0086](0086-capacity-check.md)).
 - PSG tones hold the pitch they start at. No LFO on fitted patches yet: the plan has none.
-- **Still open, for later tasks:** cancan's melody jumps octaves and cuts out under its chords, and kc's chords have a slight click;
+- **Still open, for later tasks:** cancan's melody jumps octaves and cuts out under its chords, and kc has a rhythmic clicking David hears as a syncopated beat, in both versions tested;
   David graded both songs well in spite of these, and neither cause is known. Pre-mixes, CH3, baked slides and PSG buzz are
   deferred, including David's idea of a pitched fuzz as neon's melody.
 - **Layering is allowed** (David): the output may use more channels than the MOD, except those the CLI reserves. Today each note
