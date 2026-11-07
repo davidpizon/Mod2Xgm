@@ -45,7 +45,7 @@ public sealed class OptimizerMapperTests
         PlanCell dac = plan.Patterns[0][0].Cells[(int)GenesisChannel.Fm6];
         Assert.Equal(VoiceKind.Dac, dac.Voice?.Kind);
         Assert.Equal(1, dac.Sample);
-        Assert.Contains(plan.Patterns[0][0].Cells, c => c.Sample == 0 && c.Voice?.Kind == VoiceKind.Fm);
+        Assert.Contains(plan.Patterns[0][0].Cells, c => c is { Sample: 0, Voice.Kind: VoiceKind.Fm });
         Assert.Equal(1, sut.NotesMoved);
     }
 
@@ -63,7 +63,8 @@ public sealed class OptimizerMapperTests
         // Assert
         IReadOnlyList<PlanCell> cells = plan.Patterns[0][0].Cells;
         Assert.Equal(GenesisPlan.ColumnCount, cells.Count);
-        Assert.All(new[] { GenesisChannel.Fm6, GenesisChannel.Pcm2, GenesisChannel.Pcm3, GenesisChannel.Pcm4 }, c => Assert.Equal(VoiceKind.Dac, cells[(int)c].Voice?.Kind));
+        GenesisChannel[] pcm = [GenesisChannel.Fm6, GenesisChannel.Pcm2, GenesisChannel.Pcm3, GenesisChannel.Pcm4];
+        Assert.All(pcm, c => Assert.Equal(VoiceKind.Dac, cells[(int)c].Voice?.Kind));
     }
 
     /// <summary>Each pitch a recording plays at gets a DAC sample of its own, so it is never played at another's pitch.</summary>
@@ -95,7 +96,7 @@ public sealed class OptimizerMapperTests
         GenesisPlan plan = sut.Map(song, playback, MappingOptions.Default, Notes());
 
         // Assert
-        Assert.Contains(plan.Patterns[0][0].Cells, c => c.Sample == 0 && c.Voice?.Kind == VoiceKind.Fm);
+        Assert.Contains(plan.Patterns[0][0].Cells, c => c is { Sample: 0, Voice.Kind: VoiceKind.Fm });
     }
 
     /// <summary>A required sample only ever plays as its kind, even when another sound is closer.</summary>
@@ -496,12 +497,11 @@ public sealed class OptimizerMapperTests
     private static MappingOptions Required(string list, params int[] samples)
     {
         HashSet<int> set = [.. samples];
-        HashSet<int> none = [];
         return list switch
         {
-            "fm" => new MappingOptions(set, none, none),
-            "dac" => new MappingOptions(none, set, none),
-            _ => new MappingOptions(none, none, set),
+            "fm" => MappingOptions.Default with { RequireFm = set },
+            "dac" => MappingOptions.Default with { RequireDac = set },
+            _ => MappingOptions.Default with { RequirePsg = set },
         };
     }
 

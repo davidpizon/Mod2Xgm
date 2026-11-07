@@ -1,6 +1,5 @@
 using System.Globalization;
 using Mod2Xgm.Analysis;
-using Mod2Xgm.Dmf;
 using Mod2Xgm.Mapping;
 using Mod2Xgm.Model;
 
@@ -19,22 +18,22 @@ namespace Mod2Xgm.Optimizer;
 internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleSounds> menu) : IChannelMapper
 {
     /// <summary>What a fully percussive sample's notes add to their importance, as a multiple of a note with no hit: a replaced attack is easy to hear, and David chose this over smaller values (docs/sample-capacity.md#importance).</summary>
-    internal const double PercussiveBoost = 8;
+    private const double PercussiveBoost = 8;
 
     /// <summary>The most of a note's length that counts towards its importance: a drum is as short as the long notes it would otherwise lose to are long (docs/sample-capacity.md#importance).</summary>
-    internal const double MaxHeardSeconds = 0.25;
+    private const double MaxHeardSeconds = 0.25;
 
     /// <summary>Importance of a note on a bar's first row (<see cref="RowsPerBar"/>) against any other (docs/sample-capacity.md#importance).</summary>
-    internal const double DownbeatBoost = 1.5;
+    private const double DownbeatBoost = 1.5;
 
     /// <summary>Rows between downbeats: MOD patterns of 64 rows are almost always four bars of 16.</summary>
-    internal const int RowsPerBar = 16;
+    private const int RowsPerBar = 16;
 
     /// <summary>How much closer another sound must be, in dB of log-mel distance, for a track to change sound between sections (David: sticky).</summary>
-    internal const double SwitchCostDb = 3;
+    private const double SwitchCostDb = 3;
 
     /// <summary>What a recording or a PSG tone costs a note that slides or wobbles, in dB: they hold their starting pitch and FM doesn't (David).</summary>
-    internal const double BentCostDb = 12;
+    private const double BentCostDb = 12;
 
     /// <summary>A PSG tone's level under an FM note, as a factor on what it would play at alone: 12 dB down, David's pick over 6 dB, which stuttered on hawks_claw and was too crisp on kc (docs/adr/0088-layering.md).</summary>
     internal const double ToneLayerLevel = 0.25;

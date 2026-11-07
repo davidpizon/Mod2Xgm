@@ -305,11 +305,11 @@ public sealed class GenesisRendererTests
     public void Render_WithBassInPlanTunedByEar_PlaysCentredAndQuieter()
     {
         // Arrange: a 64-frame cycle at 110 Hz, panned left.
-        const double Rate = 64 * 110;
+        const double rate = 64 * 110;
         FmPatch patch = FmPatchLibrary.Sine with { HeardRms = 0.25 };
-        GenesisPlan plain = PlanOf([patch], [], Row((GenesisChannel.Fm1, Note(VoiceKind.Fm, rateHz: Rate))));
+        GenesisPlan plain = PlanOf([patch], [], Row((GenesisChannel.Fm1, Note(VoiceKind.Fm, rateHz: rate))));
         Song song = SongOf(1, LoopedSine());
-        Playback playback = PlaybackOf(20, (r, t) => Playing(r == 0 && t == 0, pan: -1, rateHz: Rate));
+        Playback playback = PlaybackOf(20, (r, t) => Playing(r == 0 && t == 0, pan: -1, rateHz: rate));
 
         // Act
         StereoAudio side = Render(plain, song, playback);
@@ -359,7 +359,7 @@ public sealed class GenesisRendererTests
     {
         // Arrange: quiet enough that two together don't clip the driver's mix.
         Sample recording = new("quiet", [.. OneShotSine(8000, 2).Data.Select(v => v * 0.25f)], null);
-        DacSample[] dacs = [new DacSample(0, 8000)];
+        DacSample[] dacs = [new(0, 8000)];
         GenesisPlan one = PlanOf([], dacs, Row((GenesisChannel.Fm6, Note(VoiceKind.Dac, rateHz: 8000))));
         PlanCell[] wide = [.. Enumerable.Repeat(PlanCell.Empty, GenesisPlan.ColumnCount)];
         wide[(int)GenesisChannel.Fm6] = Note(VoiceKind.Dac, rateHz: 8000);

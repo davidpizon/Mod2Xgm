@@ -83,15 +83,15 @@ public sealed class DmfPatternTranslatorTests
     {
         // Arrange
         byte[] mod = Song().WithCell(0, 0, 0, Lead, C2).Build();
-        Func<GenesisPlan, GenesisPlan> toTone = plan =>
+        static GenesisPlan ToTone(GenesisPlan plan)
         {
             PlanCell lead = plan.Patterns[0][0].Cells[(int)GenesisChannel.Fm1];
             return Edit(GenesisChannel.Psg1, 0, _ => lead with { Voice = new PlanVoice(VoiceKind.PsgTone, 0) })(
                 Edit(GenesisChannel.Fm1, 0, _ => PlanCell.Empty)(plan));
-        };
+        }
 
         // Act
-        DmfConversion.Result result = DmfConversion.Convert(mod, transform: toTone);
+        DmfConversion.Result result = DmfConversion.Convert(mod, transform: ToTone);
 
         // Assert
         Assert.True(result.Cell(GenesisChannel.Psg1, 0).Note > 0);
