@@ -48,4 +48,18 @@ internal static class NoteMix
 
         return mix;
     }
+
+    /// <summary>Two voices sounding together: as long as the shorter, as both are renders of one length.</summary>
+    public static float[] Add(float[] a, float[] b)
+    {
+        ArgumentNullException.ThrowIfNull(a);
+        ArgumentNullException.ThrowIfNull(b);
+        float[] sum = new float[Math.Min(a.Length, b.Length)];
+        for (int i = 0; i < sum.Length; i++)
+        {
+            sum[i] = a[i] + b[i];
+        }
+
+        return sum;
+    }
 }
