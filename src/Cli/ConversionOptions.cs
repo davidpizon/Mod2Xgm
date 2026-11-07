@@ -87,10 +87,4 @@ internal static class ConversionDefaults
 
     /// <summary>Highest sample number a MOD can have (31-sample ProTracker format).</summary>
     public const int MaxModSamples = 31;
-
-    /// <summary>PCM channels the SGDK XGM driver mixes.</summary>
-    public const int XgmPcmChannels = 4;
-
-    /// <summary>PCM channels the SGDK XGM2 driver mixes.</summary>
-    public const int Xgm2PcmChannels = 3;
 }

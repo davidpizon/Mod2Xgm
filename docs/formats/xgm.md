@@ -35,7 +35,7 @@ NOTE: SGDK expects XGM2 files to use the .XGM file extension.
 | PCM format in file | 8-bit **signed**, 256-byte aligned address and size | 8-bit **signed**, 256-byte aligned |
 | PCM rate | **14 093 Hz** NTSC / 13 964 Hz PAL fixed: one byte every 254 Z80 cycles | **13 317 Hz** NTSC / 13 195 Hz PAL (YM Timer A, one byte every 4 FM samples), or half that, "half speed", **per play command** |
 | PCM mixing ([ADR 0058](../adr/0058-pcm-driver-models.md)) | channels added in order, each sum stuck at +127 / −128; DAC on while PCM plays and for 3 × 256 bytes after | the same; half speed writes each byte twice; DAC on for 3 × 64 bytes after |
-| Max samples | **63** | **122** single-track (248-byte SID = 124 entries − #0 reserved − end-marker entry; mml2vgm says 123 — **verify**) |
+| Max samples | **63** | **123** single-track (248-byte SID = 124 entries for ids 1–124 − end entry; `XGM.java` in SGDK's xgm2tool, [ADR 0085](../adr/0085-target-limits.md)) |
 | Max layout | 5 FM + 4 PCM + 4 PSG | 5 FM + 3 PCM + 4 PSG = 12 |
 | Stream design | one combined stream | **separate FM and PSG streams** |
 | Volume | — | FM / PSG volume adjustable at runtime (not PCM) |
@@ -62,7 +62,7 @@ All multi-byte values little-endian unless noted. Single-track file:
 | `$000A` | 2 | PSGLEN = PSG block size / 256 |
 | `$000C` | 248 | SID table (504 for multi-track): 2-byte entries = sample address / 256, relative to SDAT |
 
-SID rules: entry #0 reserved (PCM-stop id); sample length = next entry − this entry, so a **dummy
+SID rules: the file's first entry is sample id 1 (id 0 is the PCM-stop id, with no entry here); sample length = next entry − this entry, so a **dummy
 terminating entry** is required; empty = `$FFFF`; samples **256-byte aligned**.
 
 Slots never share bytes in the ROM, in XGM2 or XGM v1 ([ADR 0072](../adr/0072-pre-mix-candidates.md)). The Z80 driver

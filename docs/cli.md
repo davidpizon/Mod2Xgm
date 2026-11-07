@@ -55,7 +55,7 @@ Parsed by System.CommandLine; values are converted and checked by `src/Cli/Optio
   DAC/PSG), nor in `--ignore-samples` and any `--require-*`
   list ("an ignored sample isn't converted at all").
 - `--no-dac` and `--require-dac` together are a usage error (exit 1): "--no-dac keeps every sample off the DAC".
-- `--max-pcm-bytes`: positive integer, optional `K` (×1024) or `M` (×1024²) suffix, case-insensitive.
+- `--max-pcm-bytes`: positive integer, optional `K` (×1024) or `M` (×1024²) suffix, case-insensitive. XGM and XGM2 hold at most 16,776,960 bytes: a bigger value is cut to that, with a conversion note ([ADR 0085](adr/0085-target-limits.md)). DMF has no byte limit; there the value only stops bigger pre-mixes being made ([ADR 0078](adr/0078-pre-mix-budget-cap.md)).
 - `--time-budget`: positive integer with optional `s`, `m` or `h` (plain number = seconds).
 - `--reserve-sfx-channels`: `0`–`4` for `xgm`, `0`–`3` for `xgm2`; must be `0` for `dmf` (one DAC channel, nothing to reserve).
 - `--mapping`: accepted as text for now; valid names are defined with the optimizer (plan M9).
