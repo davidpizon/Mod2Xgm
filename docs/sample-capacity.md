@@ -37,7 +37,7 @@ because of how the Genesis targets play PCM:
 
 Each `--format` uses its own column. The limits live in one place, `TargetLimits` (`src/Optimizer/TargetLimits.cs`,
 [ADR 0085](adr/0085-target-limits.md)), which also holds the FM, CH3 and PSG limits in [multi-pass.md](multi-pass.md#constraints-the-allocator-enforces).
-With no byte limit, a big DMF can pass what XGM or XGM2 hold, and would then lose sounds if exported to them.
+XGM's and XGM2's limits never bind a DMF, so a big one can pass what they hold and would then lose sounds if exported to them.
 
 ## Usage scan (`src/Mod/SampleUsage.cs`, plan T2.4)
 

@@ -98,7 +98,7 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0082](0082-defer-slow-tests-in-pr-ci.md) | Pull request CI defers tests of 5 s or more | 2026-11-06 | Accepted |
 | [0083](0083-no-nuget-audit-in-qodana.md) | No NuGet audit inside the Qodana scan; CI and the nightly audit still check packages | 2026-11-06 | Accepted |
 | [0084](0084-drop-clues.md) | Drop clues per song track, set by listening | 2026-11-06 | Accepted |
-| [0085](0085-target-limits.md) | One rule book of target limits; each `--format` has its own | 2026-11-06 | Accepted |
+| [0085](0085-target-limits.md) | One rule book of target limits; XGM's and XGM2's limits never bind a DMF | 2026-11-06 | Accepted |
 
 ## Open questions
 

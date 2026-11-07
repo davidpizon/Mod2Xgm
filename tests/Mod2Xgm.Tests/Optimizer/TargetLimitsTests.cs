@@ -7,7 +7,7 @@ namespace Mod2Xgm.Tests.Optimizer;
 /// <summary>Tests for <see cref="TargetLimits"/>: what each output can hold.</summary>
 public sealed class TargetLimitsTests
 {
-    /// <summary>DMF has one DAC voice, 144 slots, CH3 special and no byte limit, and never plays music on FM6.</summary>
+    /// <summary>DMF has only its own limits: all 6 FM channels, one DAC voice, 144 slots, CH3 special and no byte limit.</summary>
     [Fact]
     public void For_WithDmf_HasItsLimits()
     {
@@ -15,7 +15,7 @@ public sealed class TargetLimitsTests
         TargetLimits sut = TargetLimits.For(PcmTarget.Dmf, 128 * 1024, 0);
 
         // Assert
-        Assert.Equal(new TargetLimits(PcmTarget.Dmf, 5, true, 3, 1, 1, 144, null), sut);
+        Assert.Equal(new TargetLimits(PcmTarget.Dmf, 6, true, 3, 1, 1, 144, null), sut);
     }
 
     /// <summary>XGM has 4 PCM voices, 63 slots and no CH3 special until the probe ROM of T11.1.</summary>

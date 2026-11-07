@@ -7,7 +7,7 @@ namespace Mod2Xgm.Optimizer;
 /// docs/adr/0085-target-limits.md, docs/sample-capacity.md#limits-per-target). Each <c>--format</c> has its own.
 /// </summary>
 /// <param name="Target">The file written.</param>
-/// <param name="FmChannels">FM channels the music plays on: always 5, as FM6 belongs to the PCM.</param>
+/// <param name="FmChannels">FM channels the music plays on: 5 on XGM and XGM2, whose drivers own FM6; 6 on DMF, where FM6 can't play while the DAC does.</param>
 /// <param name="Ch3Special">True when FM3 may play two voices in CH3 special mode.</param>
 /// <param name="PsgTones">PSG square channels.</param>
 /// <param name="PsgNoise">PSG noise channels.</param>
@@ -24,8 +24,11 @@ internal sealed record TargetLimits(
     int PcmSlots,
     long? PcmBytes)
 {
-    /// <summary>FM1–5: the drivers mix PCM on the DAC in place of FM6 (docs/formats/xgm.md#driver-capabilities), and a DMF keeps to that (David).</summary>
-    private const int MusicFmChannels = 5;
+    /// <summary>The YM2612's channels: a DMF has them all, FM6 taking turns with the DAC (docs/adr/0085-target-limits.md).</summary>
+    private const int DmfFmChannels = 6;
+
+    /// <summary>FM1–5: the XGM and XGM2 drivers mix PCM on the DAC in place of FM6 (docs/formats/xgm.md#driver-capabilities).</summary>
+    private const int XgmFmChannels = 5;
 
     /// <summary>The SN76489's square channels.</summary>
     private const int SquareChannels = 3;
@@ -71,7 +74,7 @@ internal sealed record TargetLimits(
         ArgumentOutOfRangeException.ThrowIfGreaterThan(reservedVoices, PcmTargets.Voices(target));
         return new TargetLimits(
             target,
-            MusicFmChannels,
+            target == PcmTarget.Dmf ? DmfFmChannels : XgmFmChannels,
             Ch3SpecialAllowed(target),
             SquareChannels,
             NoiseChannels,

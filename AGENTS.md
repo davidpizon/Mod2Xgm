@@ -155,11 +155,11 @@ compiler, analyzer, trim/AOT, NuGet or MSBuild warning fails the build.
 
 ## SGDK compliance
 
-**SGDK compliance is the standard.** Every output must be playable through SGDK:
+**SGDK compliance is the standard** for XGM and XGM2, which must be playable through SGDK:
 
 - `.xgm` (XGM) and `.xgm2` (XGM2) must be accepted by SGDK's rescomp and play with `XGM_startPlay` / `XGM2_play`
   exactly as specified in SGDK's `xgm.txt` / `xgm2.txt`.
-- `.dmf` must open in DefleMask **and** survive DefleMask's VGM export → SGDK rescomp (`XGM`/`XGM2`).
+- `.dmf` must open in DefleMask. It isn't held to XGM's or XGM2's limits (David, [ADR 0085](docs/adr/0085-target-limits.md)), so only a DMF within them survives DefleMask's VGM export → SGDK rescomp (`XGM`/`XGM2`).
 - Never use a hardware feature the target SGDK driver doesn't support (e.g. CH3 special mode is allowed for
   XGM2 and DMF; for XGM v1 only after a probe ROM confirms it, because register `$27` also controls the YM timers).
   Both specs are saved in `docs/formats/` (`xgm.txt` v1.01, plus a summary of `xgm2.txt` in `xgm.md`).

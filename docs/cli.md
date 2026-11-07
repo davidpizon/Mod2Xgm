@@ -198,7 +198,7 @@ Section 1 is printed as soon as the MOD is read; section 2 right after the usage
 **3. Output instruments** — after mapping/consolidation, what the target will contain:
 
 ```
-INF Output (XGM2): 5 FM instruments, 41 PCM slots / 122, 118 KB / 128 KB PCM
+INF Output (XGM2): 5 FM instruments, 41 PCM slots / 123, 118 KB / 128 KB PCM
 INF  PCM 01  ← 01 "bassdrum"     13300 Hz  4532 B
 INF  PCM 02  ← 05 "bass" C-2     13300 Hz  2210 B
 INF  FM  01  ← 06 "strings" (approximation)
