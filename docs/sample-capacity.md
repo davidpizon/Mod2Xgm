@@ -111,7 +111,8 @@ and what changed.
 
 Each (sample, pitch) variant and each note gets an **importance score** used by steps 6–9:
 trigger count × audible duration × volume, boosted for percussive/attack-heavy samples (where substitution is
-most noticeable) and for notes on downbeats. The lowest-scoring items are substituted first.
+most noticeable) and for notes on downbeats. The lowest-scoring items are substituted first. `OptimizerMapper` computes it per
+note: length up to 0.25 s × volume, up to 9× for a sample that hits, 1.5× on a downbeat ([ADR 0087](adr/0087-greedy-allocator.md)).
 
 ### Mid-song swapping (step 7) in detail
 
@@ -142,7 +143,7 @@ with another sample's. PCM-preserving steps still apply: unused data, dedupe, tr
   important overlapping note is cut, and a conversion note says so. It is never moved to FM.
 - **Too big for the target:** if the required-PCM samples alone still exceed the PCM slots or `--max-pcm-bytes` after
   the PCM-preserving steps, the conversion fails with **exit 6**. The capacity report names the required samples and
-  what they need. Raise `--max-pcm-bytes` or require fewer samples.
+  what they need. Raise `--max-pcm-bytes` or require fewer samples. (With `--mapping optimizer`; the simple mapper doesn't check it.)
 
 **`--require-psg <list>`**: the sample is always played by the **PSG**, so it costs no PCM slots, voices or bytes and
 is never replaced by FM or the DAC. The PSG's squares and noise can't copy a recording, so this is a rendering

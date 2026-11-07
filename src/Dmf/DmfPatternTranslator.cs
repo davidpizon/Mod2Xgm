@@ -55,6 +55,9 @@ internal sealed class DmfPatternTranslator
     /// <summary>The octave PSG noise notes are written in: only the note within the octave picks the noise rate.</summary>
     private const int NoiseOctave = 3;
 
+    /// <summary>A PSG note sounds this many semitones above its name (docs/formats/dmf.md#psg-notes-sound-two-octaves-up).</summary>
+    private const int PsgOctaveShift = 24;
+
     // Effect codes (docs/formats/dmf.md#effects).
     private const int ArpeggioCode = 0x00;
     private const int SlideUp = 0x01;
@@ -422,6 +425,8 @@ internal sealed class DmfPatternTranslator
             TonePortamento? porta = cell.Effects.OfType<TonePortamento>().FirstOrDefault();
             if (cell is { Note: { } note, Voice: { } voice, Sample: { } sample })
             {
+                track.Centred = voice.Kind == VoiceKind.Fm && source is { } from && from < translator._song.Channels.Count
+                    && translator._voicing.CentredBass(note, sample, _panOverride[from] ?? translator._song.Channels[from].Pan);
                 switch (voice.Kind)
                 {
                     case VoiceKind.Dac:
@@ -429,6 +434,9 @@ internal sealed class DmfPatternTranslator
                         break;
                     case VoiceKind.PsgNoise:
                         StartNoise(cell, sample, track, draft, effects);
+                        break;
+                    case VoiceKind.PsgTone:
+                        StartTone(cell, note, sample, track, draft, effects);
                         break;
                     default:
                         StartFm(channel, cell, note, voice, sample, porta, track, draft, effects);
@@ -440,10 +448,10 @@ internal sealed class DmfPatternTranslator
                     track.Source = src;
                 }
             }
-            else if (cell.Volume is { } volume && track is { Sounding: true, Kind: VoiceKind.Fm or VoiceKind.PsgNoise })
+            else if (cell.Volume is { } volume && track is { Sounding: true, Kind: VoiceKind.Fm or VoiceKind.PsgNoise or VoiceKind.PsgTone })
             {
                 track.ModVolume = volume;
-                draft.Volume = track.Kind == VoiceKind.PsgNoise ? DmfUnits.PsgVolume(track.Level(volume)) : DmfUnits.FmVolume(track.Level(volume));
+                draft.Volume = track.Kind == VoiceKind.Fm ? DmfUnits.FmVolume(track.Level(volume)) : DmfUnits.PsgVolume(track.Level(volume));
                 track.DmfVolume = draft.Volume;
             }
 
@@ -473,12 +481,12 @@ internal sealed class DmfPatternTranslator
         /// <summary>Restores the MOD's volume where a slide ended off it, or after a jump the volume is unknown.</summary>
         private static void Resync(Track track, Draft draft, HashSet<int> issued)
         {
-            if (!track.Sounding || draft.Volume >= 0 || issued.Contains(VolumeSlideCode) || track.Kind is not (VoiceKind.Fm or VoiceKind.PsgNoise))
+            if (!track.Sounding || draft.Volume >= 0 || issued.Contains(VolumeSlideCode) || track.Kind is not (VoiceKind.Fm or VoiceKind.PsgNoise or VoiceKind.PsgTone))
             {
                 return;
             }
 
-            bool psg = track.Kind == VoiceKind.PsgNoise;
+            bool psg = track.Kind != VoiceKind.Fm;
             double exact = DmfUnits.ExactVolume(track.Level(track.ModVolume), psg);
             if (track.DmfVolume is not { } dmf || Math.Abs(dmf - exact) >= 1)
             {
@@ -525,6 +533,7 @@ internal sealed class DmfPatternTranslator
             draft.Instrument = glide ? -1 : voice.Index;
             double volume = cell.Volume ?? track.ModVolume;
             (track.Gain, bool limited) = translator._voicing.FmLevel(sample, voice.Index);
+            track.Gain *= track.Centred ? PlanVoicing.CentredGain : 1;
             if (limited)
             {
                 Tally("{Count} FM notes play quieter than in the MOD: their sample is louder than its patch can play without clipping");
@@ -585,6 +594,43 @@ internal sealed class DmfPatternTranslator
             }
 
             track.Kind = VoiceKind.PsgNoise;
+            track.Sounding = true;
+            track.ModVolume = volume;
+            track.DmfVolume = draft.Volume;
+        }
+
+        /// <summary>
+        /// A PSG square at the note's pitch, stored two octaves below what it sounds (docs/formats/dmf.md#psg-notes-sound-two-octaves-up),
+        /// with the sample's fade as its instrument, as a noise note has (docs/adr/0087-greedy-allocator.md).
+        /// </summary>
+        private void StartTone(PlanCell cell, NotePitch note, int sample, Track track, Draft draft, List<Planned> effects)
+        {
+            double semitones = translator._voicing.HeardSemitones(note, sample, out _);
+            int whole = (int)Math.Round(semitones, MidpointRounding.AwayFromZero);
+            int stored = Math.Clamp(whole - PsgOctaveShift, 0, (MaxOctave * 12) + 11);
+            if (stored != whole - PsgOctaveShift)
+            {
+                Tally("{Count} PSG tone notes were outside DefleMask's octaves 0–7 and play at the nearest note it has");
+            }
+
+            int fine = DmfUnits.FinePitchCentre + (int)Math.Round((semitones - whole) * DmfUnits.FinePitchStepsPerSemitone, MidpointRounding.AwayFromZero);
+            (draft.Note, draft.Octave) = NoteAndOctave(stored);
+            draft.Instrument = translator._noiseInstruments[sample];
+            double volume = cell.Volume ?? track.ModVolume;
+            (track.Gain, bool limited) = translator._voicing.ToneLevel(sample);
+            if (limited)
+            {
+                Tally("{Count} PSG tone notes play quieter than in the MOD: their sample is louder than the PSG at full volume");
+            }
+
+            draft.Volume = DmfUnits.PsgVolume(track.Level(volume));
+            if (fine != track.Fine)
+            {
+                effects.Add(new Planned(PitchPriority, new DmfEffect(FinePitch, Math.Clamp(fine, 0, byte.MaxValue)), effects.Count));
+                track.Fine = fine;
+            }
+
+            track.Kind = VoiceKind.PsgTone;
             track.Sounding = true;
             track.ModVolume = volume;
             track.DmfVolume = draft.Volume;
@@ -733,7 +779,7 @@ internal sealed class DmfPatternTranslator
                 return;
             }
 
-            int code = PanCode(_panOverride[track.Source] ?? translator._song.Channels[track.Source].Pan);
+            int code = track.Centred ? PanBoth : PanCode(_panOverride[track.Source] ?? translator._song.Channels[track.Source].Pan);
             if (code != track.Pan)
             {
                 effects.Add(new Planned(KeepFirst, new DmfEffect(Panning, code), effects.Count));
@@ -817,6 +863,7 @@ internal sealed class DmfPatternTranslator
             {
                 VoiceKind.Dac => " on DAC notes (the DAC plays a sample at one pitch and volume)",
                 VoiceKind.PsgNoise => " on PSG noise notes",
+                VoiceKind.PsgTone => " on PSG tone notes (they hold the pitch they start at)",
                 _ => string.Empty,
             };
             return "{Count} " + name.Replace("{", "{{", StringComparison.Ordinal).Replace("}", "}}", StringComparison.Ordinal) + " effects were left out" + where;
@@ -1088,6 +1135,9 @@ internal sealed class DmfPatternTranslator
 
         /// <summary>Factor on the MOD volume that plays the sample as loud as the MOD does on this voice (ADR 0050).</summary>
         public double Gain { get; set; } = 1;
+
+        /// <summary>True when an FM note plays centred whatever its channel's pan (<see cref="PlanVoicing.CentredBass"/>).</summary>
+        public bool Centred { get; set; }
 
         /// <summary>The linear volume to write for MOD volume <paramref name="volume"/>: matched to the sample.</summary>
         public double Level(double volume) => volume * Gain;

@@ -6,6 +6,39 @@ namespace Mod2Xgm.Tests.Mapping;
 /// <summary>Tests for <see cref="VoiceLevel"/>: sample levels and FM patch levels on the DAC's scale (ADR 0050).</summary>
 public sealed class VoiceLevelTests
 {
+    /// <summary>A low sample has almost no highs for noise to stand in for; a high one keeps most of its level.</summary>
+    [Fact]
+    public void LoudestHigh_WithLowAndHighSines_KeepsOnlyHigh()
+    {
+        // Arrange
+        Sample low = new("low", Sine(4096, 1, 256), null);
+        Sample high = new("high", Sine(4096, 1, 4), null);
+
+        // Act
+        double lowLevel = VoiceLevel.LoudestHigh(low);
+        double highLevel = VoiceLevel.LoudestHigh(high);
+
+        // Assert
+        Assert.True(lowLevel < 0.05);
+        Assert.True(highLevel > 0.4);
+    }
+
+    /// <summary>A rendered note that loops counts all of itself; one that doesn't counts its loudest moment.</summary>
+    [Fact]
+    public void Heard_WithFadingSound_FollowsLoop()
+    {
+        // Arrange: at 1000 Hz the window is 30 frames; half the sound is silent.
+        float[] sound = [.. Enumerable.Repeat(1f, 500), .. Enumerable.Repeat(0f, 500)];
+
+        // Act
+        double looped = VoiceLevel.Heard(sound, 1000, loops: true);
+        double oneShot = VoiceLevel.Heard(sound, 1000, loops: false);
+
+        // Assert
+        Assert.Equal(Math.Sqrt(0.5), looped, 3);
+        Assert.Equal(1, oneShot, 3);
+    }
+
     /// <summary>A looped sample's level is its loop's RMS, whatever comes before the loop.</summary>
     [Fact]
     public void Sample_WithLoop_MeasuresLoop()

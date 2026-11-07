@@ -40,10 +40,23 @@ internal sealed record CapacityCheck(TargetLimits Limits, int Slots, int Voices,
         ArgumentNullException.ThrowIfNull(playback);
         ArgumentNullException.ThrowIfNull(limits);
 
-        // One held length costs no extra copy: a note can be stopped early, so a copy only has to last as long as its longest note.
+        Dictionary<CopyKey, double> longest = Copies(SongNote.Find(song, playback).Where(n => plan.PcmSamples.Contains(n.Sample)), song, []);
+        long bytes = longest.Sum(copy => (long)CopyBytes(copy.Key, copy.Value, song, limits.Target));
+        int voices = SongVoices.Count(song, playback, plan.PcmSamples).MostAtOnce;
+        return new CapacityCheck(limits, longest.Count, voices, bytes);
+    }
+
+    /// <summary>
+    /// The copies <paramref name="notes"/> need, each with how long its longest note holds: one held length costs no extra
+    /// copy, as a note can be stopped early. Notes too quiet or starting past the sample's end store nothing.
+    /// </summary>
+    /// <param name="notes">The notes played as recordings.</param>
+    /// <param name="song">Their song.</param>
+    /// <param name="stored">Which sample each byte-identical sample shares its copies with; filled in as samples are met.</param>
+    internal static Dictionary<CopyKey, double> Copies(IEnumerable<SongNote> notes, Song song, Dictionary<int, int> stored)
+    {
         Dictionary<CopyKey, double> longest = [];
-        Dictionary<int, int> stored = [];
-        foreach (SongNote note in SongNote.Find(song, playback).Where(n => plan.PcmSamples.Contains(n.Sample)))
+        foreach (SongNote note in notes)
         {
             Sample sample = song.Samples[note.Sample];
             int steps = DmfPatternTranslator.DacVolumeSteps(note.Volume);
@@ -54,9 +67,7 @@ internal sealed record CapacityCheck(TargetLimits Limits, int Slots, int Voices,
             }
         }
 
-        long bytes = longest.Sum(copy => (long)CopyBytes(copy.Key, copy.Value, song, limits.Target));
-        int voices = SongVoices.Count(song, playback, plan.PcmSamples).MostAtOnce;
-        return new CapacityCheck(limits, longest.Count, voices, bytes);
+        return longest;
     }
 
     /// <summary>
@@ -135,7 +146,7 @@ internal sealed record CapacityCheck(TargetLimits Limits, int Slots, int Voices,
     /// The bytes one copy takes, with the free tidying done (consolidation step 3): a one-shot's silent tail is left out,
     /// and a loop is played out only as long as the copy's longest note.
     /// </summary>
-    private static int CopyBytes(CopyKey key, double seconds, Song song, PcmTarget target)
+    internal static int CopyBytes(CopyKey key, double seconds, Song song, PcmTarget target)
     {
         Sample sample = song.Samples[key.Sample];
         int frames = sample.Loop is null

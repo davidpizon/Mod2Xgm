@@ -71,6 +71,7 @@ public sealed class SimpleMapperTests
             [
                 GenesisChannel.Fm1, GenesisChannel.Fm2, GenesisChannel.Fm3, GenesisChannel.Fm4, GenesisChannel.Fm5, GenesisChannel.Fm6,
                 GenesisChannel.Psg1, GenesisChannel.Psg2, GenesisChannel.Psg3, GenesisChannel.Psg4,
+                GenesisChannel.Pcm2, GenesisChannel.Pcm3, GenesisChannel.Pcm4,
             ],
             Enum.GetValues<GenesisChannel>());
     }

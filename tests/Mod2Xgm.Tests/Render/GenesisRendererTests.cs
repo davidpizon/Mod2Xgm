@@ -300,6 +300,65 @@ public sealed class GenesisRendererTests
         Assert.Equal(loud, Db(audio.Right, audio.SampleRate, 0.1, 0.9), 0.01);
     }
 
+    /// <summary>In a plan tuned by ear, a panned bass note plays on both sides, 3 dB below where it plays on one in a plain plan.</summary>
+    [Fact]
+    public void Render_WithBassInPlanTunedByEar_PlaysCentredAndQuieter()
+    {
+        // Arrange: a 64-frame cycle at 110 Hz, panned left.
+        const double rate = 64 * 110;
+        FmPatch patch = FmPatchLibrary.Sine with { HeardRms = 0.25 };
+        GenesisPlan plain = PlanOf([patch], [], Row((GenesisChannel.Fm1, Note(VoiceKind.Fm, rateHz: rate))));
+        Song song = SongOf(1, LoopedSine());
+        Playback playback = PlaybackOf(20, (r, t) => Playing(r == 0 && t == 0, pan: -1, rateHz: rate));
+
+        // Act
+        StereoAudio side = Render(plain, song, playback);
+        StereoAudio centred = Render(plain with { TunedByEar = true }, song, playback);
+
+        // Assert
+        Assert.True(Db(side.Right, side.SampleRate, 0.2, 1.5) < -60);
+        double left = Db(centred.Left, centred.SampleRate, 0.2, 1.5);
+        Assert.Equal(left, Db(centred.Right, centred.SampleRate, 0.2, 1.5), 0.01);
+        Assert.Equal(-3, left - Db(side.Left, side.SampleRate, 0.2, 1.5), 0.8);
+    }
+
+    /// <summary>A PSG tone note plays at its pitch on its tone channel.</summary>
+    [Fact]
+    public void Render_WithPsgTone_PlaysAtSamplePitch()
+    {
+        // Arrange
+        GenesisPlan plan = PlanOf([], [], Row((GenesisChannel.Psg1, Note(VoiceKind.PsgTone))));
+
+        // Act
+        StereoAudio audio = Render(plan, SongOf(1, LoopedSine()), PlaybackOf(20, (r, t) => Playing(r == 0 && t == 0)));
+
+        // Assert
+        Assert.Equal(440, Hz(audio.Left, audio.SampleRate, 0.2, 1.0), 5.0);
+    }
+
+    /// <summary>Several recordings at once play on the PCM columns of a plan with more than one PCM voice.</summary>
+    [Fact]
+    public void Render_WithSecondPcmColumn_AddsItToTheMix()
+    {
+        // Arrange: quiet enough that two together don't clip the driver's mix.
+        Sample recording = new("quiet", [.. OneShotSine(8000, 2).Data.Select(v => v * 0.25f)], null);
+        DacSample[] dacs = [new(0, 8000)];
+        GenesisPlan one = PlanOf([], dacs, Row((GenesisChannel.Fm6, Note(VoiceKind.Dac, rateHz: 8000))));
+        PlanCell[] wide = [.. Enumerable.Repeat(PlanCell.Empty, GenesisPlan.ColumnCount)];
+        wide[(int)GenesisChannel.Fm6] = Note(VoiceKind.Dac, rateHz: 8000);
+        wide[(int)GenesisChannel.Pcm2] = Note(VoiceKind.Dac, rateHz: 8000);
+        GenesisPlan two = one with { Patterns = [[new PlanRow(wide, [])]] };
+        Playback playback = PlaybackOf(20, (r, t) => Playing(r == 0 && t == 0, rateHz: 8000, frames: recording.Length));
+        GenesisRenderOptions xgm = ChipRate with { Driver = PcmDriver.Xgm };
+
+        // Act
+        StereoAudio single = Render(one, SongOf(1, recording), playback, xgm);
+        StereoAudio both = Render(two, SongOf(1, recording), playback, xgm);
+
+        // Assert
+        Assert.True(Db(both.Left, both.SampleRate, 0.2, 1.0) > Db(single.Left, single.SampleRate, 0.2, 1.0) + 3);
+    }
+
     /// <summary>A PSG square at the loudest volume has Furnace's RMS, with no DC.</summary>
     [Fact]
     public void Render_WithPsgSquare_PlaysAtFurnacesLevel()

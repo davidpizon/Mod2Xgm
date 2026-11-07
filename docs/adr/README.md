@@ -100,6 +100,7 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0084](0084-drop-clues.md) | Drop clues per song track, set by listening | 2026-11-06 | Accepted |
 | [0085](0085-target-limits.md) | One rule book of target limits; XGM's and XGM2's limits never bind a DMF | 2026-11-06 | Accepted |
 | [0086](0086-capacity-check.md) | The capacity check counts only recordings, as the drivers store them | 2026-11-06 | Accepted |
+| [0087](0087-greedy-allocator.md) | A greedy allocator, its sounds and levels chosen by ear | 2026-11-06 | Accepted |
 
 ## Open questions
 
@@ -107,4 +108,3 @@ Not decided yet; each becomes an ADR when it is.
 
 - Channel mapping strategy and DMF DAC collision policy.
 - XGM v1 driver behavior not covered by the spec: CH3 special via `$27` (timer bits), music PCM priority.
-- CLI default for `--mapping`.

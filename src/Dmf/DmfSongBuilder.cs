@@ -17,7 +17,7 @@ internal sealed record DmfBuildSettings(double AmigaClockHz, ResamplingMode Resa
 internal sealed record DmfSong(DmfFile File, IReadOnlyList<DmfInstrumentSource> Instruments, IReadOnlyList<DmfSampleSource> Samples);
 
 /// <summary>Where a DMF instrument came from.</summary>
-/// <param name="Kind"><see cref="VoiceKind.Fm"/> for an FM patch, <see cref="VoiceKind.PsgNoise"/> for a noise instrument.</param>
+/// <param name="Kind"><see cref="VoiceKind.Fm"/> for an FM patch, <see cref="VoiceKind.PsgNoise"/> or <see cref="VoiceKind.PsgTone"/> for a PSG instrument.</param>
 /// <param name="Samples">The song samples it plays (<see cref="Song.Samples"/>), in number order: every sample an FM patch stands in for, or the noise instrument's one sample.</param>
 internal sealed record DmfInstrumentSource(VoiceKind Kind, IReadOnlyList<int> Samples);
 
@@ -90,9 +90,9 @@ internal static class DmfSongBuilder
 
         List<DmfInstrument> instruments = [.. plan.FmPatches.Select(Instrument)];
         Dictionary<int, int> noiseInstruments = [];
-        foreach (PlanCell cell in plan.Patterns.Take(orders).SelectMany(p => p).Select(r => r.Cells[(int)GenesisChannel.Psg4]))
+        foreach (PlanCell cell in plan.Patterns.Take(orders).SelectMany(p => p).SelectMany(PsgCells))
         {
-            if (cell is { Voice.Kind: VoiceKind.PsgNoise, Sample: { } sample, Note: { } note } && !noiseInstruments.ContainsKey(sample))
+            if (cell is { Voice.Kind: VoiceKind.PsgNoise or VoiceKind.PsgTone, Sample: { } sample, Note: { } note } && !noiseInstruments.ContainsKey(sample))
             {
                 noiseInstruments[sample] = instruments.Count;
                 instruments.Add(NoiseInstrument(song.Samples[sample], note.PlaybackRateHz, timing.Timing.TickRateHz));
@@ -134,10 +134,14 @@ internal static class DmfSongBuilder
         return new DmfSong(file, InstrumentSources(plan, orders, noiseInstruments), [.. translation.DacVariants.Select(v => SampleSource(v, plan))]);
     }
 
-    /// <summary>For each instrument: the samples each FM patch plays in the orders written, then each noise instrument's sample.</summary>
+    /// <summary>The row's cells on the PSG, its tone channels and noise.</summary>
+    private static IEnumerable<PlanCell> PsgCells(PlanRow row) => row.Cells.Skip((int)GenesisChannel.Psg1).Take((int)GenesisChannel.Psg4 - (int)GenesisChannel.Psg1 + 1);
+
+    /// <summary>For each instrument: the samples each FM patch plays in the orders written, then each PSG instrument's sample.</summary>
     private static List<DmfInstrumentSource> InstrumentSources(GenesisPlan plan, int orders, Dictionary<int, int> noiseInstruments)
     {
         SortedSet<int>[] fm = [.. plan.FmPatches.Select(_ => new SortedSet<int>())];
+        HashSet<int> noise = [.. plan.Patterns.Take(orders).SelectMany(p => p).Select(r => r.Cells[(int)GenesisChannel.Psg4]).Where(c => c.Voice?.Kind == VoiceKind.PsgNoise).Select(c => c.Sample ?? -1)];
         foreach (PlanCell cell in plan.Patterns.Take(orders).SelectMany(p => p).SelectMany(r => r.Cells))
         {
             if (cell is { Voice: { Kind: VoiceKind.Fm, Index: var patch }, Sample: { } sample })
@@ -149,7 +153,7 @@ internal static class DmfSongBuilder
         return
         [
             .. fm.Select(s => new DmfInstrumentSource(VoiceKind.Fm, [.. s])),
-            .. noiseInstruments.OrderBy(n => n.Value).Select(n => new DmfInstrumentSource(VoiceKind.PsgNoise, [n.Key])),
+            .. noiseInstruments.OrderBy(n => n.Value).Select(n => new DmfInstrumentSource(noise.Contains(n.Key) ? VoiceKind.PsgNoise : VoiceKind.PsgTone, [n.Key])),
         ];
     }
 
