@@ -85,11 +85,13 @@ PCM candidates; samples in `--require-psg` only PSG candidates. The allocator ne
 
 | Resource | DMF | XGM | XGM2 |
 |---|---|---|---|
-| FM channels | 6 (5 if DAC used) | **5** (driver owns FM6/DAC) | 5 (FM6 only if DAC off via `$FD` — verify) |
+| FM channels | 6 (FM6 takes turns with the DAC) | **5** (driver owns FM6/DAC) | 5 (driver owns FM6/DAC) |
 | CH3 special | allowed (system 0x42) | after probe ROM (T11.1) | allowed |
 | PSG | 3 tone + noise | same | same |
 | PCM voices | 1 | 4 − `--reserve-sfx-channels` | 3 − `--reserve-sfx-channels` |
-| PCM slots / bytes | 255 / — | 63 / 128 KB | 122 / 128 KB |
+| PCM slots / bytes | 144 / no limit | 63 / 128 KB | 123 / 128 KB |
+
+The table is `TargetLimits` ([ADR 0085](adr/0085-target-limits.md)); each `--format` uses its own column.
 
 ## In-app rendering (pure C#)
 

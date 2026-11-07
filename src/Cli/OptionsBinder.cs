@@ -1,6 +1,7 @@
 using System.CommandLine;
 using Mod2Xgm.Audio;
 using Mod2Xgm.Mod;
+using Mod2Xgm.Optimizer;
 using Mod2Xgm.Output;
 
 namespace Mod2Xgm.Cli;
@@ -156,8 +157,8 @@ internal static class OptionsBinder
     {
         int max = format switch
         {
-            OutputFormat.Xgm => ConversionDefaults.XgmPcmChannels,
-            OutputFormat.Xgm2 => ConversionDefaults.Xgm2PcmChannels,
+            OutputFormat.Xgm => PcmTargets.Voices(PcmTarget.Xgm),
+            OutputFormat.Xgm2 => PcmTargets.Voices(PcmTarget.Xgm2),
             _ => 0,
         };
 

@@ -55,7 +55,7 @@ Parsed by System.CommandLine; values are converted and checked by `src/Cli/Optio
   DAC/PSG), nor in `--ignore-samples` and any `--require-*`
   list ("an ignored sample isn't converted at all").
 - `--no-dac` and `--require-dac` together are a usage error (exit 1): "--no-dac keeps every sample off the DAC".
-- `--max-pcm-bytes`: positive integer, optional `K` (×1024) or `M` (×1024²) suffix, case-insensitive.
+- `--max-pcm-bytes`: positive integer, optional `K` (×1024) or `M` (×1024²) suffix, case-insensitive. XGM and XGM2 hold at most 16,776,960 bytes: a bigger value is cut to that, with a conversion note ([ADR 0085](adr/0085-target-limits.md)). DMF has no byte limit; there the value only stops bigger pre-mixes being made ([ADR 0078](adr/0078-pre-mix-budget-cap.md)).
 - `--time-budget`: positive integer with optional `s`, `m` or `h` (plain number = seconds).
 - `--reserve-sfx-channels`: `0`–`4` for `xgm`, `0`–`3` for `xgm2`; must be `0` for `dmf` (one DAC channel, nothing to reserve).
 - `--mapping`: accepted as text for now; valid names are defined with the optimizer (plan M9).
@@ -198,7 +198,7 @@ Section 1 is printed as soon as the MOD is read; section 2 right after the usage
 **3. Output instruments** — after mapping/consolidation, what the target will contain:
 
 ```
-INF Output (XGM2): 5 FM instruments, 41 PCM slots / 122, 118 KB / 128 KB PCM
+INF Output (XGM2): 5 FM instruments, 41 PCM slots / 123, 118 KB / 128 KB PCM
 INF  PCM 01  ← 01 "bassdrum"     13300 Hz  4532 B
 INF  PCM 02  ← 05 "bass" C-2     13300 Hz  2210 B
 INF  FM  01  ← 06 "strings" (approximation)

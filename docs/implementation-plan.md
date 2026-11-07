@@ -9,7 +9,7 @@
 | Topic | Decision |
 |---|---|
 | Goal | Most accurate **sounding** rendition of the MOD ([README.md](README.md#goal)) |
-| Standard | **SGDK compliance** — every output must play through SGDK ([AGENTS.md](../AGENTS.md#sgdk-compliance)) |
+| Standard | **SGDK compliance** — XGM and XGM2 outputs must play through SGDK; a DMF isn't held to their limits ([ADR 0085](adr/0085-target-limits.md)) ([AGENTS.md](../AGENTS.md#sgdk-compliance)) |
 | Output order | **DMF**, then XGM2, then XGM (v1) |
 | Mapping | **Simple mapper** for the first DMF release, then the **multi-pass optimizer** ([multi-pass.md](multi-pass.md)) |
 | In-app rendering/scoring | **Pure C#**: own MOD renderer, ymfm (BSD-3) port for the YM3438, SN76489, PCM driver model |
@@ -127,7 +127,7 @@
 ### M9 — Allocation, consolidation and refinement (optimizer)
 | Task | Work | Acceptance |
 |---|---|---|
-| T9.1 | Target limits model (FM/CH3/PSG/PCM voices/slots/bytes, `--reserve-sfx-channels`, `--max-pcm-bytes`) | Tests per target |
+| T9.1 ✅ | Target limits model (FM/CH3/PSG/PCM voices/slots/bytes, `--reserve-sfx-channels`, `--max-pcm-bytes`): `TargetLimits`, each `--format` with its own; XGM's and XGM2's limits never bind a DMF (David), which has all 6 FM channels and no byte limit; XGM2 holds 123 samples ([ADR 0085](adr/0085-target-limits.md)) | Tests per target |
 | T9.2 | Capacity check + warning; `--no-consolidate` → exit 6 | Tests |
 | T9.3 | Importance scoring; greedy allocation per section; `--require-fm` / `--require-dac` / `--require-psg` as hard constraints | Always produces a valid plan; required samples never change type; exit 6 when required PCM can't fit |
 | T9.4 | Consolidation moves (dedupe, trim, pitch quantize, half rate, merge, mid-song swap, voice stealing) as allocator moves | Tests; never a wrong pitch; a song that already fits the target gets no consolidation move and keeps every note (David, [multi-pass.md](multi-pass.md#idea)) |

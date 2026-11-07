@@ -13,7 +13,7 @@ public sealed class PcmTargetsTests
         IEnumerable<int> slots = PcmTargets.All.Select(PcmTargets.Slots);
 
         // Assert
-        Assert.Equal([144, 63, 122], slots);
+        Assert.Equal([144, 63, 123], slots);
     }
 
     /// <summary>The voice caps are the ones docs/sample-capacity.md lists.</summary>

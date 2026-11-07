@@ -30,12 +30,14 @@ because of how the Genesis targets play PCM:
 
 | Limit | DMF | XGM | XGM2 |
 |---|---|---|---|
-| Sample slots | 255 (1-byte count); **144** reachable as DAC notes (12 banks × 12) | **63** (per `xgm.txt`) | **122** (124-entry SID table − entry #0 − end-marker entry; mml2vgm says 123 — **verify**) |
+| Sample slots | **144** reachable as DAC notes (12 banks × 12; the file's 1-byte count allows 255) | **63** (per `xgm.txt`) | **123** (124-entry SID table − end entry; SGDK's `XGM.java`, [ADR 0085](adr/0085-target-limits.md)) |
 | Simultaneous PCM | 1 | 4 − reserved SFX | 3 − reserved SFX |
 | Pitch per sample | fixed: one rate per sample; the note picks one of 144 samples ([formats/dmf.md](formats/dmf.md#dac-samples-on-fm6)) | fixed ~14 kHz | fixed 13.3 kHz / 6.65 kHz |
-| Byte budget | — | default **128 KB**, `--max-pcm-bytes` | same |
+| Byte budget | none | default **128 KB**, `--max-pcm-bytes`, at most 16,776,960 bytes (a bigger one is cut, with a conversion note) | same |
 
-Limits live as named constants in one place (`src/Xgm/XgmLimits.cs`, `src/Dmf/DmfLimits.cs`).
+Each `--format` uses its own column. The limits live in one place, `TargetLimits` (`src/Optimizer/TargetLimits.cs`,
+[ADR 0085](adr/0085-target-limits.md)), which also holds the FM, CH3 and PSG limits in [multi-pass.md](multi-pass.md#constraints-the-allocator-enforces).
+XGM's and XGM2's limits never bind a DMF, so a big one can pass what they hold and would then lose sounds if exported to them.
 
 ## Usage scan (`src/Mod/SampleUsage.cs`, plan T2.4)
 
@@ -67,7 +69,7 @@ PCM bytes, and compares them with the target's limits. If any limit is exceeded 
 note at `Warning` level** before doing anything about it, e.g.:
 
 ```
-WRN XGM2 capacity exceeded: needs 187 sample slots (limit 122), 4 simultaneous PCM voices (limit 3), 412 KB PCM (budget 128 KB)
+WRN XGM2 capacity exceeded: needs 187 sample slots (limit 123), 4 simultaneous PCM voices (limit 3), 412 KB PCM (budget 128 KB)
 WRN Consolidating samples to fit (use --no-consolidate to fail instead)
 ```
 

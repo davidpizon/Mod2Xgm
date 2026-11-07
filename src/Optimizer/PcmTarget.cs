@@ -53,14 +53,20 @@ internal static class PcmTargets
     private const int XgmAlignment = 256;
 
     /// <summary>
+    /// The most sample data XGM and XGM2 can hold: the block size is stored as size / 256 in 16 bits
+    /// (docs/formats/xgm.txt, SLEN in docs/formats/xgm.md#xgm2-layout-from-xgm2txt-version-byte-0x10).
+    /// </summary>
+    public const long MaxStoredBytes = 65_535L * XgmAlignment;
+
+    /// <summary>
     /// The copies the target can hold: DMF's 144 DAC notes (12 banks × 12, docs/formats/dmf.md#dac-samples-on-fm6),
-    /// XGM's 63 samples and XGM2's 122 (docs/sample-capacity.md#limits-per-target). A hard cap.
+    /// XGM's 63 samples and XGM2's 123 (docs/sample-capacity.md#limits-per-target). A hard cap.
     /// </summary>
     public static int Slots(PcmTarget target) => target switch
     {
         PcmTarget.Dmf => 144,
         PcmTarget.Xgm => 63,
-        _ => 122,
+        _ => 123,
     };
 
     /// <summary>The PCM notes the target plays at once, before <c>--reserve-sfx-channels</c>. A hard cap.</summary>

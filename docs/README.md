@@ -37,7 +37,7 @@ Accuracy is judged by listening and by the measurement harness ([harness.md](har
 - **Capacity:** warns when a target can't hold the samples and consolidates by default
   ([sample-capacity.md](sample-capacity.md)); `--ignore-samples` lets the user drop samples.
 - **Output:** `.dmf` (default), `.xgm` with `--format xgm`, or `.xgm2` with `--format xgm2`, written natively.
-- **SGDK compliance:** every output must play through SGDK (XGM/XGM2 directly; DMF via DefleMask VGM export → rescomp).
+- **SGDK compliance:** XGM and XGM2 outputs must play through SGDK. A DMF within their limits also can, via DefleMask VGM export → rescomp, but isn't held to them ([ADR 0085](adr/0085-target-limits.md)).
 - **Not in v1:** S3M/XM/IT input, VGM output, playback/preview, GUI. Planned after v1: MIDI (M13,
   [ADR 0048](adr/0048-midi-input.md)), then multichannel MOD, XM and IT (M14–M16,
   [ADR 0063](adr/0063-multichannel-mod-xm-it-input.md)); S3M is not planned.

@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using Mod2Xgm.Analysis;
 using Mod2Xgm.Cli;
 using Mod2Xgm.Dmf;
@@ -105,6 +106,7 @@ internal static class ConversionCommand
         ModReport.LogSamples(logger, module, usage, options.IgnoreSamples);
         CheckSampleNumbers(options, module);
         CheckFormat(options, logger);
+        LogLimits(TargetLimits.For(options, notes), logger);
         LogQuality(options, logger);
 
         phase.Done();
@@ -315,6 +317,18 @@ internal static class ConversionCommand
 
         throw new ConversionException(ExitCode.UsageError, FormatUnavailable(options.Format));
     }
+
+    /// <summary>Logs what the output can hold, with <c>--verbose</c> (docs/sample-capacity.md#limits-per-target).</summary>
+    private static void LogLimits(TargetLimits limits, ILogger logger) => logger.Debug(
+        "Limits of {Target:l}: {Fm} FM (CH3 special {Ch3}), {Tones} PSG tones, {Noise} PSG noise, {Voices} PCM voices, {Slots} PCM slots, {Bytes:l} PCM bytes",
+        PcmTargets.Name(limits.Target),
+        limits.FmChannels,
+        limits.Ch3Special,
+        limits.PsgTones,
+        limits.PsgNoise,
+        limits.PcmVoices,
+        limits.PcmSlots,
+        limits.PcmBytes?.ToString(CultureInfo.InvariantCulture) ?? "unlimited");
 
     /// <summary>Why <paramref name="format"/> can't be written yet.</summary>
     private static string FormatUnavailable(OutputFormat format) =>
