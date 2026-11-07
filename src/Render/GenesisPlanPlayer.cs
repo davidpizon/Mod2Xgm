@@ -277,7 +277,7 @@ internal sealed class GenesisPlanPlayer
                 break;
             case VoiceKind.PsgTone:
                 WriteTonePeriod(c, PsgSetting.NearestPeriod(PlanVoicing.Hz(_voicing.HeardSemitones(ch.Pitch, sample, out _))));
-                track.Gain = _voicing.ToneLevel(sample).Gain;
+                track.Gain = _voicing.ToneLevel(sample).Gain * cell.Level;
                 StartNoise(track, ch, t);
                 break;
             default:

@@ -81,6 +81,9 @@ internal sealed record PlanCell(NotePitch? Note, PlanVoice? Voice, double? Volum
 {
     /// <summary>A cell that does nothing.</summary>
     public static PlanCell Empty { get; } = new(null, null, null, false, []);
+
+    /// <summary>The factor on the level <see cref="Note"/>'s voice would otherwise play at: below 1 for a layer under another voice of the same MOD note (docs/adr/0088-layering.md).</summary>
+    public double Level { get; init; } = 1;
 }
 
 /// <summary>One row of the plan.</summary>

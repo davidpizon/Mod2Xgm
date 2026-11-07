@@ -98,6 +98,26 @@ public sealed class DmfPatternTranslatorTests
         Assert.True(result.Cell(GenesisChannel.Psg1, 0).Volume >= 0);
     }
 
+    /// <summary>A layer's level turns its PSG tone down in the file.</summary>
+    [Fact]
+    public void Build_WithLayerLevel_WritesQuieterTone()
+    {
+        // Arrange
+        byte[] mod = Song().WithCell(0, 0, 0, Lead, C2).Build();
+        static GenesisPlan Layered(GenesisPlan plan)
+        {
+            PlanCell lead = plan.Patterns[0][0].Cells[(int)GenesisChannel.Fm1];
+            return Edit(GenesisChannel.Psg1, 0, _ => lead with { Voice = new PlanVoice(VoiceKind.PsgTone, 0) })(
+                Edit(GenesisChannel.Psg2, 0, _ => lead with { Voice = new PlanVoice(VoiceKind.PsgTone, 0), Level = 0.25 })(plan));
+        }
+
+        // Act
+        DmfConversion.Result result = DmfConversion.Convert(mod, transform: Layered);
+
+        // Assert
+        Assert.True(result.Cell(GenesisChannel.Psg2, 0).Volume < result.Cell(GenesisChannel.Psg1, 0).Volume);
+    }
+
     /// <summary>A cell needing more than four effects keeps the most important four and says how many went.</summary>
     [Fact]
     public void Build_WithManyEffects_KeepsFourMostImportant()
