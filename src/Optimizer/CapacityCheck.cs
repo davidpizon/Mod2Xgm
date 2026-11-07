@@ -4,6 +4,10 @@ using Mod2Xgm.Dmf;
 using Mod2Xgm.Mapping;
 using Mod2Xgm.Model;
 
+// What makes one stored copy different from another: the sample (or the first with the same sound), and what the targets
+// can't change while playing: the rate its notes start at, where they start (MOD 9xx) and their loudness in 3 dB steps.
+using CopyKey = (int Sample, double RateHz, int StartFrame, int VolumeSteps);
+
 namespace Mod2Xgm.Optimizer;
 
 /// <summary>
@@ -45,7 +49,7 @@ internal sealed record CapacityCheck(TargetLimits Limits, int Slots, int Voices,
             int steps = DmfPatternTranslator.DacVolumeSteps(note.Volume);
             if (note.StartFrame < sample.Length && steps <= DmfPatternTranslator.MaxDacVolumeSteps)
             {
-                CopyKey key = new(StoredAs(note.Sample, song, stored), note.RateHz, note.StartFrame, steps);
+                CopyKey key = (StoredAs(note.Sample, song, stored), note.RateHz, note.StartFrame, steps);
                 longest[key] = Math.Max(longest.GetValueOrDefault(key), note.Seconds);
             }
         }
@@ -140,11 +144,4 @@ internal sealed record CapacityCheck(TargetLimits Limits, int Slots, int Voices,
         int points = (int)Math.Ceiling(frames * PcmTargets.PlayRateHz(target, key.RateHz, halfSpeed: false) / key.RateHz);
         return PcmTargets.Bytes(target, points);
     }
-
-    /// <summary>What makes one stored copy different from another.</summary>
-    /// <param name="Sample">The sample, or the first with the same sound.</param>
-    /// <param name="RateHz">The rate its notes start at: the targets can't change a recording's pitch.</param>
-    /// <param name="StartFrame">Where its notes start (MOD <c>9xx</c>): the targets have no sample offset.</param>
-    /// <param name="VolumeSteps">Its loudness in 3 dB steps: the targets have no PCM volume.</param>
-    private readonly record struct CopyKey(int Sample, double RateHz, int StartFrame, int VolumeSteps);
 }
