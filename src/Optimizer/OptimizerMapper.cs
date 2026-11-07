@@ -860,7 +860,7 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
                 }
             }
 
-            foreach (IGrouping<(int Sample, VoiceKind Kind), PlannedNote> layered in _planned.Where(n => n.LayerColumn >= 0 && n.Kind is not null).GroupBy(n => (n.Sample, n.LayerKind)).OrderBy(g => g.Key.Sample))
+            foreach (IGrouping<(int Sample, VoiceKind Kind), PlannedNote> layered in _planned.Where(n => n is { LayerColumn: >= 0, Kind: not null }).GroupBy(n => (n.Sample, n.LayerKind)).OrderBy(g => g.Key.Sample))
             {
                 _notes.Add(
                     layered.Key.Kind == VoiceKind.Fm ? "Sample {Sample}: a chord, so its {Count} FM notes also sound a second FM voice" : "Sample {Sample}: {Count} FM notes also sound a quiet PSG tone",

@@ -104,15 +104,15 @@ public sealed class DmfPatternTranslatorTests
     {
         // Arrange
         byte[] mod = Song().WithCell(0, 0, 0, Lead, C2).Build();
-        Func<GenesisPlan, GenesisPlan> layered = plan =>
+        static GenesisPlan Layered(GenesisPlan plan)
         {
             PlanCell lead = plan.Patterns[0][0].Cells[(int)GenesisChannel.Fm1];
             return Edit(GenesisChannel.Psg1, 0, _ => lead with { Voice = new PlanVoice(VoiceKind.PsgTone, 0) })(
                 Edit(GenesisChannel.Psg2, 0, _ => lead with { Voice = new PlanVoice(VoiceKind.PsgTone, 0), Level = 0.25 })(plan));
-        };
+        }
 
         // Act
-        DmfConversion.Result result = DmfConversion.Convert(mod, transform: layered);
+        DmfConversion.Result result = DmfConversion.Convert(mod, transform: Layered);
 
         // Assert
         Assert.True(result.Cell(GenesisChannel.Psg2, 0).Volume < result.Cell(GenesisChannel.Psg1, 0).Volume);
