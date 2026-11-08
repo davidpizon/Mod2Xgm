@@ -1,5 +1,6 @@
 using System.Globalization;
 using Mod2Xgm.Analysis;
+using Mod2Xgm.Dmf;
 using Mod2Xgm.Mapping;
 using Mod2Xgm.Model;
 
@@ -15,7 +16,8 @@ namespace Mod2Xgm.Optimizer;
 /// </summary>
 /// <param name="limits">What the target holds.</param>
 /// <param name="menu">What each sample can sound like.</param>
-internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleSounds> menu) : IChannelMapper
+/// <param name="shrink">How recordings are shrunk to fit before notes give them up (plan T9.4a); <see cref="ShrinkRules.Default"/> when not given.</param>
+internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleSounds> menu, ShrinkRules? shrink = null) : IChannelMapper
 {
     /// <summary>What a fully percussive sample's notes add to their importance, as a multiple of a note with no hit: a replaced attack is easy to hear, and David chose this over smaller values (docs/sample-capacity.md#importance).</summary>
     private const double PercussiveBoost = 8;
@@ -37,6 +39,9 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
 
     /// <summary>A PSG tone's level under an FM note, as a factor on what it would play at alone: 12 dB down, David's pick over 6 dB, which stuttered on hawks_claw and was too crisp on kc (docs/adr/0088-layering.md).</summary>
     internal const double ToneLayerLevel = 0.25;
+
+    /// <summary>Where the DAC plays when recordings from both sides sound at once: both speakers, David's pick over the louder side in round 12 (docs/adr/0091-shrinking-recordings.md).</summary>
+    internal const DacPanClash PanClash = DacPanClash.Centre;
 
     /// <summary>A distance for a sound with no measurement: as far as the ruler goes.</summary>
     private const double UnknownDb = NoteScorer.RangeDb;
@@ -62,7 +67,7 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
             throw new ArgumentException("--no-dac and --require-dac can't both be given.", nameof(options));
         }
 
-        Run run = new(limits, menu, song, playback, options, notes);
+        Run run = new(limits, menu, song, playback, options, notes, shrink ?? ShrinkRules.Default);
         GenesisPlan plan = run.Execute();
         NotesMoved = run.Moved;
         return plan;
@@ -132,8 +137,10 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
         private readonly int[] _noiseAt;
 
         // What the recordings store so far (docs/adr/0086-capacity-check.md).
-        private readonly Dictionary<(int Sample, double RateHz, int StartFrame, int VolumeSteps), int> _copyBytes = [];
-        private readonly HashSet<(int Sample, double RateHz, int StartFrame, int VolumeSteps)> _stored = [];
+        private readonly ShrinkRules _rules;
+        private readonly HashSet<StoredCopy> _stored = [];
+        private Dictionary<StoredCopy, int> _copyBytes = [];
+        private ShrinkResult? _shrunk;
         private readonly Dictionary<int, int> _storedAs = [];
         private long _bytes;
 
@@ -148,8 +155,9 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
         private int _silent;
         private int _slides;
 
-        public Run(TargetLimits limits, IReadOnlyList<SampleSounds> menu, Song song, Playback playback, MappingOptions options, ConversionNotes notes)
+        public Run(TargetLimits limits, IReadOnlyList<SampleSounds> menu, Song song, Playback playback, MappingOptions options, ConversionNotes notes, ShrinkRules rules)
         {
+            _rules = rules;
             _limits = limits;
             _song = song;
             _playback = playback;
@@ -307,13 +315,31 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
             return false;
         }
 
-        /// <summary>The size of every copy a recording could store, as the capacity check counts them.</summary>
+        /// <summary>
+        /// The copy each recording would store, as the capacity check counts them, shrunk where the target can't hold
+        /// them all (plan T9.4a; nothing changes for a song that fits), and the size of each.
+        /// </summary>
         private void SizeCopies()
         {
-            IEnumerable<SongNote> wanted = _planned.Where(n => _menu[n.Sample].RecordingDb.Count > 0).SelectMany(n => n.Plays);
-            foreach (((int Sample, double RateHz, int StartFrame, int VolumeSteps) key, double seconds) in CapacityCheck.Copies(wanted, _song, _storedAs))
+            // As the capacity check counts them: notes whose closest sound is a recording, not those that may only fall back to one.
+            List<PlannedNote> wanted = [.. _planned.Where(n => FirstChoice(n) == VoiceKind.Dac)];
+            List<((int Sample, double RateHz, int StartFrame, int VolumeSteps) Key, double Seconds)> copies = [];
+            foreach (SongNote play in wanted.SelectMany(n => n.Plays))
             {
-                _copyBytes[key] = CapacityCheck.CopyBytes(key, seconds, _song, _limits.Target);
+                copies.AddRange(CapacityCheck.Copies([play], _song, _storedAs).Select(c => (c.Key, c.Value)));
+            }
+
+            Dictionary<int, double> importance = wanted.GroupBy(n => StoredAs(n.Sample)).ToDictionary(g => g.Key, g => g.Sum(n => n.Importance));
+            _shrunk = RecordingShrinker.Shrink(copies, importance, _song, _limits, _rules, new HashSet<int>(_options.RequireDac.Select(StoredAs)));
+            _copyBytes = new Dictionary<StoredCopy, int>(_shrunk.Bytes);
+            RecordingShrinker.Report(_shrunk, _song, _rules, _notes);
+
+            // A note that may only fall back to a recording stores its copy as the song asks for it.
+            IEnumerable<SongNote> fallback = _planned.Where(n => FirstChoice(n) != VoiceKind.Dac && Allowed(VoiceKind.Dac, n)).SelectMany(n => n.Plays);
+            foreach (((int Sample, double RateHz, int StartFrame, int VolumeSteps) key, double seconds) in CapacityCheck.Copies(fallback, _song, _storedAs))
+            {
+                StoredCopy copy = _shrunk.Stored.TryGetValue(key, out StoredCopy shrunk) ? shrunk : new StoredCopy(key.Sample, key.RateHz, key.StartFrame, key.VolumeSteps, false);
+                _copyBytes[copy] = Math.Max(_copyBytes.GetValueOrDefault(copy), CapacityCheck.CopyBytes((copy.Sample, copy.RateHz, copy.StartFrame, copy.VolumeSteps), seconds, _song, _limits.Target, copy.HalfSpeed));
             }
         }
 
@@ -326,7 +352,7 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
                 return;
             }
 
-            HashSet<(int Sample, double RateHz, int StartFrame, int VolumeSteps)> copies = [.. required.SelectMany(n => n.Plays).SelectMany(CopiesOf)];
+            HashSet<StoredCopy> copies = [.. required.SelectMany(n => n.Plays).SelectMany(CopiesOf)];
             long bytes = copies.Sum(c => (long)_copyBytes[c]);
             string names = string.Join(", ", required.Select(n => n.Sample).Distinct().Order().Select(s => Label(s, _song.Samples[s].Name)));
             List<string> problems = [];
@@ -350,16 +376,17 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
                 throw new ConversionException(ExitCode.DoesNotFit, $"The samples required as DAC ({names}) can't fit {PcmTargets.Name(_limits.Target)}: they need {string.Join(", ", problems)}. Require fewer samples.");
             }
 
-            foreach ((int Sample, double RateHz, int StartFrame, int VolumeSteps) copy in copies)
+            foreach (StoredCopy copy in copies)
             {
                 _stored.Add(copy);
                 _bytes += _copyBytes[copy];
             }
         }
 
-        /// <summary>The copy a play needs, if it needs one: a note too quiet or past the sample's end stores nothing.</summary>
-        private IEnumerable<(int Sample, double RateHz, int StartFrame, int VolumeSteps)> CopiesOf(SongNote play) =>
-            CapacityCheck.Copies([play], _song, _storedAs).Keys;
+        /// <summary>The copy a play is stored as, if it needs one: a note too quiet or past the sample's end stores nothing.</summary>
+        private IEnumerable<StoredCopy> CopiesOf(SongNote play) =>
+            CapacityCheck.Copies([play], _song, _storedAs).Keys
+                .Select(k => _shrunk is not null && _shrunk.Stored.TryGetValue(k, out StoredCopy copy) ? copy : new StoredCopy(k.Sample, k.RateHz, k.StartFrame, k.VolumeSteps, false));
 
         /// <summary>
         /// One section: the track whose notes matter most first, taking the closest sound with room for all its notes, so it
@@ -444,7 +471,7 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
                 return true;
             }
 
-            List<(int Sample, double RateHz, int StartFrame, int VolumeSteps)> fresh = [.. notes.SelectMany(n => n.Plays).SelectMany(CopiesOf).Distinct().Where(c => !_stored.Contains(c))];
+            List<StoredCopy> fresh = [.. notes.SelectMany(n => n.Plays).SelectMany(CopiesOf).Distinct().Where(c => !_stored.Contains(c))];
             long bytes = fresh.Sum(c => (long)_copyBytes[c]);
             return _stored.Count + fresh.Count <= _limits.PcmSlots && (_limits.PcmBytes is not { } budget || _bytes + bytes <= budget);
         }
@@ -485,7 +512,7 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
         /// <summary>Stores the copies <paramref name="note"/> needs, if the target's slots and bytes hold them.</summary>
         private bool Store(PlannedNote note)
         {
-            List<(int Sample, double RateHz, int StartFrame, int VolumeSteps)> fresh = [.. note.Plays.SelectMany(CopiesOf).Distinct().Where(c => !_stored.Contains(c))];
+            List<StoredCopy> fresh = [.. note.Plays.SelectMany(CopiesOf).Distinct().Where(c => !_stored.Contains(c))];
             long bytes = fresh.Sum(c => (long)_copyBytes[c]);
             if (_stored.Count + fresh.Count > _limits.PcmSlots || (_limits.PcmBytes is { } budget && _bytes + bytes > budget))
             {
@@ -639,7 +666,7 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
             List<FmPatch> patches = [];
             Dictionary<FmPatch, int> patchIndex = [];
             List<DacSample> recordings = [];
-            Dictionary<(int Sample, double Rate), int> recordingIndex = [];
+            Dictionary<DacSample, int> recordingIndex = [];
             int?[] on = new int?[_song.Channels.Count];
             int?[] layerOn = new int?[_song.Channels.Count];
             int?[] owner = new int?[_columns];
@@ -662,7 +689,7 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
             _planned.ForEach(Count);
             ReportNotes();
             HashSet<int> wanted = [.. _planned.Where(n => FirstChoice(n) == VoiceKind.Dac).Select(n => n.Sample)];
-            return new GenesisPlan(_song.Title, patterns, _song.LoopOrder, _song.Timing, patches, recordings) { PcmSamples = wanted, TunedByEar = true };
+            return new GenesisPlan(_song.Title, patterns, _song.LoopOrder, _song.Timing, patches, recordings) { PcmSamples = wanted, TunedByEar = true, DacPanClash = PanClash };
 
             PlanRow WriteRow(Row row, int order, int r)
             {
@@ -723,7 +750,7 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
 
                     PlanVoice voice = new(kind, kind switch
                     {
-                        VoiceKind.Dac => IndexOf(recordings, recordingIndex, (StoredAs(note.Sample), note.Plays[0].RateHz)),
+                        VoiceKind.Dac => IndexOf(recordings, recordingIndex, Recording(note)),
                         VoiceKind.Fm => IndexOfPatch(patches, patchIndex, _menu[note.Sample].RegionAt(note.Plays[0].RateHz)?.Patch ?? FmPatchLibrary.Sine),
                         _ => 0,
                     });
@@ -816,12 +843,30 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
 
         private int StoredAs(int sample) => _storedAs.GetValueOrDefault(sample, sample);
 
-        private static int IndexOf(List<DacSample> list, Dictionary<(int Sample, double Rate), int> index, (int Sample, double Rate) key)
+        /// <summary>The recording a note plays: its first stored copy, with what the shrinker did to it (plan T9.4a).</summary>
+        private DacSample Recording(PlannedNote note)
+        {
+            if (note.Plays.SelectMany(CopiesOf).Cast<StoredCopy?>().FirstOrDefault() is not { } copy)
+            {
+                return new DacSample(StoredAs(note.Sample), note.Plays[0].RateHz);
+            }
+
+            bool loudness = _shrunk?.Steps.Any(s => s.Move == ShrinkMove.ShareLoudness && s.Sample == copy.Sample) == true;
+            return new DacSample(copy.Sample, copy.RateHz)
+            {
+                HalfSpeed = copy.HalfSpeed,
+                VolumeStepDb = loudness ? _rules.LoudnessShareSteps * DmfPatternTranslator.DacVolumeStepDb : 0,
+                // The DMF writer sets loudness from the notes' volumes alone: the shrinker merges only look-alikes within half a step there.
+                GainDb = _dmf ? 0 : _shrunk?.MergeGainDb.GetValueOrDefault(StoredAs(note.Sample)) ?? 0,
+            };
+        }
+
+        private static int IndexOf(List<DacSample> list, Dictionary<DacSample, int> index, DacSample key)
         {
             if (!index.TryGetValue(key, out int i))
             {
                 i = list.Count;
-                list.Add(new DacSample(key.Sample, key.Rate));
+                list.Add(key);
                 index[key] = i;
             }
 

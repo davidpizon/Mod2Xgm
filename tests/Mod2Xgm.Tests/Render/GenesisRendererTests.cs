@@ -413,6 +413,81 @@ public sealed class GenesisRendererTests
         Assert.True(Db(both.Left, both.SampleRate, 0.2, 1.0) > Db(single.Left, single.SampleRate, 0.2, 1.0) + 3);
     }
 
+    /// <summary>
+    /// Recordings from both sides at once share the DAC's one pan (docs/adr/0091-shrinking-recordings.md): the first voice's
+    /// side alone, both sides, or the louder one's side, as the plan says.
+    /// </summary>
+    [Theory]
+    [InlineData("FirstVoice", true, false)]
+    [InlineData("Centre", true, true)]
+    [InlineData("Louder", false, true)]
+    public void Render_WithRecordingsOnBothSides_PansTheDacAsThePlanSays(string clash, bool left, bool right)
+    {
+        // Arrange: song channel 0 on the left at half volume, channel 1 on the right at full.
+        Sample recording = new("quiet", [.. OneShotSine(8000, 2).Data.Select(v => v * 0.25f)], null);
+        PlanCell[] wide = [.. Enumerable.Repeat(PlanCell.Empty, GenesisPlan.ColumnCount)];
+        wide[(int)GenesisChannel.Fm6] = Note(VoiceKind.Dac, rateHz: 8000) with { Volume = 0.5 };
+        wide[(int)GenesisChannel.Pcm2] = Note(VoiceKind.Dac, rateHz: 8000) with { Source = 1 };
+        GenesisPlan plan = new("test", [[new PlanRow(wide, [])]], null, new Timing(TicksPerRow, 125), [], [new DacSample(0, 8000)]) { DacPanClash = Enum.Parse<DacPanClash>(clash) };
+        Playback playback = new(
+            [.. Enumerable.Range(0, 20 * TicksPerRow).Select(i => new PlaybackTick(
+                i * TickSeconds,
+                TickSeconds,
+                0,
+                i / TicksPerRow,
+                i % TicksPerRow,
+                false,
+                [Playing(i == 0, volume: 0.5, pan: -1, rateHz: 8000, frames: recording.Length), Playing(i == 0, pan: 1, rateHz: 8000, frames: recording.Length)]))],
+            null,
+            PlaybackEnd.Stops);
+
+        // Act
+        StereoAudio sut = Render(plan, SongOf(2, recording), playback, ChipRate with { Driver = PcmDriver.Xgm });
+
+        // Assert
+        Assert.Equal((left, right), (Db(sut.Left, sut.SampleRate, 0.2, 1.0) > -40, Db(sut.Right, sut.SampleRate, 0.2, 1.0) > -40));
+    }
+
+    /// <summary>A half-speed recording on XGM2 keeps its pitch: the driver plays each byte twice.</summary>
+    [Fact]
+    public void Render_WithHalfSpeedRecordingOnXgm2_KeepsItsPitch()
+    {
+        // Arrange
+        Sample recording = OneShotSine(8000, 2);
+        Playback playback = PlaybackOf(20, (r, t) => Playing(r == 0 && t == 0, rateHz: 8000, frames: recording.Length));
+        GenesisPlan full = PlanOf([], [new DacSample(0, 8000)], Row((GenesisChannel.Fm6, Note(VoiceKind.Dac, rateHz: 8000))));
+        GenesisPlan half = full with { DacSamples = [new DacSample(0, 8000) { HalfSpeed = true }] };
+        GenesisRenderOptions xgm2 = ChipRate with { Driver = PcmDriver.Xgm2 };
+
+        // Act
+        StereoAudio fast = Render(full, SongOf(1, recording), playback, xgm2);
+        StereoAudio slow = Render(half, SongOf(1, recording), playback, xgm2);
+
+        // Assert
+        Assert.Equal(Hz(fast.Left, fast.SampleRate, 0.3, 1.3), Hz(slow.Left, slow.SampleRate, 0.3, 1.3), 5);
+    }
+
+    /// <summary>With loudness copies 6 dB apart, a note 3.5 dB down plays at the nearest copy, 6 dB down; a merged sample's gain applies on top.</summary>
+    [Fact]
+    public void Render_WithVolumeStepAndGain_PlaysAtTheStoredLoudness()
+    {
+        // Arrange
+        Sample recording = new("quiet", [.. OneShotSine(8000, 2).Data.Select(v => v * 0.5f)], null);
+        double volume = Math.Pow(10, -3.5 / 20);
+        Playback playback = PlaybackOf(20, (r, t) => Playing(r == 0 && t == 0, volume: volume, rateHz: 8000, frames: recording.Length));
+        PlanRow row = Row((GenesisChannel.Fm6, Note(VoiceKind.Dac, rateHz: 8000) with { Volume = volume }));
+        GenesisPlan exact = PlanOf([], [new DacSample(0, 8000)], row);
+        GenesisPlan stepped = PlanOf([], [new DacSample(0, 8000) { VolumeStepDb = 6, GainDb = -3 }], row);
+        GenesisRenderOptions xgm = ChipRate with { Driver = PcmDriver.Xgm };
+
+        // Act
+        StereoAudio asked = Render(exact, SongOf(1, recording), playback, xgm);
+        StereoAudio stored = Render(stepped, SongOf(1, recording), playback, xgm);
+
+        // Assert: −3.5 dB with −3 dB of gain is −6.5 dB, stored at −6: 2.5 dB under the note as asked.
+        Assert.Equal(-2.5, Db(stored.Left, stored.SampleRate, 0.2, 1.0) - Db(asked.Left, asked.SampleRate, 0.2, 1.0), 0.5);
+    }
+
     /// <summary>A PSG square at the loudest volume has Furnace's RMS, with no DC.</summary>
     [Fact]
     public void Render_WithPsgSquare_PlaysAtFurnacesLevel()

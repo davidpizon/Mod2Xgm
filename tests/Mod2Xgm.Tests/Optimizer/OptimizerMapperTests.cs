@@ -166,6 +166,78 @@ public sealed class OptimizerMapperTests
         Assert.Equal(1, sut.NotesMoved);
     }
 
+    /// <summary>With half speed allowed, a recording a little over budget on XGM2 is stored at half speed and stays a recording, with a conversion note (plan T9.4a).</summary>
+    [Fact]
+    public void Map_WithHalfSpeedAllowedAndRecordingOverBudgetOnXgm2_StoresItAtHalfSpeed()
+    {
+        // Arrange
+        Song song = SongOf(1, [(0, 0)]);
+        int full = CapacityCheck.CopyBytes((0, Rate, 0, 0), 1, song, PcmTarget.Xgm2);
+        ShrinkRules rules = ShrinkRules.Default with { Order = [ShrinkMove.HalfSpeed] };
+        OptimizerMapper sut = new(TargetLimits.For(PcmTarget.Xgm2, full - 1, 0), [Sounds(0)], rules);
+        ConversionNotes notes = Notes();
+
+        // Act
+        GenesisPlan plan = sut.Map(song, PlaybackOf(song), MappingOptions.Default, notes);
+
+        // Assert
+        Assert.Equal(VoiceKind.Dac, Assert.Single(plan.Patterns[0][0].Cells, c => c.Note is not null).Voice?.Kind);
+        Assert.True(Assert.Single(plan.DacSamples).HalfSpeed);
+        Assert.Equal(0, sut.NotesMoved);
+        Assert.Contains(notes.Messages, m => m.Contains("stored at half speed", StringComparison.Ordinal));
+    }
+
+    /// <summary>The default rules never store at half speed (David heard it as crunchy, ADR 0091): a recording over budget moves to FM instead.</summary>
+    [Fact]
+    public void Map_WithDefaultRulesAndRecordingOverBudgetOnXgm2_MovesItInsteadOfHalfSpeed()
+    {
+        // Arrange
+        Song song = SongOf(1, [(0, 0)]);
+        int full = CapacityCheck.CopyBytes((0, Rate, 0, 0), 1, song, PcmTarget.Xgm2);
+        OptimizerMapper sut = new(TargetLimits.For(PcmTarget.Xgm2, full - 1, 0), [Sounds(0)]);
+
+        // Act
+        GenesisPlan plan = sut.Map(song, PlaybackOf(song), MappingOptions.Default, Notes());
+
+        // Assert
+        Assert.Equal(VoiceKind.Fm, Assert.Single(plan.Patterns[0][0].Cells, c => c is { Note: not null, Level: 1 }).Voice?.Kind);
+        Assert.Equal(1, sut.NotesMoved);
+    }
+
+    /// <summary>A recording that fits is stored as the song plays it: no shrinking and no note about it (David: a song that fits stays as it is).</summary>
+    [Fact]
+    public void Map_WithRecordingThatFits_ShrinksNothing()
+    {
+        // Arrange
+        Song song = SongOf(1, [(0, 0)]);
+        OptimizerMapper sut = new(Limits(PcmTarget.Xgm2), [Sounds(0)]);
+        ConversionNotes notes = Notes();
+
+        // Act
+        GenesisPlan plan = sut.Map(song, PlaybackOf(song), MappingOptions.Default, notes);
+
+        // Assert
+        Assert.Equal(new DacSample(0, Rate), Assert.Single(plan.DacSamples));
+        Assert.Empty(notes.Messages);
+    }
+
+    /// <summary>With shrinking turned off, a recording over budget moves to FM as before (the swap-first rule the listening rounds compare).</summary>
+    [Fact]
+    public void Map_WithShrinkingOff_MovesTheRecordingInstead()
+    {
+        // Arrange
+        Song song = SongOf(1, [(0, 0)]);
+        int full = CapacityCheck.CopyBytes((0, Rate, 0, 0), 1, song, PcmTarget.Xgm2);
+        OptimizerMapper sut = new(TargetLimits.For(PcmTarget.Xgm2, full - 1, 0), [Sounds(0)], ShrinkRules.None);
+
+        // Act
+        GenesisPlan plan = sut.Map(song, PlaybackOf(song), MappingOptions.Default, Notes());
+
+        // Assert
+        Assert.Equal(VoiceKind.Fm, Assert.Single(plan.Patterns[0][0].Cells, c => c is { Note: not null, Level: 1 }).Voice?.Kind);
+        Assert.Equal(1, sut.NotesMoved);
+    }
+
     /// <summary>More notes than the whole Genesis can play: the plan stays valid, the least important are cut, each column holds one note.</summary>
     [Fact]
     public void Map_WithMoreNotesThanChannels_StaysValidAndCuts()
