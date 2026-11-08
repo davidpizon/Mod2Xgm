@@ -448,6 +448,63 @@ public sealed class GenesisRendererTests
         Assert.Equal((left, right), (Db(sut.Left, sut.SampleRate, 0.2, 1.0) > -40, Db(sut.Right, sut.SampleRate, 0.2, 1.0) > -40));
     }
 
+    /// <summary>
+    /// A note at 48/64 (2.5 dB down, one step) plays the 6 dB copy the shrinker stored for it, not the full-volume one: the
+    /// player rounds loudness exactly as the shrinker counts copies.
+    /// </summary>
+    [Fact]
+    public void Render_WithSharedLoudnessAtThreeQuarterVolume_PlaysTheCopyTheShrinkerCounted()
+    {
+        // Arrange
+        Sample recording = new("quiet", [.. OneShotSine(8000, 2).Data.Select(v => v * 0.5f)], null);
+        Playback full = PlaybackOf(20, (r, t) => Playing(r == 0 && t == 0, rateHz: 8000, frames: recording.Length));
+        Playback quarter = PlaybackOf(20, (r, t) => Playing(r == 0 && t == 0, volume: 0.75, rateHz: 8000, frames: recording.Length));
+        GenesisPlan exact = PlanOf([], [new DacSample(0, 8000)], Row((GenesisChannel.Fm6, Note(VoiceKind.Dac, rateHz: 8000))));
+        GenesisPlan shared = PlanOf([], [new DacSample(0, 8000) { LoudnessShareSteps = 2 }], Row((GenesisChannel.Fm6, Note(VoiceKind.Dac, rateHz: 8000) with { Volume = 0.75 })));
+        GenesisRenderOptions xgm = ChipRate with { Driver = PcmDriver.Xgm };
+
+        // Act
+        StereoAudio loudest = Render(exact, SongOf(1, recording), full, xgm);
+        StereoAudio stored = Render(shared, SongOf(1, recording), quarter, xgm);
+
+        // Assert
+        Assert.Equal(-6, Db(stored.Left, stored.SampleRate, 0.2, 1.0) - Db(loudest.Left, loudest.SampleRate, 0.2, 1.0), 0.5);
+    }
+
+    /// <summary>
+    /// A left recording that has played out no longer holds the DAC in both speakers: a longer right recording then plays on
+    /// the right alone, though neither note has ended (docs/adr/0091-shrinking-recordings.md).
+    /// </summary>
+    [Fact]
+    public void Render_WhenOneSideRecordingPlaysOut_PansTheDacToTheOtherSide()
+    {
+        // Arrange: a 0.1 s hit on the left (song channel 0) and a 2 s tone on the right (song channel 1).
+        Sample hit = OneShotSine(8000, 0.1);
+        Sample tone = OneShotSine(8000, 2);
+        PlanCell[] wide = [.. Enumerable.Repeat(PlanCell.Empty, GenesisPlan.ColumnCount)];
+        wide[(int)GenesisChannel.Fm6] = Note(VoiceKind.Dac, rateHz: 8000);
+        wide[(int)GenesisChannel.Pcm2] = Note(VoiceKind.Dac, index: 1, rateHz: 8000) with { Source = 1, Sample = 1 };
+        GenesisPlan plan = new("test", [[new PlanRow(wide, [])]], null, new Timing(TicksPerRow, 125), [], [new DacSample(0, 8000), new DacSample(1, 8000)]) { DacPanClash = DacPanClash.Centre };
+        Playback playback = new(
+            [.. Enumerable.Range(0, 20 * TicksPerRow).Select(i => new PlaybackTick(
+                i * TickSeconds,
+                TickSeconds,
+                0,
+                i / TicksPerRow,
+                i % TicksPerRow,
+                false,
+                [Playing(i == 0, pan: -1, rateHz: 8000, frames: hit.Length), Playing(i == 0, pan: 1, rateHz: 8000, frames: tone.Length)]))],
+            null,
+            PlaybackEnd.Stops);
+
+        // Act
+        StereoAudio sut = Render(plan, SongOf(2, hit, tone), playback, ChipRate with { Driver = PcmDriver.Xgm });
+
+        // Assert
+        Assert.True(Db(sut.Left, sut.SampleRate, 0.5, 1.5) < -40);
+        Assert.True(Db(sut.Right, sut.SampleRate, 0.5, 1.5) > -40);
+    }
+
     /// <summary>A half-speed recording on XGM2 keeps its pitch: the driver plays each byte twice.</summary>
     [Fact]
     public void Render_WithHalfSpeedRecordingOnXgm2_KeepsItsPitch()
@@ -467,7 +524,7 @@ public sealed class GenesisRendererTests
         Assert.Equal(Hz(fast.Left, fast.SampleRate, 0.3, 1.3), Hz(slow.Left, slow.SampleRate, 0.3, 1.3), 5);
     }
 
-    /// <summary>With loudness copies 6 dB apart, a note 3.5 dB down plays at the nearest copy, 6 dB down; a merged sample's gain applies on top.</summary>
+    /// <summary>With one copy per two loudness steps, a note 3.5 dB down with a merged sample's −3 dB of gain plays at the copy the shrinker counted, 6 dB down.</summary>
     [Fact]
     public void Render_WithVolumeStepAndGain_PlaysAtTheStoredLoudness()
     {
@@ -477,7 +534,7 @@ public sealed class GenesisRendererTests
         Playback playback = PlaybackOf(20, (r, t) => Playing(r == 0 && t == 0, volume: volume, rateHz: 8000, frames: recording.Length));
         PlanRow row = Row((GenesisChannel.Fm6, Note(VoiceKind.Dac, rateHz: 8000) with { Volume = volume }));
         GenesisPlan exact = PlanOf([], [new DacSample(0, 8000)], row);
-        GenesisPlan stepped = PlanOf([], [new DacSample(0, 8000) { VolumeStepDb = 6, GainDb = -3 }], row);
+        GenesisPlan stepped = PlanOf([], [new DacSample(0, 8000) { LoudnessShareSteps = 2, GainDb = -3 }], row);
         GenesisRenderOptions xgm = ChipRate with { Driver = PcmDriver.Xgm };
 
         // Act

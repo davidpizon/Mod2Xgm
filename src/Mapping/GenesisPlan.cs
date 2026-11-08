@@ -147,10 +147,10 @@ internal sealed record DacSample(int Sample, double PlaybackRateHz)
     public bool HalfSpeed { get; init; }
 
     /// <summary>
-    /// How far apart its loudness copies are on XGM and XGM2, in dB: a note plays at the nearest. 0 plays every note at
-    /// its own loudness (docs/adr/0091-shrinking-recordings.md).
+    /// How many 3 dB loudness steps one stored copy covers on XGM and XGM2: a note plays at its copy's loudness. 0 or 1
+    /// plays every note at its own loudness (docs/adr/0091-shrinking-recordings.md).
     /// </summary>
-    public double VolumeStepDb { get; init; }
+    public int LoudnessShareSteps { get; init; }
 
     /// <summary>The gain its notes take, in dB: a look-alike sample merged into <see cref="Sample"/> plays at its own level (docs/adr/0091-shrinking-recordings.md).</summary>
     public double GainDb { get; init; }

@@ -87,6 +87,12 @@ internal sealed class GenesisPlanPlayer
         _notes = notes;
         _voicing = new PlanVoicing(plan, song);
         _tracks = [.. Enumerable.Range(0, GenesisPlan.ColumnCount).Select(_ => new Track())];
+        _tickStarts = new double[durations.Count + 1];
+        for (int t = 0; t < durations.Count; t++)
+        {
+            _tickStarts[t + 1] = _tickStarts[t] + durations[t];
+        }
+
         if (_ticks.Count > 0 && _ticks[0].Channels.Count != song.Channels.Count)
         {
             throw new ArgumentException($"The playback has {_ticks[0].Channels.Count} channels; the song has {song.Channels.Count}.", nameof(playback));
@@ -155,6 +161,9 @@ internal sealed class GenesisPlanPlayer
         }
     }
 
+    /// <summary>When each tick starts, in seconds of the render, and after the last one, its end.</summary>
+    private readonly double[] _tickStarts;
+
     /// <summary>True when every PCM voice's side decides the DAC's one pan together (<see cref="GenesisPlan.DacPanClash"/>).</summary>
     private bool SharesDacPan => _plan.DacPanClash != DacPanClash.FirstVoice && _chips.Driver != PcmDriver.Dmf;
 
@@ -167,7 +176,8 @@ internal sealed class GenesisPlanPlayer
         List<(int Side, double Volume)> playing = [];
         foreach (int c in (int[])[(int)GenesisChannel.Fm6, (int)GenesisChannel.Pcm2, (int)GenesisChannel.Pcm3, (int)GenesisChannel.Pcm4])
         {
-            if (c < _tracks.Length && _tracks[c] is { Sounding: true, Kind: VoiceKind.Dac, Source: >= 0 } track)
+            // A recording that has played out no longer pulls the DAC to its side, though its note hasn't ended.
+            if (c < _tracks.Length && _tracks[c] is { Sounding: true, Kind: VoiceKind.Dac, Source: >= 0 } track && _tickStarts[t] < track.DacEndsAt)
             {
                 ChannelTick ch = _ticks[t].Channels[track.Source];
                 playing.Add((PlanVoicing.Side(ch.Pan), ch.Volume));
@@ -323,7 +333,7 @@ internal sealed class GenesisPlanPlayer
                 KeyOn(c);
                 break;
             case VoiceKind.Dac:
-                track.Sounding = PlayDac(c, _plan.DacSamples[voice.Index], voice.Index, ch);
+                track.Sounding = PlayDac(c, _plan.DacSamples[voice.Index], voice.Index, ch, t);
                 track.Centred = false;
                 break;
             case VoiceKind.PsgTone:
@@ -352,7 +362,7 @@ internal sealed class GenesisPlanPlayer
                 KeyOn(c);
                 break;
             case VoiceKind.Dac:
-                track.Sounding = PlayDac(c, _plan.DacSamples[track.Voice.Index], track.Voice.Index, ch);
+                track.Sounding = PlayDac(c, _plan.DacSamples[track.Voice.Index], track.Voice.Index, ch, t);
                 break;
             default:
                 StartNoise(track, ch, t);
@@ -586,7 +596,7 @@ internal sealed class GenesisPlanPlayer
     }
 
     /// <summary>Plays a DAC note: its sample from the frame the tick player starts at, at the volume it starts with. False when it stays silent.</summary>
-    private bool PlayDac(int c, DacSample dac, int index, ChannelTick ch)
+    private bool PlayDac(int c, DacSample dac, int index, ChannelTick ch, int t)
     {
         int offset = ch.Started?.StartFrame ?? 0;
         if (Prepare(dac, index, offset, ch.Volume) is not { } pcm)
@@ -609,6 +619,8 @@ internal sealed class GenesisPlanPlayer
                 break;
         }
 
+        // The driver plays the data once through: a loop is unrolled into it (docs/adr/0091-shrinking-recordings.md).
+        _tracks[c].DacEndsAt = _tickStarts[t] + ((double)(pcm.Data16?.Length ?? pcm.Data8!.Length) / pcm.RateHz);
         return true;
     }
 
@@ -636,11 +648,15 @@ internal sealed class GenesisPlanPlayer
     private Pcm? Prepare(DacSample dac, int index, int offset, double volume)
     {
         bool dmf = _chips.Driver == PcmDriver.Dmf;
-        volume *= Math.Pow(10, dac.GainDb / 20);
-        if (!dmf && dac.VolumeStepDb > 0 && volume > 0)
+        if (!dmf && dac.LoudnessShareSteps > 1 && volume > 0)
         {
-            // One stored copy per step of loudness: the note plays at the nearest (docs/adr/0091-shrinking-recordings.md).
-            volume = Math.Min(1, Math.Pow(10, -Math.Round(-20 * Math.Log10(volume) / dac.VolumeStepDb, MidpointRounding.AwayFromZero) * dac.VolumeStepDb / 20));
+            // One stored copy for several steps of loudness: the note plays at its copy's, as the shrinker counted it (docs/adr/0091-shrinking-recordings.md).
+            int stored = RecordingShrinker.StoredSteps(DmfPatternTranslator.DacVolumeSteps(volume), dac.GainDb, dac.LoudnessShareSteps);
+            volume = Math.Pow(10, -stored * DmfPatternTranslator.DacVolumeStepDb / 20);
+        }
+        else
+        {
+            volume = Math.Min(1, volume * Math.Pow(10, dac.GainDb / 20));
         }
 
         int steps = volume <= 0 ? int.MaxValue : Math.Max(0, (int)Math.Round(-20 * Math.Log10(volume) / DmfPatternTranslator.DacVolumeStepDb, MidpointRounding.AwayFromZero));
@@ -693,6 +709,9 @@ internal sealed class GenesisPlanPlayer
     {
         /// <summary>The song channel the note came from, or −1.</summary>
         public int Source { get; set; } = -1;
+
+        /// <summary>When the recording it plays runs out, in seconds of the render.</summary>
+        public double DacEndsAt { get; set; }
 
         /// <summary>The song sample the note plays.</summary>
         public int Sample { get; set; } = -1;

@@ -134,6 +134,22 @@ public sealed class OptimizerMapperTests
         Assert.Contains(notes.Messages, m => m.Contains("1 are cut", StringComparison.Ordinal));
     }
 
+    /// <summary>A required recording with every PCM voice reserved stops the run with exit 6 and says why, rather than failing on a copy never sized.</summary>
+    [Fact]
+    public void Map_WithRequiredDacAndNoPcmVoiceLeft_ThrowsExit6()
+    {
+        // Arrange
+        Song song = SongOf(1, [(0, 0)]);
+        OptimizerMapper sut = new(TargetLimits.For(PcmTarget.Xgm2, 1 << 20, 3), [Sounds(0)]);
+
+        // Act
+        ConversionException ex = Assert.Throws<ConversionException>(() => sut.Map(song, PlaybackOf(song), Required("dac", 0), Notes()));
+
+        // Assert
+        Assert.Equal(ExitCode.DoesNotFit, ex.Code);
+        Assert.Contains("a PCM voice", ex.Message, StringComparison.Ordinal);
+    }
+
     /// <summary>Required recordings too big for the budget stop the run with exit 6, naming them.</summary>
     [Fact]
     public void Map_WithRequiredDacOverBudget_ThrowsExit6()

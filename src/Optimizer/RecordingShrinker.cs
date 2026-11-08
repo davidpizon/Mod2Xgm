@@ -184,6 +184,30 @@ internal static class RecordingShrinker
         string.Create(CultureInfo.InvariantCulture, $"{sample + 1} \"{song.Samples[sample].Name}\"");
 
     /// <summary>
+    /// The loudness, in <see cref="DmfPatternTranslator.DacVolumeStepDb"/> steps below full, of the copy a note plays: the
+    /// note's own steps, less a merged look-alike's gain, then rounded to a multiple of <paramref name="share"/>. The
+    /// shrinker counts copies with it and the player plays them with it, so the two always agree.
+    /// </summary>
+    /// <param name="steps">The note's steps, as the capacity check counts them.</param>
+    /// <param name="gainDb">How much louder the note's own sample is than the one it plays (0 without a merge).</param>
+    /// <param name="share">Steps one copy covers; 1 for a copy per step.</param>
+    internal static int StoredSteps(int steps, double gainDb, int share)
+    {
+        // The other sample at the loudness that sounds as this one: a louder own sample needs fewer steps down.
+        steps = Math.Clamp(steps - (int)Math.Round(gainDb / DmfPatternTranslator.DacVolumeStepDb, MidpointRounding.AwayFromZero), 0, DmfPatternTranslator.MaxDacVolumeSteps);
+        return share <= 1 ? steps : Math.Min(DmfPatternTranslator.MaxDacVolumeSteps, (int)Math.Round(steps / (double)share, MidpointRounding.AwayFromZero) * share);
+    }
+
+    /// <summary>True when both are one-shots, or both loop over about the same stretch: a merge never swaps one loop for another.</summary>
+    private static bool LoopsAlike(Sample a, Sample b) => (a.Loop, b.Loop) switch
+    {
+        (null, null) => true,
+        ({ } x, { } y) => Math.Abs(x.Start - y.Start) <= (1 - MergeLengthRatio) * Math.Max(a.Length, b.Length)
+            && Math.Abs(x.Length - y.Length) <= (1 - MergeLengthRatio) * Math.Max(x.Length, y.Length),
+        _ => false,
+    };
+
+    /// <summary>
     /// How alike <paramref name="a"/> and <paramref name="b"/> are, 0–1: the correlation of their sound at the same rate,
     /// their levels set aside; 0 when one loops and the other doesn't, or their lengths are far apart.
     /// </summary>
@@ -191,7 +215,7 @@ internal static class RecordingShrinker
     {
         ArgumentNullException.ThrowIfNull(a);
         ArgumentNullException.ThrowIfNull(b);
-        if (a.IsEmpty || b.IsEmpty || (a.Loop is null) != (b.Loop is null) || Math.Min(a.Length, b.Length) < MergeLengthRatio * Math.Max(a.Length, b.Length))
+        if (a.IsEmpty || b.IsEmpty || !LoopsAlike(a, b) || Math.Min(a.Length, b.Length) < MergeLengthRatio * Math.Max(a.Length, b.Length))
         {
             return 0;
         }
@@ -254,6 +278,9 @@ internal static class RecordingShrinker
                     int? best = wanted.Select(w => w.Key.Sample).Distinct()
                         .Where(o => o != sample && !_mergedInto.ContainsKey(o))
                         .Where(o => !dmf || Math.Abs(LevelDb(song.Samples[sample], song.Samples[o])) < DmfPatternTranslator.DacVolumeStepDb / 2)
+
+                        // Never into a quieter look-alike: its notes would need more than full volume, which no copy holds.
+                        .Where(o => LevelDb(song.Samples[sample], song.Samples[o]) < DmfPatternTranslator.DacVolumeStepDb / 2)
                         .Select(o => (Other: o, Likeness: Likeness(song.Samples[sample], song.Samples[o])))
                         .Where(p => p.Likeness >= rules.MergeCorrelation)
                         .OrderByDescending(p => p.Likeness)
@@ -343,20 +370,14 @@ internal static class RecordingShrinker
         private CopyKey Merged(CopyKey key)
         {
             int sample = key.Sample;
-            int steps = key.VolumeSteps;
+            double gainDb = 0;
             if (_mergedInto.TryGetValue(sample, out int into))
             {
-                // The other sample at the loudness that sounds as this one: louder samples need fewer steps down.
-                steps = Math.Clamp(steps - (int)Math.Round(GainDb[sample] / DmfPatternTranslator.DacVolumeStepDb, MidpointRounding.AwayFromZero), 0, DmfPatternTranslator.MaxDacVolumeSteps);
+                gainDb = GainDb[sample];
                 sample = into;
             }
 
-            if (_shareLoudness.Contains(sample))
-            {
-                int share = rules.LoudnessShareSteps;
-                steps = Math.Min(DmfPatternTranslator.MaxDacVolumeSteps, (int)Math.Round(steps / (double)share, MidpointRounding.AwayFromZero) * share);
-            }
-
+            int steps = StoredSteps(key.VolumeSteps, gainDb, _shareLoudness.Contains(sample) ? rules.LoudnessShareSteps : 1);
             return (sample, key.RateHz, key.StartFrame, steps);
         }
 

@@ -135,6 +135,24 @@ public sealed class RecordingShrinkerTests
         Assert.Equal(1, result.Slots);
     }
 
+    /// <summary>A sample is never merged into a quieter look-alike, which would need more than full volume: the quieter one merges into it instead.</summary>
+    [Fact]
+    public void Shrink_WithLouderSampleLeastImportant_MergesTheQuieterIntoIt()
+    {
+        // Arrange
+        Song song = SongOf(Tone(1000, 50), Tone(1000, 50, 0.5f));
+        (int, double, int, int)[] keys = [(0, Rate, 0, 2), (1, Rate, 0, 0)];
+        ShrinkRules rules = ShrinkRules.Default with { Order = [ShrinkMove.Merge] };
+        Dictionary<int, double> importance = new() { [0] = 1, [1] = 2 };
+
+        // Act
+        ShrinkResult result = RecordingShrinker.Shrink(Wanted(keys), importance, song, Limits(PcmTarget.Xgm, CopyBytes(song, Rate)), rules, Required());
+
+        // Assert
+        ShrinkStep step = Assert.Single(result.Steps);
+        Assert.Equal((1, 0), (step.Sample, step.Into));
+    }
+
     /// <summary>A <c>--require-dac</c> sample keeps its own sound: it is never merged into another's.</summary>
     [Fact]
     public void Shrink_WithRequiredLookAlike_DoesNotMergeIt()
@@ -256,6 +274,44 @@ public sealed class RecordingShrinkerTests
         Assert.InRange(other, 0, 0.5);
         Assert.Equal(0, loop);
         Assert.Equal(0, shorter);
+    }
+
+    /// <summary>Samples with the same data but different loops aren't look-alikes: a merge would swap one loop for the other.</summary>
+    [Fact]
+    public void Likeness_WithSameDataAndDifferentLoops_IsZero()
+    {
+        // Arrange
+        Sample tone = Tone(1000, 50);
+        Sample attack = new("tone", tone.Data, new SampleLoop(0, 200));
+        Sample sustain = new("tone", tone.Data, new SampleLoop(600, 400));
+
+        // Act
+        double different = RecordingShrinker.Likeness(attack, sustain);
+        double same = RecordingShrinker.Likeness(attack, new Sample("tone", tone.Data, new SampleLoop(0, 200)));
+
+        // Assert
+        Assert.Equal(0, different);
+        Assert.Equal(1, same, 6);
+    }
+
+    /// <summary>
+    /// A copy's loudness steps: the note's own, less a merge's gain, rounded to the share, never above full or below the
+    /// quietest; a note 2.5 dB down (one step) shares the 6 dB copy, as the player plays it.
+    /// </summary>
+    [Theory]
+    [InlineData(1, 0, 2, 2)]
+    [InlineData(1, -3, 2, 2)]
+    [InlineData(3, 0, 2, 4)]
+    [InlineData(2, 6, 1, 0)]
+    [InlineData(0, 6, 1, 0)]
+    [InlineData(0, -6, 1, 2)]
+    public void StoredSteps_WithStepsGainAndShare_RoundsAsTheShrinkerCounts(int steps, double gainDb, int share, int expected)
+    {
+        // Act
+        int stored = RecordingShrinker.StoredSteps(steps, gainDb, share);
+
+        // Assert
+        Assert.Equal(expected, stored);
     }
 
     /// <summary>The bytes one copy of the song's first sample takes on XGM at <paramref name="rate"/>.</summary>

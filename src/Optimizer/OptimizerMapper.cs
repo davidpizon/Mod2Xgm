@@ -335,7 +335,8 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
             RecordingShrinker.Report(_shrunk, _song, _rules, _notes);
 
             // A note that may only fall back to a recording stores its copy as the song asks for it.
-            IEnumerable<SongNote> fallback = _planned.Where(n => FirstChoice(n) != VoiceKind.Dac && Allowed(VoiceKind.Dac, n)).SelectMany(n => n.Plays);
+            // So does a --require-dac note with no PCM voice left, so CheckRequired can say why it can't play.
+            IEnumerable<SongNote> fallback = _planned.Where(n => FirstChoice(n) != VoiceKind.Dac && (Allowed(VoiceKind.Dac, n) || _options.RequireDac.Contains(n.Sample))).SelectMany(n => n.Plays);
             foreach (((int Sample, double RateHz, int StartFrame, int VolumeSteps) key, double seconds) in CapacityCheck.Copies(fallback, _song, _storedAs))
             {
                 StoredCopy copy = _shrunk.Stored.TryGetValue(key, out StoredCopy shrunk) ? shrunk : new StoredCopy(key.Sample, key.RateHz, key.StartFrame, key.VolumeSteps, false);
@@ -855,9 +856,10 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
             return new DacSample(copy.Sample, copy.RateHz)
             {
                 HalfSpeed = copy.HalfSpeed,
-                VolumeStepDb = loudness ? _rules.LoudnessShareSteps * DmfPatternTranslator.DacVolumeStepDb : 0,
-                // The DMF writer sets loudness from the notes' volumes alone: the shrinker merges only look-alikes within half a step there.
-                GainDb = _dmf ? 0 : _shrunk?.MergeGainDb.GetValueOrDefault(StoredAs(note.Sample)) ?? 0,
+                LoudnessShareSteps = loudness ? _rules.LoudnessShareSteps : 0,
+                // Only a note that plays a merged look-alike's sound takes its gain. The DMF writer sets loudness from the
+                // notes' volumes alone: the shrinker merges only look-alikes within half a step there.
+                GainDb = _dmf || copy.Sample == StoredAs(note.Sample) ? 0 : _shrunk?.MergeGainDb.GetValueOrDefault(StoredAs(note.Sample)) ?? 0,
             };
         }
 
