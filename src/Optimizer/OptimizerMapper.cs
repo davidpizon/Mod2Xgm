@@ -1,6 +1,5 @@
 using System.Globalization;
 using Mod2Xgm.Analysis;
-using Mod2Xgm.Dmf;
 using Mod2Xgm.Mapping;
 using Mod2Xgm.Model;
 
