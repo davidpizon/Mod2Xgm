@@ -281,6 +281,9 @@ internal static class RecordingShrinker
 
                         // Never into a quieter look-alike: its notes would need more than full volume, which no copy holds.
                         .Where(o => LevelDb(song.Samples[sample], song.Samples[o]) < DmfPatternTranslator.DacVolumeStepDb / 2)
+
+                        // Nor into one too short for a note's start (9xx): that note would play nothing.
+                        .Where(o => Covers(sample, o))
                         .Select(o => (Other: o, Likeness: Likeness(song.Samples[sample], song.Samples[o])))
                         .Where(p => p.Likeness >= rules.MergeCorrelation)
                         .OrderByDescending(p => p.Likeness)
@@ -298,6 +301,12 @@ internal static class RecordingShrinker
                     return limits.Target == PcmTarget.Xgm2 && !_halfSpeed.Contains(sample);
             }
         }
+
+        /// <summary>True when every note of <paramref name="sample"/> that stores sound still stores some from <paramref name="other"/>, at its own start.</summary>
+        private bool Covers(int sample, int other) => wanted
+            .Where(w => w.Key.Sample == sample)
+            .All(w => CapacityCheck.CopyBytes(w.Key, w.Seconds, song, limits.Target) == 0
+                || CapacityCheck.CopyBytes((other, w.Key.RateHz, w.Key.StartFrame, w.Key.VolumeSteps), w.Seconds, song, limits.Target) > 0);
 
         public void Apply(ShrinkMove move, int sample, int into)
         {

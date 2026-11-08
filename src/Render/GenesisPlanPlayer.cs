@@ -619,10 +619,19 @@ internal sealed class GenesisPlanPlayer
                 break;
         }
 
-        // The driver plays the data once through: a loop is unrolled into it (docs/adr/0091-shrinking-recordings.md).
-        _tracks[c].DacEndsAt = _tickStarts[t] + ((double)(pcm.Data16?.Length ?? pcm.Data8!.Length) / pcm.RateHz);
+        // The driver plays the data once through, a loop unrolled into it, after its start delay; buffered XGM2 plays the
+        // first fill twice (docs/adr/0091-shrinking-recordings.md, docs/adr/0066-pcm-drivers-checked-against-sgdk.md).
+        _tracks[c].DacEndsAt = _tickStarts[t] + ((double)(pcm.Data16?.Length ?? pcm.Data8!.Length) / pcm.RateHz) + DriverLagSeconds();
         return true;
     }
+
+    /// <summary>How much later than its data's length a play ends: the driver's start delay, and buffered XGM2's repeated first fill.</summary>
+    private double DriverLagSeconds() => _chips.Dac switch
+    {
+        XgmPcmDriver { Buffered: true } => XgmPcmDriver.StartLeadBeats / XgmPcmDriver.BeatRateHz(_chips.YmClockHz),
+        Xgm2PcmDriver { Buffered: true } => (Xgm2PcmDriver.StartDelayBeats + Xgm2PcmDriver.RepeatedBeats) / Xgm2PcmDriver.BeatRateHz(_chips.YmClockHz),
+        _ => 0,
+    };
 
     private void StopDac(int c)
     {

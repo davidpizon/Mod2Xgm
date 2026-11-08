@@ -153,6 +153,24 @@ public sealed class RecordingShrinkerTests
         Assert.Equal((1, 0), (step.Sample, step.Into));
     }
 
+    /// <summary>A note starting late in its sample (9xx) is never merged into a shorter look-alike that ends before that start: it would play nothing.</summary>
+    [Fact]
+    public void Shrink_WithLateStartPastTheLookAlikesEnd_DoesNotMerge()
+    {
+        // Arrange: sample 1 is 1000 frames, sample 0 a look-alike 950 long; a note of sample 1 starts at frame 960.
+        Song song = SongOf(Tone(950, 50), Tone(1000, 50));
+        (int, double, int, int)[] keys = [(0, Rate, 0, 0), (1, Rate, 960, 0)];
+        ShrinkRules rules = ShrinkRules.Default with { Order = [ShrinkMove.Merge] };
+        Dictionary<int, double> importance = new() { [0] = 2, [1] = 1 };
+
+        // Act
+        ShrinkResult result = RecordingShrinker.Shrink(Wanted(keys), importance, song, Limits(PcmTarget.Xgm, 1), rules, Required());
+
+        // Assert
+        Assert.DoesNotContain(result.Steps, s => s is { Sample: 1, Into: 0 });
+        Assert.Equal(1, result.Stored[(1, Rate, 960, 0)].Sample);
+    }
+
     /// <summary>A <c>--require-dac</c> sample keeps its own sound: it is never merged into another's.</summary>
     [Fact]
     public void Shrink_WithRequiredLookAlike_DoesNotMergeIt()
