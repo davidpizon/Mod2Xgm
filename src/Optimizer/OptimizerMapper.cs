@@ -41,7 +41,7 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
     internal const double ToneLayerLevel = 0.25;
 
     /// <summary>Where the DAC plays when recordings from both sides sound at once: both speakers, David's pick over the louder side in round 12 (docs/adr/0091-shrinking-recordings.md).</summary>
-    internal const DacPanClash PanClash = DacPanClash.Centre;
+    private const DacPanClash PanClash = DacPanClash.Centre;
 
     /// <summary>A distance for a sound with no measurement: as far as the ruler goes.</summary>
     private const double UnknownDb = NoteScorer.RangeDb;

@@ -93,7 +93,7 @@ public sealed class RecordingShrinkerTests
         ShrinkRules rules = ShrinkRules.Default with { Order = [ShrinkMove.HalfSpeed] };
 
         // Act
-        ShrinkResult result = RecordingShrinker.Shrink(Wanted([(0, Rate, 0, 0)]), Importance(0), song, Limits(PcmTarget.Xgm2, full - 1), rules, Required());
+        ShrinkResult result = RecordingShrinker.Shrink(Wanted((0, Rate, 0, 0)), Importance(0), song, Limits(PcmTarget.Xgm2, full - 1), rules, Required());
 
         // Assert
         Assert.True(result.Stored[(0, Rate, 0, 0)].HalfSpeed);
@@ -109,7 +109,7 @@ public sealed class RecordingShrinkerTests
         ShrinkRules rules = ShrinkRules.Default with { Order = [ShrinkMove.HalfSpeed] };
 
         // Act
-        ShrinkResult result = RecordingShrinker.Shrink(Wanted([(0, Rate, 0, 0)]), Importance(0), song, Limits(PcmTarget.Xgm, 256), rules, Required());
+        ShrinkResult result = RecordingShrinker.Shrink(Wanted((0, Rate, 0, 0)), Importance(0), song, Limits(PcmTarget.Xgm, 256), rules, Required());
 
         // Assert
         Assert.Empty(result.Steps);
@@ -263,7 +263,7 @@ public sealed class RecordingShrinkerTests
 
     /// <summary>One wanted play per key, each held a second.</summary>
     private static List<((int Sample, double RateHz, int StartFrame, int VolumeSteps) Key, double Seconds)> Wanted(params (int, double, int, int)[] keys) =>
-        [.. keys.Select(k => (((int, double, int, int))k, 1.0))];
+        [.. keys.Select(k => (k, 1.0))];
 
     /// <summary>Equal importance for <paramref name="samples"/>.</summary>
     private static Dictionary<int, double> Importance(params int[] samples) => samples.ToDictionary(s => s, _ => 1.0);

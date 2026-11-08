@@ -197,7 +197,7 @@ internal sealed class GenesisPlanPlayer
         double left = playing.Where(p => p.Side < 0).Select(p => p.Volume).DefaultIfEmpty(0).Max();
         double right = playing.Where(p => p.Side > 0).Select(p => p.Volume).DefaultIfEmpty(0).Max();
         double centre = playing.Where(p => p.Side == 0).Select(p => p.Volume).DefaultIfEmpty(0).Max();
-        return centre >= Math.Max(left, right) || left == right ? 0 : left > right ? -1 : 1;
+        return centre >= Math.Max(left, right) ? 0 : left > right ? -1 : right > left ? 1 : 0;
     }
 
     /// <summary>Adds the render's tallies to the conversion notes.</summary>

@@ -8,7 +8,7 @@ using CopyKey = (int Sample, double RateHz, int StartFrame, int VolumeSteps);
 namespace Mod2Xgm.Optimizer;
 
 /// <summary>
-/// A copy the target stores: what a <see cref="CopyKey"/> becomes once recordings are shrunk (plan T9.4a,
+/// A copy the target stores: what a <c>CopyKey</c> becomes once recordings are shrunk (plan T9.4a,
 /// docs/sample-capacity.md#consolidation-default). Without a move it is the copy asked for.
 /// </summary>
 /// <param name="Sample">The sample whose sound is stored: another one when a look-alike was merged into it.</param>
@@ -115,7 +115,7 @@ internal static class RecordingShrinker
         Plan plan = new(wanted, song, limits, rules);
         (Dictionary<CopyKey, StoredCopy> stored, Dictionary<StoredCopy, int> bytes) = plan.Make();
         List<ShrinkStep> steps = [];
-        List<int> samples = [.. wanted.Select(w => w.Key.Sample).Distinct().OrderBy(s => importance.GetValueOrDefault(s)).ThenBy(s => s)];
+        List<int> samples = [.. wanted.Select(w => w.Key.Sample).Distinct().OrderBy(importance.GetValueOrDefault).ThenBy(s => s)];
         foreach (ShrinkMove move in rules.Order)
         {
             foreach (int sample in samples)
