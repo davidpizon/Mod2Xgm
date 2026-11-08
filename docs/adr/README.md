@@ -103,6 +103,7 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0087](0087-greedy-allocator.md) | A greedy allocator, its sounds and levels chosen by ear | 2026-11-06 | Accepted |
 | [0088](0088-layering.md) | Layering: a quiet PSG tone under an FM note, chosen by ear | 2026-11-07 | Accepted |
 | [0089](0089-fm-layer.md) | A second FM voice under a chord sample, chosen by ear | 2026-11-07 | Accepted |
+| [0090](0090-hard-pan.md) | Panned channels stay on their side, chosen by ear | 2026-11-08 | Accepted |
 
 ## Open questions
 
