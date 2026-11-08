@@ -9,13 +9,18 @@ summary; read those for methods, numbers and caveats.
 | Horner, Beauchamp & Haken 1993, *Computer Music Journal* 17(4) | A GA over the discrete frequency choices plus a fast inner amplitude fit matches harmonic tones; time-invariant modulation indices with multiple carriers worked best | [horner-1993-ga-fm-matching.md](horner-1993-ga-fm-matching.md) |
 | Chen et al. 2022, *IJCAI* (Sound2Synth) | Learned DX7 patch estimation; fit per algorithm, parameters as classes; a plain GA over everything scored worst (MFCCD 31 vs 5) | [sound2synth-2022.md](sound2synth-2022.md) |
 | Caspe, McPherson & Sandler 2022 (DDX7) | Fix structure and ratios, learn envelopes, bound the modulation index; 2 operators can be enough | [ddx7-2022.md](ddx7-2022.md) |
+| Ye et al. 2023, *IJCAI* (NAS-FM) | Search the algorithm as well as the ratios: no fixed algorithm won on every instrument | [nas-fm-2023.md](nas-fm-2023.md) |
+| Tabata, Iwaya & Kondo 2026, *DAFx26* | The loss has ridges at low-order rational ratios; search each ratio cell on its own (96.7 % vs 68 % success), W1 spectral distance is smoother than pointwise losses | [tabata-2026-fm-wasserstein.md](tabata-2026-fm-wasserstein.md) |
 
 ## Where they agree
 
 - **Separate structure from levels.** Choose the discrete structure (algorithm, frequency ratios) by global
   search, then fit levels and envelopes locally. Horner does it with a GA plus an inner fit, DDX7 fixes the
-  structure, and Sound2Synth trains one model per algorithm.
-- **Bound the modulation.** Fixed indices (Horner) or a bounded I<sub>max</sub> (DDX7) keep the search sane.
+  structure, and Sound2Synth trains one model per algorithm. NAS-FM searches the algorithm too, because no single one
+  won on every instrument. Tabata et al. show why a local search must not cross ratios: the loss has ridges at
+  low-order rational ratios, and is smooth only inside the cells between them.
+- **Bound the modulation.** Fixed indices (Horner) or a bounded I<sub>max</sub> (DDX7) keep the search sane. The
+  ridges grow stronger with the modulation index (Tabata et al.).
 - **Judge by the sound, over time.** Use a time-varying spectral error (Horner), MFCC distance (Sound2Synth)
   and multi-scale spectral loss (DDX7), never parameter distance alone.
 - **Not everything fits FM.** Noisy, percussive or reverberant samples belong on PCM or PSG noise.
