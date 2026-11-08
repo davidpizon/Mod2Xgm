@@ -162,7 +162,7 @@ public sealed class OptimizerMapperTests
         GenesisPlan plan = sut.Map(song, PlaybackOf(song), MappingOptions.Default, Notes());
 
         // Assert
-        Assert.Equal(VoiceKind.Fm, Assert.Single(plan.Patterns[0][0].Cells, c => c.Note is not null).Voice?.Kind);
+        Assert.Equal(VoiceKind.Fm, Assert.Single(plan.Patterns[0][0].Cells, c => c is { Note: not null, Level: 1 }).Voice?.Kind);
         Assert.Equal(1, sut.NotesMoved);
     }
 
@@ -203,7 +203,7 @@ public sealed class OptimizerMapperTests
         GenesisPlan plan = sut.Map(song, playback, MappingOptions.Default, Notes());
 
         // Assert
-        Assert.Equal(Enum.Parse<VoiceKind>(second), Assert.Single(plan.Patterns[1][0].Cells, c => c.Note is not null).Voice?.Kind);
+        Assert.Equal(Enum.Parse<VoiceKind>(second), Assert.Single(plan.Patterns[1][0].Cells, c => c is { Note: not null, Level: 1 }).Voice?.Kind);
     }
 
     /// <summary>A note of an ignored sample stops the track, as the simple mapper does, and the note is logged.</summary>
@@ -339,6 +339,252 @@ public sealed class OptimizerMapperTests
         Assert.Equal(Kinds(first), Kinds(second));
     }
 
+    /// <summary>An FM note with a tone channel free also sounds a quiet PSG tone of the same note, from the same song channel.</summary>
+    [Fact]
+    public void Map_WithFmNoteAndFreeTone_AddsQuietTone()
+    {
+        // Arrange
+        Song song = SongOf(1, [(0, 0)]);
+        OptimizerMapper sut = new(Limits(PcmTarget.Dmf), [FmFirst(0)]);
+
+        // Act
+        GenesisPlan plan = sut.Map(song, PlaybackOf(song), MappingOptions.Default, Notes());
+
+        // Assert
+        IReadOnlyList<PlanCell> cells = plan.Patterns[0][0].Cells;
+        Assert.Equal(VoiceKind.Fm, cells[(int)GenesisChannel.Fm1].Voice?.Kind);
+        Assert.Equal(1, cells[(int)GenesisChannel.Fm1].Level);
+        PlanCell tone = cells[(int)GenesisChannel.Psg1];
+        Assert.Equal(VoiceKind.PsgTone, tone.Voice?.Kind);
+        Assert.Equal(OptimizerMapper.ToneLayerLevel, tone.Level);
+        Assert.Equal(cells[(int)GenesisChannel.Fm1].Note, tone.Note);
+        Assert.Equal(0, tone.Source);
+        Assert.Equal(0, sut.NotesMoved);
+    }
+
+    /// <summary>A recording stays alone: only FM notes take a tone.</summary>
+    [Fact]
+    public void Map_WithRecording_AddsNoLayer()
+    {
+        // Arrange
+        Song song = SongOf(1, [(0, 0)]);
+        OptimizerMapper sut = new(Limits(PcmTarget.Dmf), [Sounds(0)]);
+
+        // Act
+        GenesisPlan plan = sut.Map(song, PlaybackOf(song), MappingOptions.Default, Notes());
+
+        // Assert
+        Assert.Single(plan.Patterns[0][0].Cells, c => c.Note is not null);
+    }
+
+    /// <summary>A sample required as FM keeps to that one kind.</summary>
+    [Fact]
+    public void Map_WithRequiredFm_AddsNoLayer()
+    {
+        // Arrange
+        Song song = SongOf(1, [(0, 0)]);
+        OptimizerMapper sut = new(Limits(PcmTarget.Dmf), [FmFirst(0)]);
+
+        // Act
+        GenesisPlan plan = sut.Map(song, PlaybackOf(song), Required("fm", 0), Notes());
+
+        // Assert
+        Assert.Single(plan.Patterns[0][0].Cells, c => c.Note is not null);
+    }
+
+    /// <summary>A PSG tone holds its pitch, so a note that slides takes none.</summary>
+    [Fact]
+    public void Map_WithSlidingNote_AddsNoLayer()
+    {
+        // Arrange
+        Song song = SongOf(1, [(0, 0)], [(-1, 0)]);
+        OptimizerMapper sut = new(Limits(PcmTarget.Dmf), [FmFirst(0)]);
+
+        // Act
+        GenesisPlan plan = sut.Map(song, PlaybackOf(song, [Rate, Rate * 1.5], [true, false]), MappingOptions.Default, Notes());
+
+        // Assert
+        Assert.Single(plan.Patterns[0][0].Cells, c => c.Note is not null);
+    }
+
+    /// <summary>A layer only takes what nothing needs: with the tones busy on one note of a track's section, none of its notes take one, and no note loses its voice.</summary>
+    [Fact]
+    public void Map_WithTonesBusyForOneNote_LeavesWholeTrackUnlayered()
+    {
+        // Arrange
+        Song song = SongOf(4, [(0, 0)], [(0, 0), (1, 1), (2, 2), (3, 3)]);
+        OptimizerMapper sut = new(Limits(PcmTarget.Dmf), [FmFirst(0), FmFirst(1), FmFirst(2), FmFirst(3)]);
+
+        // Act
+        GenesisPlan plan = sut.Map(song, PlaybackOf(song), Required("psg", 1, 2, 3), Notes());
+
+        // Assert
+        Assert.DoesNotContain(plan.Patterns[0].SelectMany(r => r.Cells), c => c is { Sample: 0, Voice.Kind: VoiceKind.PsgTone });
+        Assert.Equal(3, plan.Patterns[0][1].Cells.Count(c => c is { Voice.Kind: VoiceKind.PsgTone }));
+        Assert.Equal(0, sut.NotesMoved);
+    }
+
+    /// <summary>When one note of a track's section can't take a tone, none of them do, so the tone doesn't come and go note by note.</summary>
+    [Fact]
+    public void Map_WithOneNoteUnableToLayer_LeavesWholeTrackUnlayered()
+    {
+        // Arrange: the second note slides, and a tone can't follow it.
+        Song song = SongOf(1, [(0, 0)], [(0, 0)], [(-1, 0)]);
+        OptimizerMapper sut = new(Limits(PcmTarget.Dmf), [FmFirst(0)]);
+
+        // Act
+        GenesisPlan plan = sut.Map(song, PlaybackOf(song, [Rate, Rate, Rate * 1.5], [true, true, false]), MappingOptions.Default, Notes());
+
+        // Assert
+        Assert.DoesNotContain(plan.Patterns[0].SelectMany(r => r.Cells), c => c.Voice?.Kind == VoiceKind.PsgTone);
+    }
+
+    /// <summary>A layer says so in the conversion notes.</summary>
+    [Fact]
+    public void Map_WithLayer_AddsConversionNote()
+    {
+        // Arrange
+        Song song = SongOf(1, [(0, 0)]);
+        OptimizerMapper sut = new(Limits(PcmTarget.Dmf), [FmFirst(0)]);
+        ConversionNotes notes = Notes();
+
+        // Act
+        sut.Map(song, PlaybackOf(song), MappingOptions.Default, notes);
+
+        // Assert
+        Assert.Contains(notes.Messages, m => m.Contains("1 FM notes also sound a quiet PSG tone", StringComparison.Ordinal));
+    }
+
+    /// <summary>A chord's note sounds a second FM voice, the two voices either side of the note and each at its share of the pair.</summary>
+    [Fact]
+    public void Map_WithChord_PlaysSecondFmVoice()
+    {
+        // Arrange
+        Song song = SongOf(1, [(0, 0)]);
+        OptimizerMapper sut = new(Limits(PcmTarget.Dmf), [Chord(0)]);
+
+        // Act
+        GenesisPlan plan = sut.Map(song, PlaybackOf(song), MappingOptions.Default, Notes());
+
+        // Assert
+        PlanCell[] voices = [.. plan.Patterns[0][0].Cells.Where(c => c.Note is not null)];
+        Assert.Equal(2, voices.Length);
+        Assert.All(voices, c => Assert.Equal(VoiceKind.Fm, c.Voice?.Kind));
+        Assert.Equal([0.5, 1], voices.Select(c => c.Level));
+        Assert.Equal([-11, 11], voices.Select(c => c.Cents));
+        Assert.Equal("second", plan.FmPatches[voices[1].Voice?.Index ?? -1].Name);
+    }
+
+    /// <summary>A chord's second voice is told about in the conversion notes.</summary>
+    [Fact]
+    public void Map_WithChord_AddsConversionNote()
+    {
+        // Arrange
+        Song song = SongOf(1, [(0, 0)]);
+        OptimizerMapper sut = new(Limits(PcmTarget.Dmf), [Chord(0)]);
+        ConversionNotes notes = Notes();
+
+        // Act
+        sut.Map(song, PlaybackOf(song), MappingOptions.Default, notes);
+
+        // Assert
+        Assert.Contains(notes.Messages, m => m.Contains("a chord, so its 1 FM notes also sound a second FM voice", StringComparison.Ordinal));
+    }
+
+    /// <summary>With every FM column but FM6 taken by a note, a chord stays one voice: the second never takes FM6, the first DAC voice's only column.</summary>
+    [Fact]
+    public void Map_WithOnlyFm6Free_LeavesChordOneVoice()
+    {
+        // Arrange
+        Song song = SongOf(5, [(0, 0), (1, 1), (2, 1), (3, 1), (4, 1)]);
+        OptimizerMapper sut = new(Limits(PcmTarget.Dmf), [Chord(0), FmFirst(1)]);
+
+        // Act
+        GenesisPlan plan = sut.Map(song, PlaybackOf(song), MappingOptions.Default, Notes());
+
+        // Assert
+        IReadOnlyList<PlanCell> cells = plan.Patterns[0][0].Cells;
+        Assert.Null(cells[(int)GenesisChannel.Fm6].Note);
+        Assert.Single(cells, c => c.Sample == 0);
+    }
+
+    /// <summary>A sliding chord stays one voice: a slide's cell has one column, so a second voice wouldn't follow.</summary>
+    [Fact]
+    public void Map_WithSlidingChord_LeavesItOneVoice()
+    {
+        // Arrange
+        Song song = SongOf(1, [(0, 0)], [(-1, 0)]);
+        OptimizerMapper sut = new(Limits(PcmTarget.Dmf), [Chord(0)]);
+
+        // Act
+        GenesisPlan plan = sut.Map(song, PlaybackOf(song, [Rate, Rate * 1.5], [true, false]), MappingOptions.Default, Notes());
+
+        // Assert
+        Assert.Single(plan.Patterns[0][0].Cells, c => c.Voice?.Kind == VoiceKind.Fm);
+    }
+
+    /// <summary>A chord takes the second voice instead of a PSG tone, not as well as one.</summary>
+    [Fact]
+    public void Map_WithChord_AddsNoTone()
+    {
+        // Arrange
+        Song song = SongOf(1, [(0, 0)]);
+        OptimizerMapper sut = new(Limits(PcmTarget.Dmf), [Chord(0)]);
+
+        // Act
+        GenesisPlan plan = sut.Map(song, PlaybackOf(song), MappingOptions.Default, Notes());
+
+        // Assert
+        Assert.DoesNotContain(plan.Patterns[0][0].Cells, c => c.Voice?.Kind == VoiceKind.PsgTone);
+    }
+
+    /// <summary>A required-FM chord still takes its second voice, as that is FM too.</summary>
+    [Fact]
+    public void Map_WithRequiredFmChord_PlaysSecondFmVoice()
+    {
+        // Arrange
+        Song song = SongOf(1, [(0, 0)]);
+        OptimizerMapper sut = new(Limits(PcmTarget.Dmf), [Chord(0)]);
+
+        // Act
+        GenesisPlan plan = sut.Map(song, PlaybackOf(song), Required("fm", 0), Notes());
+
+        // Assert
+        Assert.Equal(2, plan.Patterns[0][0].Cells.Count(c => c.Voice?.Kind == VoiceKind.Fm));
+    }
+
+    /// <summary>A volume change on a layered note reaches both of its voices.</summary>
+    [Fact]
+    public void Map_WithVolumeChange_ReachesTheLayer()
+    {
+        // Arrange
+        Song song = Assemble(1, 1, [new Row([new Cell(new NotePitch(48, 0, Rate), 0, 1.0, [])]), new Row([new Cell(null, null, 0.5, [])])]);
+        OptimizerMapper sut = new(Limits(PcmTarget.Dmf), [FmFirst(0)]);
+
+        // Act
+        GenesisPlan plan = sut.Map(song, PlaybackOf(song), MappingOptions.Default, Notes());
+
+        // Assert
+        Assert.Equal(0.5, plan.Patterns[0][1].Cells[(int)GenesisChannel.Fm1].Volume);
+        Assert.Equal(0.5, plan.Patterns[0][1].Cells[(int)GenesisChannel.Psg1].Volume);
+    }
+
+    /// <summary>The channel's next note, played without a layer, stops the tone under the last one.</summary>
+    [Fact]
+    public void Map_WithNextNoteUnlayered_StopsTheLayer()
+    {
+        // Arrange
+        Song song = SongOf(1, [(0, 0)], [(0, 1)]);
+        OptimizerMapper sut = new(Limits(PcmTarget.Dmf), [FmFirst(0), Sounds(1)]);
+
+        // Act
+        GenesisPlan plan = sut.Map(song, PlaybackOf(song), MappingOptions.Default, Notes());
+
+        // Assert
+        Assert.Equal(VoiceKind.PsgTone, plan.Patterns[0][0].Cells[(int)GenesisChannel.Psg1].Voice?.Kind);
+        Assert.True(plan.Patterns[0][1].Cells[(int)GenesisChannel.Psg1].NoteOff);
+    }
+
     private static IEnumerable<string> Kinds(GenesisPlan plan) =>
         plan.Patterns.SelectMany(p => p).SelectMany(r => r.Cells).Select(c => $"{c.Voice}/{c.Sample}");
 
@@ -363,6 +609,16 @@ public sealed class OptimizerMapperTests
         0.5,
         [new RegionSounds(0, 1e6, FmPatchLibrary.Sine, fmDb, 15, 25)],
         (rates ?? [Rate]).ToDictionary(r => r, _ => recordingDb));
+
+    /// <summary>A sample with no recording, so FM is its closest sound.</summary>
+    private static SampleSounds FmFirst(int sample) => Sounds(sample, rates: []);
+
+    /// <summary>A sample with no recording and a second FM voice, the two 22 cents apart, the first at half its level.</summary>
+    private static SampleSounds Chord(int sample) => new(
+        sample,
+        0.5,
+        [new RegionSounds(0, 1e6, FmPatchLibrary.Sine, 8, 15, 25, FmPatchLibrary.Sine with { Name = "second" }, 0.5, 22)],
+        new Dictionary<double, double>());
 
     /// <summary>A song of one order per row list after the first (<see cref="SongOf(int, int, ValueTuple{int, int}[][])"/> with one order).</summary>
     private static Song SongOf(int channels, params (int Channel, int Sample)[][] rows) => SongOf(channels, 1, rows);

@@ -82,6 +82,9 @@ public sealed class GenesisRendererTests
     private static StereoAudio Render(GenesisPlan plan, Song song, Playback playback, GenesisRenderOptions? options = null) =>
         GenesisRenderer.Render(plan, song, playback, options ?? ChipRate, new ConversionNotes(Logger.None));
 
+    /// <summary>How often a signal crosses zero going up: a measure of a sine's pitch.</summary>
+    private static int Crossings(float[] data) => Enumerable.Range(1, data.Length - 1).Count(i => data[i - 1] < 0 && data[i] >= 0);
+
     /// <summary>The RMS of <paramref name="data"/> from <paramref name="fromSeconds"/> to <paramref name="toSeconds"/>, in dBFS.</summary>
     private static double Db(float[] data, int rate, double fromSeconds, double toSeconds)
     {
@@ -334,6 +337,57 @@ public sealed class GenesisRendererTests
 
         // Assert
         Assert.Equal(440, Hz(audio.Left, audio.SampleRate, 0.2, 1.0), 5.0);
+    }
+
+    /// <summary>A layer's level turns its PSG tone down: a quarter is 12 dB, within what the PSG's 2 dB steps allow.</summary>
+    [Fact]
+    public void Render_WithLayerLevel_PlaysToneQuieter()
+    {
+        // Arrange
+        GenesisPlan full = PlanOf([], [], Row((GenesisChannel.Psg1, Note(VoiceKind.PsgTone))));
+        GenesisPlan quarter = PlanOf([], [], Row((GenesisChannel.Psg1, Note(VoiceKind.PsgTone) with { Level = 0.25 })));
+        Playback playback = PlaybackOf(20, (r, t) => Playing(r == 0 && t == 0));
+
+        // Act
+        StereoAudio loud = Render(full, SongOf(1, LoopedSine()), playback);
+        StereoAudio quiet = Render(quarter, SongOf(1, LoopedSine()), playback);
+
+        // Assert
+        Assert.Equal(-12, Db(quiet.Left, quiet.SampleRate, 0.2, 1.0) - Db(loud.Left, loud.SampleRate, 0.2, 1.0), 1.5);
+    }
+
+    /// <summary>A voice's cents move its FM note off the pitch: a whole octave's worth doubles the sine's frequency.</summary>
+    [Fact]
+    public void Render_WithCents_MovesFmPitch()
+    {
+        // Arrange
+        Playback playback = PlaybackOf(20, (r, t) => Playing(r == 0 && t == 0));
+        GenesisPlan plain = PlanOf([FmPatchLibrary.Sine], [], Row((GenesisChannel.Fm1, Note(VoiceKind.Fm))));
+        GenesisPlan octave = PlanOf([FmPatchLibrary.Sine], [], Row((GenesisChannel.Fm1, Note(VoiceKind.Fm) with { Cents = 1200 })));
+
+        // Act
+        StereoAudio low = Render(plain, SongOf(1, LoopedSine()), playback);
+        StereoAudio high = Render(octave, SongOf(1, LoopedSine()), playback);
+
+        // Assert
+        Assert.Equal(2.0, (double)Crossings(high.Left) / Crossings(low.Left), 1);
+    }
+
+    /// <summary>A voice's level turns its FM note down: half is 6 dB.</summary>
+    [Fact]
+    public void Render_WithLevel_PlaysFmQuieter()
+    {
+        // Arrange
+        Playback playback = PlaybackOf(20, (r, t) => Playing(r == 0 && t == 0));
+        GenesisPlan full = PlanOf([FmPatchLibrary.Sine], [], Row((GenesisChannel.Fm1, Note(VoiceKind.Fm))));
+        GenesisPlan half = PlanOf([FmPatchLibrary.Sine], [], Row((GenesisChannel.Fm1, Note(VoiceKind.Fm) with { Level = 0.5 })));
+
+        // Act
+        StereoAudio loud = Render(full, SongOf(1, LoopedSine()), playback);
+        StereoAudio quiet = Render(half, SongOf(1, LoopedSine()), playback);
+
+        // Assert
+        Assert.Equal(-6, Db(quiet.Left, quiet.SampleRate, 0.2, 1.0) - Db(loud.Left, loud.SampleRate, 0.2, 1.0), 1.0);
     }
 
     /// <summary>Several recordings at once play on the PCM columns of a plan with more than one PCM voice.</summary>

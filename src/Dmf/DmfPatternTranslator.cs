@@ -505,7 +505,7 @@ internal sealed class DmfPatternTranslator
 
             CloseDacOn(channel, track);
             // The plan's note is already tuned by the instrument's finetune and the row's E5x (the tick player's pitch, ADR 0061).
-            double semitones = translator._voicing.HeardSemitones(note, sample, out bool measured);
+            double semitones = translator._voicing.HeardSemitones(note, sample, out bool measured) + (cell.Cents / 100);
             _fmSamples.TryAdd(sample, measured);
 
             int whole = (int)Math.Round(semitones, MidpointRounding.AwayFromZero);
@@ -533,7 +533,7 @@ internal sealed class DmfPatternTranslator
             draft.Instrument = glide ? -1 : voice.Index;
             double volume = cell.Volume ?? track.ModVolume;
             (track.Gain, bool limited) = translator._voicing.FmLevel(sample, voice.Index);
-            track.Gain *= track.Centred ? PlanVoicing.CentredGain : 1;
+            track.Gain *= (track.Centred ? PlanVoicing.CentredGain : 1) * cell.Level;
             if (limited)
             {
                 Tally("{Count} FM notes play quieter than in the MOD: their sample is louder than its patch can play without clipping");
@@ -618,6 +618,7 @@ internal sealed class DmfPatternTranslator
             draft.Instrument = translator._noiseInstruments[sample];
             double volume = cell.Volume ?? track.ModVolume;
             (track.Gain, bool limited) = translator._voicing.ToneLevel(sample);
+            track.Gain *= cell.Level;
             if (limited)
             {
                 Tally("{Count} PSG tone notes play quieter than in the MOD: their sample is louder than the PSG at full volume");

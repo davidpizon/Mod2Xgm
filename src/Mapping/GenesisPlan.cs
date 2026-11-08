@@ -81,6 +81,12 @@ internal sealed record PlanCell(NotePitch? Note, PlanVoice? Voice, double? Volum
 {
     /// <summary>A cell that does nothing.</summary>
     public static PlanCell Empty { get; } = new(null, null, null, false, []);
+
+    /// <summary>The factor on the level <see cref="Note"/>'s voice would otherwise play at: below 1 for a voice sharing a MOD note with another (docs/adr/0088-layering.md, docs/adr/0089-fm-layer.md).</summary>
+    public double Level { get; init; } = 1;
+
+    /// <summary>How far <see cref="Note"/>'s voice plays from the note's pitch, in cents, so that two voices of one MOD note beat as the sample's own layers do (docs/adr/0089-fm-layer.md). Only FM takes it.</summary>
+    public double Cents { get; init; }
 }
 
 /// <summary>One row of the plan.</summary>
