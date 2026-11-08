@@ -25,7 +25,7 @@ takes none. A chord takes the second voice instead of a PSG tone, not as well as
 **In the plan:** `PlanCell.Cents` puts a voice off the note's pitch, half the spread either way, and both the renderer and the DMF
 writer play it. The pair's level goes through `PlanCell.Level` and the second patch's `HeardRms`.
 
-**What four blind rounds settled (David, grades out of 5, each pair next to the original MOD).** He gives a 4 next to a 5 to say which
+**What the first four blind rounds settled (David, grades out of 5, each pair next to the original MOD).** He gives a 4 next to a 5 to say which
 he prefers, not that a song got worse, so a pair's grades are read as an either/or:
 
 | Round | Song | Compared | Grades | What David said |
@@ -41,9 +41,18 @@ he prefers, not that a song got worse, so a pair's grades are read as an either/
 | 4 | cancan | 3 dB down / full level | 5 / 5 | Can't tell much difference; the guitar chords are too loud in both |
 | 4 | cancan | No second voice / detuned voice | 5 / 5 | The chords' shape is very good; too loud |
 
-**This rests on two songs and is thin.** The detuned voice was never preferred to no second voice in a direct pairing, on either song;
-it stays because it was preferred to the fitted voice, which was preferred to none on cancan, and because David wants to keep testing
-it. The 3 dB is one preference on one song. None of it has been played on a song it wasn't tuned on.
+**Round 8, on songs it wasn't tuned on (David, an either/or: X, Y or can't tell).** The detuned voice against T9.3b's build, which
+has no second voice and a PSG tone under the chord. These are the only other corpus songs where the second voice can be heard: in
+`drozerix_-_stardust_jam` the difference is 45 to 57 dB under the mix.
+
+| Round | Song | Compared | Choice | What David said |
+|---|---|---|---|---|
+| 8 | omg-plz-help, from 0:47 | Detuned voice / none | Can't tell | The drums are far to the left in both; slightly left in the original |
+| 8 | rubbish, from 0:00 | Detuned voice / none | Detuned voice | Some sample sounds are missing (in both) |
+
+**This is still thin.** Round 8's rubbish is the first time the detuned voice won a direct pairing against no second voice. Every
+earlier such pairing was a tie, and so is omg-plz-help. It also stays because it was preferred to the fitted voice, which was
+preferred to none on cancan. The 3 dB is one preference on one song.
 
 ## Options considered
 
@@ -64,4 +73,5 @@ it. The 3 dB is one preference on one song. None of it has been played on a song
   - The swell above, which is David's "shape" note on kc.
   - cancan's tambourine hits at 0:04, which David hears as missing, and its banjo cutting out where the bass comes in. The MOD does share channels 3 and 4 between them, so some of that is in the original; how much isn't known.
   - kc's rhythmic clicking, open since ADR 0087.
-  - Whether the rule, its level and its spread hold on songs they weren't tuned on.
+  - Whether the rule, its level and its spread hold on more songs: the corpus has no more where the second voice can be heard.
+  - From round 8, on both builds: omg-plz-help's drums pan too far left, and rubbish is missing some sample sounds and plays about 7 dB under the original.
