@@ -56,7 +56,7 @@ sharpojects_cantpleaseeveryone, 188 s. `--time-budget` (T9.5) replaces it.
 - **Trust the ruler's distances for recordings.** It preferred FM on drums and "random pitches" followed. David's ears win.
 - **Let pitched "drums" and loops use FM, and match FM level over a note's first quarter second.** This measured far better on
   hawks_claw: level −17.9 dB against the original's −17.6 (before, −21.2), bass within 0.2 dB, and 16 notes cut rather than
-  about 360. David graded it **3 against 5**: crackling at the start and an inaccurate slide note at 16 s, while the version kept was "perfect". Rejected, and the reason every rule
+  about 360. David graded it **3 against 5**, then **2 against 5** on a second listen: clicking at the start and an inaccurate, wavering tone at about 16 s, while the version kept was "perfect". Rejected, and the reason every rule
   here is tested blind against the version he already liked.
 - **A darker noise rate instead of a lower level.** Measured the same in neon's opening, so never played to David.
 - **Centre everything, or centre the bass without lowering it.** Centring everything loses the stereo picture; without
