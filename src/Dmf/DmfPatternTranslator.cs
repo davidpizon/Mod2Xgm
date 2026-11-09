@@ -425,8 +425,9 @@ internal sealed class DmfPatternTranslator
             TonePortamento? porta = cell.Effects.OfType<TonePortamento>().FirstOrDefault();
             if (cell is { Note: { } note, Voice: { } voice, Sample: { } sample })
             {
-                track.Centred = voice.Kind == VoiceKind.Fm && source is { } from && from < translator._song.Channels.Count
-                    && translator._voicing.CentredBass(note, sample, _panOverride[from] ?? translator._song.Channels[from].Pan);
+                track.Centred = (voice.Kind == VoiceKind.Fm && source is { } from && from < translator._song.Channels.Count
+                    && translator._voicing.CentredBass(note, sample, _panOverride[from] ?? translator._song.Channels[from].Pan))
+                    || (voice.Kind == VoiceKind.Dac && translator._plan.DacSamples[voice.Index].Mix is { Centred: true }); // A pre-mix of both sides plays from both.
                 switch (voice.Kind)
                 {
                     case VoiceKind.Dac:
@@ -640,6 +641,13 @@ internal sealed class DmfPatternTranslator
         private void StartDac(int channel, PlanCell cell, NotePitch note, PlanVoice voice, int sample, Memory? memory, Track track, Draft draft, List<Planned> effects)
         {
             CloseDacOn(channel, track);
+            if (translator._plan.DacSamples[voice.Index].Mix is not null)
+            {
+                // A recording the mapper mixed plays from its start at the loudness it holds (docs/adr/0094-pre-mixed-voice-steals.md).
+                PlayDac(Variant(new DacVariant(voice.Index, 0, 0)), cell.Volume ?? 1, track, draft, effects);
+                return;
+            }
+
             int offset = 0;
             if (cell.Effects.OfType<SampleOffset>().FirstOrDefault() is { } sampleOffset)
             {
@@ -668,15 +676,21 @@ internal sealed class DmfPatternTranslator
             }
 
             int? index = Variant(new DacVariant(voice.Index, offset, Math.Max(0, steps)));
+            if (index is not null && Math.Abs(Math.Log2(note.PlaybackRateHz / translator._plan.DacSamples[voice.Index].PlaybackRateHz)) * 1200 > DacPitchToleranceCents)
+            {
+                Tally("{Count} DAC notes play at their sample's most-used pitch, not their own: the simple mapper gives each DAC sample one pitch (ADR 0040)");
+            }
+
+            PlayDac(index, volume, track, draft, effects);
+        }
+
+        /// <summary>Plays DAC note <paramref name="index"/> (a sample copy), or silences the DAC when there is none.</summary>
+        private void PlayDac(int? index, double volume, Track track, Draft draft, List<Planned> effects)
+        {
             if (index is not { } k)
             {
                 SilenceDac(track, draft);
                 return;
-            }
-
-            if (Math.Abs(Math.Log2(note.PlaybackRateHz / translator._plan.DacSamples[voice.Index].PlaybackRateHz)) * 1200 > DacPitchToleranceCents)
-            {
-                Tally("{Count} DAC notes play at their sample's most-used pitch, not their own: the simple mapper gives each DAC sample one pitch (ADR 0040)");
             }
 
             if (track.DacMode != 1)

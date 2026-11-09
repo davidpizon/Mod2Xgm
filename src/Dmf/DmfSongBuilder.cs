@@ -238,6 +238,15 @@ internal static class DmfSongBuilder
     private static DmfSample Sample(DacVariant variant, double seconds, GenesisPlan plan, Song song, DmfBuildSettings settings, ConversionNotes notes)
     {
         DacSample dac = plan.DacSamples[variant.Dac];
+        if (dac.Mix is { } mix)
+        {
+            // A recording the mapper mixed, already at a DAC rate and loudness (docs/adr/0094-pre-mixed-voice-steals.md).
+            int rateCode = RateCodeFor(dac.PlaybackRateHz);
+            float[] points = SampleProcessor.Resample(mix.Points, dac.PlaybackRateHz, RatesHz[rateCode], settings.Resampler);
+            string mixName = string.Create(CultureInfo.InvariantCulture, $"{mix.Name} {RatesHz[rateCode]}Hz");
+            return new DmfSample(mixName, rateCode, SamplePitchAsStored, SampleAmpUnchanged, SampleBits, null, null, SampleProcessor.ToSigned16(points, mix.Name, notes));
+        }
+
         Sample sample = SampleProcessor.CutAfterLoop(song.Samples[dac.Sample]);
         float[] data = sample.Data;
         if (sample.Loop is not null)

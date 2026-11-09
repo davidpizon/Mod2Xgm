@@ -113,7 +113,7 @@ and what changed.
 | 5 | **Lower rate** where content allows (XGM2 half speed 6.65 kHz for bass / low-pass content) — saves bytes; not used by default, crunchy by ear ([ADR 0091](adr/0091-shrinking-recordings.md)) | small – medium |
 | 6 | **Merge near-duplicates**: samples whose similarity (normalized cross-correlation / spectral distance after resampling) is above a threshold share one slot | small – medium |
 | 7 | **Swap sound shapes mid-song**: for the least important notes (see *Importance*), a track switches to a substitute sound for that section — another sample's variant at the right pitch, or an FM/PSG approximation — and switches back when slots allow | medium |
-| 8 | **Voice stealing** when more PCM voices are needed than exist: first, where the overlap fits, its notes are **pre-mixed** into one sample ([ADR 0052](adr/0052-pre-mixed-pcm.md)); otherwise the least important simultaneous note moves to FM/PSG or is cut | small (pre-mix) – large |
+| 8 | **Voice stealing** when more PCM voices are needed than exist: first, where the overlap fits, its notes are **pre-mixed** into one sample ([ADR 0052](adr/0052-pre-mixed-pcm.md), [ADR 0094](adr/0094-pre-mixed-voice-steals.md): after the allocation, at most 4 notes, not turned down by more than 6 dB, a looped note going on as a tail); otherwise the least important simultaneous note moves to FM/PSG or is cut | small (pre-mix) – large |
 | 9 | Last resort: drop the least important variants (notes fall silent) | large |
 
 ### Importance

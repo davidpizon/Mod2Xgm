@@ -180,7 +180,10 @@ internal sealed class GenesisPlanPlayer
             if (c < _tracks.Length && _tracks[c] is { Sounding: true, Kind: VoiceKind.Dac, Source: >= 0 } track && _tickStarts[t] < track.DacEndsAt)
             {
                 ChannelTick ch = _ticks[t].Channels[track.Source];
-                playing.Add((PlanVoicing.Side(ch.Pan), ch.Volume));
+
+                // A pre-mix of notes from both sides plays from both speakers (docs/adr/0094-pre-mixed-voice-steals.md).
+                bool centred = track.Voice.Index < _plan.DacSamples.Count && _plan.DacSamples[track.Voice.Index].Mix is { Centred: true };
+                playing.Add((centred ? 0 : PlanVoicing.Side(ch.Pan), ch.Volume));
             }
         }
 
@@ -657,6 +660,11 @@ internal sealed class GenesisPlanPlayer
     private Pcm? Prepare(DacSample dac, int index, int offset, double volume)
     {
         bool dmf = _chips.Driver == PcmDriver.Dmf;
+        if (dac.Mix is { } mix)
+        {
+            return PrepareMix(dac, mix, index);
+        }
+
         if (!dmf && dac.LoudnessShareSteps > 1 && volume > 0)
         {
             // One stored copy for several steps of loudness: the note plays at its copy's, as the shrinker counted it (docs/adr/0091-shrinking-recordings.md).
@@ -705,6 +713,34 @@ internal sealed class GenesisPlanPlayer
         }
 
         _pcm[(index, offset, key)] = pcm;
+        return pcm;
+    }
+
+    /// <summary>
+    /// The PCM of a recording the mapper mixed (a pre-mix or its tail, docs/adr/0094-pre-mixed-voice-steals.md): its points
+    /// from the start, at the loudness they hold, at the driver's rate; <c>null</c> when it is empty.
+    /// </summary>
+    private Pcm? PrepareMix(DacSample dac, DacMix mix, int index)
+    {
+        if (_pcm.TryGetValue((index, 0, 1), out Pcm? pcm))
+        {
+            return pcm;
+        }
+
+        if (_chips.Driver == PcmDriver.Dmf)
+        {
+            int rate = DmfSongBuilder.DacRateHz(dac.PlaybackRateHz);
+            short[] pcm16 = SampleProcessor.ToSigned16(SampleProcessor.Resample(mix.Points, dac.PlaybackRateHz, rate, _resampler), mix.Name, new ConversionNotes(Serilog.Core.Logger.None));
+            pcm = pcm16.Length == 0 ? null : new Pcm(pcm16, null, rate);
+        }
+        else
+        {
+            double rate = _chips.Driver == PcmDriver.Xgm ? XgmPcmDriver.BeatRateHz(_chips.YmClockHz) : Xgm2PcmDriver.BeatRateHz(_chips.YmClockHz);
+            sbyte[] pcm8 = SampleProcessor.ToSigned8(SampleProcessor.Resample(mix.Points, dac.PlaybackRateHz, rate, _resampler), mix.Name, _notes);
+            pcm = pcm8.Length == 0 ? null : new Pcm(null, pcm8, (int)Math.Round(rate));
+        }
+
+        _pcm[(index, 0, 1)] = pcm;
         return pcm;
     }
 

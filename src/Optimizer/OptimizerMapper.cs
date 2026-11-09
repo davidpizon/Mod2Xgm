@@ -12,12 +12,15 @@ namespace Mod2Xgm.Optimizer;
 /// steady pitch never takes a tuned voice unless the user requires it, so its notes can be cut while tuned voices sit
 /// free (David: it plays as wrong notes). <c>--require-*</c> samples only ever use their kind. An FM note may also sound a
 /// quiet PSG tone, or a chord a second FM voice, on a channel no note needs (docs/adr/0088-layering.md, docs/adr/0089-fm-layer.md).
+/// A recording that finds every PCM voice busy is first mixed with one already playing, so both share its voice
+/// (docs/adr/0094-pre-mixed-voice-steals.md).
 /// </summary>
 /// <param name="limits">What the target holds.</param>
 /// <param name="menu">What each sample can sound like.</param>
 /// <param name="shrink">How recordings are shrunk to fit before notes give them up (plan T9.4a); <see cref="ShrinkRules.Default"/> when not given.</param>
 /// <param name="switching">How a sound keeps its voice through the song (plan T9.4c); the converter's choice when not given.</param>
-internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleSounds> menu, ShrinkRules? shrink = null, VoiceSwitching? switching = null) : IChannelMapper
+/// <param name="preMix">How recordings that find no PCM voice are pre-mixed (plan T9.4b); <see cref="PreMixRules.Default"/> when not given.</param>
+internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleSounds> menu, ShrinkRules? shrink = null, VoiceSwitching? switching = null, PreMixRules? preMix = null) : IChannelMapper
 {
     /// <summary>What a fully percussive sample's notes add to their importance, as a multiple of a note with no hit: a replaced attack is easy to hear, and David chose this over smaller values (docs/sample-capacity.md#importance).</summary>
     private const double PercussiveBoost = 8;
@@ -46,6 +49,9 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
     /// <summary>How a sound keeps its voice through the song: in the song's order, keeping the voice it has, David's pick in rounds 13–15 (docs/adr/0092-stable-voices.md).</summary>
     private const VoiceSwitching Switching = VoiceSwitching.SongRank;
 
+    /// <summary>The most recordings (or pre-mixes) a note tries to be mixed with before it gives up its recording: each try renders a mix.</summary>
+    private const int MaxMixTries = 4;
+
     /// <summary>A distance for a sound with no measurement: as far as the ruler goes.</summary>
     private const double UnknownDb = NoteScorer.RangeDb;
 
@@ -70,7 +76,17 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
             throw new ArgumentException("--no-dac and --require-dac can't both be given.", nameof(options));
         }
 
-        Run run = new(limits, menu, song, playback, options, notes, shrink ?? ShrinkRules.Default, switching ?? Switching);
+        PreMixRules mixing = preMix ?? PreMixRules.Default;
+        long reserve = 0;
+        if (mixing is { Enabled: true, MakeRoom: true } && limits.PcmBytes is not null)
+        {
+            // A first, silent pass finds the bytes the pre-mixes want; the shrinker then leaves them that room.
+            Run probe = new(limits, menu, song, playback, options, new ConversionNotes(Serilog.Core.Logger.None), shrink ?? ShrinkRules.Default, switching ?? Switching, mixing, 0);
+            probe.Execute();
+            reserve = probe.MixBytes + probe.RefusedMixBytes;
+        }
+
+        Run run = new(limits, menu, song, playback, options, notes, shrink ?? ShrinkRules.Default, switching ?? Switching, mixing, reserve);
         GenesisPlan plan = run.Execute();
         NotesMoved = run.Moved;
         return plan;
@@ -102,6 +118,9 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
         /// <summary>The sound it was given; <c>null</c> when it was cut.</summary>
         public VoiceKind? Kind { get; set; }
 
+        /// <summary>The closest sound it was allowed, which it lost to a limit when <see cref="Kind"/> differs.</summary>
+        public VoiceKind? Closest { get; set; }
+
         /// <summary>The column it plays on, or −1.</summary>
         public int Column { get; set; } = -1;
 
@@ -116,6 +135,25 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
 
         /// <summary>What the second voice is, when it has one.</summary>
         public VoiceKind LayerKind { get; set; }
+    }
+
+    /// <summary>Notes mixed into one recording that plays on one PCM voice (docs/adr/0094-pre-mixed-voice-steals.md).</summary>
+    private sealed class MixedNotes(PlannedNote first)
+    {
+        /// <summary>The notes, each played once.</summary>
+        public List<PlannedNote> Notes { get; } = [first];
+
+        /// <summary>The first tick the voice plays.</summary>
+        public int Start { get; set; } = first.FirstTick;
+
+        /// <summary>The tick after the voice's last.</summary>
+        public int End { get; set; } = first.FirstTick + first.Plays[0].Ticks;
+
+        /// <summary>The mix, once made.</summary>
+        public StealMix? Mix { get; set; }
+
+        /// <summary>The note whose cell plays the mix: the first to start.</summary>
+        public PlannedNote Lead => Notes.OrderBy(n => n.FirstTick).ThenBy(n => n.Channel).First();
     }
 
     /// <summary>One pass over a song.</summary>
@@ -154,6 +192,14 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
         private readonly SortedDictionary<int, int> _ignored = [];
         private readonly Dictionary<(int Channel, int Sample), VoiceKind?> _lastKind = [];
 
+        // Pre-mixes (plan T9.4b): the notes in each, the recordings once each by their bytes, and where tails start.
+        private readonly PreMixRules _preMix;
+        private readonly long _reserve;
+        private readonly List<PlannedNote> _onDac = [];
+        private readonly Dictionary<PlannedNote, MixedNotes> _mixOf = [];
+        private readonly Dictionary<Fingerprint, (DacSample Sample, int Bytes, int Uses)> _mixes = [];
+        private readonly Dictionary<(int Order, int Row, int Channel), MixedNotes> _tailAt = [];
+
         // Each track's mean note importance over the whole song, for VoiceSwitching.SongRank (plan T9.4c).
         private Dictionary<(int Channel, int Sample), double> _songImportance = [];
 
@@ -162,8 +208,10 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
         private int _silent;
         private int _slides;
 
-        public Run(TargetLimits limits, IReadOnlyList<SampleSounds> menu, Song song, Playback playback, MappingOptions options, ConversionNotes notes, ShrinkRules rules, VoiceSwitching switching)
+        public Run(TargetLimits limits, IReadOnlyList<SampleSounds> menu, Song song, Playback playback, MappingOptions options, ConversionNotes notes, ShrinkRules rules, VoiceSwitching switching, PreMixRules preMix, long reserve)
         {
+            _preMix = preMix;
+            _reserve = reserve;
             _rules = rules;
             _switching = switching;
             _limits = limits;
@@ -185,6 +233,12 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
         /// <summary>Notes that lost their first choice to a limit.</summary>
         public int Moved { get; private set; }
 
+        /// <summary>Bytes the pre-mixes take.</summary>
+        public long MixBytes => _mixes.Values.Sum(m => (long)m.Bytes);
+
+        /// <summary>Bytes of pre-mixes that were made but didn't fit the budget.</summary>
+        public long RefusedMixBytes { get; private set; }
+
         public GenesisPlan Execute()
         {
             Collect();
@@ -199,6 +253,17 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
             foreach (IGrouping<int, PlannedNote> section in sections)
             {
                 Allocate(section);
+            }
+
+            Rescue();
+
+            foreach (MixedNotes mixed in _mixOf.Values.Distinct())
+            {
+                if (mixed.Mix is { Tail: not null, Outlast: { } outlast } mix)
+                {
+                    PlaybackTick at = _playback.Ticks[mix.SwitchTick];
+                    _tailAt[(at.Order, at.Row, outlast.Channel)] = mixed;
+                }
             }
 
             AssignColumns();
@@ -344,7 +409,9 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
             }
 
             Dictionary<int, double> importance = wanted.GroupBy(n => StoredAs(n.Sample)).ToDictionary(g => g.Key, g => g.Sum(n => n.Importance));
-            _shrunk = RecordingShrinker.Shrink(copies, importance, _song, _limits, _rules, new HashSet<int>(_options.RequireDac.Select(StoredAs)));
+            // With MakeRoom, the shrinker leaves the pre-mixes the room a first pass found they want (PreMixRules.MakeRoom).
+            TargetLimits shrinkTo = _reserve > 0 && _limits.PcmBytes is { } budget ? _limits with { PcmBytes = Math.Max(1, budget - _reserve) } : _limits;
+            _shrunk = RecordingShrinker.Shrink(copies, importance, _song, shrinkTo, _rules, new HashSet<int>(_options.RequireDac.Select(StoredAs)));
             _copyBytes = new Dictionary<StoredCopy, int>(_shrunk.Bytes);
             RecordingShrinker.Report(_shrunk, _song, _rules, _notes);
 
@@ -429,8 +496,9 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
                 {
                     VoiceKind[] allowed = [.. ranked.Where(k => Allowed(k, note))];
                     IEnumerable<VoiceKind> tries = whole is { } kind ? [kind] : allowed;
+                    note.Closest = allowed.Length > 0 ? allowed[0] : null;
                     note.Kind = tries.Cast<VoiceKind?>().FirstOrDefault(k => k is { } tried && Take(tried, note));
-                    Moved += allowed.Length > 0 && note.Kind == allowed[0] ? 0 : 1;
+                    Moved += note.Closest is not null && note.Kind == note.Closest ? 0 : 1;
                 }
 
                 // The sound the track ends the section on, so the next section keeps that one.
@@ -500,10 +568,115 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
 
             List<StoredCopy> fresh = [.. notes.SelectMany(n => n.Plays).SelectMany(CopiesOf).Distinct().Where(c => !_stored.Contains(c))];
             long bytes = fresh.Sum(c => (long)_copyBytes[c]);
-            return _stored.Count + fresh.Count <= _limits.PcmSlots && (_limits.PcmBytes is not { } budget || _bytes + bytes <= budget);
+            return _stored.Count + _mixes.Count + fresh.Count <= _limits.PcmSlots && (_limits.PcmBytes is not { } budget || _bytes + bytes <= budget);
         }
 
         /// <summary>Gives <paramref name="note"/> the room it needs for <paramref name="kind"/> on every tick it sounds, if it is there.</summary>
+        /// <summary>
+        /// After every section has its sounds, gives back their recording to notes that lost it for want of a PCM voice
+        /// (plan T9.4b, docs/adr/0094-pre-mixed-voice-steals.md), track by track in the song's order: each is mixed with
+        /// recordings already playing, or takes a voice left free. No other note changes, so a song that fits is untouched. A
+        /// track that plays recordings somewhere gets back every note it can; one that never does only when all its notes
+        /// can, so it keeps one sound (docs/adr/0092-stable-voices.md). A rescued note gives up the FM or PSG voice it had.
+        /// </summary>
+        private void Rescue()
+        {
+            if (!_preMix.Enabled)
+            {
+                return;
+            }
+
+            HashSet<(int Channel, int Sample)> onDac = [.. _planned.Where(n => n.Kind == VoiceKind.Dac).Select(n => (n.Channel, n.Sample))];
+            foreach (IGrouping<(int Channel, int Sample), PlannedNote> track in _planned
+                .Where(n => n.Closest == VoiceKind.Dac && n.Kind != VoiceKind.Dac)
+                .GroupBy(n => (n.Channel, n.Sample))
+                .OrderByDescending(t => _songImportance[t.Key])
+                .ThenBy(t => t.Key.Channel)
+                .ThenBy(t => t.Key.Sample)
+                .ToList())
+            {
+                List<PlannedNote> lost = [.. track.OrderBy(n => n.FirstTick)];
+                if (!onDac.Contains(track.Key) && !CanRescueAll(lost))
+                {
+                    continue;
+                }
+
+                foreach (PlannedNote note in lost)
+                {
+                    VoiceKind? had = note.Kind;
+                    if (!Take(VoiceKind.Dac, note) && !Mix(note))
+                    {
+                        continue;
+                    }
+
+                    if (had is { } kind)
+                    {
+                        int[] counts = Counts(kind);
+                        foreach (int t in note.Plays.SelectMany(p => Enumerable.Range(p.FirstTick, p.Ticks)))
+                        {
+                            counts[t]--;
+                        }
+                    }
+
+                    note.Kind = VoiceKind.Dac;
+                    Moved--;
+                }
+            }
+
+            // The FM and PSG voices rescued notes gave up go to notes that were cut, most important first.
+            foreach (PlannedNote note in _planned.Where(n => n.Kind is null).OrderByDescending(n => n.Importance).ThenBy(n => n.FirstTick).ToList())
+            {
+                note.Kind = AllKinds
+                    .Where(k => Allowed(k, note))
+                    .OrderBy(k => k == note.Closest ? 0 : 1)
+                    .ThenBy(k => Distance(k, note))
+                    .Cast<VoiceKind?>()
+                    .FirstOrDefault(k => k is { } kind && Take(kind, note));
+                Moved -= note.Kind is not null && note.Kind == note.Closest ? 1 : 0;
+            }
+        }
+
+        /// <summary>
+        /// True when every one of <paramref name="lost"/>, in order, could get its recording back: a voice is free all through
+        /// it, or it mixes with a playing recording into a mix the rules allow, counting the notes of the list already planned
+        /// into that mix. Bytes and slots are checked only when a mix is made.
+        /// </summary>
+        private bool CanRescueAll(List<PlannedNote> lost)
+        {
+            Dictionary<PlannedNote, List<PlannedNote>> joining = [];
+            foreach (PlannedNote note in lost)
+            {
+                if (note.Plays.SelectMany(p => Enumerable.Range(p.FirstTick, p.Ticks)).All(t => HasRoom(VoiceKind.Dac, t)))
+                {
+                    continue;
+                }
+
+                MixedNotes? into = MixCandidates(note).FirstOrDefault(m =>
+                {
+                    List<PlannedNote> already = joining.GetValueOrDefault(m.Lead) ?? [];
+                    return m.Notes.Count + already.Count < StealMixer.MaxNotes
+                        && StealMixer.Make(_song, _playback, [.. m.Notes.Concat(already).Select(n => n.Plays[0]), note.Plays[0]], _limits.Target, _preMix) is not null;
+                });
+                if (into is null)
+                {
+                    return false;
+                }
+
+                joining[into.Lead] = [.. joining.GetValueOrDefault(into.Lead) ?? [], note];
+            }
+
+            return true;
+        }
+
+        /// <summary>How many voices of <paramref name="kind"/> each tick has taken.</summary>
+        private int[] Counts(VoiceKind kind) => kind switch
+        {
+            VoiceKind.Dac => _dacAt,
+            VoiceKind.Fm => _fmAt,
+            VoiceKind.PsgTone => _toneAt,
+            _ => _noiseAt,
+        };
+
         private bool Take(VoiceKind kind, PlannedNote note)
         {
             List<int> ticks = [.. note.Plays.SelectMany(p => Enumerable.Range(p.FirstTick, p.Ticks))];
@@ -512,18 +685,154 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
                 return false;
             }
 
-            int[] counts = kind switch
-            {
-                VoiceKind.Dac => _dacAt,
-                VoiceKind.Fm => _fmAt,
-                VoiceKind.PsgTone => _toneAt,
-                _ => _noiseAt,
-            };
+            int[] counts = Counts(kind);
             foreach (int t in ticks)
             {
                 counts[t]++;
             }
 
+            if (kind == VoiceKind.Dac && note.Plays.Count == 1)
+            {
+                _onDac.Add(note);
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Mixes <paramref name="note"/>, which finds every PCM voice busy somewhere, with recordings already playing, so it
+        /// shares their voice (plan T9.4b, docs/adr/0094-pre-mixed-voice-steals.md): with one playing note or pre-mix whose
+        /// voice covers every busy tick, the one with fewest notes first. The mix must keep to the rules, and its bytes and
+        /// slots must fit. False when none does.
+        /// </summary>
+        private bool Mix(PlannedNote note)
+        {
+            SongNote play = note.Plays[0];
+            int from = play.FirstTick;
+            List<MixedNotes> candidates = MixCandidates(note);
+            foreach (MixedNotes mixed in candidates)
+            {
+                if (StealMixer.Make(_song, _playback, [.. mixed.Notes.Select(n => n.Plays[0]), play], _limits.Target, _preMix) is not { } mix || !StoreMix(mixed, mix))
+                {
+                    continue;
+                }
+
+                foreach (int t in Enumerable.Range(from, play.Ticks).Where(t => t < mixed.Start || t >= mixed.End))
+                {
+                    _dacAt[t]++;
+                }
+
+                mixed.Notes.Add(note);
+                mixed.Start = Math.Min(mixed.Start, from);
+                mixed.End = Math.Max(mixed.End, from + play.Ticks);
+                foreach (PlannedNote n in mixed.Notes)
+                {
+                    _mixOf[n] = mixed;
+                }
+
+                _onDac.Add(note);
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// The playing recordings <paramref name="note"/> could be mixed with, best first: fewest notes, then the longest
+        /// overlap. Each covers every tick the note finds no PCM voice on and leaves room for the rest; none when the note
+        /// plays more than once or every tick has a voice.
+        /// </summary>
+        private List<MixedNotes> MixCandidates(PlannedNote note)
+        {
+            if (!_preMix.Enabled || note.Plays.Count != 1)
+            {
+                return [];
+            }
+
+            SongNote play = note.Plays[0];
+            int from = play.FirstTick;
+            int to = from + play.Ticks;
+            List<int> busy = [.. Enumerable.Range(from, play.Ticks).Where(t => !HasRoom(VoiceKind.Dac, t))];
+            if (busy.Count == 0)
+            {
+                return [];
+            }
+
+            return [.. _onDac
+                .Where(n => n.Kind == VoiceKind.Dac && n.FirstTick < to && from < n.FirstTick + n.Plays[0].Ticks)
+                .Select(n => _mixOf.GetValueOrDefault(n) ?? new MixedNotes(n))
+                .DistinctBy(m => m.Lead)
+                .Where(m => m.Notes.Count < StealMixer.MaxNotes
+                    && busy.All(t => t >= m.Start && t < m.End)
+                    && Enumerable.Range(from, play.Ticks).Where(t => t < m.Start || t >= m.End).All(t => HasRoom(VoiceKind.Dac, t)))
+                .OrderBy(m => m.Notes.Count)
+                .ThenByDescending(m => Math.Min(m.End, to) - Math.Max(m.Start, from))
+                .ThenBy(m => m.Start)
+                .Take(MaxMixTries)];
+        }
+
+        /// <summary>
+        /// Stores <paramref name="mix"/> for <paramref name="mixed"/> in place of its old one, if the slots and bytes hold it:
+        /// the same bytes are stored once, and an old mix no other notes play is let go.
+        /// </summary>
+        private bool StoreMix(MixedNotes mixed, StealMix mix)
+        {
+            List<(Fingerprint Key, DacSample Sample)> wanted = [(mix.HeadKey, mix.Head)];
+            if (mix.Tail is { } tail)
+            {
+                wanted.Add((mix.TailKey, tail));
+            }
+
+            List<Fingerprint> old = [];
+            if (mixed.Mix is { } had)
+            {
+                old.Add(had.HeadKey);
+                if (had.Tail is not null)
+                {
+                    old.Add(had.TailKey);
+                }
+            }
+
+            List<Fingerprint> freed = [.. old.Where(k => _mixes[k].Uses == 1 && !wanted.Any(w => w.Key == k))];
+            List<(Fingerprint Key, DacSample Sample)> fresh = [.. wanted.Where(w => !_mixes.ContainsKey(w.Key)).DistinctBy(w => w.Key)];
+            long added = fresh.Sum(w => (long)StealMixer.Bytes(w.Sample, _limits.Target));
+            long bytes = _bytes + added - freed.Sum(k => (long)_mixes[k].Bytes);
+            if (_stored.Count + _mixes.Count - freed.Count + fresh.Count > _limits.PcmSlots || (_limits.PcmBytes is { } budget && bytes > budget))
+            {
+                RefusedMixBytes += added;
+                return false;
+            }
+
+            foreach (Fingerprint k in old)
+            {
+                (DacSample sample, int size, int uses) = _mixes[k];
+                if (uses == 1)
+                {
+                    _mixes.Remove(k);
+                    _bytes -= size;
+                }
+                else
+                {
+                    _mixes[k] = (sample, size, uses - 1);
+                }
+            }
+
+            foreach ((Fingerprint key, DacSample sample) in wanted)
+            {
+                if (_mixes.TryGetValue(key, out (DacSample Sample, int Bytes, int Uses) known))
+                {
+                    _mixes[key] = (known.Sample, known.Bytes, known.Uses + 1);
+                }
+                else
+                {
+                    int size = StealMixer.Bytes(sample, _limits.Target);
+                    _mixes[key] = (sample, size, 1);
+                    _bytes += size;
+                }
+            }
+
+            // The same bytes play the one stored recording, so the plan lists it once.
+            mixed.Mix = mix with { Head = _mixes[mix.HeadKey].Sample, Tail = mix.Tail is null ? null : _mixes[mix.TailKey].Sample };
             return true;
         }
 
@@ -541,7 +850,7 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
         {
             List<StoredCopy> fresh = [.. note.Plays.SelectMany(CopiesOf).Distinct().Where(c => !_stored.Contains(c))];
             long bytes = fresh.Sum(c => (long)_copyBytes[c]);
-            if (_stored.Count + fresh.Count > _limits.PcmSlots || (_limits.PcmBytes is { } budget && _bytes + bytes > budget))
+            if (_stored.Count + _mixes.Count + fresh.Count > _limits.PcmSlots || (_limits.PcmBytes is { } budget && _bytes + bytes > budget))
             {
                 return false;
             }
@@ -575,16 +884,32 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
             int[] onChannel = [.. Enumerable.Repeat(-1, _song.Channels.Count)];
             foreach (PlannedNote note in _planned.Where(n => n.Kind is not null).OrderBy(n => n.FirstTick).ThenBy(n => n.Channel))
             {
-                List<(int From, int To)> spans = [.. note.Plays.Select(p => (p.FirstTick, p.FirstTick + p.Ticks))];
-                int column = ColumnsFor(note, onChannel[note.Channel]).FirstOrDefault(c => !spans.Any(s => busy[c].Any(b => s.From < b.To && b.From < s.To)), -1);
-                if (column < 0)
+                // A pre-mix holds one column from its first note's start to its last note's end; its first note places it.
+                MixedNotes? mixed = _mixOf.GetValueOrDefault(note);
+                if (mixed is not null && mixed.Lead != note)
                 {
-                    note.Kind = null;
-                    Moved++;
                     continue;
                 }
 
-                note.Column = column;
+                List<(int From, int To)> spans = mixed is null ? [.. note.Plays.Select(p => (p.FirstTick, p.FirstTick + p.Ticks))] : [(mixed.Start, mixed.End)];
+                int column = ColumnsFor(note, onChannel[note.Channel]).FirstOrDefault(c => !spans.Any(s => busy[c].Any(b => s.From < b.To && b.From < s.To)), -1);
+                List<PlannedNote> together = mixed?.Notes ?? [note];
+                if (column < 0)
+                {
+                    foreach (PlannedNote cut in together)
+                    {
+                        cut.Kind = null;
+                        Moved++;
+                    }
+
+                    continue;
+                }
+
+                foreach (PlannedNote placed in together)
+                {
+                    placed.Column = column;
+                }
+
                 busy[column].AddRange(spans);
                 onChannel[note.Channel] = column;
             }
@@ -731,6 +1056,22 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
                     }
                 }
 
+                // A pre-mix's tail starts on its row, on the column the mix played on (docs/adr/0094-pre-mixed-voice-steals.md).
+                for (int c = 0; c < row.Cells.Count; c++)
+                {
+                    if (_tailAt.TryGetValue((order, r, c), out MixedNotes? mixed) && mixed is { Mix: { Tail: { } tail, Outlast: { } outlast } } && mixed.Lead.Kind is not null)
+                    {
+                        int column = mixed.Lead.Column;
+                        PlanVoice voice = new(VoiceKind.Dac, IndexOf(recordings, recordingIndex, tail));
+                        PlannedNote last = mixed.Notes.First(n => n.Plays[0] == outlast);
+                        cells[column] = new PlanCell(last.Pitch, voice, 1.0, false, [], c, last.Sample);
+                        on[c] = column;
+                        owner[column] = c;
+                        voiceOn[column] = voice;
+                        sampleOn[column] = last.Sample;
+                    }
+                }
+
                 // Notes first, so an effect or a stop follows the column as it is after this row's notes.
                 for (int c = 0; c < row.Cells.Count; c++)
                 {
@@ -742,7 +1083,8 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
 
                 for (int c = 0; c < row.Cells.Count; c++)
                 {
-                    if (row.Cells[c].Note is null && on[c] is { } column && owner[column] == c)
+                    // A pre-mix and its tail hold their notes' volumes and effects in their bytes.
+                    if (row.Cells[c].Note is null && on[c] is { } column && owner[column] == c && !IsMix(voiceOn[column]))
                     {
                         Cell cell = row.Cells[c];
                         double? volume = cell.Volume ?? (cell.Instrument is { } i ? _song.Instruments[i].DefaultVolume : null);
@@ -770,9 +1112,31 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
                         return;
                     }
 
+                    MixedNotes? mixed = _mixOf.GetValueOrDefault(note);
+                    if (mixed is not null && mixed.Lead != note)
+                    {
+                        // The pre-mix plays this note: its channel's last note ends here, as it would.
+                        Stop(cells, c);
+                        return;
+                    }
+
                     if (on[c] is { } previous && previous != note.Column && owner[previous] == c && cells[previous].Note is null)
                     {
                         cells[previous] = cells[previous] with { NoteOff = true, Source = c };
+                    }
+
+                    if (mixed?.Mix is { } mix)
+                    {
+                        // The pre-mix plays from its start at full volume: its notes' levels and effects are in its bytes,
+                        // but a note delay still says when it starts. No channel owns it, so no channel's stop cuts it.
+                        PlanVoice premix = new(VoiceKind.Dac, IndexOf(recordings, recordingIndex, mix.Head));
+                        cells[note.Column] = new PlanCell(note.Pitch, premix, 1.0, false, [.. effects.OfType<NoteDelay>()], c, note.Sample);
+                        WriteLayer(cells, c, note, effects);
+                        on[c] = null;
+                        owner[note.Column] = null;
+                        voiceOn[note.Column] = premix;
+                        sampleOn[note.Column] = note.Sample;
+                        return;
                     }
 
                     PlanVoice voice = new(kind, kind switch
@@ -828,6 +1192,9 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
                     sampleOn[note.LayerColumn] = note.Sample;
                 }
             }
+
+            // True for a recording the mapper mixed: a pre-mix or a tail.
+            bool IsMix(PlanVoice voice) => voice.Kind == VoiceKind.Dac && voice.Index < recordings.Count && recordings[voice.Index].Mix is not null;
 
             // A tone portamento bends the note playing: only FM can follow, and the bent note's distance kept others off it.
             void WriteSlide(PlanCell[] cells, int c, Cell cell, List<Effect> effects)
@@ -931,6 +1298,21 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
                         counts.GetValueOrDefault(VoiceKind.PsgNoise),
                         cut);
                 }
+            }
+
+            foreach (IGrouping<string, StealMix> group in _mixOf.Values.Distinct()
+                .Where(m => m.Lead.Kind is not null)
+                .Select(m => (Key: string.Join(" + ", m.Notes.Select(n => n.Sample).Order().Select(s => Label(s, _song.Samples[s].Name))), m.Mix))
+                .Where(m => m.Mix is not null)
+                .GroupBy(m => m.Key, m => m.Mix!) // Only pre-mixes with a mix are left.
+                .OrderBy(g => g.Key, StringComparer.Ordinal))
+            {
+                _notes.Add(
+                    "Samples {Samples} sound together with no PCM voice to spare, so they were mixed into one recording {Count} times ({Tails} with a tail; turned down up to {ClipDb:0.#} dB so the mix doesn't clip)",
+                    group.Key,
+                    group.Count(),
+                    group.Count(m => m.Tail is not null),
+                    group.Max(m => m.ClipDb));
             }
 
             foreach (IGrouping<(int Sample, VoiceKind Kind), PlannedNote> layered in _planned.Where(n => n is { LayerColumn: >= 0, Kind: not null }).GroupBy(n => (n.Sample, n.LayerKind)).OrderBy(g => g.Key.Sample))

@@ -107,6 +107,7 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0091](0091-shrinking-recordings.md) | Shrinking recordings to fit, chosen by ear | 2026-11-08 | Accepted |
 | [0092](0092-stable-voices.md) | Stable voices: the song's order, and a sound keeps its voice | 2026-11-08 | Accepted |
 | [0093](0093-optional-pcm-budget.md) | The PCM budget is optional; by default XGM and XGM2 hold what the format can | 2026-11-08 | Accepted |
+| [0094](0094-pre-mixed-voice-steals.md) | Voice steals through pre-mixes | 2026-11-08 | Accepted |
 
 ## Open questions
 
