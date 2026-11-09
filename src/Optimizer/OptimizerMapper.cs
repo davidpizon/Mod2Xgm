@@ -442,8 +442,9 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
         {
             VoiceKind? had = _lastKind.GetValueOrDefault(track.Key);
             double total = track.Sum(n => n.Importance);
-            // Keeping its sound, a track changes only for lack of room, never because another is closer (plan T9.4c).
-            bool keep = _switching is VoiceSwitching.KeepPlaying or VoiceSwitching.SongRank;
+            // Keeping its sound, a track changes only for lack of room, never because another is closer (plan T9.4c); per
+            // section (and once for the whole song) it changes when another is clearly closer (SwitchCostDb).
+            bool keep = _switching is not (VoiceSwitching.PerSection or VoiceSwitching.WholeSong);
             return [.. AllKinds
                 .Where(k => track.Any(n => Allowed(k, n)))
                 .OrderBy(k => keep && had is { } kept && kept != k ? 1 : 0)
