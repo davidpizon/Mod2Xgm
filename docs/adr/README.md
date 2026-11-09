@@ -109,6 +109,7 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0093](0093-optional-pcm-budget.md) | The PCM budget is optional; by default XGM and XGM2 hold what the format can | 2026-11-08 | Accepted |
 | [0094](0094-pre-mixed-voice-steals.md) | Voice steals through pre-mixes | 2026-11-08 | Accepted |
 | [0095](0095-voices-stop-with-the-mod-note.md) | A voice stops when the MOD's note falls silent | 2026-11-09 | Proposed |
+| [0096](0096-fm-confidence.md) | FM confidence per sample | 2026-11-09 | Proposed |
 
 ## Open questions
 

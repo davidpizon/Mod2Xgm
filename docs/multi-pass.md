@@ -80,6 +80,13 @@ combination of changes wins ([Passes](#passes)).
     allocation, a note that lost its recording to the voice limit is given it back, with a PCM voice left free or mixed
     on demand with a recording already playing; a track that never plays recordings is rescued only whole. The FM/PSG
     voices it frees go to notes that were cut.
+- **FM confidence** ([ADR 0096](adr/0096-fm-confidence.md), plan T9.4d–T9.4i). Each sample gets one number: the chance
+  David would pick its FM patch, or not tell it apart, over its recording in the song. Each region's fitted patch is
+  measured several ways, from the render that sets its level: the fit's scores, plus the attack, envelope and brightness
+  distances (`FmFeatureExtractor`). A model (`FmConfidenceModel`) turns them into a chance per region. The sample's
+  chance is weighted by the importance of the notes in each region (`SampleConfidence`, `OptimizerMapper.Confidence`).
+  The model is provisional (a logistic curve on the log-mel distance) until listening rounds fit it (T9.4i). The
+  threshold that lets it choose FM over the recording comes in T9.4e–T9.4f.
 
 ## Constraints the allocator enforces
 

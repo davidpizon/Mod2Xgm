@@ -15,7 +15,9 @@ namespace Mod2Xgm.Optimizer;
 /// <param name="Second">A second FM voice that sounds together with <paramref name="Patch"/>, for a chord (docs/adr/0089-fm-layer.md), or <c>null</c>.</param>
 /// <param name="FirstLevel">The factor on <paramref name="Patch"/>'s level when <paramref name="Second"/> sounds with it, as the pair's share of its level.</param>
 /// <param name="SpreadCents">How far apart the two voices play, half either side of the note.</param>
-internal sealed record RegionSounds(double LowRateHz, double HighRateHz, FmPatch? Patch, double? FmDb, double? ToneDb, double? NoiseDb, FmPatch? Second = null, double FirstLevel = 1, double SpreadCents = 0);
+/// <param name="Features">How <paramref name="Patch"/> compares with the sample, measured several ways, for its FM confidence
+/// (docs/adr/0096-fm-confidence.md); <c>null</c> without a patch or a pitch to render it at.</param>
+internal sealed record RegionSounds(double LowRateHz, double HighRateHz, FmPatch? Patch, double? FmDb, double? ToneDb, double? NoiseDb, FmPatch? Second = null, double FirstLevel = 1, double SpreadCents = 0, FmRegionFeatures? Features = null);
 
 /// <summary>What the allocator can play one sample with.</summary>
 /// <param name="Sample">Index into <c>Song.Samples</c>.</param>
@@ -26,9 +28,15 @@ internal sealed record RegionSounds(double LowRateHz, double HighRateHz, FmPatch
 internal sealed record SampleSounds(int Sample, double Percussive, IReadOnlyList<RegionSounds> Regions, IReadOnlyDictionary<double, double> RecordingDb, bool SteadyPitch = true)
 {
     /// <summary>The region holding <paramref name="rateHz"/>, or the nearest by pitch; <c>null</c> when it has none.</summary>
-    public RegionSounds? RegionAt(double rateHz) => Regions
-        .OrderBy(r => rateHz < r.LowRateHz ? Math.Log2(r.LowRateHz / rateHz) : rateHz > r.HighRateHz ? Math.Log2(rateHz / r.HighRateHz) : 0)
-        .FirstOrDefault();
+    public RegionSounds? RegionAt(double rateHz) => RegionIndexAt(rateHz) is { } r ? Regions[r] : null;
+
+    /// <summary>The index in <see cref="Regions"/> of <see cref="RegionAt"/>; <c>null</c> when it has none.</summary>
+    public int? RegionIndexAt(double rateHz) => Regions.Count == 0
+        ? null
+        : Enumerable.Range(0, Regions.Count).OrderBy(i => OctavesOutside(Regions[i], rateHz)).First();
+
+    private static double OctavesOutside(RegionSounds r, double rateHz) =>
+        rateHz < r.LowRateHz ? Math.Log2(r.LowRateHz / rateHz) : rateHz > r.HighRateHz ? Math.Log2(rateHz / r.HighRateHz) : 0;
 }
 
 /// <summary>
@@ -164,14 +172,24 @@ internal static class SoundMenu
     internal static FmPatch Measured(FmPatch patch, double? hz, bool loops)
     {
         ArgumentNullException.ThrowIfNull(patch);
-        if (hz is not { } noteHz)
+        return Measured(patch, Render(patch, hz), loops);
+    }
+
+    /// <summary><paramref name="patch"/> with the level <paramref name="render"/> of it measures, as <see cref="Measured(FmPatch, double?, bool)"/>.</summary>
+    private static FmPatch Measured(FmPatch patch, float[]? render, bool loops)
+    {
+        if (render is null)
         {
             return patch;
         }
 
-        double rms = VoiceLevel.Heard(FmNoteRenderer.Render(patch, null, noteHz, SampleAnalyzer.RegionSeconds), SampleAnalyzer.AnalysisRateHz, loops);
+        double rms = VoiceLevel.Heard(render, SampleAnalyzer.AnalysisRateHz, loops);
         return rms > 0 ? patch with { HeardRms = rms } : patch;
     }
+
+    /// <summary><paramref name="patch"/> played at <paramref name="hz"/> for a region's analysis; <c>null</c> without a pitch.</summary>
+    private static float[]? Render(FmPatch patch, double? hz) =>
+        hz is { } noteHz ? FmNoteRenderer.Render(patch, null, noteHz, SampleAnalyzer.RegionSeconds) : null;
 
     private static SampleSounds Sample(SongAnalysis song, SampleAnalysis analysis, PcmTarget target, MappingOptions options, FmFitOptions fmOptions, CandidateCache? cache)
     {
@@ -193,9 +211,19 @@ internal static class SoundMenu
             FmFit? fit = fm?.Regions.FirstOrDefault(f => f.Region == r)?.NoLfo;
             PsgRegionFit? tries = psg?.Regions.FirstOrDefault(f => f.Region == r);
             PsgCandidate? noise = tries?.Candidates.FirstOrDefault(c => c.Setting is { Sound: PsgSound.WhiteNoise } s && s.NoiseRate == noiseRate);
-            FmPatch? patch = fit is null ? null : Measured(AtFullLevel(fit.Patch), NoteTarget.Of(region)?.NoteHz, played.Loop is not null);
+            FmPatch? patch = null;
+            FmRegionFeatures? features = null;
+            if (fit is not null)
+            {
+                // One render sets the patch's level and measures its features (docs/adr/0096-fm-confidence.md).
+                FmPatch full = AtFullLevel(fit.Patch);
+                float[]? render = Render(full, NoteTarget.Of(region)?.NoteHz);
+                patch = Measured(full, render, played.Loop is not null);
+                features = render is null ? null : FmFeatureExtractor.Measure(region.Spectrum, SampleAnalyzer.Spectrum(render, null), fit.Score);
+            }
+
             (FmPatch? second, double firstLevel, double spread) = patch is null ? (null, 1, 0) : SecondVoice(region, patch, played.Loop is not null, string.Create(CultureInfo.InvariantCulture, $"Fit {sample + 1}.{r + 1} second"));
-            regions.Add(new RegionSounds(region.LowRateHz, region.HighRateHz, patch, fit?.Score.MelDb, tries?.Tone?.Score.MelDb, noise?.Score.MelDb, second, firstLevel, spread));
+            regions.Add(new RegionSounds(region.LowRateHz, region.HighRateHz, patch, fit?.Score.MelDb, tries?.Tone?.Score.MelDb, noise?.Score.MelDb, second, firstLevel, spread, features));
         }
 
         Dictionary<double, double> recordings = [];

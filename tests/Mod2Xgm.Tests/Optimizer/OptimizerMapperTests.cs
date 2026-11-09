@@ -1019,6 +1019,63 @@ public sealed class OptimizerMapperTests
         Assert.Contains(audio.Left, x => Math.Abs(x) > 0.01f);
     }
 
+    /// <summary>Each sample gets an FM confidence from its patch's features, with its share of the song's importance, and the plan doesn't change (docs/adr/0096-fm-confidence.md).</summary>
+    [Fact]
+    public void Map_WithMeasuredPatches_ReportsConfidenceWithoutChangingPlan()
+    {
+        // Arrange
+        Song song = SongOf(2, [(0, 0, 1.0), (1, 1, 1.0)]);
+        RegionSounds measured = new(0, 1e6, FmPatchLibrary.Sine, 8, 15, 25, Features: new FmRegionFeatures(new NoteScore(FmConfidenceModel.ProvisionalMidpointDb, 0, null), 0, 0, 0));
+        SampleSounds scored = Sounds(0) with { Regions = [measured] };
+        OptimizerMapper sut = new(Limits(PcmTarget.Xgm), [scored, Sounds(1)]);
+        OptimizerMapper plain = new(Limits(PcmTarget.Xgm), [Sounds(0), Sounds(1)]);
+
+        // Act
+        GenesisPlan plan = sut.Map(song, PlaybackOf(song), MappingOptions.Default, Notes());
+        GenesisPlan before = plain.Map(song, PlaybackOf(song), MappingOptions.Default, Notes());
+
+        // Assert
+        Assert.Equal(Kinds(before), Kinds(plan));
+        Assert.Equal([0, 1], sut.Confidence.Select(c => c.Sample));
+        Assert.Equal(0.5, sut.Confidence[0].Probability!.Value, 6);
+        Assert.Equal(ConfidenceReason.Scored, sut.Confidence[0].Reason);
+        Assert.Null(sut.Confidence[1].Probability);
+        Assert.Equal(ConfidenceReason.NoFm, sut.Confidence[1].Reason);
+        Assert.Equal(0.5, sut.Confidence[0].Exposure, 6);
+        Assert.Equal(1.0, sut.Confidence.Sum(c => c.Exposure), 6);
+    }
+
+    /// <summary>A sample whose only note slides has all its importance in bent notes, which its FM confidence reports (docs/adr/0096-fm-confidence.md).</summary>
+    [Fact]
+    public void Map_WithBentNote_ReportsBentShare()
+    {
+        // Arrange
+        Song song = SongOf(1, [(0, 0)], [(-1, 0)]);
+        Playback playback = PlaybackOf(song, rates: [Rate, Rate * 1.1], newNotes: [true, false]);
+        OptimizerMapper sut = new(Limits(PcmTarget.Dmf), [Sounds(0)]);
+
+        // Act
+        sut.Map(song, playback, MappingOptions.Default, Notes());
+
+        // Assert
+        Assert.Equal(1.0, sut.Confidence[0].BentShare, 6);
+    }
+
+    /// <summary>When the first pass that makes room for pre-mixes finds the song can't fit, the confidence is still there for the report (docs/adr/0096-fm-confidence.md).</summary>
+    [Fact]
+    public void Map_WithProbeThatCantFit_KeepsConfidence()
+    {
+        // Arrange
+        Song song = SongOf(1, [(0, 0)]);
+        OptimizerMapper sut = new(TargetLimits.For(PcmTarget.Xgm, 256, 0), [Sounds(0)], null, null, PreMixRules.Default with { MakeRoom = true });
+
+        // Act
+        Assert.Throws<ConversionException>(() => sut.Map(song, PlaybackOf(song), Required("dac", 0), Notes()));
+
+        // Assert
+        Assert.Equal(ConfidenceReason.RequiredDac, Assert.Single(sut.Confidence).Reason);
+    }
+
     private static IEnumerable<string> Kinds(GenesisPlan plan) =>
         plan.Patterns.SelectMany(p => p).SelectMany(r => r.Cells).Select(c => $"{c.Voice}/{c.Sample}");
 
