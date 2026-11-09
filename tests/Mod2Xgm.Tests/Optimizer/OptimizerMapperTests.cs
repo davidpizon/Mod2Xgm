@@ -275,17 +275,22 @@ public sealed class OptimizerMapperTests
         Assert.Contains(notes.Messages, m => m.Contains("1 are cut", StringComparison.Ordinal));
     }
 
-    /// <summary>A track keeps its sound between sections when another is only slightly closer, and changes when another is clearly closer.</summary>
+    /// <summary>
+    /// A track's sound between sections when another is closer in the second: per section, it keeps its sound when the
+    /// other is only slightly closer and changes when it is clearly closer; in the song's order (the converter's rule,
+    /// ADR 0092), it keeps its sound while that sound has room, however much closer the other is.
+    /// </summary>
     [Theory]
-    [InlineData(5.0, 4.0, "Fm")]
-    [InlineData(5.0, 1.0, "PsgTone")]
-    public void Map_WithTrackAcrossSections_SticksUnlessClearlyCloser(double fmDb, double toneDb, string second)
+    [InlineData("PerSection", 5.0, 4.0, "Fm")]
+    [InlineData("PerSection", 5.0, 1.0, "PsgTone")]
+    [InlineData("SongRank", 5.0, 1.0, "Fm")]
+    public void Map_WithTrackAcrossSections_SwitchesOnlyAsTheRuleSays(string rule, double fmDb, double toneDb, string second)
     {
         // Arrange
         Song song = SongOf(1, 2, [(0, 0)], [(0, 0)]);
         Playback playback = PlaybackOf(song, rates: [Rate, Rate * 4]);
         SampleSounds sounds = new(0, 0, [new RegionSounds(0, Rate * 2, FmPatchLibrary.Sine, fmDb, fmDb + 10, null), new RegionSounds(Rate * 2, Rate * 8, FmPatchLibrary.Sine, fmDb, toneDb, null)], new Dictionary<double, double>());
-        OptimizerMapper sut = new(Limits(PcmTarget.Dmf), [sounds]);
+        OptimizerMapper sut = new(Limits(PcmTarget.Dmf), [sounds], null, Enum.Parse<VoiceSwitching>(rule));
 
         // Act
         GenesisPlan plan = sut.Map(song, playback, MappingOptions.Default, Notes());
@@ -293,6 +298,63 @@ public sealed class OptimizerMapperTests
         // Assert
         Assert.Equal(Enum.Parse<VoiceKind>(second), Assert.Single(plan.Patterns[1][0].Cells, c => c is { Note: not null, Level: 1 }).Voice?.Kind);
     }
+
+    /// <summary>
+    /// One PCM voice: sample 0 plays in both sections, a more important sample 1 arrives in the second. Per section, the
+    /// newcomer takes the voice and sample 0 switches to FM; keeping the voice, sample 0 stays a recording and the newcomer
+    /// plays by FM; choosing for the whole song, the newcomer gets the voice and sample 0 plays by FM from the start, so
+    /// only the first rule switches a sound mid-song. In the song's order, the newcomer matters more over the song, so it
+    /// takes the voice in the second section as per section (plan T9.4c).
+    /// </summary>
+    [Theory]
+    [InlineData("PerSection", "Dac", "Fm", "Dac")]
+    [InlineData("KeepPlaying", "Dac", "Dac", "Fm")]
+    [InlineData("WholeSong", "Fm", "Fm", "Dac")]
+    [InlineData("SongRank", "Dac", "Fm", "Dac")]
+    public void Map_WithMoreImportantNewcomer_KeepsOrGivesUpTheVoiceAsTheRuleSays(string rule, string padFirst, string padThen, string newcomer)
+    {
+        // Arrange: one PCM voice; sample 0 plays in both sections, sample 1, a hit and so more important, only in the second.
+        Song song = SongOf(2, 2, [(0, 0)], [(0, 0), (1, 1)]);
+        SampleSounds hit = Sounds(1) with { Percussive = 1 };
+        OptimizerMapper sut = new(TargetLimits.For(PcmTarget.Xgm2, 1 << 20, 2), [Sounds(0), hit], null, Enum.Parse<VoiceSwitching>(rule));
+
+        // Act
+        GenesisPlan plan = sut.Map(song, PlaybackOf(song), MappingOptions.Default, Notes());
+
+        // Assert
+        Assert.Equal(
+            (Enum.Parse<VoiceKind>(padFirst), Enum.Parse<VoiceKind>(padThen), Enum.Parse<VoiceKind>(newcomer)),
+            (KindOf(plan, 0, 0), KindOf(plan, 1, 0), KindOf(plan, 1, 1)));
+    }
+
+    /// <summary>
+    /// One PCM voice: a pad loud in the first section and quiet in the second, where a newcomer louder than the pad's
+    /// second note but quieter than its song-wide mean arrives. Per section, the newcomer matters more there and takes the
+    /// voice; in the song's order (the converter's rule, ADR 0092), the pad matters more over the song and keeps it.
+    /// </summary>
+    [Theory]
+    [InlineData("PerSection", "Fm", "Dac")]
+    [InlineData("SongRank", "Dac", "Fm")]
+    public void Map_WithPadQuietWhereNewcomerArrives_RanksBySongOrSectionAsTheRuleSays(string rule, string padThen, string newcomer)
+    {
+        // Arrange: the pad is at volume 1 then 0.1 (mean 0.55); the newcomer is at 0.5, beside the pad's quiet note.
+        Song song = Assemble(2, 2, [
+            new Row([new Cell(new NotePitch(48, 0, Rate), 0, 1.0, []), Cell.Empty]),
+            new Row([new Cell(new NotePitch(48, 0, Rate), 0, 0.1, []), new Cell(new NotePitch(48, 0, Rate), 1, 0.5, [])])]);
+        OptimizerMapper sut = new(TargetLimits.For(PcmTarget.Xgm2, 1 << 20, 2), [Sounds(0), Sounds(1)], null, Enum.Parse<VoiceSwitching>(rule));
+
+        // Act
+        GenesisPlan plan = sut.Map(song, PlaybackOf(song), MappingOptions.Default, Notes());
+
+        // Assert
+        Assert.Equal(
+            (VoiceKind.Dac, Enum.Parse<VoiceKind>(padThen), Enum.Parse<VoiceKind>(newcomer)),
+            (KindOf(plan, 0, 0), KindOf(plan, 1, 0), KindOf(plan, 1, 1)));
+    }
+
+    /// <summary>The voice kind of MOD channel <paramref name="channel"/>'s note on the first row of order <paramref name="order"/>.</summary>
+    private static VoiceKind? KindOf(GenesisPlan plan, int order, int channel) =>
+        plan.Patterns[order][0].Cells.Single(c => c is { Note: not null, Level: 1 } && c.Source == channel).Voice?.Kind;
 
     /// <summary>A note of an ignored sample stops the track, as the simple mapper does, and the note is logged.</summary>
     [Fact]

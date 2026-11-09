@@ -16,7 +16,8 @@ namespace Mod2Xgm.Optimizer;
 /// <param name="limits">What the target holds.</param>
 /// <param name="menu">What each sample can sound like.</param>
 /// <param name="shrink">How recordings are shrunk to fit before notes give them up (plan T9.4a); <see cref="ShrinkRules.Default"/> when not given.</param>
-internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleSounds> menu, ShrinkRules? shrink = null) : IChannelMapper
+/// <param name="switching">How a sound keeps its voice through the song (plan T9.4c); the converter's choice when not given.</param>
+internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleSounds> menu, ShrinkRules? shrink = null, VoiceSwitching? switching = null) : IChannelMapper
 {
     /// <summary>What a fully percussive sample's notes add to their importance, as a multiple of a note with no hit: a replaced attack is easy to hear, and David chose this over smaller values (docs/sample-capacity.md#importance).</summary>
     private const double PercussiveBoost = 8;
@@ -42,6 +43,9 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
     /// <summary>Where the DAC plays when recordings from both sides sound at once: both speakers, David's pick over the louder side in round 12 (docs/adr/0091-shrinking-recordings.md).</summary>
     private const DacPanClash PanClash = DacPanClash.Centre;
 
+    /// <summary>How a sound keeps its voice through the song: in the song's order, keeping the voice it has, David's pick in rounds 13–15 (docs/adr/0092-stable-voices.md).</summary>
+    private const VoiceSwitching Switching = VoiceSwitching.SongRank;
+
     /// <summary>A distance for a sound with no measurement: as far as the ruler goes.</summary>
     private const double UnknownDb = NoteScorer.RangeDb;
 
@@ -66,7 +70,7 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
             throw new ArgumentException("--no-dac and --require-dac can't both be given.", nameof(options));
         }
 
-        Run run = new(limits, menu, song, playback, options, notes, shrink ?? ShrinkRules.Default);
+        Run run = new(limits, menu, song, playback, options, notes, shrink ?? ShrinkRules.Default, switching ?? Switching);
         GenesisPlan plan = run.Execute();
         NotesMoved = run.Moved;
         return plan;
@@ -137,6 +141,7 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
 
         // What the recordings store so far (docs/adr/0086-capacity-check.md).
         private readonly ShrinkRules _rules;
+        private readonly VoiceSwitching _switching;
         private readonly HashSet<StoredCopy> _stored = [];
         private Dictionary<StoredCopy, int> _copyBytes = [];
         private ShrinkResult? _shrunk;
@@ -149,14 +154,18 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
         private readonly SortedDictionary<int, int> _ignored = [];
         private readonly Dictionary<(int Channel, int Sample), VoiceKind?> _lastKind = [];
 
+        // Each track's mean note importance over the whole song, for VoiceSwitching.SongRank (plan T9.4c).
+        private Dictionary<(int Channel, int Sample), double> _songImportance = [];
+
         private int _unplayed;
         private int _noInstrument;
         private int _silent;
         private int _slides;
 
-        public Run(TargetLimits limits, IReadOnlyList<SampleSounds> menu, Song song, Playback playback, MappingOptions options, ConversionNotes notes, ShrinkRules rules)
+        public Run(TargetLimits limits, IReadOnlyList<SampleSounds> menu, Song song, Playback playback, MappingOptions options, ConversionNotes notes, ShrinkRules rules, VoiceSwitching switching)
         {
             _rules = rules;
+            _switching = switching;
             _limits = limits;
             _song = song;
             _playback = playback;
@@ -181,7 +190,13 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
             Collect();
             SizeCopies();
             CheckRequired();
-            foreach (IGrouping<int, PlannedNote> section in _planned.GroupBy(n => n.Order).OrderBy(g => g.Key))
+            // Each track's place in the song's order (docs/adr/0092-stable-voices.md); the whole song as one section gives each
+            // track one sound throughout, where it has room.
+            _songImportance = _planned.GroupBy(n => (n.Channel, n.Sample)).ToDictionary(t => t.Key, t => t.Average(n => n.Importance));
+            IEnumerable<IGrouping<int, PlannedNote>> sections = _switching == VoiceSwitching.WholeSong
+                ? _planned.GroupBy(_ => 0)
+                : _planned.GroupBy(n => n.Order).OrderBy(g => g.Key);
+            foreach (IGrouping<int, PlannedNote> section in sections)
             {
                 Allocate(section);
             }
@@ -389,19 +404,26 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
                 .Select(k => _shrunk is not null && _shrunk.Stored.TryGetValue(k, out StoredCopy copy) ? copy : new StoredCopy(k.Sample, k.RateHz, k.StartFrame, k.VolumeSteps, false));
 
         /// <summary>
-        /// One section: the track whose notes matter most first, taking the closest sound with room for all its notes, so it
-        /// doesn't change sound within the section; when none has, each note takes the first with room for it. A track stays
-        /// with the sound it had unless another is clearly closer (<see cref="SwitchCostDb"/>).
+        /// One section: the track whose notes matter most first (with <see cref="VoiceSwitching.SongRank"/>, most over the
+        /// whole song), taking the closest sound with room for all its notes, so it doesn't change sound within the section;
+        /// when none has, each note takes the first with room for it. A track keeps the sound it had while it has room
+        /// (<see cref="VoiceSwitching.SongRank"/>, docs/adr/0092-stable-voices.md), or per section unless another is clearly
+        /// closer (<see cref="SwitchCostDb"/>).
         /// </summary>
         private void Allocate(IEnumerable<PlannedNote> section)
         {
+            bool keep = _switching == VoiceSwitching.KeepPlaying;
+            bool songRank = _switching == VoiceSwitching.SongRank;
             foreach (IGrouping<(int Channel, int Sample), PlannedNote> track in section.GroupBy(n => (n.Channel, n.Sample))
-                .OrderByDescending(t => t.Average(n => n.Importance))
+
+                // A track that already has a sound chooses before a newcomer, so it keeps it (plan T9.4c).
+                .OrderBy(t => keep && _lastKind.GetValueOrDefault(t.Key) is not null ? 0 : 1)
+                .ThenByDescending(t => songRank ? _songImportance[t.Key] : t.Average(n => n.Importance))
                 .ThenBy(t => t.Key.Channel)
                 .ThenBy(t => t.Key.Sample))
             {
                 VoiceKind[] ranked = Ranked(track);
-                List<PlannedNote> notes = [.. track.OrderBy(n => n.Row)];
+                List<PlannedNote> notes = [.. track.OrderBy(n => n.Order).ThenBy(n => n.Row)];
                 VoiceKind? whole = ranked.Cast<VoiceKind?>().FirstOrDefault(k => k is { } kind && notes.All(n => Allowed(kind, n)) && HasRoomForAll(kind, notes));
                 foreach (PlannedNote note in notes)
                 {
@@ -411,7 +433,8 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
                     Moved += allowed.Length > 0 && note.Kind == allowed[0] ? 0 : 1;
                 }
 
-                _lastKind[track.Key] = track.Select(n => n.Kind).FirstOrDefault(k => k is not null) ?? _lastKind.GetValueOrDefault(track.Key);
+                // The sound the track ends the section on, so the next section keeps that one.
+                _lastKind[track.Key] = notes.Select(n => n.Kind).LastOrDefault(k => k is not null) ?? _lastKind.GetValueOrDefault(track.Key);
             }
         }
 
@@ -420,9 +443,13 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
         {
             VoiceKind? had = _lastKind.GetValueOrDefault(track.Key);
             double total = track.Sum(n => n.Importance);
+            // Keeping its sound, a track changes only for lack of room, never because another is closer (plan T9.4c); per
+            // section (and once for the whole song) it changes when another is clearly closer (SwitchCostDb).
+            bool keep = _switching is not (VoiceSwitching.PerSection or VoiceSwitching.WholeSong);
             return [.. AllKinds
                 .Where(k => track.Any(n => Allowed(k, n)))
-                .OrderBy(k => track.Sum(n => n.Importance * Distance(k, n)) + (had is { } h && h != k ? total * SwitchCostDb : 0))];
+                .OrderBy(k => keep && had is { } kept && kept != k ? 1 : 0)
+                .ThenBy(k => track.Sum(n => n.Importance * Distance(k, n)) + (had is { } h && h != k ? total * SwitchCostDb : 0))];
         }
 
         /// <summary>True when the user's lists and the menu let <paramref name="note"/> use <paramref name="kind"/>.</summary>

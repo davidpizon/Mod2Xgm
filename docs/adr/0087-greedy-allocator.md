@@ -1,6 +1,6 @@
 # ADR 0087: A greedy allocator, its sounds and levels chosen by ear
 
-- **Status:** Accepted
+- **Status:** Accepted; the track order and switch rule (`SwitchCostDb`) are superseded by [ADR 0092](0092-stable-voices.md)
 - **Date:** 2026-11-06
 
 ## Context
