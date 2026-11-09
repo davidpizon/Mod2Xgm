@@ -184,6 +184,61 @@ public sealed class GenesisRendererTests
         Assert.True(Db(audio.Left, audio.SampleRate, 0.6, 1.1) < -60);
     }
 
+    /// <summary>
+    /// The plan's cut on tick 3 of a row, where the MOD's note falls silent, lets go of the FM key on that tick: the looped
+    /// note sounds until then and is silent soon after (docs/adr/0095-voices-stop-with-the-mod-note.md).
+    /// </summary>
+    [Fact]
+    public void Render_WithNoteCut_StopsFmNoteOnItsTick()
+    {
+        // Arrange
+        PlanCell cut = PlanCell.Empty with { Effects = [new NoteCut(3, Ends: true)], Source = 0 };
+        GenesisPlan plan = PlanOf([FmPatchLibrary.Sine], [], Row((GenesisChannel.Fm1, Note(VoiceKind.Fm))), Row((GenesisChannel.Fm1, cut)));
+
+        // Act
+        StereoAudio sut = Render(plan, SongOf(1, LoopedSine()), PlaybackOf(10, (r, t) => Playing(r == 0 && t == 0)));
+
+        // Assert: row 1 starts at 0.12 s, its tick 3 at 0.18 s.
+        Assert.True(Db(sut.Left, sut.SampleRate, 0.13, 0.17) > -15);
+        Assert.True(Db(sut.Left, sut.SampleRate, 0.6, 1.1) < -60);
+    }
+
+    /// <summary>
+    /// The MOD's own ECx only sets the volume to 0, which the FM voice follows from the playback, so it doesn't stop the voice:
+    /// here the playback keeps the volume up and the note sounds on (a later volume command can bring an ECx note back).
+    /// </summary>
+    [Fact]
+    public void Render_WithModNoteCut_LeavesTheVoiceToTheVolume()
+    {
+        // Arrange
+        PlanCell cut = PlanCell.Empty with { Effects = [new NoteCut(3)], Source = 0 };
+        GenesisPlan plan = PlanOf([FmPatchLibrary.Sine], [], Row((GenesisChannel.Fm1, Note(VoiceKind.Fm))), Row((GenesisChannel.Fm1, cut)));
+
+        // Act
+        StereoAudio sut = Render(plan, SongOf(1, LoopedSine()), PlaybackOf(10, (r, t) => Playing(r == 0 && t == 0)));
+
+        // Assert
+        Assert.True(Db(sut.Left, sut.SampleRate, 0.6, 1.1) > -15);
+    }
+
+    /// <summary>A note cut stops a recording on its tick too, where it would otherwise play on at the volume it started with.</summary>
+    [Fact]
+    public void Render_WithNoteCut_StopsRecordingOnItsTick()
+    {
+        // Arrange
+        Sample recording = OneShotSine(8000, 2);
+        PlanCell cut = PlanCell.Empty with { Effects = [new NoteCut(3, Ends: true)], Source = 0 };
+        GenesisPlan plan = PlanOf([], [new DacSample(0, 8000)], Row((GenesisChannel.Fm6, Note(VoiceKind.Dac, rateHz: 8000))), Row((GenesisChannel.Fm6, cut)));
+        Playback playback = PlaybackOf(20, (r, t) => Playing(r == 0 && t == 0, rateHz: 8000, frames: recording.Length));
+
+        // Act
+        StereoAudio sut = Render(plan, SongOf(1, recording), playback, ChipRate with { Driver = PcmDriver.Xgm2 });
+
+        // Assert: the driver's buffer delays both the start and the stop by about 33 ms.
+        Assert.True(Db(sut.Left, sut.SampleRate, 0.1, 0.2) > -20);
+        Assert.True(Db(sut.Left, sut.SampleRate, 0.4, 1.5) < -60);
+    }
+
     /// <summary>E9x starts a decaying note again, so it is loud again after the restart; a tone portamento slides the playing note without one.</summary>
     [Fact]
     public void Render_WithRetriggerAndPortamento_RestartsAndSlides()

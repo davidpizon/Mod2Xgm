@@ -740,6 +740,158 @@ public sealed class OptimizerMapperTests
         Assert.True(plan.Patterns[0][1].Cells[(int)GenesisChannel.Psg1].NoteOff);
     }
 
+    /// <summary>
+    /// An FM note whose one-shot sample plays out before the channel's next note stops on the row the MOD falls silent,
+    /// not before; the key would otherwise stay on (docs/adr/0095-voices-stop-with-the-mod-note.md).
+    /// </summary>
+    [Fact]
+    public void Map_WithFmNoteWhoseSampleEnds_StopsTheVoiceWhenItEnds()
+    {
+        // Arrange: 4000 frames at 160 frames a tick play out after 25 one-tick rows.
+        (int Channel, int Sample)[][] rows = [[(0, 0)], .. Enumerable.Repeat<(int, int)[]>([(-1, 0)], 39)];
+        Song song = SongOf(1, rows);
+        OptimizerMapper sut = new(Limits(PcmTarget.Xgm), [FmFirst(0)]);
+
+        // Act
+        GenesisPlan plan = sut.Map(song, PlaybackOf(song), MappingOptions.Default, Notes());
+
+        // Assert
+        IReadOnlyList<PlanRow> pattern = plan.Patterns[0];
+        Assert.Equal(VoiceKind.Fm, pattern[0].Cells[(int)GenesisChannel.Fm1].Voice?.Kind);
+        Assert.Equal([25], Enumerable.Range(0, pattern.Count).Where(r => pattern[r].Cells[(int)GenesisChannel.Fm1].NoteOff));
+    }
+
+    /// <summary>
+    /// A recording the MOD fades to silence (a volume slide, <c>C00</c>) stops on the tick its volume reaches 0 for good, as
+    /// the DAC keeps the volume a note starts with (docs/adr/0095-voices-stop-with-the-mod-note.md).
+    /// </summary>
+    [Fact]
+    public void Map_WithRecordingFadedToSilence_StopsTheDacWhenSilent()
+    {
+        // Arrange: full volume on rows 0–2, then 0 to the song's end; the fade bends the note, so the recording is required.
+        (int Channel, int Sample)[][] rows = [[(0, 0)], .. Enumerable.Repeat<(int, int)[]>([(-1, 0)], 9)];
+        Song song = SongOf(1, rows);
+        Playback full = PlaybackOf(song);
+        Playback faded = full with { Ticks = [.. full.Ticks.Select((tick, i) => i < 3 ? tick : tick with { Channels = [tick.Channels[0] with { Volume = 0 }] })] };
+        OptimizerMapper sut = new(Limits(PcmTarget.Xgm), [Sounds(0)]);
+
+        // Act
+        GenesisPlan plan = sut.Map(song, faded, Required("dac", 0), Notes());
+
+        // Assert
+        IReadOnlyList<PlanRow> pattern = plan.Patterns[0];
+        Assert.Equal(VoiceKind.Dac, pattern[0].Cells[(int)GenesisChannel.Fm6].Voice?.Kind);
+        Assert.Equal([3], Enumerable.Range(0, pattern.Count).Where(r => pattern[r].Cells[(int)GenesisChannel.Fm6].NoteOff));
+    }
+
+    /// <summary>A sample that ends partway through a row is cut on that tick of the row: the cell keeps its place and takes a note cut.</summary>
+    [Fact]
+    public void Map_WithSampleEndingMidRow_CutsOnThatTick()
+    {
+        // Arrange: the song's ticks played three to a row, so the sample ends on tick 25, tick 1 of row 8.
+        (int Channel, int Sample)[][] rows = [[(0, 0)], .. Enumerable.Repeat<(int, int)[]>([(-1, 0)], 35)];
+        Song song = SongOf(1, rows);
+        Playback oneTickRows = PlaybackOf(song);
+        Playback threeTickRows = oneTickRows with { Ticks = [.. oneTickRows.Ticks.Select((tick, i) => tick with { Row = i / 3, Tick = i % 3 })] };
+        OptimizerMapper sut = new(Limits(PcmTarget.Xgm), [FmFirst(0)]);
+
+        // Act
+        GenesisPlan plan = sut.Map(song, threeTickRows, MappingOptions.Default, Notes());
+
+        // Assert
+        PlanCell cut = plan.Patterns[0][8].Cells[(int)GenesisChannel.Fm1];
+        Assert.False(cut.NoteOff);
+        Assert.Equal(new NoteCut(1, Ends: true), Assert.Single(cut.Effects.OfType<NoteCut>()));
+    }
+
+    /// <summary>The MOD's own ECx in the cell and the plan's cut merge into one cut, on the earlier tick, so the render and the DMF agree.</summary>
+    [Fact]
+    public void Map_WithModNoteCutInTheCutCell_KeepsOneCutOnTheEarlierTick()
+    {
+        // Arrange: as the mid-row test, with EC2 in row 8 of the song.
+        (int Channel, int Sample)[][] rows = [[(0, 0)], .. Enumerable.Repeat<(int, int)[]>([(-1, 0)], 35)];
+        Song plain = SongOf(1, rows);
+        Row[] withCut = [.. plain.Patterns[0].Rows.Select((row, r) => r == 8 ? new Row([Cell.Empty with { Effects = [new NoteCut(2)] }]) : row)];
+        Song song = Assemble(1, 1, withCut);
+        Playback oneTickRows = PlaybackOf(song);
+        Playback threeTickRows = oneTickRows with { Ticks = [.. oneTickRows.Ticks.Select((tick, i) => tick with { Row = i / 3, Tick = i % 3 })] };
+        OptimizerMapper sut = new(Limits(PcmTarget.Xgm), [FmFirst(0)]);
+
+        // Act
+        GenesisPlan plan = sut.Map(song, threeTickRows, MappingOptions.Default, Notes());
+
+        // Assert
+        Assert.Equal(new NoteCut(1, Ends: true), Assert.Single(plan.Patterns[0][8].Cells[(int)GenesisChannel.Fm1].Effects.OfType<NoteCut>()));
+    }
+
+    /// <summary>
+    /// A row the renderer reads twice (held by EEx: its ticks start over) gets no cut when only one read wants it, as the cut
+    /// would fire on the same tick of the other read too, where the note still sounds.
+    /// </summary>
+    [Fact]
+    public void Map_WithSampleEndingInARepeatedRow_LeavesTheVoiceUncut()
+    {
+        // Arrange: rows of six ticks counted 0, 1, 2, 0, 1, 2; the sample ends on tick 25, tick 1 of row 4's first read only.
+        (int Channel, int Sample)[][] rows = [[(0, 0)], .. Enumerable.Repeat<(int, int)[]>([(-1, 0)], 35)];
+        Song song = SongOf(1, rows);
+        Playback oneTickRows = PlaybackOf(song);
+        Playback repeatedRows = oneTickRows with { Ticks = [.. oneTickRows.Ticks.Select((tick, i) => tick with { Row = i / 6, Tick = i % 3 })] };
+        OptimizerMapper sut = new(Limits(PcmTarget.Xgm), [FmFirst(0)]);
+
+        // Act
+        GenesisPlan plan = sut.Map(song, repeatedRows, MappingOptions.Default, Notes());
+
+        // Assert
+        Assert.DoesNotContain(plan.Patterns[0].Select(row => row.Cells[(int)GenesisChannel.Fm1]), cell => cell.NoteOff || cell.Effects.OfType<NoteCut>().Any());
+    }
+
+    /// <summary>
+    /// A stop followed by another start of the channel later in the same row (E9x, EDx) is left out: the start takes the voice
+    /// over, and a cut there would stop the voice before it.
+    /// </summary>
+    [Fact]
+    public void Map_WithNoteStartingLaterInTheRow_LeavesTheEarlierStopOut()
+    {
+        // Arrange: three-tick rows; the first note plays out on tick 25 (row 8, tick 1) and the next starts on tick 26 (row 8, tick 2).
+        (int Channel, int Sample)[][] rows = [[(0, 0)], .. Enumerable.Repeat<(int, int)[]>([(-1, 0)], 35)];
+        rows[26] = [(0, 0)];
+        Song song = SongOf(1, rows);
+        Playback oneTickRows = PlaybackOf(song);
+        Playback threeTickRows = oneTickRows with { Ticks = [.. oneTickRows.Ticks.Select((tick, i) => tick with { Row = i / 3, Tick = i % 3 })] };
+        OptimizerMapper sut = new(Limits(PcmTarget.Xgm), [FmFirst(0)]);
+
+        // Act
+        GenesisPlan plan = sut.Map(song, threeTickRows, MappingOptions.Default, Notes());
+
+        // Assert
+        PlanCell cell = plan.Patterns[0][8].Cells[(int)GenesisChannel.Fm1];
+        Assert.False(cell.NoteOff);
+        Assert.Empty(cell.Effects.OfType<NoteCut>());
+    }
+
+    /// <summary>A note that ends because the channel swaps to another sample without a new note keeps sounding: no cut.</summary>
+    [Fact]
+    public void Map_WithSampleSwappedWithoutANote_LeavesTheVoiceUncut()
+    {
+        // Arrange: from tick 10, channel 0 goes on to sample 1's loop (an instrument-only cell); channel 1 plays sample 1.
+        (int Channel, int Sample)[][] rows = [[(0, 0), (1, 1)], .. Enumerable.Repeat<(int, int)[]>([(-1, 0)], 39)];
+        Song song = SongOf(2, rows);
+        Playback playback = PlaybackOf(song);
+        Playback swapped = playback with
+        {
+            Ticks = [.. playback.Ticks.Select((tick, i) => i < 10 ? tick : tick with { Channels = [tick.Channels[0] with { Next = new SampleBlock(1, 0, 4000) }, tick.Channels[1]] })],
+        };
+        OptimizerMapper sut = new(Limits(PcmTarget.Xgm), [FmFirst(0), FmFirst(1)]);
+
+        // Act
+        GenesisPlan plan = sut.Map(song, swapped, MappingOptions.Default, Notes());
+
+        // Assert
+        int[] columns = [.. Enumerable.Range(0, plan.Patterns[0][0].Cells.Count).Where(c => plan.Patterns[0][0].Cells[c] is { Source: 0, Note: not null })];
+        Assert.NotEmpty(columns);
+        Assert.DoesNotContain(plan.Patterns[0].Skip(1).SelectMany(row => columns.Select(c => row.Cells[c])), cell => cell.NoteOff || cell.Effects.OfType<NoteCut>().Any());
+    }
+
     /// <summary>Four recordings at once on XGM2's three voices: the fourth is mixed with one playing instead of moving (plan T9.4b).</summary>
     [Fact]
     public void Map_WithMoreRecordingsThanVoices_PreMixesInsteadOfMoving()

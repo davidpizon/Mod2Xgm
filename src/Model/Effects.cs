@@ -131,7 +131,12 @@ internal sealed record Retrigger(int IntervalTicks) : Effect;
 
 /// <summary>Silences the note on a tick of this row (MOD <c>ECx</c>).</summary>
 /// <param name="Tick">The tick (0-based) on which the volume becomes 0.</param>
-internal sealed record NoteCut(int Tick) : Effect;
+/// <param name="Ends">
+/// False for the MOD's own <c>ECx</c>, which only sets the volume to 0 (a later volume command can bring the note back);
+/// true for a cut the optimizer adds where the MOD's note has fallen silent for good, which stops the voice
+/// (docs/adr/0095-voices-stop-with-the-mod-note.md).
+/// </param>
+internal sealed record NoteCut(int Tick, bool Ends = false) : Effect;
 
 /// <summary>Starts this row's note on a later tick (MOD <c>EDx</c>).</summary>
 /// <param name="Tick">The tick (0-based) on which the note starts.</param>

@@ -13,9 +13,9 @@ namespace Mod2Xgm.Render;
 /// Turns a plan and its playback into register writes, tick by tick (docs/adr/0059-genesis-renderer.md). Each Genesis
 /// channel follows the song channel its last note came from (<see cref="PlanCell.Source"/>): a note starts on the tick
 /// the tick player starts its sample (so <c>EDx</c> delays it and <c>E9x</c> restarts it), and until the next note or
-/// note-off the channel takes that song channel's pitch, volume and pan from every tick. What the hardware can't change
-/// stays as the note started: a DAC note's pitch (its sample's one rate, ADR 0040) and volume, a noise note's rate, a PSG
-/// tone's pitch (as its DMF notes, which can't slide; docs/adr/0087-greedy-allocator.md).
+/// note-off or note cut (docs/adr/0095-voices-stop-with-the-mod-note.md) the channel takes that song channel's pitch, volume
+/// and pan from every tick. What the hardware can't change stays as the note started: a DAC note's pitch (its sample's one
+/// rate, ADR 0040) and volume, a noise note's rate, a PSG tone's pitch (as its DMF notes, which can't slide; docs/adr/0087-greedy-allocator.md).
 /// </summary>
 internal sealed class GenesisPlanPlayer
 {
@@ -153,6 +153,13 @@ internal sealed class GenesisPlanPlayer
             {
                 Update(c, t);
             }
+
+            if (track.CutTick == t)
+            {
+                // The plan's cut where the MOD's note has gone silent (docs/adr/0095-voices-stop-with-the-mod-note.md).
+                Stop(c);
+                track.CutTick = -1;
+            }
         }
 
         if (SharesDacPan)
@@ -234,9 +241,17 @@ internal sealed class GenesisPlanPlayer
             track.Pending = null;
             track.StartTick = -1;
             track.RestartRow = false;
+            track.CutTick = -1;
             if (cells is null || c >= cells.Count || cells[c] is not { } cell)
             {
                 continue;
+            }
+
+            // Only the plan's own cut stops the voice. The MOD's ECx only sets the volume to 0, which FM and PSG voices already
+            // follow, and a later volume command may bring the note back (docs/adr/0095-voices-stop-with-the-mod-note.md).
+            if (cell.Effects.OfType<NoteCut>().FirstOrDefault(e => e.Ends) is { } cut)
+            {
+                track.CutTick = TickInRow(t, cut.Tick) ?? -1;
             }
 
             if (cell is { NoteOff: true, Note: null })
@@ -293,6 +308,13 @@ internal sealed class GenesisPlanPlayer
         }
 
         return null;
+    }
+
+    /// <summary>The index of tick <paramref name="tick"/> (0-based) of the row starting at <paramref name="t"/>, or <c>null</c> when the row is shorter.</summary>
+    private int? TickInRow(int t, int tick)
+    {
+        int at = t + tick;
+        return at < _ticks.Count && _ticks[at].Order == _ticks[t].Order && _ticks[at].Row == _ticks[t].Row && _ticks[at].Tick == tick ? at : null;
     }
 
     /// <summary>True when the song channel <paramref name="track"/> follows restarts its sample on tick <paramref name="t"/> by <c>E9x</c>.</summary>
@@ -788,6 +810,9 @@ internal sealed class GenesisPlanPlayer
 
         /// <summary>The tick the note last started on.</summary>
         public int StartedAt { get; set; } = -1;
+
+        /// <summary>The tick the note is cut on (a <see cref="NoteCut"/> that <see cref="NoteCut.Ends"/> the note, in this row's cell), or −1.</summary>
+        public int CutTick { get; set; } = -1;
 
         /// <summary>True on a row whose cell restarts the note (E9x) from the same song channel.</summary>
         public bool RestartRow { get; set; }

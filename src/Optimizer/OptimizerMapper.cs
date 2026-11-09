@@ -37,6 +37,12 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
     /// <summary>How much closer another sound must be, in dB of log-mel distance, for a track to change sound between sections (David: sticky).</summary>
     private const double SwitchCostDb = 3;
 
+    /// <summary>
+    /// A recording whose MOD volume stays this far below the volume it started at, to its note's end, is cut: the DAC can't
+    /// follow a fade, and full volume is further from a note faded 18 dB or more than silence is (docs/adr/0095-voices-stop-with-the-mod-note.md).
+    /// </summary>
+    private const double FadedOutDb = 18;
+
     /// <summary>What a recording or a PSG tone costs a note that slides or wobbles, in dB: they hold their starting pitch and FM doesn't (David).</summary>
     private const double BentCostDb = 12;
 
@@ -1087,6 +1093,7 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
             int?[] owner = new int?[_columns];
             PlanVoice[] voiceOn = new PlanVoice[_columns];
             int[] sampleOn = new int[_columns];
+            Dictionary<(int Order, int Row, int Column), (int Tick, int Channel)> cuts = Cuts();
             List<IReadOnlyList<PlanRow>> patterns = [];
             for (int order = 0; order < _song.Orders.Count; order++)
             {
@@ -1162,7 +1169,45 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
                     }
                 }
 
+                for (int column = 0; column < _columns; column++)
+                {
+                    if (cuts.TryGetValue((order, r, column), out (int Tick, int Channel) cut))
+                    {
+                        Cut(cells, column, cut.Tick, cut.Channel);
+                    }
+                }
+
                 return new PlanRow(cells, flow);
+            }
+
+            // The MOD's note has gone silent before its channel's next note: the voice stops there too (docs/adr/0095-voices-stop-with-the-mod-note.md).
+            void Cut(PlanCell[] cells, int column, int tick, int c)
+            {
+                bool main = on[c] == column;
+                if (owner[column] != c || (!main && layerOn[c] != column) || (cells[column].Note is not null && cells[column].Source != c))
+                {
+                    return;
+                }
+
+                if (cells[column].Note is null && tick == 0)
+                {
+                    cells[column] = cells[column] with { NoteOff = true, Source = c };
+                    owner[column] = null;
+                    if (main)
+                    {
+                        on[c] = null;
+                    }
+                    else
+                    {
+                        layerOn[c] = null;
+                    }
+
+                    return;
+                }
+
+                // One cut per cell, the earliest: the MOD's own ECx and this stop merge, so the render and the DMF agree on it.
+                int at = cells[column].Effects.OfType<NoteCut>().Select(e => e.Tick).Append(tick).Min();
+                cells[column] = cells[column] with { Effects = [.. cells[column].Effects.Where(e => e is not NoteCut), new NoteCut(at, Ends: true)], Source = c };
             }
 
             void WriteNote(PlanCell[] cells, int c, int order, int r, Cell cell, List<Effect> effects)
@@ -1289,6 +1334,155 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
                 on[c] = null;
                 layerOn[c] = null;
             }
+        }
+
+        /// <summary>
+        /// Where a note's voice must stop before its channel's next note (docs/adr/0095-voices-stop-with-the-mod-note.md): an
+        /// FM voice (or FM layer) when its one-shot sample has played out, as the MOD falls silent there and the key would
+        /// otherwise stay on; a recording when the MOD's volume falls to 0 for good, as the DAC keeps the volume it started
+        /// with. Keyed by the row and column, with the tick in the row and the song channel.
+        /// </summary>
+        /// <remarks>
+        /// The renderer reads a row afresh each time it plays it (each pass of a pattern loop, <c>E6x</c>, and each repeat of a
+        /// row held by <c>EEx</c>) and cuts on the same tick of every read. So a cut is kept only when every read of its row
+        /// wants the voice stopped on that tick; otherwise the voice is left to sound, as before cuts. A stop followed by another
+        /// start on the channel later in the same read of the row (a retrigger, <c>E9x</c>, or a delayed note, <c>EDx</c>) is
+        /// left out too: that start takes the voice over there, and the cell keeps one cut, for the note that starts last.
+        /// </remarks>
+        private Dictionary<(int Order, int Row, int Column), (int Tick, int Channel)> Cuts()
+        {
+            Dictionary<(int Order, int Row, int Column), Dictionary<int, int>> wanted = [];
+            foreach (PlannedNote note in _planned.Where(n => n is { Kind: not null, Column: >= 0 }))
+            {
+                foreach (SongNote play in note.Plays)
+                {
+                    int? at = note.Kind switch
+                    {
+                        VoiceKind.Fm => PlayedOut(play),
+                        VoiceKind.Dac => FadedOut(play),
+                        _ => null,
+                    };
+                    if (at is not { } tick || StartsLaterInRow(tick, play.Channel))
+                    {
+                        continue;
+                    }
+
+                    Want(note.Column, tick, play.Channel);
+                    if (note is { Kind: VoiceKind.Fm, LayerColumn: >= 0, LayerKind: VoiceKind.Fm })
+                    {
+                        Want(note.LayerColumn, tick, play.Channel);
+                    }
+                }
+            }
+
+            Dictionary<(int Order, int Row), List<int>> reads = [];
+            for (int t = 0; t < _playback.Ticks.Count; t++)
+            {
+                if (_playback.Ticks[t] is { Tick: 0 } first)
+                {
+                    if (!reads.TryGetValue((first.Order, first.Row), out List<int>? list))
+                    {
+                        list = [];
+                        reads[(first.Order, first.Row)] = list;
+                    }
+
+                    list.Add(t);
+                }
+            }
+
+            Dictionary<(int Order, int Row, int Column), (int Tick, int Channel)> cuts = [];
+            foreach (((int Order, int Row, int Column) key, Dictionary<int, int> stops) in wanted)
+            {
+                List<int> rowReads = reads.GetValueOrDefault((key.Order, key.Row)) ?? [];
+                foreach (int tick in stops.Keys.Select(at => _playback.Ticks[at].Tick).Distinct().Order())
+                {
+                    if (rowReads.Count > 0 && rowReads.All(s => stops.ContainsKey(s + tick) && SameRead(s, s + tick)))
+                    {
+                        cuts[key] = (tick, stops[rowReads[0] + tick]);
+                        break;
+                    }
+                }
+            }
+
+            return cuts;
+
+            void Want(int column, int tick, int channel)
+            {
+                PlaybackTick end = _playback.Ticks[tick];
+                (int, int, int) key = (end.Order, end.Row, column);
+                if (!wanted.TryGetValue(key, out Dictionary<int, int>? stops))
+                {
+                    stops = [];
+                    wanted[key] = stops;
+                }
+
+                stops.TryAdd(tick, channel);
+            }
+        }
+
+        /// <summary>True when song channel <paramref name="channel"/> starts a sample after tick <paramref name="t"/>, in the same read of its row.</summary>
+        private bool StartsLaterInRow(int t, int channel)
+        {
+            for (int j = t + 1; j < _playback.Ticks.Count && SameRead(t, j); j++)
+            {
+                if (_playback.Ticks[j].Channels[channel].Started is not null)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// True when tick <paramref name="to"/> comes after tick <paramref name="from"/> in the same read of a row: the same
+        /// row, with its ticks counting up and not starting over (as they do on each repeat of an <c>EEx</c> row).
+        /// </summary>
+        private bool SameRead(int from, int to)
+        {
+            for (int j = from + 1; j <= to; j++)
+            {
+                PlaybackTick tick = _playback.Ticks[j];
+                if (tick.Order != _playback.Ticks[from].Order || tick.Row != _playback.Ticks[from].Row || tick.Tick <= _playback.Ticks[j - 1].Tick)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// The tick after <paramref name="play"/>'s sample has played out into silence, or <c>null</c> when the channel's next
+        /// note (or the song's end) comes first, or when the note ended because the channel swapped to another sample without a
+        /// new note (an instrument-only cell), which keeps sounding.
+        /// </summary>
+        private int? PlayedOut(SongNote play)
+        {
+            int end = play.FirstTick + play.Ticks;
+            if (end >= _playback.Ticks.Count)
+            {
+                return null;
+            }
+
+            ChannelTick channel = _playback.Ticks[end].Channels[play.Channel];
+            return channel.Started is null && channel.Next.IsSilence && (channel.Next.Sample is null || channel.Next.Sample == play.Sample) ? end : null;
+        }
+
+        /// <summary>
+        /// The first tick from which <paramref name="play"/>'s volume stays <see cref="FadedOutDb"/> or more below the volume it
+        /// started at, to its end, or <c>null</c> when it never does.
+        /// </summary>
+        private int? FadedOut(SongNote play)
+        {
+            double quiet = play.Volume * Math.Pow(10, -FadedOutDb / 20);
+            int? silent = null;
+            for (int t = play.FirstTick + play.Ticks - 1; t > play.FirstTick && _playback.Ticks[t].Channels[play.Channel].Volume <= quiet; t--)
+            {
+                silent = t;
+            }
+
+            return silent;
         }
 
         /// <summary>The sound a note would take with the Genesis all to itself.</summary>
