@@ -1,6 +1,5 @@
 using System.Text.RegularExpressions;
 using Mod2Xgm.Analysis;
-using Mod2Xgm.Cli;
 using Serilog;
 
 namespace Mod2Xgm.Optimizer;

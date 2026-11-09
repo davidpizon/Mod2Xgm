@@ -2,7 +2,6 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Mod2Xgm.Analysis;
 using Mod2Xgm.Audio;
-using Mod2Xgm.Cli;
 using Mod2Xgm.Dmf;
 using Mod2Xgm.Model;
 using Serilog.Core;
