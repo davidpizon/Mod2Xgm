@@ -793,7 +793,7 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
                 }
             }
 
-            List<Fingerprint> freed = [.. old.Where(k => _mixes[k].Uses == 1 && !wanted.Any(w => w.Key == k))];
+            List<Fingerprint> freed = [.. old.Where(k => _mixes[k].Uses == 1 && wanted.All(w => w.Key != k))];
             List<(Fingerprint Key, DacSample Sample)> fresh = [.. wanted.Where(w => !_mixes.ContainsKey(w.Key)).DistinctBy(w => w.Key)];
             long added = fresh.Sum(w => (long)StealMixer.Bytes(w.Sample, _limits.Target));
             long bytes = _bytes + added - freed.Sum(k => (long)_mixes[k].Bytes);
@@ -1059,7 +1059,7 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
                 // A pre-mix's tail starts on its row, on the column the mix played on (docs/adr/0094-pre-mixed-voice-steals.md).
                 for (int c = 0; c < row.Cells.Count; c++)
                 {
-                    if (_tailAt.TryGetValue((order, r, c), out MixedNotes? mixed) && mixed is { Mix: { Tail: { } tail, Outlast: { } outlast } } && mixed.Lead.Kind is not null)
+                    if (_tailAt.TryGetValue((order, r, c), out MixedNotes? mixed) && mixed is { Mix: { Tail: { } tail, Outlast: { } outlast }, Lead.Kind: not null })
                     {
                         int column = mixed.Lead.Column;
                         PlanVoice voice = new(VoiceKind.Dac, IndexOf(recordings, recordingIndex, tail));
