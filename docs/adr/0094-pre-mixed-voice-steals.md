@@ -60,23 +60,23 @@ brackets); the other columns count notes. Songs with no mix can still change: a 
 | Song | Mixes (tails) | FM / PSG / cut with | FM / PSG / cut without |
 |---|---:|---:|---:|
 | 10kdub | 0 (0) | 580 / 0 / 0 | 580 / 0 / 0 |
-| 8bit_castle | 58 (6) | 412 / 0 / 0 | 476 / 0 / 0 |
-| cancan | 43 (0) | 248 / 17 / 0 | 300 / 17 / 0 |
-| drozerix_-_ai_renaissance | 15 (0) | 3429 / 11 / 0 | 3460 / 11 / 0 |
-| drozerix_-_neon_techno | 60 (0) | 703 / 0 / 0 | 767 / 0 / 0 |
-| drozerix_-_stardust_jam | 0 (0) | 1765 / 345 / 14 | 1772 / 349 / 14 |
-| drozerix_-_the_hawks_claw | 0 (0) | 764 / 489 / 106 | 801 / 519 / 106 |
+| 8bit_castle | 156 (12) | 308 / 0 / 0 | 476 / 0 / 0 |
+| cancan | 199 (0) | 72 / 17 / 0 | 300 / 17 / 0 |
+| drozerix_-_ai_renaissance | 15 (0) | 3109 / 10 / 0 | 3460 / 11 / 0 |
+| drozerix_-_neon_techno | 4 (0) | 762 / 0 / 0 | 767 / 0 / 0 |
+| drozerix_-_stardust_jam | 0 (0) | 1679 / 221 / 13 | 1772 / 349 / 14 |
+| drozerix_-_the_hawks_claw | 0 (0) | 537 / 389 / 70 | 801 / 519 / 106 |
 | fx-poly1 | 0 (0) | 341 / 0 / 0 | 341 / 0 / 0 |
-| hit | 23 (0) | 1516 / 754 / 0 | 1525 / 782 / 0 |
-| jam_-_heatwave_cruise | 6 (0) | 232 / 0 / 0 | 280 / 0 / 0 |
-| jam_-_latenightcoffee | 74 (0) | 1 / 130 / 0 | 2 / 224 / 0 |
-| jam_-_xlr8 | 32 (0) | 550 / 0 / 0 | 594 / 0 / 0 |
-| k0w-rsnd | 74 (1) | 240 / 320 / 0 | 280 / 384 / 0 |
+| hit | 409 (0) | 1289 / 6 / 0 | 1525 / 782 / 0 |
+| jam_-_heatwave_cruise | 8 (0) | 176 / 0 / 0 | 280 / 0 / 0 |
+| jam_-_latenightcoffee | 90 (0) | 0 / 116 / 0 | 2 / 224 / 0 |
+| jam_-_xlr8 | 171 (0) | 97 / 0 / 0 | 594 / 0 / 0 |
+| k0w-rsnd | 322 (2) | 0 / 0 / 0 | 280 / 384 / 0 |
 | kc-dancinonamiga | 0 (0) | 192 / 0 / 0 | 192 / 0 / 0 |
-| musix-cute-october | 13 (1) | 65 / 0 / 0 | 82 / 0 / 0 |
-| musix-omg-plz-help | 4 (1) | 567 / 0 / 0 | 583 / 0 / 0 |
-| musix-rubbish | 8 (3) | 7 / 22 / 0 | 7 / 32 / 0 |
-| sharpojects_cantpleaseeveryone | 2 (0) | 491 / 0 / 0 | 493 / 0 / 0 |
+| musix-cute-october | 51 (3) | 19 / 0 / 0 | 82 / 0 / 0 |
+| musix-omg-plz-help | 60 (17) | 377 / 0 / 0 | 583 / 0 / 0 |
+| musix-rubbish | 12 (4) | 7 / 18 / 0 | 7 / 32 / 0 |
+| sharpojects_cantpleaseeveryone | 5 (0) | 478 / 0 / 0 | 493 / 0 / 0 |
 
 No song loses a note to pre-mixes: every count goes down or stays.
 
@@ -97,12 +97,19 @@ Blind A/B rounds (original plus two versions, 20 s at the busiest moment where t
 | 18 | tails vs none | musix-rubbish | tails |
 | 18 | tails vs none | musix-cute-october | can't tell |
 | 18 | tails vs none | musix-omg-plz-help | can't tell |
+| 19 | whole tracks vs section by section | 8bit_castle | whole tracks |
+| 19 | whole tracks vs section by section | cancan | whole tracks |
+| 19 | whole tracks vs section by section | k0w-rsnd | whole tracks |
 
 - **Mixes:** 3 songs for, 1 against (neon), 1 tie.
 - **Clip limit:** 6 dB on both songs. At 2 dB, castle keeps 12 of its 58 mixes and cancan 12 of 43; neon makes none at
   all.
 - **Tails:** 2 songs for, 2 ties. Without tails castle makes 20 mixes instead of 58, and David heard its noise drum ring
   on too long.
+- **Whole tracks:** rounds 16-18 rescued only the notes ranked closest to a recording in their own section, so a track
+  that lost its voice early stayed on FM or PSG later. Rescuing the whole track (a review finding) won on all 3 songs:
+  less choppy, the guitar keeps its rhythm, and k0w-rsnd loses an odd FM voice on the left. It mixes far more (castle
+  156 mixes instead of 58, k0w-rsnd 322 instead of 74), and neon_techno then makes only 4, close to the none it won with.
 
 ## Options considered
 
@@ -123,6 +130,8 @@ Blind A/B rounds (original plus two versions, 20 s at the busiest moment where t
 - `DacSample.Mix` carries a mix's points; the DMF writer, the plan player and the PCM render play them like any sample.
 - A note that crosses several crowded moments (neon's long pad, sample 9) isn't mixed: one mix covers one overlap, so it
   still moves. Chaining mixes along a held note would need a tail per seam; left for later if the corpus asks for it.
-- neon_techno sounds better without mixes: its drums are mixed with the looped pad and turned down by up to 6 dB. A
-  limit of 2 dB would avoid that on neon, but costs castle and cancan most of the mixes that won there. Left as is.
+- neon_techno sounded better without mixes in round 16 (its drums mixed with the looped pad). With whole tracks it makes
+  only 4 mixes, so it is close to that version now.
+- A recording is often the closest sound even for a chip-like sample, so with no budget a song uses more PCM bytes than
+  before. `--max-pcm-bytes` sets a budget when size matters ([ADR 0093](0093-optional-pcm-budget.md)).
 - Seven older allocator tests pin `PreMixRules.None`, since they check who keeps a voice.
