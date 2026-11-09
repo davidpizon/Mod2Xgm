@@ -23,7 +23,7 @@ in [multi-pass.md](../multi-pass.md); XGM2 slots were 122 with a **verify** mark
 | PSG | 3 tone + noise | same | same |
 | PCM voices | 1 | 4 − reserved | 3 − reserved |
 | PCM slots | 144 | 63 | **123** |
-| PCM bytes | **no limit** | `--max-pcm-bytes`, at most 16,776,960 | same |
+| PCM bytes | **no limit** | at most 16,776,960; `--max-pcm-bytes` sets less (no default since [ADR 0093](0093-optional-pcm-budget.md)) | same |
 
 - **XGM's and XGM2's limits apply only with `--format xgm` or `xgm2` (David).** A DMF isn't held to them and needn't export to
   either. It has only what DefleMask's format itself allows: 144 samples reachable as DAC notes, one DAC, and FM6 or the DAC at any moment.

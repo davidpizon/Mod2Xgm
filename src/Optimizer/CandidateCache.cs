@@ -133,7 +133,7 @@ internal sealed partial class CandidateCache
     }
 
     /// <summary>The pre-mix candidates of <paramref name="song"/> for <paramref name="target"/>, within the song's PCM budget <paramref name="maxPcmBytes"/>.</summary>
-    public PreMixSongFit PreMix(SongAnalysis song, PcmTarget target, IReadOnlySet<int>? keepOut = null, long maxPcmBytes = ConversionDefaults.MaxPcmBytes)
+    public PreMixSongFit PreMix(SongAnalysis song, PcmTarget target, IReadOnlySet<int>? keepOut = null, long maxPcmBytes = PreMixer.DefaultMaxBytes)
     {
         ArgumentNullException.ThrowIfNull(song);
         return SongWide(

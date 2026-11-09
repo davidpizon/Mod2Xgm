@@ -120,7 +120,7 @@ public sealed class CommandLineTests
         Assert.Empty(options.IgnoreSamples);
         Assert.False(options.NoDac);
         Assert.False(options.NoConsolidate);
-        Assert.Equal(128L * 1024, options.MaxPcmBytes);
+        Assert.Null(options.MaxPcmBytes);
         Assert.Equal(Quality.Normal, options.Quality);
         Assert.Null(options.TimeBudget);
         Assert.Equal(0, options.Seed);

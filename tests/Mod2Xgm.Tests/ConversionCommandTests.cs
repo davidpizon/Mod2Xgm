@@ -202,6 +202,22 @@ public sealed class ConversionCommandTests
         Assert.Contains(sink.Messages(LogEventLevel.Information), m => m.Contains("no file written", StringComparison.Ordinal));
     }
 
+    /// <summary>A budget the user gives is logged at Debug in bytes (ADR 0093).</summary>
+    [Fact]
+    public void Execute_WithPcmBudget_LogsItAtDebug()
+    {
+        // Arrange
+        using TempDirectory temp = new();
+        CollectingSink sink = new();
+        ConversionOptions options = new() { InputPath = temp.CreateFile("song.mod"), MaxPcmBytes = 128 * 1024 };
+
+        // Act
+        ConversionCommand.Execute(options, sink.CreateLogger());
+
+        // Assert
+        Assert.Contains(sink.Messages(LogEventLevel.Debug), m => m.Contains("PCM budget 131072 bytes", StringComparison.Ordinal));
+    }
+
     /// <summary>The options that shape the conversion are logged at Debug, sample lists sorted.</summary>
     [Fact]
     public void Execute_WithSampleOptions_LogsOptionsAtDebug()
@@ -223,7 +239,7 @@ public sealed class ConversionCommandTests
 
         // Assert
         string[] debug = [.. sink.Messages(LogEventLevel.Debug)];
-        Assert.Contains(debug, m => m.Contains("PCM budget 131072 bytes", StringComparison.Ordinal));
+        Assert.Contains(debug, m => m.Contains("PCM budget none (what the format holds)", StringComparison.Ordinal));
         Assert.Contains(debug, m => m.Contains("Ignoring samples \"3,7\"", StringComparison.Ordinal));
         Assert.Contains(debug, m => m.Contains("Samples required as FM \"9\"", StringComparison.Ordinal));
         Assert.Contains(debug, m => m.Contains("Samples required as DAC \"1,2\"", StringComparison.Ordinal));

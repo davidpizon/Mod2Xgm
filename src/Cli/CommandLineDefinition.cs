@@ -87,8 +87,7 @@ internal sealed class CommandLineDefinition
 
     public Option<string> MaxPcmBytes { get; } = new("--max-pcm-bytes")
     {
-        Description = "PCM budget per song for XGM/XGM2, e.g. 128K or 1M.",
-        DefaultValueFactory = _ => "128K",
+        Description = "PCM budget per song for XGM/XGM2, e.g. 128K or 1M. Default: none, only what the format holds.",
     };
 
     public Option<string> Quality { get; } = new Option<string>("--quality")
