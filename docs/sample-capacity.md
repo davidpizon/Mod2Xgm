@@ -20,11 +20,11 @@ because of how the Genesis targets play PCM:
    start point (`9xx`) a sample is played at ([ADR 0044](adr/0044-dmf-effects-and-song-grid.md)).
 2. **Limited simultaneous PCM voices:** XGM 4, XGM2 3, DMF 1 (FM6 DAC). A 4-channel MOD that plays
    4 samples at once doesn't fit XGM2 or DMF.
-3. **Byte budget.** Variants multiply sample data, and music shares the cartridge with the rest of the game.
-   Default budget **128 KB** per song: 3.125 % of a 4 MB cartridge (the largest without a bank-switching
-   mapper), leaving room for several songs plus the game. ≈ 9.9 s of PCM at 13.3 kHz 8-bit, ≈ 9.4 s at
-   XGM's ~14 kHz, ≈ 19.7 s at XGM2 half speed (6.65 kHz). Raise or lower it with
-   `--max-pcm-bytes`.
+3. **Byte budget (optional).** Variants multiply sample data, and music shares the cartridge with the rest of the
+   game, but a Genesis song has no fixed budget (David, [ADR 0093](adr/0093-optional-pcm-budget.md)). With no
+   `--max-pcm-bytes`, XGM and XGM2 hold what the format can (16,776,960 bytes). A game that shares the cartridge sets
+   one, e.g. `--max-pcm-bytes 128K`: 3.125 % of a 4 MB cartridge (the largest without a bank-switching mapper), ≈ 9.9 s
+   of PCM at 13.3 kHz 8-bit, ≈ 9.4 s at XGM's ~14 kHz, ≈ 19.7 s at XGM2 half speed (6.65 kHz).
 
 ## Limits per target
 
@@ -33,7 +33,7 @@ because of how the Genesis targets play PCM:
 | Sample slots | **144** reachable as DAC notes (12 banks × 12; the file's 1-byte count allows 255) | **63** (per `xgm.txt`) | **123** (124-entry SID table − end entry; SGDK's `XGM.java`, [ADR 0085](adr/0085-target-limits.md)) |
 | Simultaneous PCM | 1 | 4 − reserved SFX | 3 − reserved SFX |
 | Pitch per sample | fixed: one rate per sample; the note picks one of 144 samples ([formats/dmf.md](formats/dmf.md#dac-samples-on-fm6)) | fixed ~14 kHz | fixed 13.3 kHz / 6.65 kHz |
-| Byte budget | none | default **128 KB**, `--max-pcm-bytes`, at most 16,776,960 bytes (a bigger one is cut, with a conversion note) | same |
+| Byte budget | none | **none by default**: at most 16,776,960 bytes, what the format holds; `--max-pcm-bytes` sets a smaller one (a bigger one is cut, with a conversion note; [ADR 0093](adr/0093-optional-pcm-budget.md)) | same |
 
 Each `--format` uses its own column. The limits live in one place, `TargetLimits` (`src/Optimizer/TargetLimits.cs`,
 [ADR 0085](adr/0085-target-limits.md)), which also holds the FM, CH3 and PSG limits in [multi-pass.md](multi-pass.md#constraints-the-allocator-enforces).
@@ -66,7 +66,7 @@ This is a row-level walk. Exact tick-by-tick playback is plan M3 (T3.4), which m
 
 After mapping, `CapacityCheck` (`src/Optimizer/CapacityCheck.cs`, [ADR 0086](adr/0086-capacity-check.md)) computes the
 **required** variant count, peak simultaneous PCM voices and PCM bytes, and compares them with the target's limits. If
-any limit is exceeded it logs a **conversion note at `Warning` level**, listing the limits passed, e.g.:
+any limit is exceeded it logs a **conversion note at `Warning` level**, listing the limits passed, e.g. with `--max-pcm-bytes 128K`:
 
 ```
 WRN XGM2 capacity exceeded: needs 187 sample slots (limit 123), 4 simultaneous PCM voices (limit 3), 412 KB PCM (budget 128 KB)

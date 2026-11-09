@@ -23,7 +23,7 @@ mod2xgm <input.mod> [options]
 | `--require-psg <list>` | none | MOD samples that **must** be played by the PSG (never FM or the DAC). The simple mapper uses the PSG noise channel. Same list syntax. See [ADR 0041](adr/0041-require-dac-require-psg.md). |
 | `--no-dac` | off | Don't use the DAC (digitized PCM): every sample is played by FM or the PSG, drums included. The DAC is the one place the Genesis plays recordings; by default the mapper puts one-shot samples there. Can't be combined with `--require-dac` (exit 1). See [ADR 0040](adr/0040-simple-mapper.md). |
 | `--no-consolidate` | off | Don't change the song to fit: only the free tidying runs. If the song's recordings still pass a limit of the target (slots, voices at once, bytes), print the capacity report, write nothing and exit 6 ([ADR 0086](adr/0086-capacity-check.md)). |
-| `--max-pcm-bytes <n>` | 128K | PCM byte budget per song for XGM/XGM2 (suffixes `K`, `M`). Over budget → capacity warning + consolidation. |
+| `--max-pcm-bytes <n>` | none | PCM byte budget per song for XGM/XGM2 (suffixes `K`, `M`), e.g. `128K` for a game that shares the cartridge. Over budget → capacity warning + consolidation. Without it, only what the format holds binds ([ADR 0093](adr/0093-optional-pcm-budget.md)). |
 | `--quality <fast\|normal\|best>` | `normal` | `fast`: simple mapper, no fitting. `normal`: multi-pass with a 5-minute budget. `best`: run until no improvement. See [multi-pass.md](multi-pass.md). Until plan T9.6 every quality uses the simple mapper unless `--mapping optimizer` is given, and `normal`/`best` print a line saying so. |
 | `--time-budget <duration>` | per quality | Overrides the optimizer time limit (`90s`, `5m`). |
 | `--seed <n>` | 0 | Optimizer seed; same input + options + seed → same output. |
@@ -55,7 +55,7 @@ Parsed by System.CommandLine; values are converted and checked by `src/Cli/Optio
   DAC/PSG), nor in `--ignore-samples` and any `--require-*`
   list ("an ignored sample isn't converted at all").
 - `--no-dac` and `--require-dac` together are a usage error (exit 1): "--no-dac keeps every sample off the DAC".
-- `--max-pcm-bytes`: positive integer, optional `K` (×1024) or `M` (×1024²) suffix, case-insensitive. XGM and XGM2 hold at most 16,776,960 bytes: a bigger value is cut to that, with a conversion note ([ADR 0085](adr/0085-target-limits.md)). DMF has no byte limit; there the value only stops bigger pre-mixes being made ([ADR 0078](adr/0078-pre-mix-budget-cap.md)).
+- `--max-pcm-bytes`: optional; with none, XGM and XGM2 hold what the format can ([ADR 0093](adr/0093-optional-pcm-budget.md)). A positive integer, optional `K` (×1024) or `M` (×1024²) suffix, case-insensitive. XGM and XGM2 hold at most 16,776,960 bytes: a bigger value is cut to that, with a conversion note ([ADR 0085](adr/0085-target-limits.md)). DMF has no byte limit; there the value only stops bigger pre-mixes being made ([ADR 0078](adr/0078-pre-mix-budget-cap.md)).
 - `--time-budget`: positive integer with optional `s`, `m` or `h` (plain number = seconds).
 - `--reserve-sfx-channels`: `0`–`4` for `xgm`, `0`–`3` for `xgm2`; must be `0` for `dmf` (one DAC channel, nothing to reserve).
 - `--mapping`: `simple` or `optimizer`, anything else is a usage error (exit 1). Without it, `simple`, until plan T9.6 compares them. `optimizer` wins over `--quality fast` ([ADR 0087](adr/0087-greedy-allocator.md)).

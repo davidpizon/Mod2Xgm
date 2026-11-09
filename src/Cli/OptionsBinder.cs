@@ -57,11 +57,17 @@ internal static class OptionsBinder
         AddConflict(ignoreSamples, "--ignore-samples", requireDac, "--require-dac", "an ignored sample isn't converted at all", errors);
         AddConflict(ignoreSamples, "--ignore-samples", requirePsg, "--require-psg", "an ignored sample isn't converted at all", errors);
 
-        long maxPcmBytes = ConversionDefaults.MaxPcmBytes;
-        if (parseResult.GetValue(definition.MaxPcmBytes) is { } sizeText
-            && ValueParsers.TryParseByteSize(sizeText, out maxPcmBytes) is { } sizeError)
+        long? maxPcmBytes = null;
+        if (parseResult.GetValue(definition.MaxPcmBytes) is { } sizeText)
         {
-            errors.Add($"--max-pcm-bytes: {sizeError}");
+            if (ValueParsers.TryParseByteSize(sizeText, out long size) is { } sizeError)
+            {
+                errors.Add($"--max-pcm-bytes: {sizeError}");
+            }
+            else
+            {
+                maxPcmBytes = size;
+            }
         }
 
         TimeSpan? timeBudget = null;

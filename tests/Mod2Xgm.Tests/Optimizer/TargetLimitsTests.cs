@@ -105,6 +105,24 @@ public sealed class TargetLimitsTests
         Assert.Equal(0, notes.Count);
     }
 
+    /// <summary>With no <c>--max-pcm-bytes</c>, XGM and XGM2 hold what the format can, with no note: the budget is the user's choice (ADR 0093).</summary>
+    [Theory]
+    [InlineData(nameof(OutputFormat.Xgm))]
+    [InlineData(nameof(OutputFormat.Xgm2))]
+    public void For_WithNoBudget_HoldsWhatTheFormatCan(string format)
+    {
+        // Arrange
+        ConversionOptions options = new() { InputPath = "song.mod", Format = Enum.Parse<OutputFormat>(format) };
+        ConversionNotes notes = new(Logger.None);
+
+        // Act
+        TargetLimits sut = TargetLimits.For(options, notes);
+
+        // Assert
+        Assert.Equal(PcmTargets.MaxStoredBytes, sut.PcmBytes);
+        Assert.Equal(0, notes.Count);
+    }
+
     /// <summary>A budget XGM or XGM2 can't hold is cut to the format's most, and a conversion note says so.</summary>
     [Theory]
     [InlineData(nameof(OutputFormat.Xgm))]

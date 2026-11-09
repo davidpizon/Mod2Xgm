@@ -36,7 +36,10 @@ internal sealed record TargetLimits(
     /// <summary>The SN76489's noise channel.</summary>
     private const int NoiseChannels = 1;
 
-    /// <summary>The limits of this conversion. A budget bigger than XGM or XGM2 can hold is cut down, with a conversion note.</summary>
+    /// <summary>
+    /// The limits of this conversion. With no <c>--max-pcm-bytes</c>, XGM and XGM2 hold what the format can; a budget
+    /// bigger than that is cut down, with a conversion note.
+    /// </summary>
     /// <param name="options">The validated command line.</param>
     /// <param name="notes">Collects the note about a cut budget.</param>
     public static TargetLimits For(ConversionOptions options, ConversionNotes notes)
@@ -50,11 +53,11 @@ internal sealed record TargetLimits(
             _ => PcmTarget.Xgm2,
         };
         TargetLimits limits = For(target, options.MaxPcmBytes, options.ReserveSfxChannels);
-        if (limits.PcmBytes < options.MaxPcmBytes)
+        if (options.MaxPcmBytes is { } asked && limits.PcmBytes < asked)
         {
             notes.Add(
                 "--max-pcm-bytes {Asked} is more than {Format:l} can hold; using {Bytes} bytes",
-                options.MaxPcmBytes,
+                asked,
                 PcmTargets.Name(target),
                 limits.PcmBytes);
         }
@@ -64,12 +67,16 @@ internal sealed record TargetLimits(
 
     /// <summary>The limits of <paramref name="target"/>.</summary>
     /// <param name="target">The file written.</param>
-    /// <param name="maxPcmBytes">The song's PCM budget (<c>--max-pcm-bytes</c>); DMF has none.</param>
+    /// <param name="maxPcmBytes">The song's PCM budget (<c>--max-pcm-bytes</c>), or <c>null</c> for what the format holds; DMF has none.</param>
     /// <param name="reservedVoices">PCM voices left to the game (<c>--reserve-sfx-channels</c>).</param>
     /// <exception cref="ArgumentOutOfRangeException">The budget isn't positive, or more voices are reserved than the target has.</exception>
-    public static TargetLimits For(PcmTarget target, long maxPcmBytes, int reservedVoices)
+    public static TargetLimits For(PcmTarget target, long? maxPcmBytes, int reservedVoices)
     {
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxPcmBytes);
+        if (maxPcmBytes is { } budget)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(budget, nameof(maxPcmBytes));
+        }
+
         ArgumentOutOfRangeException.ThrowIfNegative(reservedVoices);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(reservedVoices, PcmTargets.Voices(target));
         return new TargetLimits(
@@ -80,7 +87,7 @@ internal sealed record TargetLimits(
             NoiseChannels,
             PcmTargets.Voices(target) - reservedVoices,
             PcmTargets.Slots(target),
-            target == PcmTarget.Dmf ? null : Math.Min(maxPcmBytes, PcmTargets.MaxStoredBytes));
+            target == PcmTarget.Dmf ? null : Math.Min(maxPcmBytes ?? PcmTargets.MaxStoredBytes, PcmTargets.MaxStoredBytes));
     }
 
     /// <summary>

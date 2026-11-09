@@ -21,7 +21,7 @@
 | Dependencies | Libraries OK if AOT on all three OSes and permissively licensed; external **applications** only in tests/harness |
 | DMF spec gaps | DefleMask manual + Furnace's DMF loader as reference (GPL — read only, never copy) |
 | Harness tools (local) | openmpt123, DefleMask WAV/VGM export, SGDK rescomp + BlastEm / Genesis Plus GX |
-| PCM budget | 128 KB per song default |
+| PCM budget | None by default; `--max-pcm-bytes` sets one ([ADR 0093](adr/0093-optional-pcm-budget.md), was 128 KB) |
 | Build rule | Every warning is an error |
 | Report | Metadata + full sample table printed on **every conversion** |
 
@@ -128,6 +128,7 @@
 | Task | Work | Acceptance |
 |---|---|---|
 | T9.1 ✅ | Target limits model (FM/CH3/PSG/PCM voices/slots/bytes, `--reserve-sfx-channels`, `--max-pcm-bytes`): `TargetLimits`, each `--format` with its own; XGM's and XGM2's limits never bind a DMF (David), which has all 6 FM channels and no byte limit; XGM2 holds 123 samples ([ADR 0085](adr/0085-target-limits.md)) | Tests per target |
+| T9.1b ✅ | Optional PCM budget (David, 2026-11-08): no default `--max-pcm-bytes`, so XGM and XGM2 hold what the format can; a budget is opt-in ([ADR 0093](adr/0093-optional-pcm-budget.md)) | Tests |
 | T9.2 ✅ | Capacity check + warning; `--no-consolidate` → exit 6: only recordings count, as the drivers store them, and voices count whatever you'd hear together (David, [ADR 0086](adr/0086-capacity-check.md)) | Tests |
 | T9.3 ✅ | Importance scoring; greedy allocation per section; `--require-fm` / `--require-dac` / `--require-psg` as hard constraints: `OptimizerMapper`, turned on with `--mapping optimizer`, with fitted FM, PSG tones and hiss, and recordings at every pitch on every target ([ADR 0087](adr/0087-greedy-allocator.md)) | Always produces a valid plan; required samples never change type; exit 6 when required PCM can't fit |
 | T9.3b ✅ | Layering: one MOD note may sound on more than one Genesis voice when that sounds closer, using only voices no note needs and that the CLI doesn't reserve (David). A PSG tone 12 dB down under FM notes stayed; a recording plus PSG noise lost ([ADR 0088](adr/0088-layering.md)) | An ADR; tests; blind survey rounds against the unlayered version next to the original MOD, one change at a time, and the grades decide what stays |
@@ -259,7 +260,7 @@ M8–M9 ([ADR 0077](adr/0077-console-output-modes.md)).
 | Optimizer overfits the metric | Listening checks at each milestone sign-off |
 | Conversions get slow | `--quality fast`, time budget, patch cache, profiling in T12.2 |
 | DefleMask WAV export may be manual | Harness accepts manual exports |
-| 128 KB budget forces heavy consolidation | Allocator weighs error vs cost; `--max-pcm-bytes` |
+| A `--max-pcm-bytes` budget forces heavy consolidation | No default budget ([ADR 0093](adr/0093-optional-pcm-budget.md)); allocator weighs error vs cost |
 | XGM v1 driver behavior not covered by the spec (CH3 / timers, PCM priority reset) | Probe ROMs in T11.1 before enabling |
 | XM/IT tick players differ from libopenmpt | Port OpenMPT's playback rules; probe files per feature (T15.3, T16.3, [ADR 0063](adr/0063-multichannel-mod-xm-it-input.md)) |
 | Dense XM/IT songs (many channels, 16-bit samples) far exceed the Genesis | Voice stealing and consolidation, each counted in conversion notes; scores recorded per song so the cost is visible |
