@@ -32,8 +32,10 @@ David's answers (2026-11-08):
   (`StealMixer.MaxNotes`), 4 tries per note. A rescued note gives up its FM or PSG voice, and those voices then go to
   notes that were cut, most important first.
 - **No other note changes,** so a song that fits is untouched: a rescue only shares a voice or takes a free one.
-- **A track keeps one sound.** A track that plays recordings somewhere in the song gets back every note it can. One that
-  never does is rescued only when all its notes can be; otherwise it stays whole on FM or PSG.
+- **A track keeps one sound.** A track whose closest sound was a recording anywhere wants recordings everywhere, since a
+  later section ranks it on the sound it was moved to. One that plays recordings somewhere in the song gets back every
+  note it can. One that never does is rescued whole or not at all: when a note can't be (no voice, no mix, or no bytes or
+  slot for it), every voice, byte and mix the notes before it took is put back, and the track stays whole on FM or PSG.
 - **Head and tail.** The mix is rendered through the MOD renderer from the first note's start to the end of the overlap,
   trimmed at −48 dB, and resampled to the target's rate (DMF: the DAC rate of the highest note). It plays at full volume,
   with no effects but note delay. A looped note that outlasts the overlap goes on as a **tail**: the rest of its sample from
@@ -43,7 +45,8 @@ David's answers (2026-11-08):
   When that takes more than `PreMixRules.MaxClipDb`, it isn't mixed.
 - **Bytes and slots.** Mixes with the same bytes are stored once; a mix replaced by a bigger one and played nowhere else
   is let go. Mixes count against the slots and the budget like any recording.
-- **Pan.** A mix of notes from both sides plays centred.
+- **Pan.** A mix of notes from both sides plays centred, on every driver. The same bytes mixed from one side and from
+  both are stored as two recordings.
 - **Notes.** One conversion note per set of samples: `Samples 2 "…" + 6 "…" sound together with no PCM voice to spare, so
   they were mixed into one recording 35 times (0 with a tail; turned down up to 5.9 dB so the mix doesn't clip)`.
 - **Rules** (`PreMixRules.Default`, set by the rounds below): on; tails on; clip limit 6 dB; make room by shrinking off

@@ -586,39 +586,36 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
             }
 
             HashSet<(int Channel, int Sample)> onDac = [.. _planned.Where(n => n.Kind == VoiceKind.Dac).Select(n => (n.Channel, n.Sample))];
-            foreach (IGrouping<(int Channel, int Sample), PlannedNote> track in _planned
+            ILookup<(int Channel, int Sample), PlannedNote> tracks = _planned.ToLookup(n => (n.Channel, n.Sample));
+
+            // A track whose closest sound was a recording somewhere wants recordings everywhere: a section that ranks it
+            // after it lost its voice keeps the sound it was moved to (docs/adr/0092-stable-voices.md), which isn't closer.
+            foreach ((int Channel, int Sample) key in _planned
                 .Where(n => n.Closest == VoiceKind.Dac && n.Kind != VoiceKind.Dac)
-                .GroupBy(n => (n.Channel, n.Sample))
-                .OrderByDescending(t => _songImportance[t.Key])
-                .ThenBy(t => t.Key.Channel)
-                .ThenBy(t => t.Key.Sample)
+                .Select(n => (n.Channel, n.Sample))
+                .Distinct()
+                .OrderByDescending(k => _songImportance[k])
+                .ThenBy(k => k.Channel)
+                .ThenBy(k => k.Sample)
                 .ToList())
             {
-                List<PlannedNote> lost = [.. track.OrderBy(n => n.FirstTick)];
-                if (!onDac.Contains(track.Key) && !CanRescueAll(lost))
+                List<PlannedNote> lost = [.. tracks[key].Where(n => n.Kind != VoiceKind.Dac).OrderBy(n => n.FirstTick)];
+                bool whole = !onDac.Contains(key);
+                if (whole && lost.Any(n => !Allowed(VoiceKind.Dac, n)))
                 {
                     continue;
                 }
 
-                foreach (PlannedNote note in lost)
+                // A track with no recording anywhere gets them for every note or none, so it keeps one sound; a note that
+                // can't be rescued puts back every voice, byte and mix the ones before it took.
+                Saved? saved = whole ? Save(lost) : null;
+                foreach (PlannedNote note in lost.Where(n => Allowed(VoiceKind.Dac, n)))
                 {
-                    VoiceKind? had = note.Kind;
-                    if (!Take(VoiceKind.Dac, note) && !Mix(note))
+                    if (!RescueOne(note) && saved is not null)
                     {
-                        continue;
+                        Restore(saved);
+                        break;
                     }
-
-                    if (had is { } kind)
-                    {
-                        int[] counts = Counts(kind);
-                        foreach (int t in note.Plays.SelectMany(p => Enumerable.Range(p.FirstTick, p.Ticks)))
-                        {
-                            counts[t]--;
-                        }
-                    }
-
-                    note.Kind = VoiceKind.Dac;
-                    Moved--;
                 }
             }
 
@@ -636,35 +633,101 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
         }
 
         /// <summary>
-        /// True when every one of <paramref name="lost"/>, in order, could get its recording back: a voice is free all through
-        /// it, or it mixes with a playing recording into a mix the rules allow, counting the notes of the list already planned
-        /// into that mix. Bytes and slots are checked only when a mix is made.
+        /// Gives <paramref name="note"/> its recording back, with a PCM voice left free or mixed with a recording already
+        /// playing, and lets go of the FM or PSG voice it had. False, changing nothing, when neither fits.
         /// </summary>
-        private bool CanRescueAll(List<PlannedNote> lost)
+        private bool RescueOne(PlannedNote note)
         {
-            Dictionary<PlannedNote, List<PlannedNote>> joining = [];
-            foreach (PlannedNote note in lost)
+            VoiceKind? had = note.Kind;
+            if (!Take(VoiceKind.Dac, note) && !Mix(note))
             {
-                if (note.Plays.SelectMany(p => Enumerable.Range(p.FirstTick, p.Ticks)).All(t => HasRoom(VoiceKind.Dac, t)))
-                {
-                    continue;
-                }
-
-                MixedNotes? into = MixCandidates(note).FirstOrDefault(m =>
-                {
-                    List<PlannedNote> already = joining.GetValueOrDefault(m.Lead) ?? [];
-                    return m.Notes.Count + already.Count < StealMixer.MaxNotes
-                        && StealMixer.Make(_song, _playback, [.. m.Notes.Concat(already).Select(n => n.Plays[0]), note.Plays[0]], _limits.Target, _preMix) is not null;
-                });
-                if (into is null)
-                {
-                    return false;
-                }
-
-                joining[into.Lead] = [.. joining.GetValueOrDefault(into.Lead) ?? [], note];
+                return false;
             }
 
+            if (had is { } kind)
+            {
+                int[] counts = Counts(kind);
+                foreach (int t in note.Plays.SelectMany(p => Enumerable.Range(p.FirstTick, p.Ticks)))
+                {
+                    counts[t]--;
+                }
+            }
+
+            Moved += (note.Closest == VoiceKind.Dac ? 0 : 1) - (note.Closest is not null && had == note.Closest ? 0 : 1);
+            note.Kind = VoiceKind.Dac;
             return true;
+        }
+
+        /// <summary>What a rescue can change (not the bytes refused mixes wanted), so a track that can't be rescued whole is put back as it was.</summary>
+        private sealed record Saved(
+            int[] DacAt,
+            int[] FmAt,
+            int[] ToneAt,
+            int[] NoiseAt,
+            List<StoredCopy> Stored,
+            long Bytes,
+            List<KeyValuePair<Fingerprint, (DacSample Sample, int Bytes, int Uses)>> Mixes,
+            List<PlannedNote> OnDac,
+            List<KeyValuePair<PlannedNote, MixedNotes>> MixOf,
+            List<(MixedNotes Group, List<PlannedNote> Notes, int Start, int End, StealMix? Mix)> Groups,
+            List<(PlannedNote Note, VoiceKind? Kind)> Kinds,
+            int Moved);
+
+        /// <summary>Saves what rescuing <paramref name="notes"/> can change (<see cref="Restore"/>).</summary>
+        private Saved Save(List<PlannedNote> notes) => new(
+            [.. _dacAt],
+            [.. _fmAt],
+            [.. _toneAt],
+            [.. _noiseAt],
+            [.. _stored],
+            _bytes,
+            [.. _mixes],
+            [.. _onDac],
+            [.. _mixOf],
+            [.. _mixOf.Values.Distinct().Select(m => (m, m.Notes.ToList(), m.Start, m.End, m.Mix))],
+            [.. notes.Select(n => (n, n.Kind))],
+            Moved);
+
+        /// <summary>Puts back what <paramref name="saved"/> holds.</summary>
+        private void Restore(Saved saved)
+        {
+            saved.DacAt.CopyTo(_dacAt, 0);
+            saved.FmAt.CopyTo(_fmAt, 0);
+            saved.ToneAt.CopyTo(_toneAt, 0);
+            saved.NoiseAt.CopyTo(_noiseAt, 0);
+            _stored.Clear();
+            _stored.UnionWith(saved.Stored);
+            _bytes = saved.Bytes;
+            _mixes.Clear();
+            foreach ((Fingerprint key, (DacSample Sample, int Bytes, int Uses) value) in saved.Mixes)
+            {
+                _mixes[key] = value;
+            }
+
+            _onDac.Clear();
+            _onDac.AddRange(saved.OnDac);
+            _mixOf.Clear();
+            foreach ((PlannedNote note, MixedNotes group) in saved.MixOf)
+            {
+                _mixOf[note] = group;
+            }
+
+            foreach ((MixedNotes group, List<PlannedNote> notes, int start, int end, StealMix? mix) in saved.Groups)
+            {
+                group.Notes.Clear();
+                group.Notes.AddRange(notes);
+                group.Start = start;
+                group.End = end;
+                group.Mix = mix;
+            }
+
+            foreach ((PlannedNote note, VoiceKind? kind) in saved.Kinds)
+            {
+                note.Kind = kind;
+            }
+
+            // The bytes refused mixes wanted stay counted: a budget may make room for them (PreMixRules.MakeRoom).
+            Moved = saved.Moved;
         }
 
         /// <summary>How many voices of <paramref name="kind"/> each tick has taken.</summary>

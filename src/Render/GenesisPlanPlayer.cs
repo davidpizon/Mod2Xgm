@@ -336,8 +336,9 @@ internal sealed class GenesisPlanPlayer
                 KeyOn(c);
                 break;
             case VoiceKind.Dac:
+                // A pre-mix of notes from both sides plays from both speakers, on a DMF too (docs/adr/0094-pre-mixed-voice-steals.md).
+                track.Centred = _plan.DacSamples[voice.Index].Mix is { Centred: true };
                 track.Sounding = PlayDac(c, _plan.DacSamples[voice.Index], voice.Index, ch, t);
-                track.Centred = false;
                 break;
             case VoiceKind.PsgTone:
                 WriteTonePeriod(c, PsgSetting.NearestPeriod(PlanVoicing.Hz(_voicing.HeardSemitones(ch.Pitch, sample, out _))));

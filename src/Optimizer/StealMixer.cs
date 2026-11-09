@@ -18,7 +18,7 @@ namespace Mod2Xgm.Optimizer;
 /// <param name="SwitchTick">The row's first tick the tail starts on.</param>
 /// <param name="Outlast">The note the tail goes on with.</param>
 /// <param name="ClipDb">How far the mix was turned down so it doesn't clip; 0 when it didn't need to be.</param>
-/// <param name="HeadKey">A fingerprint of the head's bytes and rate: the same sound twice is stored once.</param>
+/// <param name="HeadKey">A fingerprint of the head's bytes, rate and pan: the same sound twice is stored once.</param>
 /// <param name="TailKey">The same for the tail.</param>
 internal sealed record StealMix(DacSample Head, DacSample? Tail, int SwitchTick, SongNote? Outlast, double ClipDb, Fingerprint HeadKey, Fingerprint TailKey);
 
@@ -102,13 +102,13 @@ internal static class StealMixer
         DacSample headSample = new(sorted[0].Sample, rate) { Mix = new DacMix(head, name, centred) };
         if (switchTick < 0)
         {
-            return new StealMix(headSample, null, -1, null, clipDb, Key(head, rate, target), default);
+            return new StealMix(headSample, null, -1, null, clipDb, Key(head, rate, target, centred), default);
         }
 
         SongNote o = outlast!; // A switch is only found for an outlasting note.
         (float[] tail, double tailRate) = Tail(song, playback, o, switchTick, scale, target);
         DacSample tailSample = new(o.Sample, tailRate) { Mix = new DacMix(tail, string.Create(CultureInfo.InvariantCulture, $"{o.Sample + 1:00} tail"), false) };
-        return new StealMix(headSample, tailSample, switchTick, o, clipDb, Key(head, rate, target), Key(tail, tailRate, target));
+        return new StealMix(headSample, tailSample, switchTick, o, clipDb, Key(head, rate, target, centred), Key(tail, tailRate, target, false));
     }
 
     /// <summary>
@@ -208,13 +208,17 @@ internal static class StealMixer
     /// <summary>When tick <paramref name="t"/> starts; the song's end for the tick after its last.</summary>
     private static double Time(Playback playback, int t) => t < playback.Ticks.Count ? playback.Ticks[t].TimeSeconds : playback.DurationSeconds;
 
-    /// <summary>A fingerprint of the bytes the target stores for <paramref name="points"/>, and their rate.</summary>
-    private static Fingerprint Key(float[] points, double rate, PcmTarget target)
+    /// <summary>
+    /// A fingerprint of the bytes the target stores for <paramref name="points"/>, their rate, and whether they play centred:
+    /// the same bytes mixed from one side and from both are two recordings, each with its own pan.
+    /// </summary>
+    private static Fingerprint Key(float[] points, double rate, PcmTarget target, bool centred)
     {
         using Hasher key = new(Fingerprint.Of(target == PcmTarget.Dmf
             ? MemoryMarshal.AsBytes(SampleProcessor.ToSigned16(points, string.Empty, Silent).AsSpan())
             : MemoryMarshal.AsBytes(SampleProcessor.ToSigned8(points, string.Empty, Silent).AsSpan())));
         key.Add(rate);
+        key.Add(centred);
         return key.Finish();
     }
 }
