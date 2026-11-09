@@ -571,7 +571,6 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
             return _stored.Count + _mixes.Count + fresh.Count <= _limits.PcmSlots && (_limits.PcmBytes is not { } budget || _bytes + bytes <= budget);
         }
 
-        /// <summary>Gives <paramref name="note"/> the room it needs for <paramref name="kind"/> on every tick it sounds, if it is there.</summary>
         /// <summary>
         /// After every section has its sounds, gives back their recording to notes that lost it for want of a PCM voice
         /// (plan T9.4b, docs/adr/0094-pre-mixed-voice-steals.md), track by track in the song's order: each is mixed with
@@ -677,6 +676,7 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
             _ => _noiseAt,
         };
 
+        /// <summary>Gives <paramref name="note"/> the room it needs for <paramref name="kind"/> on every tick it sounds, if it is there.</summary>
         private bool Take(VoiceKind kind, PlannedNote note)
         {
             List<int> ticks = [.. note.Plays.SelectMany(p => Enumerable.Range(p.FirstTick, p.Ticks))];
