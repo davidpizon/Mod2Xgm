@@ -34,6 +34,12 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
     /// <summary>How much closer another sound must be, in dB of log-mel distance, for a track to change sound between sections (David: sticky).</summary>
     private const double SwitchCostDb = 3;
 
+    /// <summary>
+    /// A recording whose MOD volume stays this far below the volume it started at, to its note's end, is cut: the DAC can't
+    /// follow a fade, and full volume is further from a note faded 18 dB or more than silence is (docs/adr/0095-voices-stop-with-the-mod-note.md).
+    /// </summary>
+    private const double FadedOutDb = 18;
+
     /// <summary>What a recording or a PSG tone costs a note that slides or wobbles, in dB: they hold their starting pitch and FM doesn't (David).</summary>
     private const double BentCostDb = 12;
 
@@ -699,6 +705,7 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
             int?[] owner = new int?[_columns];
             PlanVoice[] voiceOn = new PlanVoice[_columns];
             int[] sampleOn = new int[_columns];
+            Dictionary<(int Order, int Row, int Column), (int Tick, int Channel)> cuts = Cuts();
             List<IReadOnlyList<PlanRow>> patterns = [];
             for (int order = 0; order < _song.Orders.Count; order++)
             {
@@ -757,7 +764,43 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
                     }
                 }
 
+                for (int column = 0; column < _columns; column++)
+                {
+                    if (cuts.TryGetValue((order, r, column), out (int Tick, int Channel) cut))
+                    {
+                        Cut(cells, column, cut.Tick, cut.Channel);
+                    }
+                }
+
                 return new PlanRow(cells, flow);
+            }
+
+            // The MOD's note has gone silent before its channel's next note: the voice stops there too (docs/adr/0095-voices-stop-with-the-mod-note.md).
+            void Cut(PlanCell[] cells, int column, int tick, int c)
+            {
+                bool main = on[c] == column;
+                if (owner[column] != c || (!main && layerOn[c] != column) || (cells[column].Note is not null && cells[column].Source != c))
+                {
+                    return;
+                }
+
+                if (cells[column].Note is null && tick == 0)
+                {
+                    cells[column] = cells[column] with { NoteOff = true, Source = c };
+                    owner[column] = null;
+                    if (main)
+                    {
+                        on[c] = null;
+                    }
+                    else
+                    {
+                        layerOn[c] = null;
+                    }
+
+                    return;
+                }
+
+                cells[column] = cells[column] with { Effects = [.. cells[column].Effects, new NoteCut(tick)], Source = c };
             }
 
             void WriteNote(PlanCell[] cells, int c, int order, int r, Cell cell, List<Effect> effects)
@@ -859,6 +902,65 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
                 on[c] = null;
                 layerOn[c] = null;
             }
+        }
+
+        /// <summary>
+        /// Where a note's voice must stop before its channel's next note (docs/adr/0095-voices-stop-with-the-mod-note.md): an
+        /// FM voice (or FM layer) when its one-shot sample has played out, as the MOD falls silent there and the key would
+        /// otherwise stay on; a recording when the MOD's volume falls to 0 for good, as the DAC keeps the volume it started
+        /// with. Keyed by the row and column, with the tick in the row and the song channel.
+        /// </summary>
+        private Dictionary<(int Order, int Row, int Column), (int Tick, int Channel)> Cuts()
+        {
+            Dictionary<(int Order, int Row, int Column), (int Tick, int Channel)> cuts = [];
+            foreach (PlannedNote note in _planned.Where(n => n is { Kind: not null, Column: >= 0 }))
+            {
+                foreach (SongNote play in note.Plays)
+                {
+                    int? at = note.Kind switch
+                    {
+                        VoiceKind.Fm => PlayedOut(play),
+                        VoiceKind.Dac => FadedOut(play),
+                        _ => null,
+                    };
+                    if (at is not { } tick)
+                    {
+                        continue;
+                    }
+
+                    PlaybackTick end = _playback.Ticks[tick];
+                    cuts.TryAdd((end.Order, end.Row, note.Column), (end.Tick, play.Channel));
+                    if (note is { Kind: VoiceKind.Fm, LayerColumn: >= 0, LayerKind: VoiceKind.Fm })
+                    {
+                        cuts.TryAdd((end.Order, end.Row, note.LayerColumn), (end.Tick, play.Channel));
+                    }
+                }
+            }
+
+            return cuts;
+        }
+
+        /// <summary>The tick after <paramref name="play"/>'s sample has played out, or <c>null</c> when the channel's next note (or the song's end) comes first.</summary>
+        private int? PlayedOut(SongNote play)
+        {
+            int end = play.FirstTick + play.Ticks;
+            return end < _playback.Ticks.Count && _playback.Ticks[end].Channels[play.Channel].Started is null ? end : null;
+        }
+
+        /// <summary>
+        /// The first tick from which <paramref name="play"/>'s volume stays <see cref="FadedOutDb"/> or more below the volume it
+        /// started at, to its end, or <c>null</c> when it never does.
+        /// </summary>
+        private int? FadedOut(SongNote play)
+        {
+            double quiet = play.Volume * Math.Pow(10, -FadedOutDb / 20);
+            int? silent = null;
+            for (int t = play.FirstTick + play.Ticks - 1; t > play.FirstTick && _playback.Ticks[t].Channels[play.Channel].Volume <= quiet; t--)
+            {
+                silent = t;
+            }
+
+            return silent;
         }
 
         /// <summary>The sound a note would take with the Genesis all to itself.</summary>
