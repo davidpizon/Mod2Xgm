@@ -1,6 +1,11 @@
+using System.Text.RegularExpressions;
+using Mod2Xgm.Audio;
+using Mod2Xgm.Cli;
+using Mod2Xgm.Dmf;
 using Mod2Xgm.Mapping;
 using Mod2Xgm.Model;
 using Mod2Xgm.Optimizer;
+using Mod2Xgm.Render;
 using Serilog.Core;
 
 namespace Mod2Xgm.Tests.Optimizer;
@@ -30,13 +35,13 @@ public sealed class OptimizerMapperTests
         Assert.Equal(2, plan.Patterns[0][0].Cells.Count(c => c.Voice?.Kind == VoiceKind.Dac));
     }
 
-    /// <summary>A DMF plays one recording at a time, so the more important of two takes the DAC and the other moves on.</summary>
+    /// <summary>A DMF plays one recording at a time, so the more important of two takes the DAC and the other moves on. Pre-mixes are off: this checks who keeps the voice.</summary>
     [Fact]
     public void Map_WithTwoRecordingsOnDmf_LoudestKeepsDacOtherMoves()
     {
         // Arrange
         Song song = SongOf(2, [(0, 0, 0.25), (1, 1, 1.0)]);
-        OptimizerMapper sut = new(Limits(PcmTarget.Dmf), [Sounds(0), Sounds(1)]);
+        OptimizerMapper sut = new(Limits(PcmTarget.Dmf), [Sounds(0), Sounds(1)], null, null, PreMixRules.None);
 
         // Act
         GenesisPlan plan = sut.Map(song, PlaybackOf(song), MappingOptions.Default, Notes());
@@ -117,14 +122,14 @@ public sealed class OptimizerMapperTests
         Assert.Equal(Enum.Parse<VoiceKind>(expected), Assert.Single(plan.Patterns[0][0].Cells, c => c.Note is not null).Voice?.Kind);
     }
 
-    /// <summary>Two required recordings on one DAC: the less important is cut, never moved.</summary>
+    /// <summary>Two required recordings on one DAC, pre-mixes off: the less important is cut, never moved.</summary>
     [Fact]
     public void Map_WithRequiredDacOverlap_CutsQuieterNote()
     {
         // Arrange
         Song song = SongOf(2, [(0, 0, 0.25), (1, 1, 1.0)]);
         ConversionNotes notes = Notes();
-        OptimizerMapper sut = new(Limits(PcmTarget.Dmf), [Sounds(0), Sounds(1)]);
+        OptimizerMapper sut = new(Limits(PcmTarget.Dmf), [Sounds(0), Sounds(1)], null, null, PreMixRules.None);
 
         // Act
         GenesisPlan plan = sut.Map(song, PlaybackOf(song), Required("dac", 0, 1), notes);
@@ -305,7 +310,7 @@ public sealed class OptimizerMapperTests
     /// plays by FM; choosing for the whole song, the newcomer gets the voice and sample 0 plays by FM from the start, so
     /// only the first rule switches a sound mid-song. In the song's order, the newcomer matters more over the song, so it
     /// takes the voice in the second section as per section (plan T9.4c).
-    /// </summary>
+    /// Pre-mixes are off: this checks who keeps the voice.</summary>
     [Theory]
     [InlineData("PerSection", "Dac", "Fm", "Dac")]
     [InlineData("KeepPlaying", "Dac", "Dac", "Fm")]
@@ -316,7 +321,7 @@ public sealed class OptimizerMapperTests
         // Arrange: one PCM voice; sample 0 plays in both sections, sample 1, a hit and so more important, only in the second.
         Song song = SongOf(2, 2, [(0, 0)], [(0, 0), (1, 1)]);
         SampleSounds hit = Sounds(1) with { Percussive = 1 };
-        OptimizerMapper sut = new(TargetLimits.For(PcmTarget.Xgm2, 1 << 20, 2), [Sounds(0), hit], null, Enum.Parse<VoiceSwitching>(rule));
+        OptimizerMapper sut = new(TargetLimits.For(PcmTarget.Xgm2, 1 << 20, 2), [Sounds(0), hit], null, Enum.Parse<VoiceSwitching>(rule), PreMixRules.None);
 
         // Act
         GenesisPlan plan = sut.Map(song, PlaybackOf(song), MappingOptions.Default, Notes());
@@ -331,7 +336,7 @@ public sealed class OptimizerMapperTests
     /// One PCM voice: a pad loud in the first section and quiet in the second, where a newcomer louder than the pad's
     /// second note but quieter than its song-wide mean arrives. Per section, the newcomer matters more there and takes the
     /// voice; in the song's order (the converter's rule, ADR 0092), the pad matters more over the song and keeps it.
-    /// </summary>
+    /// Pre-mixes are off: this checks who keeps the voice.</summary>
     [Theory]
     [InlineData("PerSection", "Fm", "Dac")]
     [InlineData("SongRank", "Dac", "Fm")]
@@ -341,7 +346,7 @@ public sealed class OptimizerMapperTests
         Song song = Assemble(2, 2, [
             new Row([new Cell(new NotePitch(48, 0, Rate), 0, 1.0, []), Cell.Empty]),
             new Row([new Cell(new NotePitch(48, 0, Rate), 0, 0.1, []), new Cell(new NotePitch(48, 0, Rate), 1, 0.5, [])])]);
-        OptimizerMapper sut = new(TargetLimits.For(PcmTarget.Xgm2, 1 << 20, 2), [Sounds(0), Sounds(1)], null, Enum.Parse<VoiceSwitching>(rule));
+        OptimizerMapper sut = new(TargetLimits.For(PcmTarget.Xgm2, 1 << 20, 2), [Sounds(0), Sounds(1)], null, Enum.Parse<VoiceSwitching>(rule), PreMixRules.None);
 
         // Act
         GenesisPlan plan = sut.Map(song, PlaybackOf(song), MappingOptions.Default, Notes());
@@ -375,13 +380,13 @@ public sealed class OptimizerMapperTests
         Assert.Contains(notes.Messages, m => m.Contains("ignored", StringComparison.Ordinal));
     }
 
-    /// <summary>A sample with no steady pitch that loses the DAC takes the PSG's noise, though FM and a PSG tone are closer: a tuned voice plays it as a wrong note (David).</summary>
+    /// <summary>A sample with no steady pitch that loses the DAC takes the PSG's noise, though FM and a PSG tone are closer: a tuned voice plays it as a wrong note (David). Pre-mixes are off: this checks who keeps the voice.</summary>
     [Fact]
     public void Map_WithUnsteadySampleLosingDac_TakesNoise()
     {
         // Arrange
         Song song = SongOf(2, [(0, 0, 1.0), (1, 1, 0.25)]);
-        OptimizerMapper sut = new(Limits(PcmTarget.Dmf), [Sounds(0), Sounds(1) with { SteadyPitch = false }]);
+        OptimizerMapper sut = new(Limits(PcmTarget.Dmf), [Sounds(0), Sounds(1) with { SteadyPitch = false }], null, null, PreMixRules.None);
 
         // Act
         GenesisPlan plan = sut.Map(song, PlaybackOf(song), MappingOptions.Default, Notes());
@@ -390,7 +395,7 @@ public sealed class OptimizerMapperTests
         Assert.Equal(VoiceKind.PsgNoise, Assert.Single(plan.Patterns[0][0].Cells, c => c.Sample == 1).Voice?.Kind);
     }
 
-    /// <summary>With the DAC and the noise channel both busy, a sample with no steady pitch is cut, and tuned voices stay free.</summary>
+    /// <summary>With the DAC and the noise channel both busy and pre-mixes off, a sample with no steady pitch is cut, and tuned voices stay free.</summary>
     [Fact]
     public void Map_WithUnsteadySamplesOverDacAndNoise_CutsLeastImportant()
     {
@@ -398,7 +403,7 @@ public sealed class OptimizerMapperTests
         Song song = SongOf(3, [(0, 0, 1.0), (1, 1, 0.75), (2, 2, 0.25)]);
         SampleSounds[] menu = [.. Enumerable.Range(0, 3).Select(i => Sounds(i) with { SteadyPitch = false })];
         ConversionNotes notes = Notes();
-        OptimizerMapper sut = new(Limits(PcmTarget.Dmf), menu);
+        OptimizerMapper sut = new(Limits(PcmTarget.Dmf), menu, null, null, PreMixRules.None);
 
         // Act
         GenesisPlan plan = sut.Map(song, PlaybackOf(song), MappingOptions.Default, notes);
@@ -441,7 +446,7 @@ public sealed class OptimizerMapperTests
         Assert.Equal(VoiceKind.Fm, Assert.Single(plan.Patterns[0][0].Cells, c => c.Note is not null).Voice?.Kind);
     }
 
-    /// <summary>Of two notes alike but for how much they hit, the sample that hits takes the DAC: a replaced attack is easy to hear.</summary>
+    /// <summary>Of two notes alike but for how much they hit, the sample that hits takes the DAC: a replaced attack is easy to hear. Pre-mixes are off: this checks who keeps the voice.</summary>
     [Fact]
     public void Map_WithHitAndHeldNoteOnDmf_HitTakesDac()
     {
@@ -449,7 +454,7 @@ public sealed class OptimizerMapperTests
         Song song = SongOf(2, [(0, 0, 1.0), (1, 1, 1.0)]);
         SampleSounds held = Sounds(0) with { Percussive = 0 };
         SampleSounds hit = Sounds(1) with { Percussive = 1 };
-        OptimizerMapper sut = new(Limits(PcmTarget.Dmf), [held, hit]);
+        OptimizerMapper sut = new(Limits(PcmTarget.Dmf), [held, hit], null, null, PreMixRules.None);
 
         // Act
         GenesisPlan plan = sut.Map(song, PlaybackOf(song), MappingOptions.Default, Notes());
@@ -887,6 +892,133 @@ public sealed class OptimizerMapperTests
         Assert.DoesNotContain(plan.Patterns[0].Skip(1).SelectMany(row => columns.Select(c => row.Cells[c])), cell => cell.NoteOff || cell.Effects.OfType<NoteCut>().Any());
     }
 
+    /// <summary>Four recordings at once on XGM2's three voices: the fourth is mixed with one playing instead of moving (plan T9.4b).</summary>
+    [Fact]
+    public void Map_WithMoreRecordingsThanVoices_PreMixesInsteadOfMoving()
+    {
+        // Arrange
+        Song song = SongOf(4, [(0, 0), (1, 1), (2, 2), (3, 3)], [(-1, 0)], [(-1, 0)]);
+        OptimizerMapper sut = new(Limits(PcmTarget.Xgm2), [Sounds(0), Sounds(1), Sounds(2), Sounds(3)]);
+        ConversionNotes notes = Notes();
+
+        // Act
+        GenesisPlan plan = sut.Map(song, PlaybackOf(song), MappingOptions.Default, notes);
+
+        // Assert
+        Assert.Equal(0, sut.NotesMoved);
+        Assert.Equal(3, plan.Patterns[0][0].Cells.Count(c => c.Voice?.Kind == VoiceKind.Dac));
+        DacSample mix = Assert.Single(plan.DacSamples, d => d.Mix is not null);
+        Assert.StartsWith("mix ", mix.Mix!.Name, StringComparison.Ordinal);
+        Assert.NotEmpty(mix.Mix.Points);
+        Assert.Contains(notes.Messages, m => m.Contains("mixed into one recording 1 times", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// Short recordings on a DMF's one DAC: five at once on the first row, two on the second. The last track to be given
+    /// back its recording (channel 4) could be mixed on the second row but not the first, where four already share a mix,
+    /// the most one holds. Having no recording anywhere, it stays whole on FM rather than playing one note mixed and the
+    /// other by FM (docs/adr/0094-pre-mixed-voice-steals.md).
+    /// </summary>
+    [Fact]
+    public void Map_WithTrackThatCanNotBeMixedEverywhere_MovesItWhole()
+    {
+        // Arrange
+        Sample[] shortSounds = [.. Enumerable.Range(0, 5).Select(i => new Sample($"s{i}", Sound(100, 0.1f), null))];
+        Song song = WithSamples(SongOf(5, [(0, 4), (1, 1), (2, 2), (3, 3), (4, 0)], [(0, 4), (4, 0)]), shortSounds);
+        OptimizerMapper sut = new(Limits(PcmTarget.Dmf), [Sounds(0), Sounds(1), Sounds(2), Sounds(3), Sounds(4)]);
+        ConversionNotes notes = Notes();
+
+        // Act
+        GenesisPlan plan = sut.Map(song, PlaybackOf(song), MappingOptions.Default, notes);
+
+        // Assert
+        Assert.Contains(plan.DacSamples, d => d.Mix is not null);
+        Assert.Contains(notes.Messages, m => m.StartsWith("Sample 1 \"s0\": of its 2 notes, 0 play as recordings, 2 by FM", StringComparison.Ordinal));
+        Assert.DoesNotContain(notes.Messages, m => Regex.IsMatch(m, @"[1-9]\d* play as recordings, [1-9]\d* by FM"));
+    }
+
+    /// <summary>With pre-mixes off, the note that finds no PCM voice moves, as before T9.4b.</summary>
+    [Fact]
+    public void Map_WithPreMixesOff_MovesTheNote()
+    {
+        // Arrange
+        Song song = SongOf(4, [(0, 0), (1, 1), (2, 2), (3, 3)], [(-1, 0)], [(-1, 0)]);
+        OptimizerMapper sut = new(Limits(PcmTarget.Xgm2), [Sounds(0), Sounds(1), Sounds(2), Sounds(3)], null, null, PreMixRules.None);
+
+        // Act
+        GenesisPlan plan = sut.Map(song, PlaybackOf(song), MappingOptions.Default, Notes());
+
+        // Assert
+        Assert.Equal(1, sut.NotesMoved);
+        Assert.DoesNotContain(plan.DacSamples, d => d.Mix is not null);
+    }
+
+    /// <summary>Two loud notes mix 5.1 dB over full scale: made under a 6 dB limit, refused under a 3 dB one, so the note moves.</summary>
+    [Theory]
+    [InlineData(6, 0)]
+    [InlineData(3, 1)]
+    public void Map_WithLoudMix_KeepsToTheClipLimit(double maxClipDb, int moved)
+    {
+        // Arrange
+        Song song = WithSamples(SongOf(2, [(0, 0), (1, 1)], [(-1, 0)]), new Sample("a", Sound(4000, 0.9f), null), new Sample("b", Sound(4000, 0.9f), null));
+        PreMixRules rules = PreMixRules.Default with { MaxClipDb = maxClipDb };
+        OptimizerMapper sut = new(Limits(PcmTarget.Dmf), [Sounds(0), Sounds(1)], null, null, rules);
+
+        // Act
+        sut.Map(song, PlaybackOf(song), MappingOptions.Default, Notes());
+
+        // Assert
+        Assert.Equal(moved, sut.NotesMoved);
+    }
+
+    /// <summary>
+    /// A looped note outlasting a one-shot on a DMF's one DAC: with tails, the mix plays to the row the one-shot ends on and the
+    /// looped note goes on as a tail there; without, the one-shot moves.
+    /// </summary>
+    [Theory]
+    [InlineData(true, 0)]
+    [InlineData(false, 1)]
+    public void Map_WithLoopedNoteOutlastingTheMix_GoesOnAsATailWhenAllowed(bool tails, int moved)
+    {
+        // Arrange
+        Song song = WithSamples(
+            SongOf(2, [(0, 0), (1, 1)], [(-1, 0)], [(1, 2)], [(-1, 0)], [(-1, 0)]),
+            new Sample("pad", Sound(4000, 0.2f), new SampleLoop(0, 4000)),
+            new Sample("hit", Sound(4000, 0.3f), null),
+            new Sample("lead", Sound(4000, 0.1f), null));
+        OptimizerMapper sut = new(Limits(PcmTarget.Dmf), [Sounds(0), Sounds(1), FmFirst(2)], null, null, PreMixRules.Default with { Tails = tails });
+
+        // Act
+        GenesisPlan plan = sut.Map(song, PlaybackOf(song), MappingOptions.Default, Notes());
+
+        // Assert
+        Assert.Equal(moved, sut.NotesMoved);
+        PlanCell fm6 = plan.Patterns[0][2].Cells[(int)GenesisChannel.Fm6];
+        Assert.Equal(tails, fm6.Voice is { Kind: VoiceKind.Dac } voice && plan.DacSamples[voice.Index].Mix?.Name == "01 tail");
+    }
+
+    /// <summary>A pre-mix reaches the DMF as one DAC sample named for its parts, and the renderer plays it on every driver.</summary>
+    [Theory]
+    [InlineData(nameof(PcmDriver.Dmf))]
+    [InlineData(nameof(PcmDriver.Xgm))]
+    [InlineData(nameof(PcmDriver.Xgm2))]
+    public void Map_WithPreMix_IsWrittenAndRendered(string driver)
+    {
+        // Arrange
+        Song song = SongOf(2, [(0, 0), (1, 1)], [(-1, 0)], [(-1, 0)]);
+        Playback playback = PlaybackOf(song);
+        ConversionNotes notes = Notes();
+        GenesisPlan plan = new OptimizerMapper(Limits(PcmTarget.Dmf), [Sounds(0), Sounds(1)]).Map(song, playback, MappingOptions.Default, notes);
+
+        // Act
+        DmfSong built = DmfSongBuilder.Build(plan, song, DmfTimingPlanner.Plan(plan, 1.0, Region.Pal, notes), new DmfBuildSettings(AmigaPitch.PalClockHz, ResamplingMode.Smooth), notes);
+        StereoAudio audio = GenesisRenderer.Render(plan, song, playback, new GenesisRenderOptions(Enum.Parse<PcmDriver>(driver)), notes);
+
+        // Assert
+        Assert.Contains(built.File.Samples, s => s.Name.StartsWith("mix 01+02", StringComparison.Ordinal));
+        Assert.Contains(audio.Left, x => Math.Abs(x) > 0.01f);
+    }
+
     private static IEnumerable<string> Kinds(GenesisPlan plan) =>
         plan.Patterns.SelectMany(p => p).SelectMany(r => r.Cells).Select(c => $"{c.Voice}/{c.Sample}");
 
@@ -965,6 +1097,10 @@ public sealed class OptimizerMapperTests
         Pattern[] patterns = [.. Enumerable.Range(0, orders).Select(o => new Pattern([.. rows.Skip(o * perOrder).Take(perOrder)]))];
         return new Song("song", [.. Enumerable.Repeat(new Channel(0), channels)], [.. Enumerable.Range(0, orders)], null, patterns, instruments, samples, new Timing(1, 125));
     }
+
+    /// <summary><paramref name="song"/> with <paramref name="samples"/> in place of its own.</summary>
+    private static Song WithSamples(Song song, params Sample[] samples) =>
+        new(song.Title, song.Channels, song.Orders, song.LoopOrder, song.Patterns, [.. Enumerable.Range(0, samples.Length).Select(i => new Instrument(i, 1, 0))], samples, song.Timing);
 
     private static float[] Sound(int frames, float level)
     {

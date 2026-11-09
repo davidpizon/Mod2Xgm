@@ -76,6 +76,10 @@ combination of changes wins ([Passes](#passes)).
     a PCM voice per overlap, at the cost of the window's bytes and slot. Built in T8.5a ([ADR 0072](adr/0072-pre-mix-candidates.md),
     `PreMixer`): every group of 2–4 overlapping notes, a one-shot tail also offered baked to its end, the seam scored
     through the PCM driver models, each tail paying its own bytes; the harness writes `pre-mix.csv` and `voice-steals.csv`.
+    The allocator uses pre-mixes in T9.4b ([ADR 0094](adr/0094-pre-mixed-voice-steals.md), `StealMixer`): after the
+    allocation, a note that lost its recording to the voice limit is given it back, with a PCM voice left free or mixed
+    on demand with a recording already playing; a track that never plays recordings is rescued only whole. The FM/PSG
+    voices it frees go to notes that were cut.
 
 ## Constraints the allocator enforces
 

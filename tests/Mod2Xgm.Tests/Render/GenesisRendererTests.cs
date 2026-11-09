@@ -504,6 +504,30 @@ public sealed class GenesisRendererTests
     }
 
     /// <summary>
+    /// On every driver, the DMF's included, a pre-mix of notes from both sides plays from both speakers though its lead note's
+    /// channel is on the left; a pre-mix from one side plays on that side (docs/adr/0094-pre-mixed-voice-steals.md).
+    /// </summary>
+    [Theory]
+    [InlineData(nameof(PcmDriver.Dmf), true)]
+    [InlineData(nameof(PcmDriver.Dmf), false)]
+    [InlineData(nameof(PcmDriver.Xgm2), true)]
+    [InlineData(nameof(PcmDriver.Xgm2), false)]
+    public void Render_WithPreMixFromBothSides_PlaysItCentred(string driver, bool centred)
+    {
+        // Arrange: a mix of 1 s of sine, played by song channel 0 on the left.
+        Sample recording = OneShotSine(8000, 1);
+        DacSample mix = new(0, 8000) { Mix = new DacMix([.. recording.Data.Select(v => v * 0.5f)], "mix 01+02", centred) };
+        GenesisPlan plan = PlanOf([], [mix], Row((GenesisChannel.Fm6, Note(VoiceKind.Dac, rateHz: 8000))));
+        Playback playback = PlaybackOf(20, (r, t) => Playing(r == 0 && t == 0, pan: -1, rateHz: 8000, frames: recording.Length));
+
+        // Act
+        StereoAudio sut = Render(plan, SongOf(1, recording), playback, ChipRate with { Driver = Enum.Parse<PcmDriver>(driver) });
+
+        // Assert
+        Assert.Equal((true, centred), (Db(sut.Left, sut.SampleRate, 0.2, 0.8) > -40, Db(sut.Right, sut.SampleRate, 0.2, 0.8) > -40));
+    }
+
+    /// <summary>
     /// A note at 48/64 (2.5 dB down, one step) plays the 6 dB copy the shrinker stored for it, not the full-volume one: the
     /// player rounds loudness exactly as the shrinker counts copies.
     /// </summary>
