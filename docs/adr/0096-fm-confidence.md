@@ -39,9 +39,11 @@ fixes what the later tasks build on.
   - the brightness distance: the mean absolute difference of the power-weighted mean mel band, over frames both sound in.
 
   Each sample also carries:
-  - its tonal, noisy and loop traits, its pitch deviation, and whether it is a chord;
   - its share of the song's importance (exposure);
   - the share of its importance in bent notes.
+
+  The harness's feature export (T9.4g) adds the analysis's per-sample traits (tonal, noisy, loop, pitch deviation,
+  chord), which are already in `SampleAnalysis`.
 
   These are measured from the render the menu already makes to set the patch's level, so no extra FM is rendered. They
   are not cached, so `CandidateCache` is unchanged. T9.4h adds perceptual measures: a PEAQ-style noise-to-mask ratio,
@@ -85,8 +87,7 @@ fixes what the later tasks build on.
 
 ## Consequences
 
-- `RegionSounds` gains `Features` and `SampleSounds` gains `Traits`. `SoundMenu` measures them from the render that sets
-  each patch's level.
+- `RegionSounds` gains `Features`. `SoundMenu` measures them from the render that sets each patch's level.
 - `OptimizerMapper.Confidence` gives every sample's confidence after `Map`, even when the song can't fit. It changes no
   plan.
 - The provisional constants live in `FmConfidenceModel`. T9.4i replaces them, in an ADR that supersedes this one's model.

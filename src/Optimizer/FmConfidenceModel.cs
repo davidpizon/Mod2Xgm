@@ -14,7 +14,7 @@ internal static class FmConfidenceModel
     public const double ProvisionalMidpointDb = 6.96;
 
     /// <summary>How many dB of distance move the odds by a factor of e (provisional): about the spread of the corpus's fits, so a fit 3 dB past the median is about 12 %.</summary>
-    public const double ProvisionalScaleDb = 1.5;
+    private const double ProvisionalScaleDb = 1.5;
 
     /// <summary>The chance, 0–1, that the patch measured by <paramref name="features"/> is fine for its region.</summary>
     public static double Probability(FmRegionFeatures features)

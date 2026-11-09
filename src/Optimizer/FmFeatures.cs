@@ -15,11 +15,3 @@ namespace Mod2Xgm.Optimizer;
 /// <param name="CentroidBands">How far the patch's brightness (the power-weighted mean mel band of each frame) is from the
 /// sample's, as the mean absolute difference in mel bands over frames both sound in.</param>
 internal sealed record FmRegionFeatures(NoteScore Score, double AttackDb, double EnvelopeDb, double CentroidBands);
-
-/// <summary>What the analysis says about a whole sample that bears on how well FM can play it (docs/adr/0096-fm-confidence.md).</summary>
-/// <param name="Tonal">0–1: how clearly it repeats a cycle (<see cref="SampleAnalysis.Tonal"/>).</param>
-/// <param name="Noisy">0–1: how flat its spectrum is (<see cref="SampleAnalysis.Noisy"/>).</param>
-/// <param name="Loops">True when it holds a loop.</param>
-/// <param name="DeviationCents">How far its pitch strays (<see cref="PitchStability.DeviationCents"/>), or <c>null</c> without a pitch.</param>
-/// <param name="Chord">True when a region is several notes stored as one (<see cref="SoundMenu.IsChord"/>).</param>
-internal sealed record SampleTraits(double Tonal, double Noisy, bool Loops, double? DeviationCents, bool Chord);

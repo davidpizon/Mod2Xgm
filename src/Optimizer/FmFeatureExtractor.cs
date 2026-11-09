@@ -40,9 +40,8 @@ internal static class FmFeatureExtractor
     }
 
     /// <summary>Each frame's loudness: the power of all its mel bands together, in dB.</summary>
-    internal static double[] FrameLevelsDb(IReadOnlyList<float[]> bandsDb)
+    private static double[] FrameLevelsDb(IReadOnlyList<float[]> bandsDb)
     {
-        ArgumentNullException.ThrowIfNull(bandsDb);
         double[] levels = new double[bandsDb.Count];
         for (int t = 0; t < levels.Length; t++)
         {

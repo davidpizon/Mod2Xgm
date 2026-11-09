@@ -1045,6 +1045,22 @@ public sealed class OptimizerMapperTests
         Assert.Equal(1.0, sut.Confidence.Sum(c => c.Exposure), 6);
     }
 
+    /// <summary>A sample whose only note slides has all its importance in bent notes, which its FM confidence reports (docs/adr/0096-fm-confidence.md).</summary>
+    [Fact]
+    public void Map_WithBentNote_ReportsBentShare()
+    {
+        // Arrange
+        Song song = SongOf(1, [(0, 0)], [(-1, 0)]);
+        Playback playback = PlaybackOf(song, rates: [Rate, Rate * 1.1], newNotes: [true, false]);
+        OptimizerMapper sut = new(Limits(PcmTarget.Dmf), [Sounds(0)]);
+
+        // Act
+        sut.Map(song, playback, MappingOptions.Default, Notes());
+
+        // Assert
+        Assert.Equal(1.0, sut.Confidence[0].BentShare, 6);
+    }
+
     private static IEnumerable<string> Kinds(GenesisPlan plan) =>
         plan.Patterns.SelectMany(p => p).SelectMany(r => r.Cells).Select(c => $"{c.Voice}/{c.Sample}");
 

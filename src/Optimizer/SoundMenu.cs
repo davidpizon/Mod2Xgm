@@ -25,8 +25,7 @@ internal sealed record RegionSounds(double LowRateHz, double HighRateHz, FmPatch
 /// <param name="Regions">Its pitch regions, low to high.</param>
 /// <param name="RecordingDb">For each rate the song starts it at, how far the stored copy is; empty when PCM wasn't fitted.</param>
 /// <param name="SteadyPitch">False when it has no pitch a tuned voice could hold (<see cref="SoundMenu.HasSteadyPitch"/>): such a voice plays it as a wrong note (David, by ear).</param>
-/// <param name="Traits">What the analysis says about the whole sample, for its FM confidence; <c>null</c> when not measured.</param>
-internal sealed record SampleSounds(int Sample, double Percussive, IReadOnlyList<RegionSounds> Regions, IReadOnlyDictionary<double, double> RecordingDb, bool SteadyPitch = true, SampleTraits? Traits = null)
+internal sealed record SampleSounds(int Sample, double Percussive, IReadOnlyList<RegionSounds> Regions, IReadOnlyDictionary<double, double> RecordingDb, bool SteadyPitch = true)
 {
     /// <summary>The region holding <paramref name="rateHz"/>, or the nearest by pitch; <c>null</c> when it has none.</summary>
     public RegionSounds? RegionAt(double rateHz) => RegionIndexAt(rateHz) is { } r ? Regions[r] : null;
@@ -233,7 +232,6 @@ internal static class SoundMenu
             recordings[pitch.RateHz] = pitch.Score.MelDb;
         }
 
-        SampleTraits traits = new(analysis.Tonal, analysis.Noisy, played.Loop is not null, analysis.Pitch?.DeviationCents, regions.Any(r => r.Second is not null));
-        return new SampleSounds(sample, analysis.Percussive, regions, recordings, HasSteadyPitch(analysis), traits);
+        return new SampleSounds(sample, analysis.Percussive, regions, recordings, HasSteadyPitch(analysis));
     }
 }

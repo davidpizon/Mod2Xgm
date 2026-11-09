@@ -1,6 +1,5 @@
 using Mod2Xgm.Mapping;
 using Mod2Xgm.Optimizer;
-using Mod2Xgm.Render;
 
 namespace Mod2Xgm.Tests.Optimizer;
 
