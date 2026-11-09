@@ -33,12 +33,22 @@ David heard both in blind rounds 16–18 (with and without T9.4b's pre-mixes, so
   runs at 3 ticks a row, so its two `A0F` rows end at 4/64 (−24 dB), not at 0. A volume that only dips (a tremolo) cuts nothing.
 - PSG voices follow the sample's loudness and the volume already, so they get no cut.
 
-On a row's first tick the cut is a note-off cell; later in the row it is a `NoteCut` effect (DMF `ECxx`) in that row's cell.
-The cut is left out when another note has taken the column by then.
+On a row's first tick the cut is a note-off cell; later in the row it is a `NoteCut` effect (DMF `ECxx`) in that row's cell,
+marked `Ends`. A cell holds one cut: a MOD's own `ECx` in it merges with the plan's cut, on the earlier tick. The cut is left
+out when:
 
-**The Genesis renderer plays every `NoteCut` in the plan** (`GenesisPlanPlayer`): on its tick it stops the voice, letting go
-of an FM key or stopping a recording, as a note-off does. This includes a MOD's own `ECx`, which the DMF already writes as
-`ECxx`, so the render now plays the file as written.
+- another note has taken the column by then;
+- the channel starts another sample later in the same row (a retrigger, `E9x`, or a delayed note, `EDx`): that start takes
+  the voice over, so an earlier stop would only cut the start short;
+- a read of the row would cut where the note still sounds. The renderer reads a row again on each pass of a pattern loop
+  (`E6x`) and on each repeat of a row held by `EEx`, and cuts on the same tick of every read, so a cut is kept only when every
+  read wants it on that tick;
+- the note ended because the channel swapped to another sample without a new note (an instrument-only cell): that sound goes on.
+
+**The Genesis renderer plays the plan's cuts** (`GenesisPlanPlayer`): on its tick a `NoteCut` marked `Ends` stops the voice,
+letting go of an FM key or stopping a recording, as a note-off does. A MOD's own `ECx` only sets the volume to 0, as
+ProTracker does, so a later volume command can bring the note back: FM and PSG voices already follow that volume, and a
+recording that stays silent to its note's end gets the plan's cut above.
 
 ## Options considered
 
@@ -55,5 +65,7 @@ of an FM key or stopping a recording, as a note-off does. This includes a MOD's 
 - FM notes on one-shot samples release at the patch's release rate once the sample has played out, as the MOD does. A
   recording faded by a slide still plays at its starting volume until the volume reaches 0. Partial fades are not followed.
 - The simple mapper does not add cuts yet: it puts one-shot samples on the DAC unless `--require-fm` moves them.
+- A note whose cut is left out above (a loop pass or an `EEx` repeat that disagrees, a stop before a retrigger) holds as it
+  did before this ADR.
 - **Verify:** DefleMask's `ECxx` on an FM channel keys off (the DMF's existing `ECx` translation assumes so).
 - To be checked by ear in a blind round on k0w-rsnd and musix-omg-plz-help (status Proposed until then).

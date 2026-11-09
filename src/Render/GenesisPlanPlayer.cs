@@ -156,7 +156,7 @@ internal sealed class GenesisPlanPlayer
 
             if (track.CutTick == t)
             {
-                // ECx, or the plan's cut where the MOD's note has gone silent (docs/adr/0095-voices-stop-with-the-mod-note.md).
+                // The plan's cut where the MOD's note has gone silent (docs/adr/0095-voices-stop-with-the-mod-note.md).
                 Stop(c);
                 track.CutTick = -1;
             }
@@ -244,7 +244,9 @@ internal sealed class GenesisPlanPlayer
                 continue;
             }
 
-            if (cell.Effects.OfType<NoteCut>().FirstOrDefault() is { } cut)
+            // Only the plan's own cut stops the voice. The MOD's ECx only sets the volume to 0, which FM and PSG voices already
+            // follow, and a later volume command may bring the note back (docs/adr/0095-voices-stop-with-the-mod-note.md).
+            if (cell.Effects.OfType<NoteCut>().FirstOrDefault(e => e.Ends) is { } cut)
             {
                 track.CutTick = TickInRow(t, cut.Tick) ?? -1;
             }
@@ -772,7 +774,7 @@ internal sealed class GenesisPlanPlayer
         /// <summary>The tick the note last started on.</summary>
         public int StartedAt { get; set; } = -1;
 
-        /// <summary>The tick the note is cut on (a <see cref="NoteCut"/> in this row's cell), or −1.</summary>
+        /// <summary>The tick the note is cut on (a <see cref="NoteCut"/> that <see cref="NoteCut.Ends"/> the note, in this row's cell), or −1.</summary>
         public int CutTick { get; set; } = -1;
 
         /// <summary>True on a row whose cell restarts the note (E9x) from the same song channel.</summary>
