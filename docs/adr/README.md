@@ -100,11 +100,12 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0084](0084-drop-clues.md) | Drop clues per song track, set by listening | 2026-11-06 | Accepted |
 | [0085](0085-target-limits.md) | One rule book of target limits; XGM's and XGM2's limits never bind a DMF | 2026-11-06 | Accepted |
 | [0086](0086-capacity-check.md) | The capacity check counts only recordings, as the drivers store them | 2026-11-06 | Accepted |
-| [0087](0087-greedy-allocator.md) | A greedy allocator, its sounds and levels chosen by ear | 2026-11-06 | Accepted |
+| [0087](0087-greedy-allocator.md) | A greedy allocator, its sounds and levels chosen by ear | 2026-11-06 | Accepted; the track order and switch rule are superseded by [ADR 0092](0092-stable-voices.md) |
 | [0088](0088-layering.md) | Layering: a quiet PSG tone under an FM note, chosen by ear | 2026-11-07 | Accepted |
 | [0089](0089-fm-layer.md) | A second FM voice under a chord sample, chosen by ear | 2026-11-07 | Accepted |
 | [0090](0090-hard-pan.md) | Panned channels stay on their side, chosen by ear | 2026-11-08 | Accepted |
 | [0091](0091-shrinking-recordings.md) | Shrinking recordings to fit, chosen by ear | 2026-11-08 | Accepted |
+| [0092](0092-stable-voices.md) | Stable voices: the song's order, and a sound keeps its voice | 2026-11-08 | Accepted |
 
 ## Open questions
 
