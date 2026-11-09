@@ -1,6 +1,6 @@
 # ADR 0006: PCM budget and mid-song swapping confirmed
 
-- **Status:** Accepted
+- **Status:** Accepted; the default budget superseded by [ADR 0093](0093-optional-pcm-budget.md) (no default; `--max-pcm-bytes` is opt-in)
 - **Date:** 2026-10-27
 
 ## Context

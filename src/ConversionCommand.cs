@@ -416,8 +416,8 @@ internal static class ConversionCommand
             options.Quality,
             options.Seed);
         logger.Debug(
-            "PCM budget {MaxPcmBytes} bytes, reserved SFX channels {ReserveSfx}, consolidate {Consolidate}, cache {Cache:l}",
-            options.MaxPcmBytes,
+            "PCM budget {MaxPcmBytes:l}, reserved SFX channels {ReserveSfx}, consolidate {Consolidate}, cache {Cache:l}",
+            options.MaxPcmBytes is { } budget ? budget.ToString(CultureInfo.InvariantCulture) + " bytes" : "none (what the format holds)",
             options.ReserveSfxChannels,
             !options.NoConsolidate,
             options.NoCache ? "off" : Path.Combine(options.CacheDirectory ?? CandidateCache.DefaultRoot, CandidateCache.BuildFolderName));

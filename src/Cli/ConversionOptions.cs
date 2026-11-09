@@ -62,7 +62,11 @@ internal sealed record ConversionOptions
     public bool NoDac { get; init; }
 
     public bool NoConsolidate { get; init; }
-    public long MaxPcmBytes { get; init; } = ConversionDefaults.MaxPcmBytes;
+    /// <summary>
+    /// The song's PCM byte budget for XGM and XGM2 (<c>--max-pcm-bytes</c>), or <c>null</c> for none: then only what the
+    /// format can hold binds (David: a Genesis song has no fixed sample budget, docs/adr/0093-optional-pcm-budget.md).
+    /// </summary>
+    public long? MaxPcmBytes { get; init; }
     public Quality Quality { get; init; } = Quality.Normal;
 
     /// <summary>Optimizer time limit; <c>null</c> means the default for <see cref="Quality"/>.</summary>
@@ -91,9 +95,6 @@ internal sealed record ConversionOptions
 /// <summary>Default values and limits shared by the CLI and the converter.</summary>
 internal static class ConversionDefaults
 {
-    /// <summary>128 KB PCM budget per song (docs/sample-capacity.md).</summary>
-    public const long MaxPcmBytes = 128 * 1024;
-
     /// <summary>Highest sample number a MOD can have (31-sample ProTracker format).</summary>
     public const int MaxModSamples = 31;
 }

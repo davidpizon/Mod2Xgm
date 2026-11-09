@@ -11,7 +11,7 @@ SGDK-playable** output. Every instrument gets several candidate renditions with 
 resource cost; an allocator chooses among them; the whole song is rendered in-app and compared with the MOD,
 and the worst parts are refined over several passes.
 
-PCM is the scarce resource (voices, slots, 128 KB budget), so FM/PSG are used wherever they are *close
+PCM is the scarce resource (voices, slots, and a byte budget when `--max-pcm-bytes` sets one), so FM/PSG are used wherever they are *close
 enough* — freeing PCM for sounds FM can't imitate (drums, voices, breaks, orchestral hits). The allocator
 decides by error and cost, not by a fixed "FM first" rule.
 
@@ -89,7 +89,7 @@ PCM candidates; samples in `--require-psg` only PSG candidates. The allocator ne
 | CH3 special | allowed (system 0x42) | after probe ROM (T11.1) | allowed |
 | PSG | 3 tone + noise | same | same |
 | PCM voices | 1 | 4 − `--reserve-sfx-channels` | 3 − `--reserve-sfx-channels` |
-| PCM slots / bytes | 144 / no limit | 63 / 128 KB | 123 / 128 KB |
+| PCM slots / bytes | 144 / no limit | 63 / format's most, or `--max-pcm-bytes` | 123 / format's most, or `--max-pcm-bytes` |
 
 The table is `TargetLimits` ([ADR 0085](adr/0085-target-limits.md)); each `--format` uses its own column.
 

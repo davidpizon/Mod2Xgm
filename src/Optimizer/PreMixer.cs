@@ -2,7 +2,6 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Mod2Xgm.Analysis;
 using Mod2Xgm.Audio;
-using Mod2Xgm.Cli;
 using Mod2Xgm.Dmf;
 using Mod2Xgm.Model;
 using Serilog.Core;
@@ -108,6 +107,12 @@ internal sealed record PreMixSongFit(PcmTarget Target, int Voices, int PcmNotes,
 /// </summary>
 internal static class PreMixer
 {
+    /// <summary>
+    /// The biggest candidate made when no budget is given: the 128 KB the converter once took as every song's budget, kept
+    /// so the harness's pre-mix run stays as fast as ADR 0078 made it (docs/adr/0078-pre-mix-budget-cap.md).
+    /// </summary>
+    public const long DefaultMaxBytes = 128 * 1024;
+
     /// <summary>A pre-mix holds at most this many notes: XGM's PCM voices, the most any target has (David).</summary>
     private const int MaxNotes = 4;
 
@@ -142,7 +147,7 @@ internal static class PreMixer
     /// <param name="song">The song as analyzed.</param>
     /// <param name="keepOut">Samples that never go into a pre-mix (<c>--require-fm</c>, <c>--require-psg</c>); ignored samples aren't analyzed.</param>
     /// <param name="maxPcmBytes">The song's PCM budget (<c>--max-pcm-bytes</c>): a candidate bigger than all of it is never offered.</param>
-    public static IReadOnlyList<PreMixSongFit> FitSong(SongAnalysis song, IReadOnlySet<int>? keepOut = null, long maxPcmBytes = ConversionDefaults.MaxPcmBytes) =>
+    public static IReadOnlyList<PreMixSongFit> FitSong(SongAnalysis song, IReadOnlySet<int>? keepOut = null, long maxPcmBytes = PreMixer.DefaultMaxBytes) =>
         [.. PcmTargets.All.Select(t => Fit(song, t, keepOut, maxPcmBytes))];
 
     /// <summary>The candidates of <paramref name="song"/> for <paramref name="target"/>.</summary>
@@ -153,7 +158,7 @@ internal static class PreMixer
     /// The song's PCM budget: a candidate whose head and tail together take more is never offered, on every target, as
     /// the allocator could never fit it (docs/adr/0078-pre-mix-budget-cap.md).
     /// </param>
-    public static PreMixSongFit Fit(SongAnalysis song, PcmTarget target, IReadOnlySet<int>? keepOut = null, long maxPcmBytes = ConversionDefaults.MaxPcmBytes)
+    public static PreMixSongFit Fit(SongAnalysis song, PcmTarget target, IReadOnlySet<int>? keepOut = null, long maxPcmBytes = PreMixer.DefaultMaxBytes)
     {
         ArgumentNullException.ThrowIfNull(song);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxPcmBytes);
