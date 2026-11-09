@@ -433,7 +433,8 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
                     Moved += allowed.Length > 0 && note.Kind == allowed[0] ? 0 : 1;
                 }
 
-                _lastKind[track.Key] = track.Select(n => n.Kind).FirstOrDefault(k => k is not null) ?? _lastKind.GetValueOrDefault(track.Key);
+                // The sound the track ends the section on, so the next section keeps that one.
+                _lastKind[track.Key] = notes.Select(n => n.Kind).LastOrDefault(k => k is not null) ?? _lastKind.GetValueOrDefault(track.Key);
             }
         }
 

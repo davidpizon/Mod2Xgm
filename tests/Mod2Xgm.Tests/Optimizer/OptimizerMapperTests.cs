@@ -327,6 +327,31 @@ public sealed class OptimizerMapperTests
             (KindOf(plan, 0, 0), KindOf(plan, 1, 0), KindOf(plan, 1, 1)));
     }
 
+    /// <summary>
+    /// One PCM voice: a pad loud in the first section and quiet in the second, where a newcomer louder than the pad's
+    /// second note but quieter than its song-wide mean arrives. Per section, the newcomer matters more there and takes the
+    /// voice; in the song's order (the converter's rule, ADR 0092), the pad matters more over the song and keeps it.
+    /// </summary>
+    [Theory]
+    [InlineData("PerSection", "Fm", "Dac")]
+    [InlineData("SongRank", "Dac", "Fm")]
+    public void Map_WithPadQuietWhereNewcomerArrives_RanksBySongOrSectionAsTheRuleSays(string rule, string padThen, string newcomer)
+    {
+        // Arrange: the pad is at volume 1 then 0.1 (mean 0.55); the newcomer is at 0.5, beside the pad's quiet note.
+        Song song = Assemble(2, 2, [
+            new Row([new Cell(new NotePitch(48, 0, Rate), 0, 1.0, []), Cell.Empty]),
+            new Row([new Cell(new NotePitch(48, 0, Rate), 0, 0.1, []), new Cell(new NotePitch(48, 0, Rate), 1, 0.5, [])])]);
+        OptimizerMapper sut = new(TargetLimits.For(PcmTarget.Xgm2, 1 << 20, 2), [Sounds(0), Sounds(1)], null, Enum.Parse<VoiceSwitching>(rule));
+
+        // Act
+        GenesisPlan plan = sut.Map(song, PlaybackOf(song), MappingOptions.Default, Notes());
+
+        // Assert
+        Assert.Equal(
+            (VoiceKind.Dac, Enum.Parse<VoiceKind>(padThen), Enum.Parse<VoiceKind>(newcomer)),
+            (KindOf(plan, 0, 0), KindOf(plan, 1, 0), KindOf(plan, 1, 1)));
+    }
+
     /// <summary>The voice kind of MOD channel <paramref name="channel"/>'s note on the first row of order <paramref name="order"/>.</summary>
     private static VoiceKind? KindOf(GenesisPlan plan, int order, int channel) =>
         plan.Patterns[order][0].Cells.Single(c => c is { Note: not null, Level: 1 } && c.Source == channel).Voice?.Kind;
