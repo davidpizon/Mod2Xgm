@@ -154,7 +154,23 @@ internal sealed record DacSample(int Sample, double PlaybackRateHz)
 
     /// <summary>The gain its notes take, in dB: a look-alike sample merged into <see cref="Sample"/> plays at its own level (docs/adr/0091-shrinking-recordings.md).</summary>
     public double GainDb { get; init; }
+
+    /// <summary>
+    /// The sound itself when it isn't <see cref="Sample"/> played out: notes mixed into one recording, or the rest of one
+    /// after such a mix (docs/adr/0094-pre-mixed-voice-steals.md). Its note plays it from the start at full volume.
+    /// </summary>
+    public DacMix? Mix { get; init; }
 }
+
+/// <summary>
+/// A recording the mapper made from several notes (a pre-mix) or the rest of one (its tail): already at
+/// <see cref="DacSample.PlaybackRateHz"/> and at the loudness it plays at, quantized only when written
+/// (docs/adr/0094-pre-mixed-voice-steals.md).
+/// </summary>
+/// <param name="Points">The sound, −1…1, at the <see cref="DacSample"/>'s rate.</param>
+/// <param name="Name">What the output's sample table calls it, e.g. <c>mix 01+05</c>.</param>
+/// <param name="Centred">True when its notes come from both sides, so it plays from both speakers (docs/adr/0091-shrinking-recordings.md).</param>
+internal sealed record DacMix(float[] Points, string Name, bool Centred);
 
 /// <summary>
 /// What a mapper decides (docs/architecture.md): for every order of the song, which Genesis channel plays each note and
