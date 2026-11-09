@@ -90,6 +90,14 @@ and the optimizer's starting point.
 `--reserve-sfx-channels N` lowers the PCM voice limit by N (XGM: 4−N, XGM2: 3−N) so the game can play sound
 effects through the same driver.
 
+With `--mapping optimizer`, steps 4, 4b and 6 are made by `RecordingShrinker` (`src/Optimizer/RecordingShrinker.cs`,
+plan T9.4a, [ADR 0091](adr/0091-shrinking-recordings.md)) before the allocator places notes: one move at a time, on the least
+important sample first, until the recordings fit the slots and bytes, in the order merge, share pitch (10 cents), share loudness. A song whose
+recordings fit gets no move. Step 5 (XGM2 half speed) is not a default move: David heard it as crunchy and it lost every
+listening round to moving notes to FM/PSG. On XGM2, when recordings on both sides sound at once, the one DAC plays in both
+speakers (`DacPanClash.Centre`, chosen by ear). What is left
+over (too many voices at once, or still too big) the allocator handles by moving notes to FM/PSG or cutting them (steps 7–9).
+
 By default the converter **must** do its best to fit. Steps run in order, cheapest-to-hear first, and stop
 as soon as everything fits. Every step that changes the sound logs a conversion note naming the sample(s)
 and what changed.
@@ -100,8 +108,9 @@ and what changed.
 | 1 | **Drop unused** samples and notes that are never triggered | none |
 | 2 | **Deduplicate** byte-identical samples / variants (after conversion) | none |
 | 3 | **Trim**: trailing silence, data past a loop end, minimal loop unrolling | none – tiny |
-| 4 | **Quantize pitch**: merge variants that differ by fine pitch only (finetune, slides) into the nearest semitone; slides become stepped | small |
-| 5 | **Lower rate** where content allows (XGM2 half speed 6.65 kHz for bass / low-pass content) — saves bytes | small |
+| 4 | **Share pitch**: copies a few cents apart (finetune, slides) play the most played one's copy; never far enough to sound like a wrong note (10 cents, [ADR 0091](adr/0091-shrinking-recordings.md)) | small |
+| 4b | **Share loudness** (XGM/XGM2, which can't change a sample's volume): one copy per 6 dB instead of per 3 dB, so a note plays up to 3 dB off | small |
+| 5 | **Lower rate** where content allows (XGM2 half speed 6.65 kHz for bass / low-pass content) — saves bytes; not used by default, crunchy by ear ([ADR 0091](adr/0091-shrinking-recordings.md)) | small – medium |
 | 6 | **Merge near-duplicates**: samples whose similarity (normalized cross-correlation / spectral distance after resampling) is above a threshold share one slot | small – medium |
 | 7 | **Swap sound shapes mid-song**: for the least important notes (see *Importance*), a track switches to a substitute sound for that section — another sample's variant at the right pitch, or an FM/PSG approximation — and switches back when slots allow | medium |
 | 8 | **Voice stealing** when more PCM voices are needed than exist: first, where the overlap fits, its notes are **pre-mixed** into one sample ([ADR 0052](adr/0052-pre-mixed-pcm.md)); otherwise the least important simultaneous note moves to FM/PSG or is cut | small (pre-mix) – large |

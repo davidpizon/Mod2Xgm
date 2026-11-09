@@ -87,6 +87,12 @@ internal sealed class GenesisPlanPlayer
         _notes = notes;
         _voicing = new PlanVoicing(plan, song);
         _tracks = [.. Enumerable.Range(0, GenesisPlan.ColumnCount).Select(_ => new Track())];
+        _tickStarts = new double[durations.Count + 1];
+        for (int t = 0; t < durations.Count; t++)
+        {
+            _tickStarts[t + 1] = _tickStarts[t] + durations[t];
+        }
+
         if (_ticks.Count > 0 && _ticks[0].Channels.Count != song.Channels.Count)
         {
             throw new ArgumentException($"The playback has {_ticks[0].Channels.Count} channels; the song has {song.Channels.Count}.", nameof(playback));
@@ -148,6 +154,60 @@ internal sealed class GenesisPlanPlayer
                 Update(c, t);
             }
         }
+
+        if (SharesDacPan)
+        {
+            SetDacPan(t);
+        }
+    }
+
+    /// <summary>When each tick starts, in seconds of the render, and after the last one, its end.</summary>
+    private readonly double[] _tickStarts;
+
+    /// <summary>True when every PCM voice's side decides the DAC's one pan together (<see cref="GenesisPlan.DacPanClash"/>).</summary>
+    private bool SharesDacPan => _plan.DacPanClash != DacPanClash.FirstVoice && _chips.Driver != PcmDriver.Dmf;
+
+    /// <summary>
+    /// Pans the DAC (FM6) for every recording sounding on tick <paramref name="t"/>: on their side when they share one,
+    /// otherwise as <see cref="GenesisPlan.DacPanClash"/> says. Nothing sounding leaves it as it was.
+    /// </summary>
+    private void SetDacPan(int t)
+    {
+        List<(int Side, double Volume)> playing = [];
+        foreach (int c in (int[])[(int)GenesisChannel.Fm6, (int)GenesisChannel.Pcm2, (int)GenesisChannel.Pcm3, (int)GenesisChannel.Pcm4])
+        {
+            // A recording that has played out no longer pulls the DAC to its side, though its note hasn't ended.
+            if (c < _tracks.Length && _tracks[c] is { Sounding: true, Kind: VoiceKind.Dac, Source: >= 0 } track && _tickStarts[t] < track.DacEndsAt)
+            {
+                ChannelTick ch = _ticks[t].Channels[track.Source];
+                playing.Add((PlanVoicing.Side(ch.Pan), ch.Volume));
+            }
+        }
+
+        if (playing.Count == 0)
+        {
+            return;
+        }
+
+        int side = playing.All(p => p.Side == playing[0].Side) ? playing[0].Side
+            : _plan.DacPanClash == DacPanClash.Louder ? LouderSide(playing)
+            : 0;
+        byte pan = side < 0 ? PanLeft : side > 0 ? PanRight : (byte)(PanLeft | PanRight);
+        Track dac = _tracks[(int)GenesisChannel.Fm6];
+        if (pan != dac.Pan)
+        {
+            WriteFm((int)GenesisChannel.Fm6, RegPanLfo, (byte)(pan | dac.Sensitivity));
+            dac.Pan = pan;
+        }
+    }
+
+    /// <summary>The side of the loudest recording, or both when the loudest on each side tie.</summary>
+    private static int LouderSide(List<(int Side, double Volume)> playing)
+    {
+        double left = playing.Where(p => p.Side < 0).Select(p => p.Volume).DefaultIfEmpty(0).Max();
+        double right = playing.Where(p => p.Side > 0).Select(p => p.Volume).DefaultIfEmpty(0).Max();
+        double centre = playing.Where(p => p.Side == 0).Select(p => p.Volume).DefaultIfEmpty(0).Max();
+        return centre >= Math.Max(left, right) ? 0 : left > right ? -1 : right > left ? 1 : 0;
     }
 
     /// <summary>Adds the render's tallies to the conversion notes.</summary>
@@ -273,7 +333,7 @@ internal sealed class GenesisPlanPlayer
                 KeyOn(c);
                 break;
             case VoiceKind.Dac:
-                track.Sounding = PlayDac(c, _plan.DacSamples[voice.Index], voice.Index, ch);
+                track.Sounding = PlayDac(c, _plan.DacSamples[voice.Index], voice.Index, ch, t);
                 track.Centred = false;
                 break;
             case VoiceKind.PsgTone:
@@ -302,7 +362,7 @@ internal sealed class GenesisPlanPlayer
                 KeyOn(c);
                 break;
             case VoiceKind.Dac:
-                track.Sounding = PlayDac(c, _plan.DacSamples[track.Voice.Index], track.Voice.Index, ch);
+                track.Sounding = PlayDac(c, _plan.DacSamples[track.Voice.Index], track.Voice.Index, ch, t);
                 break;
             default:
                 StartNoise(track, ch, t);
@@ -368,7 +428,7 @@ internal sealed class GenesisPlanPlayer
     {
         Track track = _tracks[c];
         ChannelTick ch = _ticks[t].Channels[track.Source];
-        if (c <= (int)GenesisChannel.Fm6)
+        if (c <= (int)GenesisChannel.Fm6 && !(track.Kind == VoiceKind.Dac && SharesDacPan))
         {
             int side = track.Centred ? 0 : PlanVoicing.Side(ch.Pan);
             byte pan = side < 0 ? PanLeft : side > 0 ? PanRight : (byte)(PanLeft | PanRight);
@@ -536,7 +596,7 @@ internal sealed class GenesisPlanPlayer
     }
 
     /// <summary>Plays a DAC note: its sample from the frame the tick player starts at, at the volume it starts with. False when it stays silent.</summary>
-    private bool PlayDac(int c, DacSample dac, int index, ChannelTick ch)
+    private bool PlayDac(int c, DacSample dac, int index, ChannelTick ch, int t)
     {
         int offset = ch.Started?.StartFrame ?? 0;
         if (Prepare(dac, index, offset, ch.Volume) is not { } pcm)
@@ -555,12 +615,23 @@ internal sealed class GenesisPlanPlayer
                 xgm.Play(PcmChannel(c), pcm.Data8!, PcmPriority);
                 break;
             case Xgm2PcmDriver xgm2:
-                xgm2.Play(PcmChannel(c), pcm.Data8!, PcmPriority, halfSpeed: false);
+                xgm2.Play(PcmChannel(c), pcm.Data8!, PcmPriority, dac.HalfSpeed);
                 break;
         }
 
+        // The driver plays the data once through, a loop unrolled into it, after its start delay; buffered XGM2 plays the
+        // first fill twice (docs/adr/0091-shrinking-recordings.md, docs/adr/0066-pcm-drivers-checked-against-sgdk.md).
+        _tracks[c].DacEndsAt = _tickStarts[t] + ((double)(pcm.Data16?.Length ?? pcm.Data8!.Length) / pcm.RateHz) + DriverLagSeconds();
         return true;
     }
+
+    /// <summary>How much later than its data's length a play ends: the driver's start delay, and buffered XGM2's repeated first fill.</summary>
+    private double DriverLagSeconds() => _chips.Dac switch
+    {
+        XgmPcmDriver { Buffered: true } => XgmPcmDriver.StartLeadBeats / XgmPcmDriver.BeatRateHz(_chips.YmClockHz),
+        Xgm2PcmDriver { Buffered: true } => (Xgm2PcmDriver.StartDelayBeats + Xgm2PcmDriver.RepeatedBeats) / Xgm2PcmDriver.BeatRateHz(_chips.YmClockHz),
+        _ => 0,
+    };
 
     private void StopDac(int c)
     {
@@ -586,6 +657,17 @@ internal sealed class GenesisPlanPlayer
     private Pcm? Prepare(DacSample dac, int index, int offset, double volume)
     {
         bool dmf = _chips.Driver == PcmDriver.Dmf;
+        if (!dmf && dac.LoudnessShareSteps > 1 && volume > 0)
+        {
+            // One stored copy for several steps of loudness: the note plays at its copy's, as the shrinker counted it (docs/adr/0091-shrinking-recordings.md).
+            int stored = RecordingShrinker.StoredSteps(DmfPatternTranslator.DacVolumeSteps(volume), dac.GainDb, dac.LoudnessShareSteps);
+            volume = Math.Pow(10, -stored * DmfPatternTranslator.DacVolumeStepDb / 20);
+        }
+        else
+        {
+            volume = Math.Min(1, volume * Math.Pow(10, dac.GainDb / 20));
+        }
+
         int steps = volume <= 0 ? int.MaxValue : Math.Max(0, (int)Math.Round(-20 * Math.Log10(volume) / DmfPatternTranslator.DacVolumeStepDb, MidpointRounding.AwayFromZero));
         double key = dmf ? steps : volume;
         if (_pcm.TryGetValue((index, offset, key), out Pcm? pcm))
@@ -617,7 +699,7 @@ internal sealed class GenesisPlanPlayer
         }
         else
         {
-            double rate = _chips.Driver == PcmDriver.Xgm ? XgmPcmDriver.BeatRateHz(_chips.YmClockHz) : Xgm2PcmDriver.BeatRateHz(_chips.YmClockHz);
+            double rate = _chips.Driver == PcmDriver.Xgm ? XgmPcmDriver.BeatRateHz(_chips.YmClockHz) : Xgm2PcmDriver.BeatRateHz(_chips.YmClockHz) / (dac.HalfSpeed ? 2 : 1);
             sbyte[] pcm8 = SampleProcessor.ToSigned8(SampleProcessor.ApplyGain(SampleProcessor.Resample(data, dac.PlaybackRateHz, rate, _resampler), volume), name, _notes);
             pcm = pcm8.Length == 0 ? null : new Pcm(null, pcm8, (int)Math.Round(rate));
         }
@@ -636,6 +718,9 @@ internal sealed class GenesisPlanPlayer
     {
         /// <summary>The song channel the note came from, or −1.</summary>
         public int Source { get; set; } = -1;
+
+        /// <summary>When the recording it plays runs out, in seconds of the render.</summary>
+        public double DacEndsAt { get; set; }
 
         /// <summary>The song sample the note plays.</summary>
         public int Sample { get; set; } = -1;

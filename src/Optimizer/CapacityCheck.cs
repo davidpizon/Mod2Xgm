@@ -146,13 +146,18 @@ internal sealed record CapacityCheck(TargetLimits Limits, int Slots, int Voices,
     /// The bytes one copy takes, with the free tidying done (consolidation step 3): a one-shot's silent tail is left out,
     /// and a loop is played out only as long as the copy's longest note.
     /// </summary>
-    internal static int CopyBytes(CopyKey key, double seconds, Song song, PcmTarget target)
+    /// <param name="key">The copy.</param>
+    /// <param name="seconds">How long its longest note holds.</param>
+    /// <param name="song">Its song.</param>
+    /// <param name="target">The output it is stored for.</param>
+    /// <param name="halfSpeed">True when XGM2 stores it at half speed (docs/adr/0091-shrinking-recordings.md).</param>
+    internal static int CopyBytes(CopyKey key, double seconds, Song song, PcmTarget target, bool halfSpeed = false)
     {
         Sample sample = song.Samples[key.Sample];
         int frames = sample.Loop is null
             ? Math.Max(0, PcmFitter.TrimmedLength(sample) - key.StartFrame)
             : (int)Math.Ceiling(Math.Min(seconds, PcmFitter.MaxLoopSeconds) * key.RateHz) + 1;
-        int points = (int)Math.Ceiling(frames * PcmTargets.PlayRateHz(target, key.RateHz, halfSpeed: false) / key.RateHz);
+        int points = (int)Math.Ceiling(frames * PcmTargets.PlayRateHz(target, key.RateHz, halfSpeed) / key.RateHz);
         return PcmTargets.Bytes(target, points);
     }
 }

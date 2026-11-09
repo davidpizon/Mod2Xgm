@@ -104,6 +104,7 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0088](0088-layering.md) | Layering: a quiet PSG tone under an FM note, chosen by ear | 2026-11-07 | Accepted |
 | [0089](0089-fm-layer.md) | A second FM voice under a chord sample, chosen by ear | 2026-11-07 | Accepted |
 | [0090](0090-hard-pan.md) | Panned channels stay on their side, chosen by ear | 2026-11-08 | Accepted |
+| [0091](0091-shrinking-recordings.md) | Shrinking recordings to fit, chosen by ear | 2026-11-08 | Accepted |
 
 ## Open questions
 

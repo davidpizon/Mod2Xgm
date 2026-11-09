@@ -122,10 +122,39 @@ internal sealed record FmPatch(string Name, int Algorithm, int Feedback, IReadOn
     public bool UsesLfo => Fms > 0 || (Ams > 0 && Operators.Any(o => o.Am));
 }
 
+/// <summary>
+/// Where the DAC plays when recordings from both sides sound at once: XGM and XGM2 mix every PCM voice onto the one DAC,
+/// which has one pan (FM6's), so they can't all stay on their side (docs/adr/0091-shrinking-recordings.md).
+/// </summary>
+internal enum DacPanClash
+{
+    /// <summary>The DAC takes the pan of the first PCM voice's note, and the other voices follow it.</summary>
+    FirstVoice,
+
+    /// <summary>While the sides clash, the DAC plays on both; otherwise on the side its recordings share.</summary>
+    Centre,
+
+    /// <summary>While the sides clash, the DAC plays on the loudest recording's side; otherwise on the side they share.</summary>
+    Louder,
+}
+
 /// <summary>A song sample played on the DAC.</summary>
 /// <param name="Sample">Index into <see cref="Song.Samples"/>.</param>
 /// <param name="PlaybackRateHz">The rate it plays at. The DAC can't change pitch per note, so the simple mapper picks the pitch the song plays it at most often; the optimizer gives each pitch a <see cref="DacSample"/> of its own.</param>
-internal sealed record DacSample(int Sample, double PlaybackRateHz);
+internal sealed record DacSample(int Sample, double PlaybackRateHz)
+{
+    /// <summary>True when XGM2 stores and plays it at half speed, 6.65 kHz (docs/adr/0091-shrinking-recordings.md).</summary>
+    public bool HalfSpeed { get; init; }
+
+    /// <summary>
+    /// How many 3 dB loudness steps one stored copy covers on XGM and XGM2: a note plays at its copy's loudness. 0 or 1
+    /// plays every note at its own loudness (docs/adr/0091-shrinking-recordings.md).
+    /// </summary>
+    public int LoudnessShareSteps { get; init; }
+
+    /// <summary>The gain its notes take, in dB: a look-alike sample merged into <see cref="Sample"/> plays at its own level (docs/adr/0091-shrinking-recordings.md).</summary>
+    public double GainDb { get; init; }
+}
 
 /// <summary>
 /// What a mapper decides (docs/architecture.md): for every order of the song, which Genesis channel plays each note and
@@ -163,4 +192,7 @@ internal sealed record GenesisPlan(
     /// (<see cref="PlanVoicing"/>, docs/adr/0087-greedy-allocator.md). The simple mapper stays as graded in ADR 0049.
     /// </summary>
     public bool TunedByEar { get; init; }
+
+    /// <summary>Where the DAC plays when recordings from both sides sound at once (XGM and XGM2; a DMF plays one recording at a time).</summary>
+    public DacPanClash DacPanClash { get; init; }
 }
