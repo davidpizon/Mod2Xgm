@@ -70,6 +70,9 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
     /// </summary>
     public int NotesMoved { get; private set; }
 
+    /// <summary>Each sample's FM confidence in the last <see cref="Map"/>, by sample number (docs/adr/0096-fm-confidence.md).</summary>
+    public IReadOnlyList<SampleConfidence> Confidence { get; private set; } = [];
+
     /// <inheritdoc />
     public GenesisPlan Map(Song song, Playback playback, MappingOptions options, ConversionNotes notes)
     {
@@ -93,9 +96,16 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
         }
 
         Run run = new(limits, menu, song, playback, options, notes, shrink ?? ShrinkRules.Default, switching ?? Switching, mixing, reserve);
-        GenesisPlan plan = run.Execute();
-        NotesMoved = run.Moved;
-        return plan;
+        try
+        {
+            return run.Execute();
+        }
+        finally
+        {
+            // Kept even when the song can't fit, so the report can show it (docs/adr/0096-fm-confidence.md).
+            NotesMoved = run.Moved;
+            Confidence = run.Confidence;
+        }
     }
 
     /// <summary>A note of the song's pattern, as the allocator sees it: one cell of an order, however often the song plays it.</summary>
@@ -245,9 +255,13 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
         /// <summary>Bytes of pre-mixes that were made but didn't fit the budget.</summary>
         public long RefusedMixBytes { get; private set; }
 
+        /// <summary>Each sample's FM confidence, by sample number, once the notes are collected.</summary>
+        public IReadOnlyList<SampleConfidence> Confidence { get; private set; } = [];
+
         public GenesisPlan Execute()
         {
             Collect();
+            Confidence = Confidences();
             SizeCopies();
             CheckRequired();
             // Each track's place in the song's order (docs/adr/0092-stable-voices.md); the whole song as one section gives each
@@ -369,6 +383,34 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
             double hit = 1 + (PercussiveBoost * _menu[note.Sample].Percussive);
             double beat = note.Row % RowsPerBar == 0 ? DownbeatBoost : 1;
             return heard * hit * beat;
+        }
+
+        /// <summary>
+        /// Each sample's FM confidence: its regions weighed by the importance of the notes the song plays in each, with its
+        /// share of the song's importance and of its own in bent notes (docs/adr/0096-fm-confidence.md).
+        /// </summary>
+        private SampleConfidence[] Confidences()
+        {
+            double total = _planned.Sum(n => n.Importance);
+            ILookup<int, PlannedNote> bySample = _planned.ToLookup(n => n.Sample);
+            return [.. _menu.Values.OrderBy(s => s.Sample).Select(sounds =>
+            {
+                double[] weights = new double[sounds.Regions.Count];
+                double heard = 0;
+                double bent = 0;
+                foreach (PlannedNote note in bySample[sounds.Sample])
+                {
+                    if (sounds.RegionIndexAt(note.Plays[0].RateHz) is { } r)
+                    {
+                        weights[r] += note.Importance;
+                    }
+
+                    heard += note.Importance;
+                    bent += note.Bent ? note.Importance : 0;
+                }
+
+                return SampleConfidence.Of(sounds, weights, total > 0 ? heard / total : 0, heard > 0 ? bent / heard : 0, _options);
+            })];
         }
 
         /// <summary>True when the note's pitch or volume moves while it sounds: a start past frame 0 alone doesn't, as a copy can hold that.</summary>
