@@ -1061,6 +1061,21 @@ public sealed class OptimizerMapperTests
         Assert.Equal(1.0, sut.Confidence[0].BentShare, 6);
     }
 
+    /// <summary>When the first pass that makes room for pre-mixes finds the song can't fit, the confidence is still there for the report (docs/adr/0096-fm-confidence.md).</summary>
+    [Fact]
+    public void Map_WithProbeThatCantFit_KeepsConfidence()
+    {
+        // Arrange
+        Song song = SongOf(1, [(0, 0)]);
+        OptimizerMapper sut = new(TargetLimits.For(PcmTarget.Xgm, 256, 0), [Sounds(0)], null, null, PreMixRules.Default with { MakeRoom = true });
+
+        // Act
+        Assert.Throws<ConversionException>(() => sut.Map(song, PlaybackOf(song), Required("dac", 0), Notes()));
+
+        // Assert
+        Assert.Equal(ConfidenceReason.RequiredDac, Assert.Single(sut.Confidence).Reason);
+    }
+
     private static IEnumerable<string> Kinds(GenesisPlan plan) =>
         plan.Patterns.SelectMany(p => p).SelectMany(r => r.Cells).Select(c => $"{c.Voice}/{c.Sample}");
 

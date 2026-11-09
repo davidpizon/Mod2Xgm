@@ -39,7 +39,10 @@ internal static class FmFeatureExtractor
             CentroidDistance(target.MelBandsDb, rendered.MelBandsDb, sample, patch, offset, floor, frames));
     }
 
-    /// <summary>Each frame's loudness: the power of all its mel bands together, in dB.</summary>
+    /// <summary>
+    /// Each frame's loudness: the power of its mel bands together, in dB. Bands at the floor are silence, not sound: 64 of
+    /// them would add up to about −62 dB and make a silent frame look audible.
+    /// </summary>
     private static double[] FrameLevelsDb(IReadOnlyList<float[]> bandsDb)
     {
         double[] levels = new double[bandsDb.Count];
@@ -48,7 +51,7 @@ internal static class FmFeatureExtractor
             double power = 0;
             foreach (float db in bandsDb[t])
             {
-                power += Math.Pow(10, db / 10.0);
+                power += db > SampleAnalyzer.FloorDb ? Math.Pow(10, db / 10.0) : 0;
             }
 
             levels[t] = Math.Max(SampleAnalyzer.FloorDb, 10 * Math.Log10(Math.Max(power, 1e-30)));
@@ -101,7 +104,7 @@ internal static class FmFeatureExtractor
         double total = 0;
         for (int b = 0; b < bandsDb.Length; b++)
         {
-            double power = Math.Pow(10, bandsDb[b] / 10.0);
+            double power = bandsDb[b] > SampleAnalyzer.FloorDb ? Math.Pow(10, bandsDb[b] / 10.0) : 0;
             weighted += b * power;
             total += power;
         }

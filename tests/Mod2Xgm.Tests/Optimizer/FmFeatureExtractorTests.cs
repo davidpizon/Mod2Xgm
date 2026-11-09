@@ -32,9 +32,9 @@ public sealed class FmFeatureExtractorTests
         Assert.Same(Score, sut.Score);
     }
 
-    /// <summary>Checks that only the shape counts: a patch 12 dB quieter all through measures next to no distance (the silent bands' floor moves a few thousandths of a dB).</summary>
+    /// <summary>Checks that only the shape counts: a patch 12 dB quieter all through measures no distance.</summary>
     [Fact]
-    public void Measure_WithQuieterCopy_IsAboutZero()
+    public void Measure_WithQuieterCopy_IsZero()
     {
         // Arrange
         RegionSpectrum sample = Spectrum(t => -20 - (t * 0.2), band: 10);
@@ -44,7 +44,23 @@ public sealed class FmFeatureExtractorTests
         FmRegionFeatures sut = FmFeatureExtractor.Measure(sample, patch, Score);
 
         // Assert
-        Assert.InRange(sut.EnvelopeDb, 0, 0.05);
+        Assert.Equal(0, sut.EnvelopeDb, 4);
+    }
+
+    /// <summary>Checks that a patch whose frames are all at the floor counts as silent, not as a quiet copy matched up to the sample's level.</summary>
+    [Fact]
+    public void Measure_WithFlooredFrames_IsRange()
+    {
+        // Arrange
+        RegionSpectrum sample = Spectrum(_ => -20, band: 10);
+        RegionSpectrum floored = Spectrum(_ => SampleAnalyzer.FloorDb, band: 10);
+
+        // Act
+        FmRegionFeatures sut = FmFeatureExtractor.Measure(sample, floored, Score);
+
+        // Assert
+        Assert.Equal(NoteScorer.RangeDb, sut.AttackDb);
+        Assert.Equal(NoteScorer.RangeDb, sut.EnvelopeDb);
     }
 
     /// <summary>Checks that a soft attack on a plucked sample shows up in the attack more than in the whole envelope.</summary>

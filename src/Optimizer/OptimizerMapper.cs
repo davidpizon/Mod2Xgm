@@ -87,11 +87,22 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
 
         PreMixRules mixing = preMix ?? PreMixRules.Default;
         long reserve = 0;
+        NotesMoved = 0;
+        Confidence = [];
         if (mixing is { Enabled: true, MakeRoom: true } && limits.PcmBytes is not null)
         {
             // A first, silent pass finds the bytes the pre-mixes want; the shrinker then leaves them that room.
             Run probe = new(limits, menu, song, playback, options, new ConversionNotes(Serilog.Core.Logger.None), shrink ?? ShrinkRules.Default, switching ?? Switching, mixing, 0);
-            probe.Execute();
+            try
+            {
+                probe.Execute();
+            }
+            finally
+            {
+                // The same as the run below finds, and kept if the song can't fit (docs/adr/0096-fm-confidence.md).
+                Confidence = probe.Confidence;
+            }
+
             reserve = probe.MixBytes + probe.RefusedMixBytes;
         }
 
@@ -387,7 +398,9 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
 
         /// <summary>
         /// Each sample's FM confidence: its regions weighed by the importance of the notes the song plays in each, with its
-        /// share of the song's importance and of its own in bent notes (docs/adr/0096-fm-confidence.md).
+        /// share of the song's importance and of its own in bent notes (docs/adr/0096-fm-confidence.md). A note the song
+        /// plays several times shares its importance out among its plays, by how much each is heard, so each play counts
+        /// in its own region and only the plays that bend count as bent.
         /// </summary>
         private SampleConfidence[] Confidences()
         {
@@ -400,13 +413,20 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
                 double bent = 0;
                 foreach (PlannedNote note in bySample[sounds.Sample])
                 {
-                    if (sounds.RegionIndexAt(note.Plays[0].RateHz) is { } r)
+                    double[] shares = [.. note.Plays.Select(p => Math.Min(p.Seconds, MaxHeardSeconds) * p.Volume)];
+                    double all = shares.Sum();
+                    for (int i = 0; i < note.Plays.Count; i++)
                     {
-                        weights[r] += note.Importance;
+                        double importance = note.Importance * (all > 0 ? shares[i] / all : 1.0 / shares.Length);
+                        if (sounds.RegionIndexAt(note.Plays[i].RateHz) is { } r)
+                        {
+                            weights[r] += importance;
+                        }
+
+                        bent += Bends(note.Plays[i]) ? importance : 0;
                     }
 
                     heard += note.Importance;
-                    bent += note.Bent ? note.Importance : 0;
                 }
 
                 return SampleConfidence.Of(sounds, weights, total > 0 ? heard / total : 0, heard > 0 ? bent / heard : 0, _options);
