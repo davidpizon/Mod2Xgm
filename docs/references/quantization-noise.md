@@ -47,8 +47,11 @@
   That is a tonal buzz that follows the note, not hiss.
 - **With heavy oversampling** the error correlates with the signal again, and the gain stops.
 - **Dither** fixes both, by adding a small random signal before rounding:
-  - rectangular dither doubles the noise power (+3 dB), and triangular (TPDF) triples it (+4.8 dB);
-  - the error becomes white and independent of the signal: steady hiss instead of distortion.
+  - with non-subtractive dither of the usual sizes (rectangular ±Δ/2, triangular (TPDF) ±Δ) and no clipping,
+    rectangular dither doubles the total noise power (+3 dB) and TPDF triples it (+4.8 dB);
+  - rectangular dither makes the error's mean independent of the signal, but its power still varies with the
+    signal (noise modulation). TPDF makes both the mean and the power of the error independent of the signal
+    (not its whole distribution), which is what makes it sound like steady hiss instead of distortion.
 - **Companding** (μ-law, A-law) is the other answer. It spends more levels on quiet amplitudes, but needs a
   non-linear decoder, which the YM2612 DAC isn't.
 
@@ -61,8 +64,8 @@ Worked numbers for the Genesis DAC (8-bit data, 9-bit DAC; [genesis-audio.md](..
 | 8-bit full-scale sine ≈ 49.9 dB SQNR | The best a DAC recording can do. MOD samples are 8-bit too, so a sample stored at its own level loses little, but **any gain change before storage re-quantizes**. |
 | Turning down before storage costs SQNR 1:1 | A note baked at −12 dB (four 3 dB volume steps) is left with about 38 dB; at −24 dB, about 26 dB. This is the textbook reason behind "keep PCM loud" ([genesis-audio.md](../genesis-audio.md)), and behind preferring to store one loud copy over several quiet ones where the driver can scale volume instead. |
 | Quiet signals give harmonic distortion, not noise | Fade-outs and quiet tails on the DAC buzz in tune with the note. In the scoring, that may count against the DAC more than a plain noise floor would. It is one more reason a quiet note can sound better on FM than on the DAC. |
-| Noise powers add; quantize once | Supports pre-mixing at full precision and quantizing once ([ADR 0052](../adr/0052-pre-mixed-pcm.md)). When XGM2 mixes 3 voices, each already 8-bit, the three errors add: about +4.8 dB of noise against one pre-mixed recording, before any volume scaling in the driver. |
-| Dither: +3 to +4.8 dB noise, no distortion | **Candidate, not adopted.** TPDF dither when making DAC copies, especially quiet or volume-baked ones, would trade buzz for hiss. To decide by ear in a blind listening round, and to measure with the harness on quiet-tail songs. Must stay deterministic (a fixed seed, or a fixed noise table). |
+| Noise powers add; quantize once | Supports pre-mixing at full precision and quantizing once ([ADR 0052](../adr/0052-pre-mixed-pcm.md)). Only *new* rounding counts: XGM2's unclipped integer sum of 8-bit voices adds no rounding of its own, and a pre-mix keeps whatever quantization error the 8-bit MOD sources already carry. The gain is in the conversion step: if making three separate DAC copies adds three equal-power, uncorrelated rounding errors, against one final rounding of a pre-mix at the same gain and step size, the separate copies carry about +4.8 dB more of that new noise. Volume scaling in the driver comes on top. |
+| Dither: +3 to +4.8 dB noise (at the usual sizes, no clipping); TPDF removes signal-dependent error power | **Candidate, not adopted.** TPDF dither when making DAC copies, especially quiet or volume-baked ones, would trade buzz for hiss. To decide by ear in a blind listening round, and to measure with the harness on quiet-tail songs. Must stay deterministic (a fixed seed, or a fixed noise table). |
 | Oversampling gains need filtering | Little gain here. DAC data is 8-bit at its own rate (about 13.3 kHz for XGM2, 14 kHz for XGM). Playing it on the 53 kHz chip doesn't add bits; only the console's analog low-pass removes some of the noise above about 3 kHz ([jsgroth-2025-ym2612-emulation.md](jsgroth-2025-ym2612-emulation.md)). |
 | Truncation biases by Δ/2 | Any downscale to 8 bits should **round**, not truncate. The YM2612 itself truncates each carrier by 5 bits (part of the chip, already modelled). |
 | Clipping is worse than quantization noise | Supports scaling a pre-mix down rather than letting it clip ([ADR 0052](../adr/0052-pre-mixed-pcm.md)). |

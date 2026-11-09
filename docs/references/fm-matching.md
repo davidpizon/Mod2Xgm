@@ -17,8 +17,10 @@ summary; read those for methods, numbers and caveats.
 - **Separate structure from levels.** Choose the discrete structure (algorithm, frequency ratios) by global
   search, then fit levels and envelopes locally. Horner does it with a GA plus an inner fit, DDX7 fixes the
   structure, and Sound2Synth trains one model per algorithm. NAS-FM searches the algorithm too, because no single one
-  won on every instrument. Tabata et al. show why a local search must not cross ratios: the loss has ridges at
-  low-order rational ratios, and is smooth only inside the cells between them.
+  won on every instrument. Tabata et al. show why a *continuous* local search should stay inside one ratio cell: the
+  loss has ridges at low-order rational ratios, and is smooth only inside the cells between them. (Our local search
+  takes discrete MULT and DT steps on purpose, ADR 0069; the lesson bears on a continuous W1 refinement, which is an
+  unadopted experiment.)
 - **Bound the modulation.** Fixed indices (Horner) or a bounded I<sub>max</sub> (DDX7) keep the search sane. The
   ridges grow stronger with the modulation index (Tabata et al.).
 - **Judge by the sound, over time.** Use a time-varying spectral error (Horner), MFCC distance (Sound2Synth)

@@ -13,9 +13,10 @@
 With a 1-D Wasserstein (earth mover's) distance between power spectra, the loss for 2-operator FM is smooth
 *except* along lines of **low-order rational ratio** f<sub>m</sub>/f<sub>c</sub> (1/4, 2/7, 1/3, 2/5, 1/2, 2/3, 1, 2…).
 Splitting the ratio range at those lines and running one bounded local search per piece finds the true
-frequencies 96.7 % of the time, against 68 % for random starts. For the YM2612 the ratio is already a discrete
-choice (MULT, with DT a small detune), so the main lessons are: **search the ratio exhaustively, refine only
-inside one ratio cell, and consider W1 as a smoother distance for the local fit.**
+frequencies 96.7 % of the time, against 68 % for random starts. For the YM2612 the ratio comes from discrete
+choices (a MULT per operator, plus a small DT detune), and our fitter already searches them discretely, so the
+lessons are mostly for possible experiments: **W1 as a smoother distance for a local fit, and, if a continuous
+refinement is ever tried, bounding it to one ratio cell.**
 
 ## Problem
 
@@ -100,9 +101,9 @@ f<sub>m</sub> together, with the modulation index β known within each run.
 | Paper idea | Mod2Xgm decision |
 |---|---|
 | Ridges sit at low-order rational ratios, so search per cell, not across them | Already true by construction. The YM2612's MULT gives only ratios 0.5 and 1…15. The structure search enumerates a pruned set of them, with carriers at the region's strongest harmonics and modulators at 1–5 and 7 (T8.2, [ADR 0069](../adr/0069-fm-patch-fitting.md)). This confirms that a continuous local search **across** MULT values would be the wrong design. |
-| DT as fine detune inside a cell | DT moves a ratio slightly *off* the rational line, into a smooth area, so a local search over DT within one MULT is well-posed. Keep the DT search **local to its MULT**, and never let a level fit change MULT. |
+| DT as fine detune inside a cell | MULT is a per-operator multiplier, not a ratio cell: carrier MULT 3 with modulator MULT 1 sits on the ρ = 1/3 ridge, and DT can move the ratio to either side of it. The existing local search deliberately takes discrete MULT and DT steps ([ADR 0069](../adr/0069-fm-patch-fitting.md), `FmLocalSearch`), so the paper's result doesn't apply to it directly. It applies to a **bounded continuous W1 refinement** of the frequencies, which is an unadopted experiment: if tried, bound each run to one ratio cell. |
 | W1 (spectral optimal transport) is smoother than pointwise spectral losses | **Candidate, not adopted.** It could serve as the ruler for the level/envelope local search, where log-mel distance may have flat or noisy areas. To try in the harness (`--fm-fit`) against log-mel before any change. Final selection stays by log-mel on rendered audio. |
 | Constraint strength grows with β (modulation index) | High modulator levels (low modulator TL, high FB) make the loss more rugged. Another reason to bound modulator TL during fitting ([ddx7-2022.md](ddx7-2022.md)). |
 | Folding at 0 Hz shapes the spectrum | Low MULT on the carrier with strong modulation folds lower sidebands. The ymfm port renders this exactly, so render-and-score already accounts for it. No analytic model needed. |
-| Boundary cases fail | When a sample's fitted ratio falls between two MULT choices, try both neighbours (the structure search already scores every MULT). |
+| Boundary cases fail | The paper's failures happen exactly on rational cell boundaries. Our discrete search doesn't cover this by itself: it prunes MULT choices (`FmExhaustiveSearch.ModulatorMults` has only 1–5 and 7), so it doesn't try every neighbour. Overlapping cells, as the authors suggest, belong to the continuous W1 experiment, if it is ever tried. |
 | f<sub>c</sub> estimated jointly, without a pitch tracker | Not needed. MOD notes give the pitch exactly (period → frequency), and the analysis pass measures the sample's own cycle. |

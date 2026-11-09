@@ -18,8 +18,8 @@ To join two recordings of the same pitch in the middle of a sustained note:
 A plain crossfade without the phase shift gives an audible dip in level, because the two signals partly cancel.
 In a small test with two listeners, joins of roughly 28–57 ms, early or mid-note, were accepted. Very short
 fades (1–3 ms) and joins near the note's end were rated worst. For us, this is the recipe for any seam between
-*two different* recordings. A seam inside one recording (a pre-mix head going on into its own tail) needs only
-exact sample alignment.
+*two different* recordings. A seam inside one recording (a pre-mix head going on into its own tail) is meant to
+need only sample alignment, though resampling and frame rounding mean the continuation is close, not exact.
 
 ## Problem
 
@@ -80,7 +80,7 @@ to be inaudible.
 |---|---|
 | Cross-correlation shift, then RMS match, then crossfade | **The recipe for seams between different recordings**, if we ever make one: a drum pre-mix (T9.4b) that hands over to another sample mid-sound, or a merged look-alike swapped in mid-note. To adopt it, each such seam gets a short aligned crossfade, measured by the seam score (ADR 0072's `seam_mel_db`). |
 | A plain crossfade dips in level through phase cancellation | A reason never to *mix* two near-identical copies at a seam without aligning them first. Also a caution for layering (one sound on two voices): unaligned copies of one sample comb-filter. |
-| Seams inside one recording | Not needed for the pre-mix head → tail switch ([ADR 0052](../adr/0052-pre-mixed-pcm.md)). The tail continues the same sample at the exact frame, so phase already lines up. The remaining risk is the driver's own switch timing, which the PCM driver models measure. |
+| Seams inside one recording | Probably not needed for the pre-mix head → tail switch ([ADR 0052](../adr/0052-pre-mixed-pcm.md)). The tail continues the same source sample, so phase is *meant* to line up, but it isn't guaranteed: head and tail are resampled separately, and `PreMixer.FrameAt` rounds the source position to a frame. Measure the seam for all three effects (resampling, frame alignment and the driver's own switch timing, which the PCM driver models give) before deciding no crossfade is needed. |
 | Fades of about 28–57 ms are accepted; 1–3 ms are not; joins near a note's end are worse | Starting points for any crossfade length we choose. At the DAC's rates (about 13.3 kHz for XGM2, 14 kHz for XGM) that is about 370–800 frames, so a fade costs bytes in a 128 KB budget. Prefer seams early in a sustain, not just before a release. |
 | MOD loops | **Not changed.** A MOD's loop points are part of the song as written; the converter keeps them as they are and doesn't crossfade them. |
 | f0 guided by the known pitch | The analysis pass already knows each note's pitch from the MOD period. The same "expected pitch first, relax on failure" idea fits measuring a sample's cycle in the analysis pass. |
