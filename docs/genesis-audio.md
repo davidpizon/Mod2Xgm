@@ -12,6 +12,10 @@
   rather than relying on a quiet sample), and expect a quiet note on the DAC to sound worse than the same note on
   FM. The accuracy harness should score DAC notes at the volumes the song really uses.
   The in-app FM model is the clean YM3438 ([ADR 0056](adr/0056-ym3438-model.md)), so it doesn't reproduce this flaw.
+  A second source describes the mechanism (the "ladder effect": a large step between −1 and 0, and a channel muted by
+  panning still outputting a small sign-dependent level, which is the leak into the other speaker); see
+  [references/jsgroth-2025-ym2612-emulation.md](references/jsgroth-2025-ym2612-emulation.md). **Verify** stays: neither
+  source has been checked against a capture.
 - Channel 3 "special mode" (`$27` bit 6) gives each ch3 operator its own frequency → DefleMask "Genesis
   ext. CH3" system. The frequencies (high byte first, it latches until the low byte): OP1 `$AD`/`$A9`, OP2 `$AE`/`$AA`,
   OP3 `$AC`/`$A8`, OP4 the channel's own `$A6`/`$A2`. Key-on (`$28`) switches each operator on its own (bits 4–7 =

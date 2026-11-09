@@ -9,6 +9,11 @@ relevant summaries before working on FM fitting, scoring or the optimizer (plan 
 | [horner-1993-ga-fm-matching.md](horner-1993-ga-fm-matching.md) | Horner, Beauchamp & Haken 1993: genetic algorithms for FM matching synthesis |
 | [sound2synth-2022.md](sound2synth-2022.md) | Chen et al. 2022 (IJCAI): Sound2Synth, learned DX7 parameter estimation |
 | [ddx7-2022.md](ddx7-2022.md) | Caspe, McPherson & Sandler 2022: DDX7, differentiable FM synthesis |
+| [nas-fm-2023.md](nas-fm-2023.md) | Ye et al. 2023 (IJCAI): NAS-FM, evolutionary search over FM algorithms and ratios |
+| [tabata-2026-fm-wasserstein.md](tabata-2026-fm-wasserstein.md) | Tabata, Iwaya & Kondo 2026 (DAFx26): FM frequency estimation per rational-ratio cell on a Wasserstein loss |
+| [jsgroth-2025-ym2612-emulation.md](jsgroth-2025-ym2612-emulation.md) | jsgroth 2025 (blog): emulating the YM2612; the DAC, ladder effect and Genesis low-pass |
+| [pluta-2015-sample-connection.md](pluta-2015-sample-connection.md) | Pluta & Delekta 2015: joining recordings mid-note with a cross-correlation-aligned, level-matched crossfade |
+| [quantization-noise.md](quantization-noise.md) | Textbook quantization noise (Δ²/12, 6.02N + 1.76 dB, dither, oversampling) applied to 8-bit DAC PCM |
 
 ## Rules
 
