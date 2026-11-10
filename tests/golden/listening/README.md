@@ -46,6 +46,10 @@ The first round logged here (David, 2026-11-10). Each question is one sample wit
 highest XGM2 half speed (6.65 kHz) keeps, in one song: the converter's plan, against the same plan with that sample
 stored at half speed. It asks whether ADR 0098's per-sample half speed is cheap to the ear on such samples.
 
+**Result:** full speed won all five, with no "can't tell", though the two versions differ by only 21–34 dB below the
+music. On hit, David heard the half-speed bass as "crunchy", as in round 11. Even on dull samples, half speed is easy to
+hear.
+
 ## A clip changes
 
 When a change to the converter makes `--remake` report a row whose clips differ, the row no longer describes what the

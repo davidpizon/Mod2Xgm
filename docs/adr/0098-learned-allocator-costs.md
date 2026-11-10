@@ -66,7 +66,8 @@ Proposed by Claude and accepted by David on 2026-11-10, with his answers to the 
   - **The merge, pitch-sharing and pre-mix limits** become prices rather than thresholds.
   - **Half speed** becomes available per sample when its price is low, for example a dull bass. This would reverse
     ADR 0091's "off" only for samples the model prices low, and only after a blind round. **David (2026-11-10):** yes, half
-    speed per sample on that condition.
+    speed per sample on that condition. The first check (round 20, T9.4j, [answers](../../tests/golden/listening/README.md#round-20-half-speed-on-dull-samples)) went the other way: full speed won
+    all five dull, bass-like samples, so the model must price half speed high even where the energy above 3.3 kHz is small.
   - **Moving a recording to FM** to save bytes is priced like any other option; ADR 0096's confidence is one of its
     features.
   - **T9.5**'s refine loop searches whole plans by their summed prices, then renders and scores only the best few in
