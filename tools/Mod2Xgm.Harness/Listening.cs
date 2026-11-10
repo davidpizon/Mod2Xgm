@@ -302,7 +302,7 @@ internal sealed class ListeningRemake(IReadOnlyList<string> songs, string output
         ArgumentNullException.ThrowIfNull(answersPath);
         ArgumentNullException.ThrowIfNull(progress);
         IReadOnlyList<ListeningRow> rows = AnswersFile.Parse(File.ReadAllText(answersPath));
-        progress.Begin(new RunInfo(answersPath, RunInfo.HarnessFormat, "normal", [.. rows.Select((r, i) => new PhaseInfo(i + 1, "row:" + r.Name, r.Name, string.Empty))], 1));
+        progress.Begin(new RunInfo(answersPath, RunInfo.HarnessFormat, "normal", [.. rows.Select((r, i) => new PhaseInfo(i + 1, "row:" + r.Name, r.Name, string.Empty))]));
         string folder = Path.Combine(outputDirectory, "listening");
         Directory.CreateDirectory(folder);
         string commit = Commit();
