@@ -117,6 +117,23 @@ public sealed class RecordingShrinkerTests
         Assert.Equal(ShrinkMove.HalfSpeed, Assert.Single(result.Steps).Move);
     }
 
+    /// <summary>A forced half-speed sample is never merged with a look-alike at full speed: the merged notes would play the wrong speed.</summary>
+    [Fact]
+    public void Shrink_WithForcedHalfSpeedLookAlike_NeverMergesAcrossIt()
+    {
+        // Arrange
+        Song song = SongOf(Tone(20000, 50), Tone(20000, 50));
+        ShrinkRules rules = ShrinkRules.Default with { Order = [ShrinkMove.Merge], ForcedHalfSpeed = new HashSet<int> { 1 } };
+
+        // Act
+        ShrinkResult result = RecordingShrinker.Shrink(Wanted((0, Rate, 0, 0), (1, Rate, 0, 0)), Importance(0, 1), song, Limits(PcmTarget.Xgm2, 1), rules, Required());
+
+        // Assert
+        Assert.DoesNotContain(result.Steps, s => s.Move == ShrinkMove.Merge);
+        Assert.False(result.Stored[(0, Rate, 0, 0)].HalfSpeed);
+        Assert.True(result.Stored[(1, Rate, 0, 0)].HalfSpeed);
+    }
+
     /// <summary>XGM has no half speed, so a forced one is left out there rather than storing a copy the driver can't play.</summary>
     [Fact]
     public void Shrink_WithForcedHalfSpeedOnXgm_MakesNoMove()

@@ -247,7 +247,7 @@ give those. The rules so far:
 
 | Rule | What it does |
 |---|---|
-| `rule:half-speed=<samples>` | XGM2 stores these samples (1-based, comma-separated) at half speed whether or not the song needs the room ([ADR 0098](adr/0098-learned-allocator-costs.md)) |
+| `rule:half-speed=<samples>` | XGM2 stores these samples (1-based, comma-separated) at half speed whether or not the song needs the room ([ADR 0098](adr/0098-learned-allocator-costs.md)). Needs `--mapping optimizer`; an identical twin of a named sample shares its stored copy and so its half speed, and no named sample merges with an unnamed one |
 
 `--remake answers.tsv` converts each row's song with both recipes in-process (with `--render-wav`), cuts the clip out
 of each render byte for byte (`ClipWav`), and writes `listening/<round>-<question>-a.wav`, `-b.wav` and the original's

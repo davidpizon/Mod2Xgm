@@ -294,6 +294,9 @@ internal static class RecordingShrinker
 
                     int? best = wanted.Select(w => w.Key.Sample).Distinct()
                         .Where(o => o != sample && !_mergedInto.ContainsKey(o))
+
+                        // Nor across a forced half speed: the merged notes would play the other's speed.
+                        .Where(o => rules.ForcedHalfSpeed.Contains(o) == rules.ForcedHalfSpeed.Contains(sample))
                         .Where(o => !dmf || Math.Abs(LevelDb(song.Samples[sample], song.Samples[o])) < DmfPatternTranslator.DacVolumeStepDb / 2)
 
                         // Never into a quieter look-alike: its notes would need more than full volume, which no copy holds.

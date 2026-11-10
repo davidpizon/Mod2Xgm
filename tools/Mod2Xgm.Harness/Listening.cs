@@ -356,9 +356,12 @@ internal sealed class ListeningRemake(IReadOnlyList<string> songs, string output
         string stem = Path.Combine(work, Path.GetFileNameWithoutExtension(clipPath));
         string wav = stem + ".genesis.wav";
         string[] args = [SongPath(row.Song), "--format", row.Format, .. recipe.Arguments, "--output", stem + ".out", "--render-wav", wav, "--force", "--progress", "silent"];
+
+        // A render left by an earlier run must never stand in for this one (a recipe of --help converts nothing).
+        File.Delete(wav);
         ExitCode code = CommandLineDefinition.Invoke(
             args,
-            options => ConversionCommand.Execute(options with { ShrinkRules = recipe.Rules }, Serilog.Core.Logger.None, null, NoProgress.Instance),
+            options => Convert(options, recipe, recipeText, wav),
             TextWriter.Null,
             TextWriter.Null);
         if (!File.Exists(wav))
@@ -369,6 +372,28 @@ internal sealed class ListeningRemake(IReadOnlyList<string> songs, string output
         byte[] clip = ClipWav.Cut(File.ReadAllBytes(wav), row.StartSeconds, row.Seconds);
         File.WriteAllBytes(clipPath, clip);
         return clip;
+    }
+
+    /// <summary>
+    /// Runs the conversion with the recipe's rules. A rule needs <c>--mapping optimizer</c>, the only mapper that reads it, so
+    /// it is refused without, rather than making a version the recipe misdescribes. XGM has no writer yet: the converter
+    /// writes the render and then fails for the missing file, which is the render this needs.
+    /// </summary>
+    private static ExitCode Convert(ConversionOptions options, Recipe recipe, string recipeText, string wav)
+    {
+        if (recipe.Rules is not null && !options.UsesOptimizer)
+        {
+            throw HarnessException.Usage($"recipe \"{recipeText}\": its rules need --mapping optimizer");
+        }
+
+        try
+        {
+            return ConversionCommand.Execute(options with { ShrinkRules = recipe.Rules }, Serilog.Core.Logger.None, null, NoProgress.Instance);
+        }
+        catch (ConversionException ex) when (ex.Code == ExitCode.UsageError && options.Format == OutputFormat.Xgm && File.Exists(wav))
+        {
+            return ExitCode.Success;
+        }
     }
 
     /// <summary>The original's clip through the reference renderer, for listening; not hashed (it depends on libopenmpt's version).</summary>

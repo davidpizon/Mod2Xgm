@@ -208,6 +208,26 @@ public sealed class OptimizerMapperTests
         Assert.Contains(notes.Messages, m => m.Contains("stored at half speed", StringComparison.Ordinal));
     }
 
+    /// <summary>
+    /// A listening round's forced half speed names the sample as the recipe gives it; when an identical twin stores the
+    /// copy, the copy is still played at half speed, so the recipe never misdescribes the clip.
+    /// </summary>
+    [Fact]
+    public void Map_WithForcedHalfSpeedOnDeduplicatedTwin_StoresTheSharedCopyAtHalfSpeed()
+    {
+        // Arrange
+        float[] sound = Sound(4000, 0.2f);
+        Song song = WithSamples(SongOf(2, [(0, 0), (1, 1)]), new Sample("twin", sound, null), new Sample("twin 2", sound, null));
+        ShrinkRules rules = ShrinkRules.Default with { ForcedHalfSpeed = new HashSet<int> { 1 } };
+        OptimizerMapper sut = new(Limits(PcmTarget.Xgm2), [Sounds(0), Sounds(1)], rules);
+
+        // Act
+        GenesisPlan plan = sut.Map(song, PlaybackOf(song), MappingOptions.Default, Notes());
+
+        // Assert
+        Assert.True(Assert.Single(plan.DacSamples).HalfSpeed);
+    }
+
     /// <summary>The default rules never store at half speed (David heard it as crunchy, ADR 0091): a recording over budget moves to FM instead.</summary>
     [Fact]
     public void Map_WithDefaultRulesAndRecordingOverBudgetOnXgm2_MovesItInsteadOfHalfSpeed()
