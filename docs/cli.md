@@ -10,7 +10,7 @@ mod2xgm <input.mod> [options]
 | Option | Default | Meaning |
 |---|---|---|
 | `<input.mod>` | required | Path to the MOD file. |
-| `-f, --format <dmf\|xgm\|xgm2>` | `dmf` | Output format: `dmf` → `.dmf`, `xgm` → `.xgm`, `xgm2` → `.xgm2`. **Only `dmf` is written yet**: `xgm`/`xgm2` print report sections 1–2, then exit 1 ([ADR 0045](adr/0045-command-line-writes-dmf.md)). |
+| `-f, --format <dmf\|xgm\|xgm2>` | `dmf` | Output format: `dmf` → `.dmf`, `xgm` → `.xgm`, `xgm2` → `.xgm2`. `dmf` and `xgm2` are written ([ADR 0099](adr/0099-xgm2-writer-records-the-player.md)); `xgm` isn't yet: it prints report sections 1–2, then exits 1 ([ADR 0045](adr/0045-command-line-writes-dmf.md)). |
 | `-o, --output <path>` | next to input | Output file path. |
 | `--input-region <pal\|ntsc>` | `pal` | Region of the Amiga the MOD was made on: sets the clock that turns periods into pitch. See [Regions](#regions). |
 | `--output-region <pal\|ntsc>` | `pal` | Region of the Genesis the output is made for: its clocks and frame rate. See [Regions](#regions). |
@@ -30,7 +30,7 @@ mod2xgm <input.mod> [options]
 | `--no-cache` | off | Don't read or write the fitted-patch cache (the optimizer's candidates, kept per build: [ADR 0074](adr/0074-candidate-cache.md)). Until the optimizer exists (plan M9) the conversion makes no candidates, so it changes nothing yet. It also neither reads nor writes the timing history the time estimates use ([cli-output.md](cli-output.md#time-estimate)). |
 | `--cache-dir <path>` | user cache folder | Where the fitted-patch cache lives: `%LOCALAPPDATA%\Mod2Xgm\Cache` on Windows, `~/Library/Caches/Mod2Xgm` on macOS, `$XDG_CACHE_HOME/mod2xgm` (or `~/.cache/mod2xgm`) elsewhere. Each build keeps its own `build-…` folder and deletes the other builds' on first use; delete the folder to clear it. Empty, or with `--no-cache` → exit 1. |
 | `--reserve-sfx-channels <n>` | 0 | Leave n PCM channels free for game sound effects (XGM ≤ 4, XGM2 ≤ 3). |
-| `--render-wav [path]` | off | Also write a WAV of a Genesis playing the conversion: 16-bit stereo, 44.1 kHz, rendered in-app on the chip models with the output format's PCM driver ([ADR 0059](adr/0059-genesis-renderer.md)). Without a path it goes next to the output as `song.genesis.wav`. Same checks as the output file (see [Output naming](#output-naming)). Works with `--info` (only the WAV is written). With `--format xgm`/`xgm2` the WAV is written but no song file, and the exit code stays 1. Put it **after** the input or give a path: `mod2xgm --render-wav song.mod` takes `song.mod` as the WAV's path. |
+| `--render-wav [path]` | off | Also write a WAV of a Genesis playing the conversion: 16-bit stereo, 44.1 kHz, rendered in-app on the chip models with the output format's PCM driver ([ADR 0059](adr/0059-genesis-renderer.md)). Without a path it goes next to the output as `song.genesis.wav`. Same checks as the output file (see [Output naming](#output-naming)). Works with `--info` (only the WAV is written). With `--format xgm` the WAV is written but no song file, and the exit code stays 1. Put it **after** the input or give a path: `mod2xgm --render-wav song.mod` takes `song.mod` as the WAV's path. |
 | `--info` | off | Dry run: read, report and convert in memory (all report sections and conversion notes), but write no output file. |
 | `--force` | off | Overwrite an existing output file. |
 | `--progress <fancy\|text\|json\|silent>` | `fancy` | How the run is shown: `fancy` (progress bars and tables, for people), `text` (compact lines, for AI agents), `json` (one JSON object per line, for programs) or `silent` (nothing at all, not even errors: only the exit code). Read before the rest of the command line, so usage errors use it too. See [cli-output.md](cli-output.md) and [ADR 0077](adr/0077-console-output-modes.md). |
@@ -198,11 +198,14 @@ Section 1 is printed as soon as the MOD is read; section 2 right after the usage
 **3. Output instruments** — after mapping/consolidation, what the target will contain:
 
 ```
-INF Output (XGM2): 5 FM instruments, 41 PCM slots / 123, 118 KB / 128 KB PCM
-INF  PCM 01  ← 01 "bassdrum"     13300 Hz  4532 B
-INF  PCM 02  ← 05 "bass" C-2     13300 Hz  2210 B
-INF  FM  01  ← 06 "strings" (approximation)
+INF Output (XGM2): 1 FM patch, 0 PSG sounds, 8 PCM samples, 10 KB PCM, 26 KB FM and 1 KB PSG stream, 1536 frames, no loop, 36 KB file
+INF  DAC 001  ← 2 "909sna~1.wav"  13195 Hz  1280 B
+INF  DAC 008  ← 3 "Openhi~1.wav"  13195 Hz  512 B
 ```
+
+For XGM2 each line is one stored recording, by its sample id in the file (a sample played at several loudness steps
+or pitches has a line per copy); `half speed` marks one stored at 6.6 kHz. The `output` row's `fm` / `psg` count the
+plan's FM patches and PSG sounds, `dac` the recordings.
 
 DMF output (`src/Dmf/DmfReport.cs`, [ADR 0045](adr/0045-command-line-writes-dmf.md)) lists every DMF instrument and DAC
 sample in file order, each with the MOD samples it came from. An FM instrument is a library patch, shared by every
@@ -247,7 +250,7 @@ Logged with Serilog (console sink, invariant culture):
 INF NOTE: SGDK expects XGM2 files to use the .XGM file extension.
 ```
 
-It is an informational message, not a conversion note, and isn't counted in the summary. Until XGM2 is written
-(plan M10) it is printed after report sections 1–2, just before the run stops.
+It is an informational message, not a conversion note, and isn't counted in the summary. It is printed after report
+sections 1–2.
 
 Format: `{Level:u3} {Message:lj}` — e.g. `WRN Effect 7xy (tremolo) on channel 2, row 14 dropped`.

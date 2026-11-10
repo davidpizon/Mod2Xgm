@@ -12,7 +12,7 @@ namespace Mod2Xgm.Render.Fm;
 /// <para>It makes one stereo sample every 144 master clocks (<see cref="SampleRateHz"/>: about 53.3 kHz on NTSC).
 /// Writes take effect before the next sample; the chip's busy time, timers, status reads and CSM mode are not modeled.</para>
 /// </summary>
-internal sealed class Ym3438
+internal sealed class Ym3438 : IFmRegisters
 {
     /// <summary>The NTSC Genesis's master clock, which the YM2612 / YM3438 runs on (docs/genesis-audio.md).</summary>
     public const double NtscClockHz = 7_670_453;

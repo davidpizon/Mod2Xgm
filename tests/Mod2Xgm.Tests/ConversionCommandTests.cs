@@ -527,16 +527,15 @@ public sealed class ConversionCommandTests
         Assert.True(lastSample >= 0 && lastSample < output && output < dac && dac < summary, string.Join("\n", info));
     }
 
-    /// <summary>XGM and XGM2 can't be written yet: the run prints sections 1–2, then stops with a usage error and writes nothing.</summary>
-    [Theory]
-    [InlineData(nameof(OutputFormat.Xgm), "xgm")]
-    [InlineData(nameof(OutputFormat.Xgm2), "xgm2")]
-    public void Execute_WithXgmFormat_PrintsReportThenThrowsUsageError(string format, string extension)
+    /// <summary>XGM can't be written yet: the run prints sections 1–2, then stops with a usage error and writes nothing.</summary>
+    [Fact]
+    public void Execute_WithXgmFormat_PrintsReportThenThrowsUsageError()
     {
         // Arrange
         using TempDirectory temp = new();
         CollectingSink sink = new();
-        ConversionOptions options = new() { InputPath = temp.CreateFile("song.mod"), Format = Enum.Parse<OutputFormat>(format) };
+        const string extension = "xgm";
+        ConversionOptions options = new() { InputPath = temp.CreateFile("song.mod"), Format = OutputFormat.Xgm };
 
         // Act
         ConversionException error = Assert.Throws<ConversionException>(() => ConversionCommand.Execute(options, sink.CreateLogger()));
@@ -550,7 +549,7 @@ public sealed class ConversionCommandTests
         Assert.False(File.Exists(temp.Combine("song." + extension)));
     }
 
-    /// <summary><c>--format xgm2</c> prints SGDK's extension note, exactly (AGENTS.md required behavior 5).</summary>
+    /// <summary><c>--format xgm2</c> prints SGDK's extension note, exactly (AGENTS.md required behavior 5), and succeeds.</summary>
     [Fact]
     public void Execute_WithXgm2Format_PrintsSgdkExtensionNote()
     {
@@ -560,10 +559,70 @@ public sealed class ConversionCommandTests
         ConversionOptions options = new() { InputPath = temp.CreateFile("song.mod"), Format = OutputFormat.Xgm2 };
 
         // Act
-        Assert.Throws<ConversionException>(() => ConversionCommand.Execute(options, sink.CreateLogger()));
+        ExitCode code = ConversionCommand.Execute(options, sink.CreateLogger());
 
         // Assert
+        Assert.Equal(ExitCode.Success, code);
         Assert.Contains("NOTE: SGDK expects XGM2 files to use the .XGM file extension.", sink.Messages(LogEventLevel.Information));
+    }
+
+    /// <summary><c>--format xgm2</c> writes a PAL XGM2 file next to the input, with report section 3 after the sample table.</summary>
+    [Fact]
+    public void Execute_WithXgm2Format_WritesXgm2FileAfterReport()
+    {
+        // Arrange
+        using TempDirectory temp = new();
+        CollectingSink sink = new();
+        ConversionOptions options = new() { InputPath = temp.CreateFile("song.mod"), Format = OutputFormat.Xgm2 };
+
+        // Act
+        ConversionCommand.Execute(options, sink.CreateLogger());
+
+        // Assert
+        byte[] file = File.ReadAllBytes(temp.Combine("song.xgm2"));
+        Assert.Equal("XGM2"u8.ToArray(), file[..4]);
+        Assert.Equal(1, file[5] & 1);
+        List<string> info = [.. sink.Messages(LogEventLevel.Information)];
+        int lastSample = info.FindIndex(m => m.StartsWith(" 31  ", StringComparison.Ordinal));
+        int output = info.FindIndex(m => m.StartsWith("Output (XGM2): ", StringComparison.Ordinal));
+        int summary = info.FindIndex(m => m.Contains("conversion notes)", StringComparison.Ordinal));
+        Assert.True(lastSample >= 0 && lastSample < output && output < summary, string.Join("\n", info));
+    }
+
+    /// <summary>With <c>--info</c>, <c>--format xgm2</c> prints report section 3 but writes no file.</summary>
+    [Fact]
+    public void Execute_WithXgm2FormatAndInfo_WritesNoFile()
+    {
+        // Arrange
+        using TempDirectory temp = new();
+        CollectingSink sink = new();
+        ConversionOptions options = new() { InputPath = temp.CreateFile("song.mod"), Format = OutputFormat.Xgm2, InfoOnly = true };
+
+        // Act
+        ConversionCommand.Execute(options, sink.CreateLogger());
+
+        // Assert
+        Assert.False(File.Exists(temp.Combine("song.xgm2")));
+        Assert.Contains(sink.Messages(LogEventLevel.Information), m => m.StartsWith("Output (XGM2): ", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// A 60 Hz MOD on a PAL Genesis has six ticks to five frames: the ticks that share a frame with the one before get a
+    /// conversion note.
+    /// </summary>
+    [Fact]
+    public void Execute_WithXgm2FormatNtscSongOnPal_NotesTicksSharingFrames()
+    {
+        // Arrange
+        using TempDirectory temp = new();
+        CollectingSink sink = new();
+        ConversionOptions options = new() { InputPath = temp.CreateFile("song.mod"), Format = OutputFormat.Xgm2, InputRegion = Region.Ntsc, OutputRegion = Region.Pal };
+
+        // Act
+        ConversionCommand.Execute(options, sink.CreateLogger());
+
+        // Assert
+        Assert.Contains(sink.Messages(LogEventLevel.Warning), m => m.Contains("ticks start in the same 1/50 s frame as the tick before", StringComparison.Ordinal));
     }
 
     /// <summary><c>--format xgm</c> doesn't print the XGM2 extension note.</summary>
@@ -811,18 +870,17 @@ public sealed class ConversionCommandTests
         Assert.True(File.Exists(temp.Combine("x.wav")));
     }
 
-    /// <summary>XGM and XGM2 can't be written yet, but their drivers can be heard: the WAV is written, no song file, and the run still fails for the writer.</summary>
-    [Theory]
-    [InlineData(nameof(OutputFormat.Xgm), "xgm", "Xgm PCM")]
-    [InlineData(nameof(OutputFormat.Xgm2), "xgm2", "Xgm2 PCM")]
-    public void Execute_WithRenderWavAndXgmFormat_WritesWavThenThrowsUsageError(string format, string extension, string driver)
+    /// <summary>XGM can't be written yet, but its driver can be heard: the WAV is written, no song file, and the run still fails for the writer.</summary>
+    [Fact]
+    public void Execute_WithRenderWavAndXgmFormat_WritesWavThenThrowsUsageError()
     {
         // Arrange
         using TempDirectory temp = new();
         CollectingSink sink = new();
         string input = temp.CreateFile("song.mod");
-        temp.CreateFile("song." + extension);
-        ConversionOptions options = new() { InputPath = input, Format = Enum.Parse<OutputFormat>(format), RenderWav = true };
+        temp.CreateFile("song.xgm");
+        const string driver = "Xgm PCM";
+        ConversionOptions options = new() { InputPath = input, Format = OutputFormat.Xgm, RenderWav = true };
 
         // Act
         ConversionException error = Assert.Throws<ConversionException>(() => ConversionCommand.Execute(options, sink.CreateLogger()));
