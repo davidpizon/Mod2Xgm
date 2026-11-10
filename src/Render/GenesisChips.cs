@@ -100,8 +100,8 @@ internal sealed class GenesisChips
     /// <summary>The PCM driver model in use.</summary>
     public PcmDriver Driver { get; }
 
-    /// <summary>The FM chip; write its registers directly.</summary>
-    public Ym3438 Fm { get; } = new();
+    /// <summary>The FM chip; the player writes it through <see cref="Ports"/>, so the recorder hears every write.</summary>
+    private Ym3438 Fm { get; } = new();
 
     /// <summary>The PSG; write its port directly.</summary>
     public Sn76489 Psg { get; } = new();
