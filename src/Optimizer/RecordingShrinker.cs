@@ -53,6 +53,12 @@ internal sealed record ShrinkRules(IReadOnlyList<ShrinkMove> Order, double Pitch
 
     /// <summary>No move: every recording stays as the song asks for it.</summary>
     public static ShrinkRules None { get; } = new([], 0, 1, 1);
+
+    /// <summary>
+    /// Samples (0-based) XGM2 stores at half speed whether or not the song needs the room: a listening round's version,
+    /// set only by the harness's recipes (docs/adr/0097-learned-listening-score.md), never by the command line.
+    /// </summary>
+    public IReadOnlySet<int> ForcedHalfSpeed { get; init; } = new HashSet<int>();
 }
 
 /// <summary>One move the shrinker made.</summary>
@@ -116,6 +122,17 @@ internal static class RecordingShrinker
         (Dictionary<CopyKey, StoredCopy> stored, Dictionary<StoredCopy, int> bytes) = plan.Make();
         List<ShrinkStep> steps = [];
         List<int> samples = [.. wanted.Select(w => w.Key.Sample).Distinct().OrderBy(importance.GetValueOrDefault).ThenBy(s => s)];
+        foreach (int sample in samples.Where(rules.ForcedHalfSpeed.Contains).Order())
+        {
+            if (plan.Allows(ShrinkMove.HalfSpeed, sample, requiredDac, out int into))
+            {
+                plan.Apply(ShrinkMove.HalfSpeed, sample, into);
+                (Dictionary<CopyKey, StoredCopy> tried, Dictionary<StoredCopy, int> triedBytes) = plan.Make();
+                steps.Add(new ShrinkStep(ShrinkMove.HalfSpeed, sample, into, bytes.Count - triedBytes.Count, bytes.Values.Sum(b => (long)b) - triedBytes.Values.Sum(b => (long)b)));
+                (stored, bytes) = (tried, triedBytes);
+            }
+        }
+
         foreach (ShrinkMove move in rules.Order)
         {
             foreach (int sample in samples)

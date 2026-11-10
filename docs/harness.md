@@ -194,6 +194,7 @@ is one step (`song:<name>`), the result names `report.md`, and a failure to run 
 | `-j`, `--jobs` | half the processors, at most 4 | Songs measured at once (1–64). The reports list songs in the same order either way |
 | `-v`, `--verbose` | | Log every scoring step |
 | `--progress <mode>` | `fancy` | How the run is shown: `fancy`, `text`, `json` or `silent`, as `mod2xgm --progress` ([cli-output.md](cli-output.md)). Song times go to `timings.json` in the cache folder unless `--no-cache`, so the next run has an estimate from the start |
+| `--remake <answers.tsv>` | | Instead of scoring: make every row's [listening clips](#listening-answers) again from their recipes and check them byte for byte against the clips David heard. Exit 1 when a clip differs |
 
 ## Output
 
@@ -233,8 +234,35 @@ last column of each of those CSVs, `cached`, says `yes` for it. So a rerun's CSV
 are measured against, is committed in [tests/golden/harness-baseline/](../tests/golden/harness-baseline/README.md)
 ([ADR 0049](adr/0049-simple-mapper-baseline.md)).
 
+## Listening answers
+
+Every blind A/B round David answers goes into one file, [`tests/golden/listening/answers.tsv`](../tests/golden/listening/README.md)
+([ADR 0097](adr/0097-learned-listening-score.md)), which the learned listening score is fitted on. Each row holds one
+question: the song, where its clip starts and how long it is, the output format, a **recipe** for each version, the
+commit that made the clips, the SHA-256 of each clip file, and David's answer.
+
+A recipe is the converter's own options (`--mapping optimizer`, `--max-pcm-bytes 131072`, …) plus rules no option
+sets, written `rule:name=value`. The harness adds `--format`, the output paths and `--progress`, so a recipe can't
+give those. The rules so far:
+
+| Rule | What it does |
+|---|---|
+| `rule:half-speed=<samples>` | XGM2 stores these samples (1-based, comma-separated) at half speed whether or not the song needs the room ([ADR 0098](adr/0098-learned-allocator-costs.md)) |
+
+`--remake answers.tsv` converts each row's song with both recipes in-process (with `--render-wav`), cuts the clip out
+of each render byte for byte (`ClipWav`), and writes `listening/<round>-<question>-a.wav`, `-b.wav` and the original's
+`-o.wav` (libopenmpt; not hashed, since it depends on libopenmpt's version) to the output folder. A row that has
+hashes is checked: both clips must be the same files David heard, or the row is reported and the run exits 1. A row
+without hashes is a new question: its clips are made and `listening/remade.tsv` has the row with the commit and hashes
+filled in. A new round goes:
+
+1. Write its questions as rows without hashes or answers (the versions' order shuffled, so A isn't always the default).
+2. `--remake` them, and copy `remade.tsv`'s rows.
+3. Send David the `-o`, `-a` and `-b` clips in a survey, the versions unnamed.
+4. Fill in his picks, grades and words, and add the rows to `answers.tsv`.
+
 ## Tests
 
-`tests/Mod2Xgm.Harness.Tests` covers the WAV reader and writer, the report, the length check, the command line, the
+`tests/Mod2Xgm.Harness.Tests` covers the WAV reader and writer, the answers file and its recipes and clips, the report, the length check, the command line, the
 stems, the loudness meter (with BS.1770's calibration tone) and a whole run with stand-in renderers. These run in CI. The tests that need libopenmpt or Furnace skip themselves where
 those aren't installed, as on the CI runners. Coverage is measured on the converter (`Mod2Xgm.Tests`) only.

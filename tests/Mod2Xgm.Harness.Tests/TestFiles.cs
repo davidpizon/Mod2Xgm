@@ -14,6 +14,9 @@ internal static class TestFiles
     /// </summary>
     public static string DefleMaskDacExport => Path.Combine(Root, "tests", "golden", "dmf-probes", "wav", "dac-sample.wav");
 
+    /// <summary>The committed listening answers (tests/golden/listening/README.md, plan T9.4j).</summary>
+    public static string ListeningAnswers => Path.Combine(Root, "tests", "golden", "listening", "answers.tsv");
+
     /// <summary>A short corpus song (31 s, plan T6.1).</summary>
     public static string ShortSong => Path.Combine(Root, "tests", "data", "corpus", "fx-poly1.mod");
 

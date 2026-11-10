@@ -136,6 +136,7 @@ internal static class Program
         Option<string?> cacheDir = new("--cache-dir") { Description = "Folder for the candidate cache (default: the user's cache folder, as mod2xgm's)." };
         Option<int> jobs = new("--jobs", "-j") { Description = "Songs measured at once.", DefaultValueFactory = _ => DefaultJobs };
         Option<bool> verbose = new("--verbose", "-v") { Description = "Log every scoring step." };
+        Option<string?> remake = new("--remake") { Description = "Instead of scoring, make every row's listening clips again from an answers file and check them byte for byte (docs/harness.md#listening-answers)." };
         Option<string> progress = new(ProgressModeScan.OptionName)
         {
             Description = "How progress and results are shown: fancy (the default), text, json or silent (docs/cli-output.md).",
@@ -145,7 +146,7 @@ internal static class Program
 
         RootCommand root = new("Mod2Xgm accuracy harness: scores conversions against OpenMPT (docs/harness.md).")
         {
-            inputs, output, rate, libopenmpt, furnace, noFurnace, deflemask, noDefleMask, saveReference, clip, balance, fmFit, fmRenders, psgFit, pcmFit, preMix, ch3, dropClues, noCache, cacheDir, jobs, verbose, progress,
+            inputs, output, rate, libopenmpt, furnace, noFurnace, deflemask, noDefleMask, saveReference, clip, balance, fmFit, fmRenders, psgFit, pcmFit, preMix, ch3, dropClues, noCache, cacheDir, jobs, verbose, progress, remake,
         };
         root.SetAction(result =>
         {
@@ -207,7 +208,8 @@ internal static class Program
                 result.GetValue(ch3),
                 result.GetValue(noCache),
                 result.GetValue(cacheDir),
-                result.GetValue(dropClues)));
+                result.GetValue(dropClues),
+                result.GetValue(remake)));
         });
 
         ParseResult parsed = root.Parse(args);
@@ -226,6 +228,17 @@ internal static class Program
         ArgumentNullException.ThrowIfNull(options);
         IReadOnlyList<string> songs = FindSongs(options.Inputs);
         progress ??= NoProgress.Instance;
+        if (options.Remake is { } answers)
+        {
+            if (!File.Exists(answers))
+            {
+                throw new HarnessException($"Not found: {answers}");
+            }
+
+            LibOpenMpt.UseDirectory(options.LibOpenMptDirectory);
+            return new ListeningRemake(songs, options.OutputDirectory, new OpenMptRenderer(), logger).Run(answers, progress);
+        }
+
         progress.Begin(new RunInfo(
             string.Join(", ", options.Inputs),
             RunInfo.HarnessFormat,
@@ -395,6 +408,7 @@ internal static class Program
 /// <param name="NoCache">Make every candidate again: don't read or write the candidate cache.</param>
 /// <param name="CacheDirectory">The candidate cache's folder, or <c>null</c> for the user's cache folder.</param>
 /// <param name="DropClues">Also find which tracks of every song are cheap to drop (<c>drop-clues.csv</c>, <c>track-levels.csv</c>).</param>
+/// <param name="Remake">An answers file whose clips to make again and check, instead of scoring, or <c>null</c>.</param>
 internal sealed record HarnessOptions(
     IReadOnlyList<string> Inputs,
     string OutputDirectory,
@@ -417,4 +431,5 @@ internal sealed record HarnessOptions(
     bool Ch3 = false,
     bool NoCache = false,
     string? CacheDirectory = null,
-    bool DropClues = false);
+    bool DropClues = false,
+    string? Remake = null);
