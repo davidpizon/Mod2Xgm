@@ -47,8 +47,8 @@ highest XGM2 half speed (6.65 kHz) keeps, in one song: the converter's plan, aga
 stored at half speed. It asks whether ADR 0098's per-sample half speed is cheap to the ear on such samples.
 
 **Result:** full speed won all five, with no "can't tell", though the two versions differ by only 21–34 dB below the
-music. On hit, David heard the half-speed bass as "crunchy", as in round 11. Afterwards he added that in the song with a lot
-of melody over the bass, the crunch was hard to hear: half speed may still be a useful way to save space where the
+music. On hit, David heard the half-speed bass as "crunchy", as in round 11. Afterwards he added that in Cancan, with a lot of
+melody over the bass, the melody hid the crunch very well (it was also the closest pair, 34 dB below the music): half speed may still be a useful way to save space where the
 rest of the mix covers it. So the round says half speed is audible on an exposed bass, not that it is always too costly;
 how much the other tracks cover a sample is ADR 0098's masking feature (T9.4n).
 
