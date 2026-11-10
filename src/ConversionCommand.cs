@@ -9,14 +9,15 @@ using Mod2Xgm.Model;
 using Mod2Xgm.Optimizer;
 using Mod2Xgm.Output;
 using Mod2Xgm.Render;
+using Mod2Xgm.Xgm;
 using Serilog;
 using Serilog.Events;
 
 namespace Mod2Xgm;
 
 /// <summary>
-/// Runs one conversion: checks the paths, reads the MOD, prints the report, maps the song with the simple mapper and
-/// writes the DMF (docs/architecture.md); with <c>--render-wav</c> it also renders the plan on the Genesis model and
+/// Runs one conversion: checks the paths, reads the MOD, prints the report, maps the song and writes the DMF or the
+/// XGM2 (docs/architecture.md); with <c>--render-wav</c> it also renders the plan on the Genesis model and
 /// writes the WAV (docs/adr/0059-genesis-renderer.md). Every stage reports its lossy decisions to the conversion notes.
 /// </summary>
 internal static class ConversionCommand
@@ -57,7 +58,7 @@ internal static class ConversionCommand
         CheckInput(input);
 
         string output = OutputPaths.Resolve(options);
-        bool writesSong = !options.InfoOnly && (options.Format == OutputFormat.Dmf || !options.RenderWav);
+        bool writesSong = !options.InfoOnly && (Writable(options.Format) || !options.RenderWav);
         if (writesSong)
         {
             CheckOutput(input, output, options.Force);
@@ -173,6 +174,12 @@ internal static class ConversionCommand
             WriteDmf(options, output, song, plan, notes, logger);
             phase.Done();
         }
+        else if (options.Format == OutputFormat.Xgm2)
+        {
+            phase = progress.Start(PhaseWrite);
+            WriteXgm2(options, output, song, playback, plan, notes, logger);
+            phase.Done();
+        }
 
         if (wav is not null)
         {
@@ -181,13 +188,13 @@ internal static class ConversionCommand
             phase.Done();
         }
 
-        string? written = options is { Format: OutputFormat.Dmf, InfoOnly: false } ? output : null;
+        string? written = Writable(options.Format) && !options.InfoOnly ? output : null;
         logger.ForContext(new ReportRow("result", ("input", input), ("output", written), ("wav", wav), ("notes", notes.Count))).Information(
             "{Input} -> {Output} ({NoteCount} conversion notes)",
             Path.GetFileName(input),
-            options.Format != OutputFormat.Dmf ? "(no song file: only the WAV render)" : options.InfoOnly ? "(--info: no file written)" : output,
+            !Writable(options.Format) ? "(no song file: only the WAV render)" : options.InfoOnly ? "(--info: no file written)" : output,
             notes.Count);
-        if (options.Format != OutputFormat.Dmf)
+        if (!Writable(options.Format))
         {
             throw new ConversionException(ExitCode.UsageError, $"{FormatUnavailable(options.Format)} Only the WAV render was written: {wav}");
         }
@@ -224,6 +231,26 @@ internal static class ConversionCommand
     }
 
     /// <summary>
+    /// Records the plan played on XGM2's driver frame by frame, encodes it, prints report section 3 and writes the file
+    /// (unless <c>--info</c>; docs/adr/0099-xgm2-writer-records-the-player.md).
+    /// </summary>
+    private static void WriteXgm2(ConversionOptions options, string output, Song song, Playback playback, GenesisPlan plan, ConversionNotes notes, ILogger logger)
+    {
+        GenesisStream stream = GenesisStream.RecordXgm2(plan, song, playback, options.OutputRegion, options.Resampler, notes);
+        Xgm2Output xgm2 = Xgm2Writer.Write(stream, notes);
+
+        // Report section 3 comes after mapping, before the file is written (docs/cli.md#console-report).
+        Xgm2Report.Log(logger, xgm2, plan);
+        if (!options.InfoOnly)
+        {
+            WriteOutput(output, xgm2.Bytes, options.Force);
+        }
+    }
+
+    /// <summary>True for the formats this version writes: DMF and XGM2 (XGM is plan M11).</summary>
+    private static bool Writable(OutputFormat format) => format != OutputFormat.Xgm;
+
+    /// <summary>
     /// Plays the song with the tick player, renders the plan on the Genesis model with the format's PCM driver and writes
     /// the WAV (<c>--render-wav</c>; written with <c>--info</c> too), saying how long the render took.
     /// </summary>
@@ -255,7 +282,7 @@ internal static class ConversionCommand
 
     /// <summary>
     /// The steps a run with <paramref name="options"/> goes through, in order (docs/cli-output.md#phases): the sample
-    /// analysis only when <paramref name="analyzes"/>, the DMF only for <c>--format dmf</c>, the WAV only with
+    /// analysis only when <paramref name="analyzes"/>, the file only for the formats this version writes, the WAV only with
     /// <c>--render-wav</c>.
     /// </summary>
     internal static IReadOnlyList<PhaseInfo> Phases(ConversionOptions options, bool analyzes)
@@ -280,9 +307,9 @@ internal static class ConversionCommand
         }
 
         steps.Add((PhaseMap, "Map channels", string.Empty));
-        if (options.Format == OutputFormat.Dmf)
+        if (Writable(options.Format))
         {
-            steps.Add((PhaseWrite, "Write DMF", string.Empty));
+            steps.Add((PhaseWrite, options.Format == OutputFormat.Xgm2 ? "Write XGM2" : "Write DMF", string.Empty));
         }
 
         if (options.RenderWav)
@@ -325,19 +352,19 @@ internal static class ConversionCommand
     private const int RenderWavRate = 44_100;
 
     /// <summary>
-    /// Only DMF can be written yet (XGM2 is plan M10, XGM M11). Runs after report sections 1–2, so they are printed for
-    /// every format; <c>--format xgm2</c> still prints its extension note (docs/cli.md#console-output, ADR 0045).
+    /// DMF and XGM2 can be written; XGM can't yet (plan M11). Runs after report sections 1–2, so they are printed for
+    /// every format; <c>--format xgm2</c> prints its extension note (docs/cli.md#console-output, ADR 0045).
     /// </summary>
     private static void CheckFormat(ConversionOptions options, ILogger logger)
     {
-        if (options.Format == OutputFormat.Dmf)
-        {
-            return;
-        }
-
         if (options.Format == OutputFormat.Xgm2)
         {
             logger.Information(Xgm2ExtensionNote);
+        }
+
+        if (Writable(options.Format))
+        {
+            return;
         }
 
         if (options.RenderWav)
@@ -364,7 +391,7 @@ internal static class ConversionCommand
 
     /// <summary>Why <paramref name="format"/> can't be written yet.</summary>
     private static string FormatUnavailable(OutputFormat format) =>
-        $"--format {(format == OutputFormat.Xgm2 ? "xgm2" : "xgm")} isn't available yet: this version writes DMF only (XGM2 comes with plan M10, XGM with M11).";
+        $"--format {FormatName(format)} isn't available yet: this version writes DMF and XGM2 (XGM comes with plan M11).";
 
     /// <summary>The line every <c>--format xgm2</c> run prints, verbatim (docs/cli.md#console-output).</summary>
     private const string Xgm2ExtensionNote = "NOTE: SGDK expects XGM2 files to use the .XGM file extension.";

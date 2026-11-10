@@ -29,7 +29,7 @@ internal static class FmVoice
     public static IReadOnlyList<int> SlotOffsets { get; } = [0, 8, 4, 12];
 
     /// <summary>Writes every operator register of <paramref name="patch"/>, SSG-EG included, and its feedback and algorithm, to FM channel <paramref name="channel"/> (0–5).</summary>
-    public static void LoadPatch(Ym3438 chip, int channel, FmPatch patch)
+    public static void LoadPatch(IFmRegisters chip, int channel, FmPatch patch)
     {
         ArgumentNullException.ThrowIfNull(chip);
         ArgumentNullException.ThrowIfNull(patch);
@@ -71,7 +71,7 @@ internal static class FmVoice
     }
 
     /// <summary>Writes an FM channel's register: <paramref name="register"/> is the channel 1 address, offset by the channel within its part.</summary>
-    public static void Write(Ym3438 chip, int channel, byte register, byte value)
+    public static void Write(IFmRegisters chip, int channel, byte register, byte value)
     {
         ArgumentNullException.ThrowIfNull(chip);
         chip.WriteRegister(channel / 3, (byte)(register + (channel % 3)), value);

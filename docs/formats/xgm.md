@@ -11,10 +11,11 @@ Every XGM2 conversion prints, verbatim:
 NOTE: SGDK expects XGM2 files to use the .XGM file extension.
 ```
 
-> **Open (SGDK ingestion of XGM2):** SGDK's `rescomp.txt` documents only **VGM** input for the `XGM2`
-> resource type (the `XGM` type accepts VGM or XGM). Whether rescomp accepts our XGM2 data must be confirmed
-> in T10.2 (check rescomp's source; fallbacks: emit the compiled `.xgc` form for a `BIN` resource, or also
-> emit VGM). The file extension is **not** part of this question.
+**SGDK ingestion of XGM2 (checked 2026-11-09, [ADR 0099](../adr/0099-xgm2-writer-records-the-player.md)):**
+`rescomp.txt` documents only VGM input for the `XGM2` resource, but rescomp hands the file to xgm2tool, which picks
+its reader by the extension (`Launcher.java`): a file named **`.xgm`** is read as XGM2 and compiled to `.xgc`. Our
+files pass both (`tests/Mod2Xgm.Tests/Xgm/Xgm2SgdkTests.cs`), once renamed. xgm2tool's XGM → VGM conversion fails on
+every XGM2 file, its own too, so it can't check them. Playing in an SGDK ROM is T10.2.
 
 ## Sources
 
@@ -43,10 +44,12 @@ NOTE: SGDK expects XGM2 files to use the .XGM file extension.
 ## Common to both
 
 Both are **register-level streams per frame** (1/60 s NTSC, 1/50 s PAL), not pattern data. The converter
-therefore needs a **tick player** (`src/Xgm/Player`) that runs the IR song tick by tick and emits YM2612 /
-PSG register state changes; the XGM and XGM2 writers then encode the same event list differently.
-MOD ticks (BPM×2/5 Hz) rarely equal the frame rate — the player must resample time onto frames
-(accumulate fractional ticks; conversion note when BPM ≠ 125 at PAL or ≠ 150 at NTSC).
+records them from `GenesisPlanPlayer`, the player the Genesis render uses (`GenesisStream`, `src/Xgm`): each tick's
+YM2612 writes, PSG bytes and PCM plays go to the frame the tick starts in; the XGM and XGM2 writers then encode the
+same frames differently ([ADR 0099](../adr/0099-xgm2-writer-records-the-player.md)).
+MOD ticks (BPM×2/5 Hz) rarely equal the frame rate: each tick goes to the nearest frame start of its start time, so
+the song keeps its speed; ticks that land in the same frame as the tick before play their changes together, and a
+conversion note counts them.
 
 ## XGM2 layout (from `xgm2.txt`, version byte `0x10`)
 
@@ -113,8 +116,27 @@ v1 of the writer: single-track, unpacked, no GD3 (flags b1–b3 = 0).
 | `$8x`–`$Bx` | 1 | Volume set ch0–3 (x = attenuation) |
 | `$Cx`–`$Fx` | 1 | Volume delta ch0–3 |
 
-Simplest correct encoder: use `$Ex` raw writes + waits + `$1x` PCM for FM, and tone/volume set for PSG.
-Optimize to delta/combined commands later, with golden tests guarding output equivalence.
+The writer (`src/Xgm/Xgm2Writer.cs`, [ADR 0099](../adr/0099-xgm2-writer-records-the-player.md)) is the simplest
+correct encoder: `$2x` load instrument for a channel whose whole patch (28 slot registers, `$B0`, `$B4`) is written
+together, `$9x` for every other total level, `$Ex` raw writes (8 per command, one part) for the rest, `$F8` key, `$F9`
+LFO, `$FA`/`$FB` for `$27`'s CH3 bit, `$1x` PCM at the low priority, waits; for PSG, tone (`$2x`) and volume set
+(`$8x`–`$Bx`), every noise-register write sent. A register written twice between two other commands is sent once.
+At the loop frame it sets back every register, key, LFO, CH3 bit and PSG channel as they were on the first time
+through; a song that ends gets one more frame that lets every key up, turns the PSG off and stops every PCM channel.
+Optimize to delta/combined commands later, with byte-exact tests guarding output equivalence.
+
+What SGDK's XGM2 driver and xgm2tool need (checked in their source, 2026-11-09):
+
+- **The driver keeps FM state.** `drv_xgm2_ym_fct.i80` keeps each slot's total level, SL/RR, each channel's algorithm
+  and pan, to add the game's music volume to (`FM_updateAttCh`). `$2x` and `$9x` set that state; a raw `$Ex` write to
+  `$80`–`$8F`, `$B0`–`$B2` or `$B4`–`$B6` does too, but a raw write to `$40`–`$4F` goes straight to the chip and leaves
+  the kept level stale, so total levels never go raw.
+- **Frame splitter.** `$F0` (`FMCom_frameDelay`) ends the driver's frame without counting it ("fixme: this will desync
+  FM and PSG streams"), so after one the FM stream is a frame behind; the writer takes that frame off the next wait.
+- **Frame size.** xgm2tool packs the FM stream (`XGCPacker`) in blocks that end on frame boundaries and fails with
+  "max frame size reached" when it can't: a frame, its wait included, must be under 256 bytes, and because the packer
+  doesn't stop a match (up to 31 bytes) that starts at a block's end at the next boundary, a frame after a tiny one
+  must still fit 31 bytes earlier. The writer keeps every frame under 225 bytes, splitting with `$F0` past that.
 
 ## XGM (v1.01) layout — from [`xgm.txt`](xgm.txt)
 

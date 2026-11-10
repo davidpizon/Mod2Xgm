@@ -109,6 +109,21 @@ internal sealed class GenesisChips
     /// <summary>The PCM driver: a <see cref="DmfDac"/>, <see cref="XgmPcmDriver"/> or <see cref="Xgm2PcmDriver"/> by <see cref="Driver"/>.</summary>
     public IDacSource Dac { get; }
 
+    /// <summary>Hears every write and PCM command the player sends through <see cref="Ports"/>, or <c>null</c> (docs/adr/0099-xgm2-writer-records-the-player.md).</summary>
+    public IChipRecorder? Recorder { get; init; }
+
+    /// <summary>The FM registers as the player writes them: to <see cref="Fm"/>, and to <see cref="Recorder"/> when there is one.</summary>
+    public IFmRegisters Ports => _ports ??= new RecordedFm(this);
+
+    private RecordedFm? _ports;
+
+    /// <summary>Writes <paramref name="value"/> to the PSG's port, and tells <see cref="Recorder"/>.</summary>
+    public void WritePsg(byte value)
+    {
+        Psg.Write(value);
+        Recorder?.PsgWrite(value);
+    }
+
     /// <summary>
     /// Plays one sample per element of <paramref name="left"/> and <paramref name="right"/> (the same length): the
     /// YM3438 with the PCM driver's DAC bytes, plus the PSG averaged over each sample, in −1…+1 at Furnace's levels.
@@ -186,6 +201,17 @@ internal sealed class GenesisChips
 
     /// <summary>The PSG sample the YM3438's sample <paramref name="sample"/> starts on.</summary>
     private long PsgSampleAt(long sample) => (long)Math.Floor(sample * _psgPerSample);
+
+    /// <summary>The YM3438 with the recorder listening.</summary>
+    private sealed class RecordedFm(GenesisChips chips) : IFmRegisters
+    {
+        /// <inheritdoc/>
+        public void WriteRegister(int part, byte register, byte value)
+        {
+            chips.Fm.WriteRegister(part, register, value);
+            chips.Recorder?.FmWrite(part, register, value);
+        }
+    }
 
     private static void Grow<T>(ref T[] buffer, int length)
     {
