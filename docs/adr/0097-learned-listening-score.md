@@ -1,6 +1,6 @@
 # ADR 0097: A listening score learned from David's blind answers
 
-- **Status:** Proposed
+- **Status:** Accepted (David, 2026-11-10)
 - **Date:** 2026-11-09
 
 ## Context
@@ -35,7 +35,8 @@ today.
 
 ## Decision
 
-Proposed by Claude, for David to accept, change or reject. The items marked **open** are David's to settle.
+Proposed by Claude and accepted by David on 2026-11-10. The items still marked **open** are David's to settle; his answers to
+the others are recorded where they were asked.
 
 - **What it predicts.** Given two Genesis renders A and B of the same clip of the same song, it gives the chance that
   David prefers A, with the original MOD heard first. That is the question every round asks already. Pairs are easier to
@@ -49,13 +50,13 @@ Proposed by Claude, for David to accept, change or reject. The items marked **op
 - **Features.** At most about one weight per 10 answers, chosen on cross-validation, from:
   - what `src/Scoring` already measures: log-mel, MFCC, onset F1, balance, and the R128 stem offset where stems exist;
   - ADR 0096's attack, envelope and brightness distances, at the scale of a whole clip;
-  - T9.4h's perceptual features: PEAQ-style noise-to-mask ratio, NSIM on an ERB spectrogram, envelope modulation and
+  - perceptual features (plan T9.4k, which took them over from the dropped T9.4h): PEAQ-style noise-to-mask ratio, NSIM on an ERB spectrogram, envelope modulation and
     harmonicity.
 - **Pretrained audio models (harness only).** Distances between embeddings from pretrained models (for example CDPAM,
   PANNs or CLAP) are tried as extra features in `tools/Mod2Xgm.Harness` only. A model of this kind moves into the
   converter only if it beats the pure-C# features on the hold-out, and only after a separate ADR shows its runtime meets
-  the library rules (Native AOT on win-x64, linux-x64 and osx-arm64, permissive licence, in-process, offline). **Open:**
-  which models to try, if any.
+  the library rules (Native AOT on win-x64, linux-x64 and osx-arm64, permissive licence, in-process, offline). **David
+  (2026-11-10):** try them, in the harness first; which ones is chosen when T9.4k starts.
 - **One record of answers.** Every blind round, for any decision, adds rows to one tab-separated file,
   `tests/golden/listening/answers.tsv`. Each row holds:
   - the date, the round and the question;
@@ -66,11 +67,12 @@ Proposed by Claude, for David to accept, change or reject. The items marked **op
   Renders are deterministic, so the recipe remakes the clip. The WAVs are not committed (the corpus is free to share,
   but the clips are large). ADR 0096's rounds (T9.4i) are pairs too, so they go in the same file and train both models.
 - **The rounds already done.** Rounds from ADRs 0087–0094 are added to the file when both versions can still be made
-  from today's code with options. The others stay in their ADRs as history. **Open:** how many can be remade; that is
-  found by trying.
+  from today's code with options. The others stay in their ADRs as history. **David (2026-11-10):** only answers whose
+  clips today's code remakes byte for byte go in, and rounds graded 1–5 stay out (they aren't turned into pairs). How
+  many that leaves is found by trying (T9.4j).
 - **More answers.** At first there are no rounds held only for this score: each round David runs for a decision is
   logged and teaches the score as a side effect. When the model is unsure, a round may add a few pairs where it is
-  least sure (chance near 0.5), using T9.4g's active-learning tool. **Open:** whether David wants such extra pairs, and
+  least sure (chance near 0.5), using a pair picker (plan T9.4k, which took it over from the dropped T9.4g). **Open:** whether David wants such extra pairs, and
   how many per round.
 - **Fitting.** In the harness, with L2 regularization. Every choice (features, regularization) is made on
   leave-one-song-out checks. The fitted weights, the date and the number of answers are written next to the constants.
@@ -80,7 +82,7 @@ Proposed by Claude, for David to accept, change or reject. The items marked **op
   points above log-mel's agreement on the same pairs.
 - **Using it.** Each use is its own task, with a blind round against the version David already liked: the harness's
   main number, picking the best FM fit (step 4 in [fm-matching.md](../references/fm-matching.md)), the allocator's
-  distances, T9.5's refine loop, and a feature for ADR 0096's FM confidence. A new ruler changes plans, and a search
+  distances, and T9.5's refine loop. A new ruler changes plans, and a search
   pushed against any ruler finds its blind spots. So the answers keep being logged, and the model is refitted when
   they disagree with it.
 
@@ -106,11 +108,13 @@ Proposed by Claude, for David to accept, change or reject. The items marked **op
   any row's clips from its recipe and checks they come out byte-identical.
 - New `src/Scoring` class for the model's constants and score. Once one is chosen, [testing.md](../testing.md) and
   [harness.md](../harness.md) say which ruler is the main number.
-- Shares T9.4g's survey tooling and T9.4h's perceptual features with ADR 0096. The answers file should exist by T9.4i,
-  so that the FM-confidence rounds are logged in it.
-- Proposed plan tasks, after T9.4i and before T9.5 (T9.5 is the first heavy user of the ruler):
-  - **T9.4j:** answers file, recipe re-render check, and the past rounds added where they can be remade;
-  - **T9.4k:** harness fit, with leave-one-song-out checks and the score reported next to log-mel;
+- David (2026-11-10) dropped plan tasks T9.4e–T9.4i (ADR 0096's threshold, table and rounds). Their survey tooling and
+  perceptual features move into T9.4k.
+- Plan tasks, after T9.4d and before T9.5 (T9.5 is the first heavy user of the ruler):
+  - **T9.4j:** answers file, recipe re-render check, the past rounds added where they can be remade, and a small round of
+    about 5 pairs logged through it (David: half speed on dull samples);
+  - **T9.4k:** harness fit, with leave-one-song-out checks and the score reported next to log-mel; the perceptual
+    features and the pair picker;
   - **T9.4l:** hold-out round and the adoption decision, recorded in an ADR;
   - **T9.4m:** use in FM fit selection and the allocator, each checked blind.
 - Rules out nothing already accepted. ADR 0016's "no neural parameter estimator inside the converter" is untouched: this

@@ -1,6 +1,6 @@
 # ADR 0098: Learned costs for the allocator's choices
 
-- **Status:** Proposed
+- **Status:** Accepted (David, 2026-11-10)
 - **Date:** 2026-11-09
 
 ## Context
@@ -20,7 +20,7 @@ Each of those choices is priced today by a fixed rule, the same in every song:
 | Pitch sharing | Within 10 cents; not tuned by ear (it fired once on the corpus) | ADR 0091 |
 | XGM2 half speed | Off for every sample: crunchy in round 11, though its cost ranges from about +3 dB on average to +10 dB on bright samples | ADR 0091, [ADR 0071](0071-pcm-candidates.md) |
 | Pre-mixed voice steals | At most 4 notes, turned down at most 6 dB | [ADR 0094](0094-pre-mixed-voice-steals.md) |
-| A recording moved to FM | Lowest `(1 − p) · importance / cost` | [ADR 0096](0096-fm-confidence.md) |
+| A recording moved to FM | Only when a limit runs out; ADR 0096's planned `(1 − p) · importance / cost` was dropped with T9.4e | [ADR 0096](0096-fm-confidence.md) |
 
 The ears don't hear a choice on its own; they hear it in the mix. A pad under busy drums can lose much more than a lead
 that plays alone, and half speed costs a bass line little and a hi-hat a lot. The rules can't see that, and each rule took
@@ -31,7 +31,7 @@ Rendering and scoring the whole song for every option would see it. But FM fits 
 
 ## Decision
 
-Proposed by Claude, for David to accept, change or reject. The items marked **open** are David's to settle.
+Proposed by Claude and accepted by David on 2026-11-10, with his answers to the open items below.
 
 - **A model sets the prices; a solver makes the plan.** The model predicts what each choice costs the ears. The
   allocator, `RecordingShrinker` and `PreMixer` still build the plan, and they alone check it against the target's
@@ -48,7 +48,7 @@ Proposed by Claude, for David to accept, change or reject. The items marked **op
   - **The sample:** `SampleAnalysis`'s traits (tonal, noisy, loop, pitch deviation, chord), its share of energy above
     3.3 kHz (half speed's top frequency), and its share of energy in the attack.
   - **The option on its own:** its distances against the sample alone (log-mel, ADR 0096's attack, envelope and
-    brightness distances, and T9.4h's noise-to-mask ratio).
+    brightness distances, and T9.4k's noise-to-mask ratio).
   - **The context:** how exposed the track is (its share of the song's importance, and how long it plays with little
     else sounding); how much of its energy the other tracks cover in the same bands at the same time, measured on
     per-track stems from the MOD renderer as ADR 0053's stem measure does; its pan side; the format.
@@ -65,20 +65,22 @@ Proposed by Claude, for David to accept, change or reject. The items marked **op
     order on the least important sample.
   - **The merge, pitch-sharing and pre-mix limits** become prices rather than thresholds.
   - **Half speed** becomes available per sample when its price is low, for example a dull bass. This would reverse
-    ADR 0091's "off" only for samples the model prices low, and only after a blind round. **Open:** whether David wants
-    half speed back on that condition.
-  - **ADR 0096**'s "least needed" rule takes the price in place of `(1 − p) · importance`.
+    ADR 0091's "off" only for samples the model prices low, and only after a blind round. **David (2026-11-10):** yes, half
+    speed per sample on that condition.
+  - **Moving a recording to FM** to save bytes is priced like any other option; ADR 0096's confidence is one of its
+    features.
   - **T9.5**'s refine loop searches whole plans by their summed prices, then renders and scores only the best few in
     full.
 - **Songs to train on.** Today's 19-song corpus ([ADR 0046](0046-mod-corpus.md)) becomes the hold-out and is never trained
   on. Training songs are more Public Domain or CC0 MODs, chosen and licensed as ADR 0046 did. They are used only by the
-  harness, so the converter stays local-only. **Open:** how many; Claude suggests 100 or more, across the trackers and
-  styles the corpus has.
+  harness, so the converter stays local-only. **David (2026-11-10):** 100 or more, across the
+  trackers and styles the corpus has.
 - **Order and gate.** This waits for ADR 0097's score to pass its own gate. Trained on log-mel, the prices would learn
   log-mel's mistakes, such as the hawks_claw version that measured better and lost 3 and 2 to 5 (ADR 0087). Before that, the
   tooling may be tried with log-mel as a dry run that changes no plan. The prices replace the rules only after the priced
   optimizer beats the rule-based one on hold-out songs in blind rounds, behind a rule switch until then, as
-  `GenesisPlan.TunedByEar` was. **Open:** how many songs and rounds that takes.
+  `GenesisPlan.TunedByEar` was. **David (2026-11-10):** it must win on at least 5 hold-out songs over
+  2 blind rounds.
 
 ## Options considered
 
@@ -96,7 +98,7 @@ Proposed by Claude, for David to accept, change or reject. The items marked **op
 
 ## Consequences
 
-- Proposed plan tasks, after ADR 0097's T9.4m and before T9.5:
+- Plan tasks, after ADR 0097's T9.4m and before T9.5:
   - **T9.4n:** per-track stems, and the masking and exposure features from them;
   - **T9.4o:** harness training data: one choice changed at a time, plus pairs to check how well costs add up;
   - **T9.4p:** training songs and their licences; model fit with leave-one-song-out checks; Δs predicted on the hold-out
