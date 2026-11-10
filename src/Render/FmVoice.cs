@@ -34,7 +34,7 @@ internal static class FmVoice
         ArgumentNullException.ThrowIfNull(patch);
         for (int op = 0; op < 4; op++)
         {
-            Mapping.FmOperator o = patch.Operators[op];
+            FmOperator o = patch.Operators[op];
             int slot = SlotOffsets[op];
             int detune = o.Detune >= 0 ? o.Detune : 4 - o.Detune;
             Write(chip, channel, (byte)(RegDetuneMult + slot), (byte)((detune << 4) | o.Mult));

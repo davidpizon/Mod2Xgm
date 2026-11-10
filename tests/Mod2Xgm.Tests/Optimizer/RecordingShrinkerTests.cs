@@ -100,6 +100,56 @@ public sealed class RecordingShrinkerTests
         Assert.InRange(result.TotalBytes, (full / 2) - 256, (full / 2) + 256);
     }
 
+    /// <summary>A listening round's forced half speed applies even when the song fits, and only to the sample it names.</summary>
+    [Fact]
+    public void Shrink_WithForcedHalfSpeed_StoresThatSampleAtHalfSpeedThoughItFits()
+    {
+        // Arrange
+        Song song = SongOf(Tone(20000, 50), Tone(20000, 50));
+        ShrinkRules rules = ShrinkRules.Default with { ForcedHalfSpeed = new HashSet<int> { 1 } };
+
+        // Act
+        ShrinkResult result = RecordingShrinker.Shrink(Wanted((0, Rate, 0, 0), (1, Rate, 0, 0)), Importance(0, 1), song, Limits(PcmTarget.Xgm2, 1 << 24), rules, Required());
+
+        // Assert
+        Assert.False(result.Stored[(0, Rate, 0, 0)].HalfSpeed);
+        Assert.True(result.Stored[(1, Rate, 0, 0)].HalfSpeed);
+        Assert.Equal(ShrinkMove.HalfSpeed, Assert.Single(result.Steps).Move);
+    }
+
+    /// <summary>A forced half-speed sample is never merged with a look-alike at full speed: the merged notes would play the wrong speed.</summary>
+    [Fact]
+    public void Shrink_WithForcedHalfSpeedLookAlike_NeverMergesAcrossIt()
+    {
+        // Arrange
+        Song song = SongOf(Tone(20000, 50), Tone(20000, 50));
+        ShrinkRules rules = ShrinkRules.Default with { Order = [ShrinkMove.Merge], ForcedHalfSpeed = new HashSet<int> { 1 } };
+
+        // Act
+        ShrinkResult result = RecordingShrinker.Shrink(Wanted((0, Rate, 0, 0), (1, Rate, 0, 0)), Importance(0, 1), song, Limits(PcmTarget.Xgm2, 1), rules, Required());
+
+        // Assert
+        Assert.DoesNotContain(result.Steps, s => s.Move == ShrinkMove.Merge);
+        Assert.False(result.Stored[(0, Rate, 0, 0)].HalfSpeed);
+        Assert.True(result.Stored[(1, Rate, 0, 0)].HalfSpeed);
+    }
+
+    /// <summary>XGM has no half speed, so a forced one is left out there rather than storing a copy the driver can't play.</summary>
+    [Fact]
+    public void Shrink_WithForcedHalfSpeedOnXgm_MakesNoMove()
+    {
+        // Arrange
+        Song song = SongOf(Tone(20000, 50));
+        ShrinkRules rules = ShrinkRules.Default with { ForcedHalfSpeed = new HashSet<int> { 0 } };
+
+        // Act
+        ShrinkResult result = RecordingShrinker.Shrink(Wanted((0, Rate, 0, 0)), Importance(0), song, Limits(PcmTarget.Xgm, 1 << 24), rules, Required());
+
+        // Assert
+        Assert.Empty(result.Steps);
+        Assert.False(result.Stored[(0, Rate, 0, 0)].HalfSpeed);
+    }
+
     /// <summary>XGM has no half speed: the move isn't made, and the copy stays over budget for the allocator to deal with.</summary>
     [Fact]
     public void Shrink_OnXgm_NeverStoresAtHalfSpeed()

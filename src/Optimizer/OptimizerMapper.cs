@@ -479,7 +479,10 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
             Dictionary<int, double> importance = wanted.GroupBy(n => StoredAs(n.Sample)).ToDictionary(g => g.Key, g => g.Sum(n => n.Importance));
             // With MakeRoom, the shrinker leaves the pre-mixes the room a first pass found they want (PreMixRules.MakeRoom).
             TargetLimits shrinkTo = _reserve > 0 && _limits.PcmBytes is { } budget ? _limits with { PcmBytes = Math.Max(1, budget - _reserve) } : _limits;
-            _shrunk = RecordingShrinker.Shrink(copies, importance, _song, shrinkTo, _rules, new HashSet<int>(_options.RequireDac.Select(StoredAs)));
+            // A forced half speed names a sample as the recipe gives it; a twin with the same sound is stored as one copy,
+            // so the copy takes it (docs/harness.md#listening-answers).
+            ShrinkRules rules = _rules.ForcedHalfSpeed.Count == 0 ? _rules : _rules with { ForcedHalfSpeed = _rules.ForcedHalfSpeed.Select(StoredAs).ToHashSet() };
+            _shrunk = RecordingShrinker.Shrink(copies, importance, _song, shrinkTo, rules, new HashSet<int>(_options.RequireDac.Select(StoredAs)));
             _copyBytes = new Dictionary<StoredCopy, int>(_shrunk.Bytes);
             RecordingShrinker.Report(_shrunk, _song, _rules, _notes);
 

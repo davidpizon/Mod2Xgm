@@ -46,6 +46,12 @@ internal sealed record ConversionOptions
     /// <summary>True when <c>--mapping optimizer</c> was given; it wins over <c>--quality fast</c>.</summary>
     public bool UsesOptimizer => Mapping == OptimizerMapping;
 
+    /// <summary>
+    /// The optimizer's shrink rules, or <c>null</c> for <see cref="Optimizer.ShrinkRules.Default"/>. No option sets it: the
+    /// harness does, to remake a listening round's versions (docs/adr/0097-learned-listening-score.md).
+    /// </summary>
+    public Optimizer.ShrinkRules? ShrinkRules { get; init; }
+
     /// <summary>MOD sample numbers (1-based) to leave out.</summary>
     public IReadOnlySet<int> IgnoreSamples { get; init; } = new HashSet<int>();
 

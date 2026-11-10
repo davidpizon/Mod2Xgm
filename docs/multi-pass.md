@@ -80,13 +80,18 @@ combination of changes wins ([Passes](#passes)).
     allocation, a note that lost its recording to the voice limit is given it back, with a PCM voice left free or mixed
     on demand with a recording already playing; a track that never plays recordings is rescued only whole. The FM/PSG
     voices it frees go to notes that were cut.
-- **FM confidence** ([ADR 0096](adr/0096-fm-confidence.md), plan T9.4d–T9.4i). Each sample gets one number: the chance
+- **FM confidence** ([ADR 0096](adr/0096-fm-confidence.md), plan T9.4d). Each sample gets one number: the chance
   David would pick its FM patch, or not tell it apart, over its recording in the song. Each region's fitted patch is
   measured several ways, from the render that sets its level: the fit's scores, plus the attack, envelope and brightness
   distances (`FmFeatureExtractor`). A model (`FmConfidenceModel`) turns them into a chance per region. The sample's
   chance is weighted by the importance of the notes in each region (`SampleConfidence`, `OptimizerMapper.Confidence`).
-  The model is provisional (a logistic curve on the log-mel distance) until listening rounds fit it (T9.4i). The
-  threshold that lets it choose FM over the recording comes in T9.4e–T9.4f.
+  The model is provisional (a logistic curve on the log-mel distance) and decides nothing: David dropped its threshold
+  (T9.4e–T9.4i, 2026-11-10). It becomes a feature of the learned prices below.
+- **Learned listening score and prices** ([ADR 0097](adr/0097-learned-listening-score.md),
+  [ADR 0098](adr/0098-learned-allocator-costs.md), plan T9.4j–T9.4q). A score learned from David's blind A/B answers
+  (`tests/golden/listening/answers.tsv`) stands in for log-mel once it beats it on hold-out songs. A model trained on it
+  prices each choice (FM, PSG, a shrink move, a pre-mix, a cut) in the mix, and the allocator and shrinker take the
+  cheapest; they alone still check the target's limits.
 
 ## Constraints the allocator enforces
 

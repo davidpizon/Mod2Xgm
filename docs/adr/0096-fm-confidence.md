@@ -1,6 +1,6 @@
 # ADR 0096: FM confidence per sample
 
-- **Status:** Proposed
+- **Status:** Superseded by [ADR 0098](0098-learned-allocator-costs.md) (David, 2026-11-10): the features and the per-sample confidence of T9.4d stay, as features for ADR 0098's prices; T9.4e–T9.4i were dropped
 - **Date:** 2026-11-09
 
 ## Context
