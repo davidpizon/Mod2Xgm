@@ -1,6 +1,6 @@
 # ADR 0096: FM confidence per sample
 
-- **Status:** Proposed
+- **Status:** Proposed; its threshold superseded by [ADR 0100](0100-fixed-fm-confidence-threshold.md)
 - **Date:** 2026-11-09
 
 ## Context

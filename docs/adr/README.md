@@ -109,10 +109,11 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0093](0093-optional-pcm-budget.md) | The PCM budget is optional; by default XGM and XGM2 hold what the format can | 2026-11-08 | Accepted |
 | [0094](0094-pre-mixed-voice-steals.md) | Voice steals through pre-mixes | 2026-11-08 | Accepted |
 | [0095](0095-voices-stop-with-the-mod-note.md) | A voice stops when the MOD's note falls silent | 2026-11-09 | Proposed |
-| [0096](0096-fm-confidence.md) | FM confidence per sample | 2026-11-09 | Proposed |
+| [0096](0096-fm-confidence.md) | FM confidence per sample | 2026-11-09 | Proposed; threshold superseded by 0100 |
 | [0097](0097-learned-listening-score.md) | A listening score learned from David's blind answers | 2026-11-09 | Proposed |
 | [0098](0098-learned-allocator-costs.md) | Learned costs for the allocator's choices | 2026-11-09 | Proposed |
 | [0099](0099-xgm2-writer-records-the-player.md) | The XGM2 writer records the Genesis player | 2026-11-09 | Accepted |
+| [0100](0100-fixed-fm-confidence-threshold.md) | A fixed FM-confidence threshold | 2026-11-10 | Proposed; supersedes the threshold of 0096 |
 
 ## Open questions
 

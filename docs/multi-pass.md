@@ -86,7 +86,8 @@ combination of changes wins ([Passes](#passes)).
   distances (`FmFeatureExtractor`). A model (`FmConfidenceModel`) turns them into a chance per region. The sample's
   chance is weighted by the importance of the notes in each region (`SampleConfidence`, `OptimizerMapper.Confidence`).
   The model is provisional (a logistic curve on the log-mel distance) until listening rounds fit it (T9.4i). The
-  threshold that lets it choose FM over the recording comes in T9.4e–T9.4f.
+  threshold that lets it choose FM over the recording comes in T9.4e. It is a constant, not an option or a pick by ear:
+  100 % (no change) until the fitted model passes its hold-out round, then 50 % ([ADR 0100](adr/0100-fixed-fm-confidence-threshold.md)).
 
 ## Constraints the allocator enforces
 
