@@ -311,7 +311,7 @@ public sealed class Xgm2WriterTests
     public void Write_WithTooManyRecordings_ThrowsDoesNotFit()
     {
         // Arrange
-        GenesisStream stream = new([[.. Enumerable.Range(0, Xgm2Writer.MaxSamples + 1).Select(i => ChipEvent.Play(0, new sbyte[1], false, 0, "x"))]], null, false, NtscRate);
+        GenesisStream stream = new([[.. Enumerable.Range(0, Xgm2Writer.MaxSamples + 1).Select(_ => ChipEvent.Play(0, new sbyte[1], false, 0, "x"))]], null, false, NtscRate);
 
         // Act
         ConversionException error = Assert.Throws<ConversionException>(() => Xgm2Writer.Write(stream, Notes()));
@@ -325,7 +325,7 @@ public sealed class Xgm2WriterTests
     public void Write_WithMostRecordings_EndsTheTableWithTheirEnd()
     {
         // Arrange
-        GenesisStream stream = new([[.. Enumerable.Range(0, Xgm2Writer.MaxSamples).Select(i => ChipEvent.Play(0, new sbyte[1], false, 0, "x"))]], null, false, NtscRate);
+        GenesisStream stream = new([[.. Enumerable.Range(0, Xgm2Writer.MaxSamples).Select(_ => ChipEvent.Play(0, new sbyte[1], false, 0, "x"))]], null, false, NtscRate);
 
         // Act
         byte[] sut = Xgm2Writer.Write(stream, Notes()).Bytes;

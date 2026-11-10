@@ -67,7 +67,7 @@ internal static class Xgm2Report
     private static (int Fm, int Psg) Voices(GenesisPlan plan)
     {
         HashSet<(VoiceKind, int)> psg = [];
-        foreach (PlanCell cell in plan.Patterns.SelectMany(p => p).SelectMany(r => r.Cells).OfType<PlanCell>())
+        foreach (PlanCell? cell in plan.Patterns.SelectMany(p => p).SelectMany(r => r.Cells))
         {
             if (cell is { Voice.Kind: VoiceKind.PsgTone or VoiceKind.PsgNoise, Sample: { } sample })
             {

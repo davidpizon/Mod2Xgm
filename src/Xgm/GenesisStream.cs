@@ -73,10 +73,10 @@ internal readonly record struct ChipEvent(
 internal sealed record GenesisStream(IReadOnlyList<IReadOnlyList<ChipEvent>> Frames, int? LoopFrame, bool Pal, double PcmRateHz)
 {
     /// <summary>Frames a second on a PAL Genesis.</summary>
-    public const int PalFrameRate = 50;
+    private const int PalFrameRate = 50;
 
     /// <summary>Frames a second on an NTSC Genesis.</summary>
-    public const int NtscFrameRate = 60;
+    private const int NtscFrameRate = 60;
 
     /// <summary>Frames a second.</summary>
     public int FrameRate => Pal ? PalFrameRate : NtscFrameRate;
