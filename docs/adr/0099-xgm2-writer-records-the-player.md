@@ -25,10 +25,17 @@ Genesis, and chose each point below (2026-11-09).
 - **Music PCM at the low priority** (`$1x` bit 3 clear, priority 7 in the driver), as SGDK's xgm2tool writes music,
   so a game's sound effect can take a channel. (David)
 - **The song's end:** a song that loops goes back to its loop frame; one that ends stops, after a frame that lets
-  every key up, turns every PSG channel off and stops every PCM channel. (David)
+  every key up, turns every PSG channel off and stops every PCM channel. (David) The loop (or end) command ends the
+  frame it is in (`FMCom_loop`, `PSGCOM_loop`), so it goes in the last frame, not after a wait. A recording still
+  sounding at the end is stopped there, so none plays on into the loop's opening.
 - **At the loop frame** the writer sets every register the song has written back to its value on the first time
-  through, then the key states, LFO and CH3 mode, and every PSG channel's tone and volume, so the second time sounds
-  like the first. A recording still sounding at the loop frame can't start partway: a conversion note counts them.
+  through, then LFO and CH3 mode, every channel's key (up where none was set yet), and every PSG channel's tone and
+  volume (off where none was set yet), so the second time sounds like the first. A recording still sounding at the
+  loop frame can't start partway: a conversion note counts them.
+- **Recordings stored as heard:** copies with the same bytes share one sample id, as the capacity check counts them,
+  and each is stored only as far as any play of it reaches (to its channel's next stop or play, or the song's end or
+  jump, plus two frames). The player unrolls a looped sample to 10 s; the file keeps what is heard. `--max-pcm-bytes`
+  is checked again against the bytes written.
 - **Simple commands first, the driver's state kept right:** a channel whose whole patch is written together goes as
   one load instrument (`$2x`, 31 bytes instead of about 64 raw), every other total level as `$9x`, the rest as raw
   writes (`$Ex`, 8 per command, one part); `$F8` key, `$F9` LFO, `$FA`/`$FB` for the CH3 bit of `$27` (the driver
@@ -65,6 +72,10 @@ Genesis, and chose each point below (2026-11-09).
   VGM can't be used to check the file.
 - The XGM and XGM2 WAV renders change slightly (recordings in 3 dB steps); listening-round clips made before differ.
 - All 19 corpus songs compile with xgm2tool and build as rescomp resources (simple mapping, 2026-11-09).
+- **Open: loops past the start in SGDK.** rescomp always has xgm2tool pack the song (`.xgc`). Reading an XGM2 file,
+  xgm2tool keeps no loop-start marker (`XGM.parseFMMusic`), so it packs the loop command with the file's unpacked
+  offset and never moves it (`getPackedFMMusicDataArray`). A loop back to frame 0 is right; a loop to a later frame
+  jumps to the wrong place in an SGDK game. A conversion note says so for each such song.
 - Open for T10.2: whether a frame of up to 224 bytes takes the Z80 too long, heard on BlastEm. The key off and on of a
   retriggered FM note land in the same frame.
 - T11.2 (XGM v1) reuses `GenesisStream` with XGM's driver and its own encoder.

@@ -122,7 +122,9 @@ together, `$9x` for every other total level, `$Ex` raw writes (8 per command, on
 LFO, `$FA`/`$FB` for `$27`'s CH3 bit, `$1x` PCM at the low priority, waits; for PSG, tone (`$2x`) and volume set
 (`$8x`–`$Bx`), every noise-register write sent. A register written twice between two other commands is sent once.
 At the loop frame it sets back every register, key, LFO, CH3 bit and PSG channel as they were on the first time
-through; a song that ends gets one more frame that lets every key up, turns the PSG off and stops every PCM channel.
+through (keys up and PSG volumes off where none was set yet); recordings still sounding at the jump are stopped. A
+song that ends gets one more frame that lets every key up, turns the PSG off and stops every PCM channel. Recordings
+with the same bytes are stored once, each only as far as a play reaches (plus two frames).
 Optimize to delta/combined commands later, with byte-exact tests guarding output equivalence.
 
 What SGDK's XGM2 driver and xgm2tool need (checked in their source, 2026-11-09):
@@ -137,6 +139,11 @@ What SGDK's XGM2 driver and xgm2tool need (checked in their source, 2026-11-09):
   "max frame size reached" when it can't: a frame, its wait included, must be under 256 bytes, and because the packer
   doesn't stop a match (up to 31 bytes) that starts at a block's end at the next boundary, a frame after a tiny one
   must still fit 31 bytes earlier. The writer keeps every frame under 225 bytes, splitting with `$F0` past that.
+- **Loop command.** `$FF` (FM) and `$0F` (PSG) end the frame they are in (`FMCom_loop`, `PSGCOM_loop`); the writer puts
+  them in the song's last frame. The PSG end stops playback and mutes FM.
+- **Loop point after packing.** xgm2tool reading an XGM2 file keeps no loop-start marker (`XGM.parseFMMusic`), so the
+  `.xgc` it packs (which rescomp always makes) keeps the file's unpacked loop offset. A loop to frame 0 is right; a
+  loop to a later frame lands in the wrong place. The writer notes such songs; see ADR 0099.
 
 ## XGM (v1.01) layout — from [`xgm.txt`](xgm.txt)
 

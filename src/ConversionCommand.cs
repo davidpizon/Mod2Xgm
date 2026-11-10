@@ -237,7 +237,7 @@ internal static class ConversionCommand
     private static void WriteXgm2(ConversionOptions options, string output, Song song, Playback playback, GenesisPlan plan, ConversionNotes notes, ILogger logger)
     {
         GenesisStream stream = GenesisStream.RecordXgm2(plan, song, playback, options.OutputRegion, options.Resampler, notes);
-        Xgm2Output xgm2 = Xgm2Writer.Write(stream, notes);
+        Xgm2Output xgm2 = Xgm2Writer.Write(stream, notes, options.MaxPcmBytes);
 
         // Report section 3 comes after mapping, before the file is written (docs/cli.md#console-report).
         Xgm2Report.Log(logger, xgm2, plan);

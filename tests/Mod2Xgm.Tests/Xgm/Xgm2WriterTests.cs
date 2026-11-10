@@ -34,14 +34,17 @@ public sealed class Xgm2WriterTests
         expected[8] = 1;
         expected[10] = 1;
         expected.AsSpan(0x0c, 248).Fill(0xff);
-        byte[] fm = [0x00, 0x00, 0xff, 0xff, 0xff, 0xff];
-        byte[] psg = [0x00, 0x8f, 0x9f, 0xaf, 0xbf, 0x00, 0x0f, 0xff, 0xff, 0xff];
+        byte[] fm = [0x00, 0xff, 0xff, 0xff, 0xff];
+        byte[] psg = [0x00, 0x8f, 0x9f, 0xaf, 0xbf, 0x0f, 0xff, 0xff, 0xff];
         fm.CopyTo(expected, DataOffset);
         psg.CopyTo(expected, DataOffset + Block);
         Assert.Equal(expected, sut);
     }
 
-    /// <summary>A three-frame song that loops to frame 1, spelled out byte by byte: the loop frame sets the chips back as they were.</summary>
+    /// <summary>
+    /// A three-frame song that loops to frame 1, spelled out byte by byte: the loop frame sets the chips back as they were,
+    /// every key and PSG volume included (up and off where nothing was set yet), and the loop command ends the last frame.
+    /// </summary>
     [Fact]
     public void Write_WithLoopingSong_WritesEveryByte()
     {
@@ -78,11 +81,11 @@ public sealed class Xgm2WriterTests
         byte[] fm =
         [
             0xe0, 0xb4, 0xc0, 0xf8, 0xf0, 0x10, 0x01, 0x00,
-            0xe0, 0xb4, 0xc0, 0xf8, 0xf0, 0x10, 0x01, 0xe8, 0x30, 0x71, 0x00,
-            0x10, 0x00, 0x00,
+            0xe0, 0xb4, 0xc0, 0xf8, 0xf0, 0xf8, 0x01, 0xf8, 0x02, 0xf8, 0x04, 0xf8, 0x05, 0xf8, 0x06, 0x10, 0x01, 0xe8, 0x30, 0x71, 0x00,
+            0x10, 0x00,
             0xff, 0x08, 0x00, 0x00,
         ];
-        byte[] psg = [0x20, 0x15, 0x82, 0x00, 0x20, 0x15, 0x82, 0x01, 0x0f, 0x04, 0x00, 0x00];
+        byte[] psg = [0x20, 0x15, 0x82, 0x00, 0x20, 0x15, 0x82, 0x9f, 0xaf, 0xbf, 0x00, 0x0f, 0x04, 0x00, 0x00];
         sdat.CopyTo(expected, DataOffset);
         fm.CopyTo(expected, DataOffset + Block);
         psg.CopyTo(expected, DataOffset + (2 * Block));
@@ -105,7 +108,7 @@ public sealed class Xgm2WriterTests
         frames[gap] = [ChipEvent.Fm(0, 0x28, 0x00)];
 
         // Act
-        byte[] sut = Fm(Xgm2Writer.Write(new GenesisStream(frames, 0, false, NtscRate), Notes()));
+        byte[] sut = Fm(Xgm2Writer.Write(new GenesisStream(frames, null, false, NtscRate), Notes()));
 
         // Assert
         Assert.Equal([0xf8, 0x00, .. wait, 0xf8, 0x00], sut[..(wait.Length + 4)]);
@@ -138,7 +141,7 @@ public sealed class Xgm2WriterTests
     {
         // Arrange
         List<ChipEvent> events = [.. Enumerable.Range(0, 9).Select(i => ChipEvent.Fm(0, (byte)(0x30 + i), (byte)i)), ChipEvent.Fm(1, 0x50, 0x7f)];
-        GenesisStream stream = new([events], 0, false, NtscRate);
+        GenesisStream stream = new([events], null, false, NtscRate);
 
         // Act
         byte[] sut = Fm(Xgm2Writer.Write(stream, Notes()));
@@ -156,7 +159,7 @@ public sealed class Xgm2WriterTests
     public void Write_WithTotalLevelWrite_UsesSetTlCommand()
     {
         // Arrange
-        GenesisStream stream = new([[ChipEvent.Fm(1, 0x4e, 0x23), ChipEvent.Fm(0, 0x30, 0x71)]], 0, false, NtscRate);
+        GenesisStream stream = new([[ChipEvent.Fm(1, 0x4e, 0x23), ChipEvent.Fm(0, 0x30, 0x71)]], null, false, NtscRate);
 
         // Act
         byte[] sut = Fm(Xgm2Writer.Write(stream, Notes()));
@@ -183,7 +186,7 @@ public sealed class Xgm2WriterTests
         }
 
         events.AddRange([ChipEvent.Fm(1, 0xb2, 0x3c), ChipEvent.Fm(1, 0xb6, 0xc0), ChipEvent.Fm(1, 0xa6, 0x22)]);
-        GenesisStream stream = new([events], 0, false, NtscRate);
+        GenesisStream stream = new([events], null, false, NtscRate);
 
         // Act
         byte[] sut = Fm(Xgm2Writer.Write(stream, Notes()));
@@ -197,7 +200,7 @@ public sealed class Xgm2WriterTests
     public void Write_WithRegisterWrittenTwice_SendsLastValue()
     {
         // Arrange
-        GenesisStream stream = new([[ChipEvent.Fm(0, 0xa4, 0x22), ChipEvent.Fm(0, 0xa0, 0x69), ChipEvent.Fm(0, 0xa4, 0x23), ChipEvent.Fm(0, 0xa0, 0x70)]], 0, false, NtscRate);
+        GenesisStream stream = new([[ChipEvent.Fm(0, 0xa4, 0x22), ChipEvent.Fm(0, 0xa0, 0x69), ChipEvent.Fm(0, 0xa4, 0x23), ChipEvent.Fm(0, 0xa0, 0x70)]], null, false, NtscRate);
 
         // Act
         byte[] sut = Fm(Xgm2Writer.Write(stream, Notes()));
@@ -223,7 +226,7 @@ public sealed class Xgm2WriterTests
         frames[3] = [ChipEvent.Fm(0, 0x28, 0x01)];
 
         // Act
-        byte[] sut = Fm(Xgm2Writer.Write(new GenesisStream(frames, 0, false, NtscRate), notes));
+        byte[] sut = Fm(Xgm2Writer.Write(new GenesisStream(frames, null, false, NtscRate), notes));
 
         // Assert: 13 commands (221 bytes) fit with room for the frame's end within 224; a 14th (238) wouldn't.
         const int first = 13 * 17;
@@ -238,7 +241,7 @@ public sealed class Xgm2WriterTests
     public void Write_WithCh3AndLfoWrites_UsesTheirCommands()
     {
         // Arrange
-        GenesisStream stream = new([[ChipEvent.Fm(0, 0x27, 0x45), ChipEvent.Fm(0, 0x27, 0x05), ChipEvent.Fm(0, 0x22, 0x0b)]], 0, false, NtscRate);
+        GenesisStream stream = new([[ChipEvent.Fm(0, 0x27, 0x45), ChipEvent.Fm(0, 0x27, 0x05), ChipEvent.Fm(0, 0x22, 0x0b)]], null, false, NtscRate);
 
         // Act
         byte[] sut = Fm(Xgm2Writer.Write(stream, Notes()));
@@ -265,7 +268,7 @@ public sealed class Xgm2WriterTests
     public void Write_WithRepeatedNoiseWrite_SendsItEachTime()
     {
         // Arrange
-        GenesisStream stream = new([[ChipEvent.Psg(0xe4), ChipEvent.Psg(0xf3)], [ChipEvent.Psg(0xe4), ChipEvent.Psg(0xf3)]], 0, false, NtscRate);
+        GenesisStream stream = new([[ChipEvent.Psg(0xe4), ChipEvent.Psg(0xf3)], [ChipEvent.Psg(0xe4), ChipEvent.Psg(0xf3)]], null, false, NtscRate);
 
         // Act
         byte[] sut = Psg(Xgm2Writer.Write(stream, Notes()));
@@ -295,7 +298,7 @@ public sealed class Xgm2WriterTests
         // Arrange
         sbyte[] a = new sbyte[300];
         sbyte[] b = new sbyte[10];
-        GenesisStream stream = new([[ChipEvent.Play(0, a, false, 0, "1"), ChipEvent.Play(1, b, true, 1, "2"), ChipEvent.Play(2, a, false, 0, "1")]], 0, false, NtscRate);
+        GenesisStream stream = new([[ChipEvent.Play(0, a, false, 0, "1"), ChipEvent.Play(1, b, true, 1, "2"), ChipEvent.Play(2, a, false, 0, "1")]], null, false, NtscRate);
 
         // Act
         Xgm2Output sut = Xgm2Writer.Write(stream, Notes());
@@ -311,7 +314,7 @@ public sealed class Xgm2WriterTests
     public void Write_WithTooManyRecordings_ThrowsDoesNotFit()
     {
         // Arrange
-        GenesisStream stream = new([[.. Enumerable.Range(0, Xgm2Writer.MaxSamples + 1).Select(_ => ChipEvent.Play(0, new sbyte[1], false, 0, "x"))]], null, false, NtscRate);
+        GenesisStream stream = new([[.. Enumerable.Range(0, Xgm2Writer.MaxSamples + 1).Select(i => ChipEvent.Play(0, [(sbyte)i], false, 0, "x"))]], null, false, NtscRate);
 
         // Act
         ConversionException error = Assert.Throws<ConversionException>(() => Xgm2Writer.Write(stream, Notes()));
@@ -325,7 +328,7 @@ public sealed class Xgm2WriterTests
     public void Write_WithMostRecordings_EndsTheTableWithTheirEnd()
     {
         // Arrange
-        GenesisStream stream = new([[.. Enumerable.Range(0, Xgm2Writer.MaxSamples).Select(_ => ChipEvent.Play(0, new sbyte[1], false, 0, "x"))]], null, false, NtscRate);
+        GenesisStream stream = new([[.. Enumerable.Range(0, Xgm2Writer.MaxSamples).Select(i => ChipEvent.Play(0, [(sbyte)i], false, 0, "x"))]], null, false, NtscRate);
 
         // Act
         byte[] sut = Xgm2Writer.Write(stream, Notes()).Bytes;
@@ -355,13 +358,87 @@ public sealed class Xgm2WriterTests
     public void Write_WithEndingSong_StopsPcmAndKeys()
     {
         // Arrange
-        GenesisStream stream = new([[ChipEvent.Fm(0, 0x28, 0xf1), ChipEvent.Play(2, new sbyte[4], false, 0, "x")]], null, false, NtscRate);
+        GenesisStream stream = new([[ChipEvent.Fm(0, 0x28, 0xf1), ChipEvent.Play(2, new sbyte[13_317], false, 0, "x")]], null, false, NtscRate);
 
         // Act
         byte[] sut = Fm(Xgm2Writer.Write(stream, Notes()));
 
         // Assert
-        Assert.Equal([0xf8, 0xf1, 0x12, 0x01, 0x00, 0xf8, 0x01, 0x12, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff], sut[..14]);
+        Assert.Equal([0xf8, 0xf1, 0x12, 0x01, 0x00, 0xf8, 0x01, 0x12, 0x00, 0xff, 0xff, 0xff, 0xff], sut);
+    }
+
+    /// <summary>A recording still sounding where a looping song jumps back is stopped in the last frame, so it can't play into the loop's opening.</summary>
+    [Fact]
+    public void Write_WithRecordingAtLoopJump_StopsIt()
+    {
+        // Arrange
+        GenesisStream stream = new([[], [ChipEvent.Play(1, new sbyte[13_317], false, 0, "x")]], 0, false, NtscRate);
+
+        // Act
+        byte[] sut = Fm(Xgm2Writer.Write(stream, Notes()));
+
+        // Assert: frame 0 sets the keys up; frame 1 plays, and stops before the loop command ends it.
+        Assert.Equal([0x00, 0x11, 0x01, 0x11, 0x00, 0xff, 0x00, 0x00, 0x00], sut[12..]);
+    }
+
+    /// <summary>A recording is stored only as far as a play reaches, plus two frames: here 3 frames at 60 Hz of a 1 s recording.</summary>
+    [Fact]
+    public void Write_WithRecordingStoppedEarly_StoresWhatIsHeard()
+    {
+        // Arrange
+        IReadOnlyList<ChipEvent>[] frames = Frames(2);
+        frames[0] = [ChipEvent.Play(0, new sbyte[13_317], false, 0, "x")];
+        frames[1] = [ChipEvent.Stop(0)];
+
+        // Act
+        Xgm2Output sut = Xgm2Writer.Write(new GenesisStream(frames, null, false, NtscRate), Notes());
+
+        // Assert: ceil(3 / 60 × 13,317) = 666 bytes, padded to 768.
+        Assert.Equal(768, sut.Samples[0].Bytes);
+        Assert.Equal(3, BinaryPrimitives.ReadUInt16LittleEndian(sut.Bytes.AsSpan(6)));
+    }
+
+    /// <summary>Copies made apart with the same bytes are stored once, with one sample id, as the capacity check counts them.</summary>
+    [Fact]
+    public void Write_WithSameBytesInTwoCopies_StoresThemOnce()
+    {
+        // Arrange
+        GenesisStream stream = new([[ChipEvent.Play(0, [1, 2, 3], false, 0, "1"), ChipEvent.Play(1, [1, 2, 3], false, 0, "1")]], null, false, NtscRate);
+
+        // Act
+        Xgm2Output sut = Xgm2Writer.Write(stream, Notes());
+
+        // Assert
+        Assert.Single(sut.Samples);
+        Assert.Equal([0x10, 0x01, 0x11, 0x01], Fm(sut)[..4]);
+    }
+
+    /// <summary>The recordings the file stores must fit <c>--max-pcm-bytes</c>, counted as written: over it is a capacity failure (exit 6).</summary>
+    [Fact]
+    public void Write_WithRecordingsOverBudget_ThrowsDoesNotFit()
+    {
+        // Arrange
+        GenesisStream stream = new([[ChipEvent.Play(0, new sbyte[300], false, 0, "x")]], null, false, NtscRate);
+
+        // Act
+        ConversionException error = Assert.Throws<ConversionException>(() => Xgm2Writer.Write(stream, Notes(), pcmBudget: 511));
+
+        // Assert
+        Assert.Equal(ExitCode.DoesNotFit, error.Code);
+    }
+
+    /// <summary>A loop to a frame past the start gets a conversion note: SGDK's packer doesn't move the loop point.</summary>
+    [Fact]
+    public void Write_WithLoopPastStart_NotesSgdkPacking()
+    {
+        // Arrange
+        ConversionNotes notes = Notes();
+
+        // Act
+        Xgm2Writer.Write(new GenesisStream(Frames(2), 1, false, NtscRate), notes);
+
+        // Assert
+        Assert.Contains(notes.Messages, m => m.StartsWith("The song loops back to frame 1, not to its start", StringComparison.Ordinal));
     }
 
     /// <summary>A moment goes to the nearest frame start; half a frame rounds up.</summary>

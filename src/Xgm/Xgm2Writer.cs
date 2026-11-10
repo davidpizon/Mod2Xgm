@@ -117,15 +117,32 @@ internal static class Xgm2Writer
     /// <summary>The PCM channels: SGDK's XGM2 driver mixes three.</summary>
     private const int PcmChannels = 3;
 
+    /// <summary>The six FM channels as <c>$28</c> numbers them: 0–2, then 4–6 for the second part.</summary>
+    private static readonly int[] KeyChannels = [0, 1, 2, 4, 5, 6];
+
+    /// <summary>
+    /// Frames of each recording kept past the last frame a play reaches: the driver starts and stops PCM on frame
+    /// boundaries, and a frame splitter can make a stop a frame late.
+    /// </summary>
+    private const int HeardMarginFrames = 2;
+
     /// <summary>Writes <paramref name="stream"/> as an XGM2 file.</summary>
-    /// <exception cref="ConversionException">The song needs more recordings, PCM bytes or stream bytes than XGM2 holds (exit 6).</exception>
-    public static Xgm2Output Write(GenesisStream stream, ConversionNotes notes)
+    /// <param name="stream">The song's chip writes, frame by frame.</param>
+    /// <param name="notes">Collects the conversion notes.</param>
+    /// <param name="pcmBudget">The most bytes the recordings may take (<c>--max-pcm-bytes</c>), or <c>null</c> for what XGM2 holds.</param>
+    /// <exception cref="ConversionException">The song needs more recordings, PCM bytes or stream bytes than XGM2 or the budget holds (exit 6).</exception>
+    public static Xgm2Output Write(GenesisStream stream, ConversionNotes notes, long? pcmBudget = null)
     {
         ArgumentNullException.ThrowIfNull(stream);
         ArgumentNullException.ThrowIfNull(notes);
         Encoder encoder = new(stream);
         encoder.Run();
         IReadOnlyList<Xgm2Sample> samples = encoder.Samples(stream.PcmRateHz);
+        if (stream.LoopFrame > 0)
+        {
+            notes.Add("The song loops back to frame {Frame}, not to its start; SGDK's xgm2tool (which rescomp runs) packs the song without moving the loop point, so in an SGDK game the loop jumps to the wrong place", stream.LoopFrame);
+        }
+
         if (encoder.Splits > 0)
         {
             notes.Add("{Count} frame splits: some frames hold more FM writes than SGDK's XGM2 driver takes at once, so the writes after each split play one frame later", encoder.Splits);
@@ -137,6 +154,11 @@ internal static class Xgm2Writer
         }
 
         byte[] sdat = encoder.SampleData();
+        if (sdat.Length > pcmBudget)
+        {
+            throw new ConversionException(ExitCode.DoesNotFit, $"The XGM2 recordings take {sdat.Length} bytes; the PCM budget (--max-pcm-bytes) is {pcmBudget}.");
+        }
+
         byte[] fm = [.. encoder.Fm];
         byte[] psg = [.. encoder.Psg];
         int slen = Units(sdat.Length, "recordings");
@@ -180,8 +202,12 @@ internal static class Xgm2Writer
     /// <summary>Encodes the frames into the two streams, keeping the state of both chips for the loop point.</summary>
     private sealed class Encoder(GenesisStream stream)
     {
-        private readonly Dictionary<sbyte[], int> _ids = new(ReferenceEqualityComparer.Instance);
+        /// <summary>Each recording's id, by its bytes: copies with the same bytes are stored once, as the capacity check counts them.</summary>
+        private readonly Dictionary<sbyte[], int> _ids = new(SameBytes.Instance);
         private readonly List<(sbyte[] Data, bool HalfSpeed, int Sample, string Name)> _samples = [];
+
+        /// <summary>The bytes of each recording some play reaches before its channel stops or plays something else.</summary>
+        private readonly List<int> _heard = [];
 
         /// <summary>Every YM3438 register written, by part and register, but for the key, LFO, CH3 and DAC registers.</summary>
         private readonly SortedDictionary<(int Part, byte Register), byte> _fm = [];
@@ -191,8 +217,8 @@ internal static class Xgm2Writer
 
         private readonly List<(int Part, byte Register, byte Value)> _raw = [];
 
-        /// <summary>Each PCM channel's playing copy, the frame it started and its rate, or <c>null</c>.</summary>
-        private readonly (sbyte[] Data, int Frame, double RateHz)?[] _pcm = new (sbyte[], int, double)?[PcmChannels];
+        /// <summary>Each PCM channel's playing recording (its id), the frame it started and its rate, or <c>null</c>.</summary>
+        private readonly (int Id, int Frame, double RateHz)?[] _pcm = new (int, int, double)?[PcmChannels];
 
         // The PSG as the bytes written leave it, and as the stream last set it (−1: never).
         private readonly int[] _tone = [-1, -1, -1, -1];
@@ -245,38 +271,66 @@ internal static class Xgm2Writer
                 FlushPsg(f, force: false);
             }
 
-            int end = stream.Frames.Count;
+            // The loop (or end) command ends the frame it is in (FMCom_loop and PSGCOM_loop in SGDK's driver), so it goes
+            // in the song's last frame: one that loops is its own last frame, one that ends gets a frame of silence.
+            int last = Math.Max(0, stream.Frames.Count - 1);
             if (stream.LoopFrame is null)
             {
                 // A song that ends goes quiet: every key up, every PSG channel off, every PCM channel stopped.
-                MoveFm(end);
+                last = stream.Frames.Count;
+                MoveFm(last);
                 foreach (int channel in _keys.Keys)
                 {
                     Command(FmKey, (byte)channel);
                 }
 
-                for (int c = 0; c < PcmChannels; c++)
-                {
-                    if (_pcm[c] is not null)
-                    {
-                        Command((byte)(FmPcm | c), 0);
-                    }
-                }
-
-                MovePsg(end);
+                MovePsg(last);
                 for (int c = 0; c < _volume.Length; c++)
                 {
                     Psg.Add((byte)(PsgVolume | (c << 4) | PsgSilent));
                 }
-
-                end++;
             }
 
-            MoveFm(end);
+            // Recordings still sounding stop where the song ends or jumps back, so none plays on into the loop's opening;
+            // stopping at the loop frame instead would cut those that cross it the first time through.
+            MoveFm(last);
+            for (int c = 0; c < PcmChannels; c++)
+            {
+                if (_pcm[c] is { } playing && Sounding(playing, last))
+                {
+                    Command((byte)(FmPcm | c), 0);
+                }
+
+                Stop(c, last);
+            }
+
             Command(FmLoop, (byte)_fmLoop, (byte)(_fmLoop >> 8), (byte)(_fmLoop >> 16));
-            MovePsg(end);
+
+            // A frame splitter not yet taken back leaves FM behind: PSG waits for it, so both loop (or end) together.
+            MovePsg(last);
+            Wait(Psg, _fmLag, PsgMaxShortWait, PsgWaitLong, PsgMaxLongWait);
             Psg.Add(PsgLoop);
             Add24(Psg, _psgLoop);
+        }
+
+        /// <summary>True while the recording playing as <paramref name="playing"/> still sounds at the start of <paramref name="frame"/>.</summary>
+        private bool Sounding((int Id, int Frame, double RateHz) playing, int frame) =>
+            playing.Frame + (_samples[playing.Id - 1].Data.Length / playing.RateHz * stream.FrameRate) > frame;
+
+        /// <summary>
+        /// Ends the play on PCM channel <paramref name="channel"/> at <paramref name="frame"/>, noting how much of its recording
+        /// it reached, with a margin for frame timing; the file stores no more than the most any play reaches.
+        /// </summary>
+        private void Stop(int channel, int frame)
+        {
+            if (_pcm[channel] is { } playing)
+            {
+                int id = playing.Id - 1;
+                double seconds = (frame - playing.Frame + HeardMarginFrames) / (double)stream.FrameRate;
+                int bytes = (int)Math.Min(_samples[id].Data.Length, Math.Ceiling(seconds * playing.RateHz));
+                _heard[id] = Math.Max(_heard[id], bytes);
+                _pcm[channel] = null;
+            }
         }
 
         /// <summary>The recordings, by id.</summary>
@@ -284,7 +338,7 @@ internal static class Xgm2Writer
             i + 1,
             s.Sample,
             s.Name,
-            Padded(s.Data.Length),
+            Padded(_heard[i]),
             s.HalfSpeed,
             (int)Math.Round(s.HalfSpeed ? rateHz / 2 : rateHz, MidpointRounding.AwayFromZero)))];
 
@@ -293,29 +347,29 @@ internal static class Xgm2Writer
         {
             List<int> starts = [];
             int at = 0;
-            foreach ((sbyte[] data, _, _, _) in _samples)
+            foreach (int heard in _heard)
             {
                 starts.Add(at);
-                at += Padded(data.Length);
+                at += Padded(heard);
             }
 
             return starts;
         }
 
-        /// <summary>The sample block: every recording, padded with silence to 256 bytes.</summary>
+        /// <summary>The sample block: every recording, as much of it as is heard, padded with silence to 256 bytes.</summary>
         public byte[] SampleData()
         {
             IReadOnlyList<int> starts = SampleStarts();
-            byte[] data = new byte[_samples.Sum(s => Padded(s.Data.Length))];
+            byte[] data = new byte[_heard.Sum(Padded)];
             for (int i = 0; i < _samples.Count; i++)
             {
-                CopySigned(_samples[i].Data, data.AsSpan(starts[i]));
+                CopySigned(_samples[i].Data.AsSpan(0, _heard[i]), data.AsSpan(starts[i]));
             }
 
             return data;
         }
 
-        private static void CopySigned(sbyte[] from, Span<byte> to)
+        private static void CopySigned(ReadOnlySpan<sbyte> from, Span<byte> to)
         {
             for (int i = 0; i < from.Length; i++)
             {
@@ -349,14 +403,15 @@ internal static class Xgm2Writer
                 Command(ch3 ? FmCh3On : FmCh3Off);
             }
 
-            foreach (byte key in _keys.Values)
+            // Every channel's key as it was, up for one not yet keyed: a note held at the song's end mustn't go on sounding.
+            foreach (int channel in KeyChannels)
             {
-                Command(FmKey, key);
+                Command(FmKey, _keys.TryGetValue(channel, out byte key) ? key : (byte)channel);
             }
 
             for (int c = 0; c < PcmChannels; c++)
             {
-                if (_pcm[c] is { } playing && playing.Frame < f && (playing.Frame + (playing.Data.Length / playing.RateHz * stream.FrameRate)) > f)
+                if (_pcm[c] is { } playing && playing.Frame < f && Sounding(playing, f))
                 {
                     CarriedOverLoop++;
                 }
@@ -390,6 +445,7 @@ internal static class Xgm2Writer
                     if (!_ids.TryGetValue(e.Data!, out int id))
                     {
                         _samples.Add((e.Data!, e.HalfSpeed, e.Sample, e.Name));
+                        _heard.Add(0);
                         id = _samples.Count;
                         _ids[e.Data!] = id;
                         if (id > MaxSamples)
@@ -399,13 +455,14 @@ internal static class Xgm2Writer
                     }
 
                     Command((byte)(FmPcm | e.Channel | (e.HalfSpeed ? FmPcmHalfSpeed : 0)), (byte)id);
-                    _pcm[e.Channel] = (e.Data!, frame, e.HalfSpeed ? stream.PcmRateHz / 2 : stream.PcmRateHz);
+                    Stop(e.Channel, frame);
+                    _pcm[e.Channel] = (id, frame, e.HalfSpeed ? stream.PcmRateHz / 2 : stream.PcmRateHz);
                     break;
                 default:
                     FlushRaw();
                     MoveFm(frame);
                     Command((byte)(FmPcm | e.Channel), 0);
-                    _pcm[e.Channel] = null;
+                    Stop(e.Channel, frame);
                     break;
             }
         }
@@ -592,7 +649,14 @@ internal static class Xgm2Writer
             _noiseWritten = false;
             for (int c = 0; c < _volume.Length; c++)
             {
-                if (_volume[c] >= 0 && (force || _volume[c] != _volumeSent[c]))
+                if (force && _volume[c] < 0)
+                {
+                    // Not yet set at the loop frame: off, so a channel the song's end leaves sounding is quiet again.
+                    MovePsg(frame);
+                    Psg.Add((byte)(PsgVolume | (c << 4) | PsgSilent));
+                    _volumeSent[c] = PsgSilent;
+                }
+                else if (_volume[c] >= 0 && (force || _volume[c] != _volumeSent[c]))
                 {
                     MovePsg(frame);
                     Psg.Add((byte)(PsgVolume | (c << 4) | _volume[c]));
@@ -680,6 +744,24 @@ internal static class Xgm2Writer
             to.Add((byte)value);
             to.Add((byte)(value >> 8));
             to.Add((byte)(value >> 16));
+        }
+    }
+
+    /// <summary>Compares recordings by their bytes, so separately made copies of the same sound share one id.</summary>
+    private sealed class SameBytes : IEqualityComparer<sbyte[]>
+    {
+        /// <summary>The one instance.</summary>
+        public static readonly SameBytes Instance = new();
+
+        /// <inheritdoc/>
+        public bool Equals(sbyte[]? x, sbyte[]? y) => ReferenceEquals(x, y) || (x is not null && y is not null && x.AsSpan().SequenceEqual(y));
+
+        /// <inheritdoc/>
+        public int GetHashCode(sbyte[] obj)
+        {
+            HashCode hash = new();
+            hash.AddBytes(System.Runtime.InteropServices.MemoryMarshal.AsBytes(obj.AsSpan()));
+            return hash.ToHashCode();
         }
     }
 }
