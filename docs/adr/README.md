@@ -111,6 +111,7 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0095](0095-voices-stop-with-the-mod-note.md) | A voice stops when the MOD's note falls silent | 2026-11-09 | Proposed |
 | [0096](0096-fm-confidence.md) | FM confidence per sample | 2026-11-09 | Proposed |
 | [0097](0097-learned-listening-score.md) | A listening score learned from David's blind answers | 2026-11-09 | Proposed |
+| [0099](0099-xgm2-writer-records-the-player.md) | The XGM2 writer records the Genesis player | 2026-11-09 | Accepted |
 
 ## Open questions
 

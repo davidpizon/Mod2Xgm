@@ -148,8 +148,8 @@
 ### M10 — XGM2 writer
 | Task | Work | Acceptance |
 |---|---|---|
-| T10.1 | `Xgm2Writer` per [formats/xgm.md](formats/xgm.md) (header, SID with end entry, SDAT/FMDAT/PSGDAT, alignment, loop, CH3 commands); `.xgm2` output; extension note | Byte-exact tests; CLI test asserts the exact line `NOTE: SGDK expects XGM2 files to use the .XGM file extension.` |
-| T10.2 | Confirm how SGDK ingests XGM2 data (rescomp documents only VGM input for `XGM2`; check rescomp source; fallback: compiled `.xgc` via `BIN`, or VGM — the extension is not a concern). Then `tools/sgdk-player`: minimal SGDK ROM playing the output | Ingestion path decided and logged; probe files play in BlastEm |
+| T10.1 | `Xgm2Writer` per [formats/xgm.md](formats/xgm.md) (header, SID with end entry, SDAT/FMDAT/PSGDAT, alignment, loop, CH3 commands); `.xgm2` output; extension note. David moved it ahead of T9.4e–T9.6 (2026-11-09); it records `GenesisPlanPlayer`, recordings in 3 dB steps, music PCM at low priority, no CH3 commands until something uses CH3, xgm2tool and rescomp checks where SGDK is installed ([ADR 0099](adr/0099-xgm2-writer-records-the-player.md)) | Byte-exact tests; CLI test asserts the exact line `NOTE: SGDK expects XGM2 files to use the .XGM file extension.` |
+| T10.2 | Confirm how SGDK ingests XGM2 data (rescomp documents only VGM input for `XGM2`; check rescomp source; fallback: compiled `.xgc` via `BIN`, or VGM — the extension is not a concern; found in T10.1: rescomp reads a file named `.xgm` as XGM2, [ADR 0099](adr/0099-xgm2-writer-records-the-player.md)). Then `tools/sgdk-player`: minimal SGDK ROM playing the output | Ingestion path decided and logged; probe files play in BlastEm |
 | T10.3 | SGDK compliance test: every corpus output is accepted by rescomp and plays | Automated in the harness |
 | T10.4 | Harness run; tune optimizer for XGM2 | Scores recorded; **0.3.0** |
 

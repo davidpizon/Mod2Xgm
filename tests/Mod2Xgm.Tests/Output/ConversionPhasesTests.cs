@@ -11,7 +11,7 @@ public sealed class ConversionPhasesTests
     [InlineData("dmf", false, false, "check read scan model play map write")]
     [InlineData("dmf", true, false, "check read scan model play analyze map write")]
     [InlineData("dmf", false, true, "check read scan model play map write render")]
-    [InlineData("xgm2", false, true, "check read scan model play map render")]
+    [InlineData("xgm2", false, true, "check read scan model play map write render")]
     [InlineData("xgm", true, true, "check read scan model play analyze map render")]
     public void Phases_WithOptionMix_ReturnsItsSteps(string format, bool analyzes, bool renderWav, string expected)
     {

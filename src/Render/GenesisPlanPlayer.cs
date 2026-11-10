@@ -29,7 +29,7 @@ internal sealed class GenesisPlanPlayer
     /// <summary>A looped DAC sample is played out this long at most, as the DMF's copies are; a longer note goes quiet.</summary>
     private const double LoopSeconds = 10;
 
-    /// <summary>The priority the music's PCM plays at, the highest, so a new note always takes over (the XGM writers, M10–M11, set the real one).</summary>
+    /// <summary>The priority XGM's music PCM plays at, the highest, so a new note always takes over (the XGM writer, M11, sets the real one).</summary>
     private const int PcmPriority = 15;
 
     // YM3438 registers (docs/genesis-audio.md).
@@ -98,8 +98,8 @@ internal sealed class GenesisPlanPlayer
             throw new ArgumentException($"The playback has {_ticks[0].Channels.Count} channels; the song has {song.Channels.Count}.", nameof(playback));
         }
 
-        chips.Fm.WriteRegister(0, RegLfo, 0);
-        chips.Fm.WriteRegister(0, RegCh3Mode, 0);
+        chips.Ports.WriteRegister(0, RegLfo, 0);
+        chips.Ports.WriteRegister(0, RegCh3Mode, 0);
         for (int c = 0; c <= (int)GenesisChannel.Fm6; c++)
         {
             WriteFm(c, RegPanLfo, PanLeft | PanRight);
@@ -369,7 +369,7 @@ internal sealed class GenesisPlanPlayer
                 break;
             default:
                 int rate = 2 - _voicing.NoiseNote(sample);
-                _chips.Psg.Write((byte)(PsgNoiseControl | PsgWhiteNoise | rate));
+                _chips.WritePsg((byte)(PsgNoiseControl | PsgWhiteNoise | rate));
                 track.Gain = _voicing.NoiseLevel(sample).Gain;
                 StartNoise(track, ch, t);
                 break;
@@ -513,7 +513,7 @@ internal sealed class GenesisPlanPlayer
     {
         Track track = _tracks[c];
         FmPatch patch = _plan.FmPatches[index];
-        FmVoice.LoadPatch(_chips.Fm, c, patch);
+        FmVoice.LoadPatch(_chips.Ports, c, patch);
         Array.Fill(track.CarrierTl, -1);
 
         // The plan has no LFO rate yet, so the LFO stays off (plan M9 picks one per song, docs/adr/0069-fm-patch-fitting.md);
@@ -526,15 +526,15 @@ internal sealed class GenesisPlanPlayer
         }
     }
 
-    private void KeyOn(int c) => _chips.Fm.WriteRegister(0, RegKeyOn, (byte)(0xf0 | KeyOnChannel(c)));
+    private void KeyOn(int c) => _chips.Ports.WriteRegister(0, RegKeyOn, (byte)(0xf0 | KeyOnChannel(c)));
 
-    private void KeyOff(int c) => _chips.Fm.WriteRegister(0, RegKeyOn, (byte)KeyOnChannel(c));
+    private void KeyOff(int c) => _chips.Ports.WriteRegister(0, RegKeyOn, (byte)KeyOnChannel(c));
 
     /// <summary>The channel bits of register <c>$28</c>: 0–2 for FM1–3, 4–6 for FM4–6.</summary>
     private static int KeyOnChannel(int c) => c < 3 ? c : c + 1;
 
     /// <summary>Writes an FM channel's register: <paramref name="register"/> is the channel 1 address, offset by the channel within its part.</summary>
-    private void WriteFm(int c, byte register, byte value) => FmVoice.Write(_chips.Fm, c, register, value);
+    private void WriteFm(int c, byte register, byte value) => FmVoice.Write(_chips.Ports, c, register, value);
 
     private void StartNoise(Track track, ChannelTick ch, int t)
     {
@@ -564,7 +564,7 @@ internal sealed class GenesisPlanPlayer
     {
         if (volume != track.Volume)
         {
-            _chips.Psg.Write((byte)(PsgVolumeLatch | ((c - (int)GenesisChannel.Psg1) << 5) | volume));
+            _chips.WritePsg((byte)(PsgVolumeLatch | ((c - (int)GenesisChannel.Psg1) << 5) | volume));
             track.Volume = volume;
         }
     }
@@ -573,8 +573,8 @@ internal sealed class GenesisPlanPlayer
     private void WriteTonePeriod(int c, int period)
     {
         int clamped = Math.Clamp(period, 1, PsgSetting.MaxPeriod);
-        _chips.Psg.Write((byte)(PsgPeriodLatch | ((c - (int)GenesisChannel.Psg1) << 5) | (clamped & 0xf)));
-        _chips.Psg.Write((byte)(clamped >> 4));
+        _chips.WritePsg((byte)(PsgPeriodLatch | ((c - (int)GenesisChannel.Psg1) << 5) | (clamped & 0xf)));
+        _chips.WritePsg((byte)(clamped >> 4));
     }
 
     /// <summary>The PCM channel column <paramref name="c"/> plays on: FM6 is the first, then the extra PCM columns.</summary>
@@ -641,8 +641,15 @@ internal sealed class GenesisPlanPlayer
                 xgm.Play(PcmChannel(c), pcm.Data8!, PcmPriority);
                 break;
             case Xgm2PcmDriver xgm2:
-                xgm2.Play(PcmChannel(c), pcm.Data8!, PcmPriority, dac.HalfSpeed);
+                // Music plays at the low priority, as SGDK's xgm2tool writes it, so a game's sound effect can take the channel
+                // (docs/adr/0099-xgm2-writer-records-the-player.md).
+                xgm2.Play(PcmChannel(c), pcm.Data8!, Xgm2PcmDriver.LowPriority, dac.HalfSpeed);
                 break;
+        }
+
+        if (pcm.Data8 is { } data8)
+        {
+            _chips.Recorder?.PcmPlay(PcmChannel(c), data8, _chips.Driver == PcmDriver.Xgm2 && dac.HalfSpeed, dac.Sample, pcm.Name);
         }
 
         // The driver plays the data once through, a loop unrolled into it, after its start delay; buffered XGM2 plays the
@@ -673,12 +680,17 @@ internal sealed class GenesisPlanPlayer
                 xgm2.Stop(PcmChannel(c));
                 break;
         }
+
+        if (_chips.Driver != PcmDriver.Dmf)
+        {
+            _chips.Recorder?.PcmStop(PcmChannel(c));
+        }
     }
 
     /// <summary>
     /// The PCM a DAC note plays, made on first use: the sample played out from <paramref name="offset"/>, at the driver's
     /// rate, at <paramref name="volume"/>; <c>null</c> when it is silent. The DMF keeps DefleMask's rate codes and makes
-    /// its copies 3 dB apart, as the DMF writer does; XGM and XGM2 play exactly.
+    /// its copies 3 dB apart, as the DMF writer does; XGM and XGM2 keep 3 dB steps too, at their driver's exact rate.
     /// </summary>
     private Pcm? Prepare(DacSample dac, int index, int offset, double volume)
     {
@@ -688,10 +700,12 @@ internal sealed class GenesisPlanPlayer
             return PrepareMix(dac, mix, index);
         }
 
-        if (!dmf && dac.LoudnessShareSteps > 1 && volume > 0)
+        if (!dmf && volume > 0)
         {
-            // One stored copy for several steps of loudness: the note plays at its copy's, as the shrinker counted it (docs/adr/0091-shrinking-recordings.md).
-            int stored = RecordingShrinker.StoredSteps(DmfPatternTranslator.DacVolumeSteps(volume), dac.GainDb, dac.LoudnessShareSteps);
+            // XGM and XGM2 store a copy per 3 dB step of loudness, or per several steps when the shrinker shares them: the
+            // note plays at its copy's, as the capacity check and the shrinker counted it (docs/adr/0091-shrinking-recordings.md,
+            // docs/adr/0099-xgm2-writer-records-the-player.md).
+            int stored = RecordingShrinker.StoredSteps(DmfPatternTranslator.DacVolumeSteps(volume), dac.GainDb, Math.Max(1, dac.LoudnessShareSteps));
             volume = Math.Pow(10, -stored * DmfPatternTranslator.DacVolumeStepDb / 20);
         }
         else
@@ -726,13 +740,13 @@ internal sealed class GenesisPlanPlayer
 
             // The DMF writer makes and notes the same copies; the render doesn't note them again.
             short[] pcm16 = SampleProcessor.ToSigned16(data, name, new ConversionNotes(Serilog.Core.Logger.None));
-            pcm = pcm16.Length == 0 ? null : new Pcm(pcm16, null, rate);
+            pcm = pcm16.Length == 0 ? null : new Pcm(pcm16, null, rate, name);
         }
         else
         {
             double rate = _chips.Driver == PcmDriver.Xgm ? XgmPcmDriver.BeatRateHz(_chips.YmClockHz) : Xgm2PcmDriver.BeatRateHz(_chips.YmClockHz) / (dac.HalfSpeed ? 2 : 1);
             sbyte[] pcm8 = SampleProcessor.ToSigned8(SampleProcessor.ApplyGain(SampleProcessor.Resample(data, dac.PlaybackRateHz, rate, _resampler), volume), name, _notes);
-            pcm = pcm8.Length == 0 ? null : new Pcm(null, pcm8, (int)Math.Round(rate));
+            pcm = pcm8.Length == 0 ? null : new Pcm(null, pcm8, (int)Math.Round(rate), name);
         }
 
         _pcm[(index, offset, key)] = pcm;
@@ -754,13 +768,13 @@ internal sealed class GenesisPlanPlayer
         {
             int rate = DmfSongBuilder.DacRateHz(dac.PlaybackRateHz);
             short[] pcm16 = SampleProcessor.ToSigned16(SampleProcessor.Resample(mix.Points, dac.PlaybackRateHz, rate, _resampler), mix.Name, new ConversionNotes(Serilog.Core.Logger.None));
-            pcm = pcm16.Length == 0 ? null : new Pcm(pcm16, null, rate);
+            pcm = pcm16.Length == 0 ? null : new Pcm(pcm16, null, rate, mix.Name);
         }
         else
         {
             double rate = _chips.Driver == PcmDriver.Xgm ? XgmPcmDriver.BeatRateHz(_chips.YmClockHz) : Xgm2PcmDriver.BeatRateHz(_chips.YmClockHz);
             sbyte[] pcm8 = SampleProcessor.ToSigned8(SampleProcessor.Resample(mix.Points, dac.PlaybackRateHz, rate, _resampler), mix.Name, _notes);
-            pcm = pcm8.Length == 0 ? null : new Pcm(null, pcm8, (int)Math.Round(rate));
+            pcm = pcm8.Length == 0 ? null : new Pcm(null, pcm8, (int)Math.Round(rate), mix.Name);
         }
 
         _pcm[(index, 0, 1)] = pcm;
@@ -769,8 +783,8 @@ internal sealed class GenesisPlanPlayer
 
     private void Tally(string template) => _tallies[template] = _tallies.GetValueOrDefault(template) + 1;
 
-    /// <summary>A DAC note's data for the driver: 16-bit for the DMF, 8-bit for XGM / XGM2.</summary>
-    private sealed record Pcm(short[]? Data16, sbyte[]? Data8, int RateHz);
+    /// <summary>A DAC note's data for the driver: 16-bit for the DMF, 8-bit for XGM / XGM2; <paramref name="Name"/> says which sample it is.</summary>
+    private sealed record Pcm(short[]? Data16, sbyte[]? Data8, int RateHz, string Name);
 
     /// <summary>One Genesis channel: the note it plays and what was last written for it.</summary>
     private sealed class Track
