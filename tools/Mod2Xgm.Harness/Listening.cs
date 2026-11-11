@@ -283,6 +283,18 @@ internal static class ClipWav
     public static string Sha256(ReadOnlySpan<byte> bytes) => Convert.ToHexStringLower(SHA256.HashData(bytes));
 }
 
+/// <summary>One row after <see cref="ListeningRemake.Remake"/>.</summary>
+/// <param name="Row">The row as the answers file has it.</param>
+/// <param name="Heard">True when the row has hashes and both clips came out byte for byte as David heard them.</param>
+/// <param name="A">Version A's features against the original's clip; <c>null</c> without a reference player.</param>
+/// <param name="B">Version B's features; <c>null</c> without a reference player.</param>
+internal sealed record RemadeRow(ListeningRow Row, bool Heard, ListeningFeatures? A, ListeningFeatures? B);
+
+/// <summary>What <see cref="ListeningRemake.Remake"/> did.</summary>
+/// <param name="ExitCode">0 when every row with hashes remade byte for byte, 1 when one didn't.</param>
+/// <param name="Rows">Every row, in the file's order.</param>
+internal sealed record RemakeResult(int ExitCode, IReadOnlyList<RemadeRow> Rows);
+
 /// <summary>
 /// <c>--remake</c>: makes every row's clips again from their recipes and checks them against the hashes of the clips David
 /// heard (docs/harness.md#listening-answers). Writes the clips, the original's clip for listening, and <c>remade.tsv</c>:
@@ -298,10 +310,16 @@ internal sealed class ListeningRemake(IReadOnlyList<string> songs, string output
     private const int ClipRate = 44_100;
 
     /// <summary>Header of <c>features.tsv</c>: each clip's distances from the original's clip (docs/harness.md#listening-answers).</summary>
-    public const string FeaturesHeader = "row\tversion\tmel_db\tmfcc\tonset_f1\tnmr_db\tnsim_distance\tmodulation_db\tharmonicity_db";
+    public const string FeaturesHeader = "row\tversion\tmel_db\tmfcc\tonset_f1\tnmr_db\tnsim_distance\tmodulation_db\tharmonicity_db\tlearned";
 
     /// <summary>Remakes every row of <paramref name="answersPath"/>; 0 when every hash matched, 1 when one didn't.</summary>
-    public int Run(string answersPath, IConversionProgress progress)
+    public int Run(string answersPath, IConversionProgress progress) => Remake(answersPath, progress).ExitCode;
+
+    /// <summary>
+    /// Remakes every row of <paramref name="answersPath"/>, writes the clips, <c>remade.tsv</c> and (with a reference player)
+    /// <c>features.tsv</c>, and returns each row's result for the fit.
+    /// </summary>
+    public RemakeResult Remake(string answersPath, IConversionProgress progress)
     {
         ArgumentNullException.ThrowIfNull(answersPath);
         ArgumentNullException.ThrowIfNull(progress);
@@ -311,6 +329,7 @@ internal sealed class ListeningRemake(IReadOnlyList<string> songs, string output
         Directory.CreateDirectory(folder);
         string commit = Commit();
         List<ListeningRow> remade = [];
+        List<RemadeRow> results = [];
         StringBuilder features = new StringBuilder(FeaturesHeader).Append('\n');
         int mismatches = 0;
         foreach (ListeningRow row in rows)
@@ -320,10 +339,15 @@ internal sealed class ListeningRemake(IReadOnlyList<string> songs, string output
             byte[] clipB = Version(row, row.RecipeB, Path.Combine(folder, row.Name + "-b.wav"));
             string a = ClipWav.Sha256(clipA);
             string b = ClipWav.Sha256(clipB);
+            ListeningFeatures? featuresA = null;
+            ListeningFeatures? featuresB = null;
             if (Original(row, Path.Combine(folder, row.Name + "-o.wav")) is { } original)
             {
-                features.Append(Features(row.Name, "a", original, clipA)).Append(Features(row.Name, "b", original, clipB));
+                featuresA = Features(features, row.Name, "a", original, clipA);
+                featuresB = Features(features, row.Name, "b", original, clipB);
             }
+
+            results.Add(new RemadeRow(row, row.Sha256A.Length > 0 && a == row.Sha256A && b == row.Sha256B, featuresA, featuresB));
             if (row.Sha256A.Length == 0)
             {
                 logger.Information("{Row:l}: made, {Song:l} from {Start} s", row.Name, row.Song, row.StartSeconds);
@@ -359,7 +383,7 @@ internal sealed class ListeningRemake(IReadOnlyList<string> songs, string output
             folder,
             mismatches,
             rows.Count);
-        return mismatches == 0 ? 0 : 1;
+        return new RemakeResult(mismatches == 0 ? 0 : 1, results);
     }
 
     /// <summary>Converts the row's song with <paramref name="recipeText"/>, cuts the clip, writes it to <paramref name="clipPath"/> and returns its bytes.</summary>
@@ -431,14 +455,15 @@ internal sealed class ListeningRemake(IReadOnlyList<string> songs, string output
     }
 
     /// <summary>
-    /// One <c>features.tsv</c> line: <paramref name="clip"/> scored against the original's clip, every measure the
-    /// learned listening score may weigh (docs/adr/0097-learned-listening-score.md, docs/adr/0100-perceptual-features.md).
+    /// Appends one <c>features.tsv</c> line to <paramref name="table"/>: <paramref name="clip"/> scored against the original's
+    /// clip, every measure the learned listening score may weigh (docs/adr/0097-learned-listening-score.md,
+    /// docs/adr/0100-perceptual-features.md) and the learned score itself, empty until it is fitted. Returns the features.
     /// </summary>
-    private static string Features(string row, string version, StereoAudio original, ReadOnlySpan<byte> clip)
+    private static ListeningFeatures? Features(StringBuilder table, string row, string version, StereoAudio original, ReadOnlySpan<byte> clip)
     {
         ScoreReport score = SongScorer.Compare(original.ToMono(), WavFile.Read(clip).ToMono(), ScoreOptions.Default, Serilog.Core.Logger.None);
         PerceptualReport? p = score.Perceptual;
-        return string.Join(
+        table.AppendJoin(
             '\t',
             row,
             version,
@@ -448,7 +473,10 @@ internal sealed class ListeningRemake(IReadOnlyList<string> songs, string output
             Number(p?.NoiseToMaskDb),
             Number(p?.NsimDistance),
             Number(p?.ModulationDistanceDb),
-            Number(p?.HarmonicityDistanceDb)) + "\n";
+            Number(p?.HarmonicityDistanceDb),
+            Number(ListeningScore.Of(score)));
+        table.Append('\n');
+        return ListeningFeatures.From(score);
     }
 
     private static string Number(double? value) => value?.ToString("0.####", CultureInfo.InvariantCulture) ?? string.Empty;

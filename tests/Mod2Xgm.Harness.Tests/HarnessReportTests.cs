@@ -32,7 +32,10 @@ public sealed class HarnessReportTests
         new("epsilon", new DurationCheck(10, 10, 10.0000000001, 0.02, null, false), 0, [], null),
     ];
 
-    /// <summary>One CSV line per song and renderer, numbers in invariant culture with the perceptual features, and a remark with a comma and quotes quoted.</summary>
+    /// <summary>
+    /// One CSV line per song and renderer, numbers in invariant culture with the perceptual features and the learned score
+    /// (its value depends on the fitted weights, so only its column is checked), and a remark with a comma and quotes quoted.
+    /// </summary>
     [Fact]
     public void ScoresCsv_WithRenderings_HasOneLineEach()
     {
@@ -41,8 +44,9 @@ public sealed class HarnessReportTests
 
         // Assert
         Assert.Equal(HarnessReport.ScoresHeader, lines[0]);
-        Assert.Equal("alpha,furnace,4.95,4.5,30.25,0.9,0.8,0.85,12,100,-0.5,-12.5,0.25,3.5,7.25,", lines[1]);
-        Assert.Equal("alpha,deflemask,,,,,,,,,,,,,,\"stale, \"\"old\"\"\"", lines[2]);
+        Assert.StartsWith("alpha,furnace,4.95,4.5,30.25,0.9,0.8,0.85,12,100,-0.5,-12.5,0.25,3.5,7.25,", lines[1], StringComparison.Ordinal);
+        Assert.Equal(HarnessReport.ScoresHeader.Split(',').Length, lines[1].Split(',').Length);
+        Assert.Equal("alpha,deflemask,,,,,,,,,,,,,,,\"stale, \"\"old\"\"\"", lines[2]);
         Assert.Equal(string.Empty, lines[3]);
     }
 
@@ -55,8 +59,8 @@ public sealed class HarnessReportTests
 
         // Assert
         Assert.Equal(HarnessReport.ScoresHeader, lines[0]);
-        Assert.Equal("alpha,furnace,3.25,3.25,20.5,1,1,1,2,100,0,,,,,", lines[1]);
-        Assert.Equal("alpha,deflemask,,,,,,,,,,,,,,\"stale, \"\"old\"\"\"", lines[2]);
+        Assert.Equal("alpha,furnace,3.25,3.25,20.5,1,1,1,2,100,0,,,,,,", lines[1]);
+        Assert.Equal("alpha,deflemask,,,,,,,,,,,,,,,\"stale, \"\"old\"\"\"", lines[2]);
     }
 
     /// <summary>The balance CSV has one line per rendering with a balance; the instruments CSV one line per stem.</summary>
@@ -110,7 +114,10 @@ public sealed class HarnessReportTests
         Assert.Equal("epsilon,10,10,10,0,0,0.02,yes,,no,0,", lines[5]);
     }
 
-    /// <summary>The markdown has the scores, the clip scores, the average per renderer and the timeline table, with table-safe text.</summary>
+    /// <summary>
+    /// The markdown has the scores (the learned score's cell depends on the fitted weights, so it is skipped), the clip
+    /// scores, the average per renderer and the timeline table, with table-safe text.
+    /// </summary>
     [Fact]
     public void Markdown_WithResults_HasEverySection()
     {
@@ -119,10 +126,12 @@ public sealed class HarnessReportTests
 
         // Assert
         Assert.Contains("Reference: libopenmpt 0.8.9. Converter: Mod2Xgm 0.1.0. Scored mono at 44100 Hz.", md, StringComparison.Ordinal);
-        Assert.Contains("| `alpha` | furnace | 4.95 | 4.50 | 30.25 | 0.85 | 12.0 | 100 | -0.50 |  |", md, StringComparison.Ordinal);
-        Assert.Contains("| `alpha` | deflemask |  |  |  |  |  |  |  | stale, \"old\" |", md, StringComparison.Ordinal);
+        Assert.Contains("| `alpha` | furnace | 4.95 | 4.50 | ", md, StringComparison.Ordinal);
+        Assert.Contains(" | 30.25 | 0.85 | 12.0 | 100 | -0.50 |  |", md, StringComparison.Ordinal);
+        Assert.Contains("| `alpha` | deflemask |  |  |  |  |  |  |  |  | stale, \"old\" |", md, StringComparison.Ordinal);
         Assert.Contains("## First seconds only (listening clips)", md, StringComparison.Ordinal);
-        Assert.Contains("| `alpha` | furnace | 3.25 | 3.25 | 20.50 | 1.00 |", md, StringComparison.Ordinal);
+        Assert.Contains("| `alpha` | furnace | 3.25 | 3.25 | ", md, StringComparison.Ordinal);
+        Assert.Contains(" | 20.50 | 1.00 |", md, StringComparison.Ordinal);
         Assert.Contains("## Instrument balance (listening clips)", md, StringComparison.Ordinal);
         Assert.Contains("| `alpha` | furnace | 4.25 | -1.5 | 3 | 3 snare \\| 2 (DAC+noise) | -6.3 |", md, StringComparison.Ordinal);
         Assert.Contains("## Loudness (EBU R128)", md, StringComparison.Ordinal);
