@@ -7,6 +7,7 @@ using Mod2Xgm.Cli;
 using Mod2Xgm.Optimizer;
 using Mod2Xgm.Output;
 using Mod2Xgm.Render;
+using Mod2Xgm.Scoring;
 using Serilog;
 
 namespace Mod2Xgm.Harness;
@@ -296,6 +297,9 @@ internal sealed class ListeningRemake(IReadOnlyList<string> songs, string output
     /// <summary>The rate the converter's <c>--render-wav</c> writes, and the original's clip is rendered at.</summary>
     private const int ClipRate = 44_100;
 
+    /// <summary>Header of <c>features.tsv</c>: each clip's distances from the original's clip (docs/harness.md#listening-answers).</summary>
+    public const string FeaturesHeader = "row\tversion\tmel_db\tmfcc\tonset_f1\tnmr_db\tnsim_distance\tmodulation_db\tharmonicity_db";
+
     /// <summary>Remakes every row of <paramref name="answersPath"/>; 0 when every hash matched, 1 when one didn't.</summary>
     public int Run(string answersPath, IConversionProgress progress)
     {
@@ -307,13 +311,19 @@ internal sealed class ListeningRemake(IReadOnlyList<string> songs, string output
         Directory.CreateDirectory(folder);
         string commit = Commit();
         List<ListeningRow> remade = [];
+        StringBuilder features = new StringBuilder(FeaturesHeader).Append('\n');
         int mismatches = 0;
         foreach (ListeningRow row in rows)
         {
             IPhase phase = progress.Start("row:" + row.Name);
-            string a = ClipWav.Sha256(Version(row, row.RecipeA, Path.Combine(folder, row.Name + "-a.wav")));
-            string b = ClipWav.Sha256(Version(row, row.RecipeB, Path.Combine(folder, row.Name + "-b.wav")));
-            Original(row, Path.Combine(folder, row.Name + "-o.wav"));
+            byte[] clipA = Version(row, row.RecipeA, Path.Combine(folder, row.Name + "-a.wav"));
+            byte[] clipB = Version(row, row.RecipeB, Path.Combine(folder, row.Name + "-b.wav"));
+            string a = ClipWav.Sha256(clipA);
+            string b = ClipWav.Sha256(clipB);
+            if (Original(row, Path.Combine(folder, row.Name + "-o.wav")) is { } original)
+            {
+                features.Append(Features(row.Name, "a", original, clipA)).Append(Features(row.Name, "b", original, clipB));
+            }
             if (row.Sha256A.Length == 0)
             {
                 logger.Information("{Row:l}: made, {Song:l} from {Start} s", row.Name, row.Song, row.StartSeconds);
@@ -339,6 +349,11 @@ internal sealed class ListeningRemake(IReadOnlyList<string> songs, string output
         }
 
         File.WriteAllText(Path.Combine(folder, "remade.tsv"), AnswersFile.Format(remade));
+        if (reference is not null)
+        {
+            File.WriteAllText(Path.Combine(folder, "features.tsv"), features.ToString());
+        }
+
         logger.ForContext(new ReportRow("result", ("output", folder), ("failed", mismatches), ("rows", rows.Count))).Information(
             "Listening clips: {Folder} ({Failed} of {Count} rows differ from the clips heard)",
             folder,
@@ -396,19 +411,47 @@ internal sealed class ListeningRemake(IReadOnlyList<string> songs, string output
         }
     }
 
-    /// <summary>The original's clip through the reference renderer, for listening; not hashed (it depends on libopenmpt's version).</summary>
-    private void Original(ListeningRow row, string path)
+    /// <summary>
+    /// The original's clip through the reference renderer, for listening and for the features; not hashed (it depends on
+    /// libopenmpt's version). <c>null</c> without a reference renderer.
+    /// </summary>
+    private StereoAudio? Original(ListeningRow row, string path)
     {
         if (reference is null)
         {
-            return;
+            return null;
         }
 
         StereoAudio audio = reference.Render(File.ReadAllBytes(SongPath(row.Song)), ClipRate).Audio;
         int start = Math.Min(audio.Left.Length, (int)Math.Round(row.StartSeconds * ClipRate));
         int length = Math.Min(audio.Left.Length - start, (int)Math.Round(row.Seconds * ClipRate));
-        WavFile.Write(path, new StereoAudio(audio.Left.AsSpan(start, length).ToArray(), audio.Right.AsSpan(start, length).ToArray(), ClipRate));
+        StereoAudio clip = new(audio.Left.AsSpan(start, length).ToArray(), audio.Right.AsSpan(start, length).ToArray(), ClipRate);
+        WavFile.Write(path, clip);
+        return clip;
     }
+
+    /// <summary>
+    /// One <c>features.tsv</c> line: <paramref name="clip"/> scored against the original's clip, every measure the
+    /// learned listening score may weigh (docs/adr/0097-learned-listening-score.md, docs/adr/0100-perceptual-features.md).
+    /// </summary>
+    private static string Features(string row, string version, StereoAudio original, ReadOnlySpan<byte> clip)
+    {
+        ScoreReport score = SongScorer.Compare(original.ToMono(), WavFile.Read(clip).ToMono(), ScoreOptions.Default, Serilog.Core.Logger.None);
+        PerceptualReport? p = score.Perceptual;
+        return string.Join(
+            '\t',
+            row,
+            version,
+            Number(score.MelDistanceDb),
+            Number(score.MfccDistance),
+            Number(score.OnsetF1),
+            Number(p?.NoiseToMaskDb),
+            Number(p?.NsimDistance),
+            Number(p?.ModulationDistanceDb),
+            Number(p?.HarmonicityDistanceDb)) + "\n";
+    }
+
+    private static string Number(double? value) => value?.ToString("0.####", CultureInfo.InvariantCulture) ?? string.Empty;
 
     private string SongPath(string song) =>
         songs.FirstOrDefault(s => string.Equals(Path.GetFileName(s), song, StringComparison.OrdinalIgnoreCase))

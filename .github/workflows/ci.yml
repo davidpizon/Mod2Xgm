@@ -120,13 +120,14 @@ jobs:
           # Always skips tests tagged Speed=Slow: instrumentation makes them about 8 times slower, and the
           # Build and test job still runs them outside pull requests (ADR 0082).
           # Mod2Xgm.Tests only: the converter's tests, and the one report the next step reads (ADR 0047).
+          # Also skips Category=Performance: a time budget means nothing under instrumentation (ADR 0100).
           dotnet test -c Release --project tests/Mod2Xgm.Tests \
             --coverage \
             --coverage-output-format cobertura \
             --coverage-output coverage.cobertura.xml \
             --coverage-settings "$PWD/tests/coverage.runsettings" \
             --results-directory "$PWD/artifacts/coverage" \
-            -- --filter-not-trait "Speed=Slow" 2>&1 | tee test-output.log
+            -- --filter-not-trait "Speed=Slow" --filter-not-trait "Category=Performance" 2>&1 | tee test-output.log
       - name: Report test failure output
         # Surfaces the end of the test output as an annotation, readable without downloading logs.
         if: failure()

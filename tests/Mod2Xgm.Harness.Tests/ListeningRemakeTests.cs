@@ -65,6 +65,55 @@ public sealed class ListeningRemakeTests : IDisposable
         Assert.Single(AnswersFile.Parse(File.ReadAllText(Path.Combine(_folder, "listening", "remade.tsv"))), r => r.Sha256A.Length == 64);
     }
 
+    /// <summary>
+    /// With a reference player, each row's two clips are scored against the original's clip: <c>features.tsv</c> has a
+    /// line per clip with every measure, the perceptual features included (plan T9.4k1).
+    /// </summary>
+    [Fact]
+    public void Run_WithReference_WritesFeaturesOfBothClips()
+    {
+        // Arrange
+        string answers = Answers("xgm2", "", "");
+        ListeningRemake sut = new([TestFiles.ShortSong], _folder, new ToneReference(), Logger.None);
+
+        // Act
+        int code = sut.Run(answers, NoProgress.Instance);
+
+        // Assert
+        Assert.Equal(0, code);
+        string[] lines = File.ReadAllText(Path.Combine(_folder, "listening", "features.tsv")).Split('\n');
+        Assert.Equal(ListeningRemake.FeaturesHeader, lines[0]);
+        Assert.StartsWith("r1-q1\ta\t", lines[1], StringComparison.Ordinal);
+        Assert.StartsWith("r1-q1\tb\t", lines[2], StringComparison.Ordinal);
+        Assert.All(lines[1].Split('\t'), Assert.NotEmpty);
+        Assert.Equal(string.Empty, lines[3]);
+    }
+
+    /// <summary>Without a reference player there is nothing to score the clips against, so no <c>features.tsv</c> is written.</summary>
+    [Fact]
+    public void Run_WithoutReference_WritesNoFeatures()
+    {
+        // Arrange
+        string answers = Answers("xgm2", "", "");
+        ListeningRemake sut = new([TestFiles.ShortSong], _folder, null, Logger.None);
+
+        // Act
+        sut.Run(answers, NoProgress.Instance);
+
+        // Assert
+        Assert.False(File.Exists(Path.Combine(_folder, "listening", "features.tsv")));
+    }
+
+    /// <summary>A reference player that plays a two-second tone, enough to cut a one-second clip from.</summary>
+    private sealed class ToneReference : IReferenceRenderer
+    {
+        public string Name => "tone reference";
+
+        public ReferenceRender Render(byte[] mod, int sampleRate) => new(TestFiles.Tone(2.0, sampleRate), 2.0);
+
+        public IReadOnlyList<double> RowTimes(byte[] mod, IReadOnlyList<(int Order, int Row)> rows) => [.. rows.Select(_ => 0.0)];
+    }
+
     /// <summary>An answers file with one unanswered one-second question on the short song.</summary>
     private string Answers(string format, string recipeA, string recipeB)
     {
