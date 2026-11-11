@@ -8,7 +8,6 @@
     <IsTestProject>true</IsTestProject>
     <!-- A test that runs 10 minutes is stopped: the run fails and leaves a dump naming it (docs/testing.md#hung-tests). -->
     <TestingPlatformCommandLineArguments>$(TestingPlatformCommandLineArguments) --hangdump --hangdump-timeout 10m</TestingPlatformCommandLineArguments>
-    <TargetFramework>net11.0</TargetFramework>
   </PropertyGroup>
 
   <ItemGroup>

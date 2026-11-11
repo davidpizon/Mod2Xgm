@@ -60,7 +60,7 @@ libraries for these.
 ```
 /AGENTS.md                  this file
 /Mod2Xgm.slnx               solution (XML .slnx format) — src/, tests/ and tools/ projects
-/Directory.Build.props      settings shared by every project (net10.0, nullable, warnings-as-errors, analyzers)
+/Directory.Build.props      settings shared by every project (net11.0, nullable, warnings-as-errors, analyzers)
 /Directory.Packages.props   central package versions — PackageReference items carry no Version
 /.gitattributes             line-ending normalization (LF in the repo)
 /.editorconfig              formatting and code style; rules at "warning" fail the build
@@ -97,7 +97,7 @@ tests/Mod2Xgm.Tests/
 
 ## Build, run, test
 
-Requires the **.NET 10 SDK**. All commands run from the repo root.
+Requires the **.NET 11 SDK**. All commands run from the repo root.
 
 ```bash
 dotnet build                                                # whole solution (Mod2Xgm.slnx)

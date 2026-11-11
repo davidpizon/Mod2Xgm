@@ -60,7 +60,7 @@ also measures it before opening a PR, checks the drop versus `main`, and states 
 description (AGENTS.md § Testing expectations). It is not a GitHub ruleset.
 
 Tests run on **Microsoft.Testing.Platform** (MTP), selected in the root `global.json` (`"test": { "runner":
-"Microsoft.Testing.Platform" }`). xunit.v3 4.x requires it: with the .NET 10 SDK, the old VSTest-based
+"Microsoft.Testing.Platform" }`). xunit.v3 4.x requires it: from the .NET 10 SDK on, the old VSTest-based
 `dotnet test` refuses MTP test projects.
 
 Coverage comes from **Microsoft.Testing.Extensions.CodeCoverage** (Cobertura XML), configured by

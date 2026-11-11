@@ -1,7 +1,7 @@
 # Implementation plan
 
 > Status: **approved inputs, 2026-10-27.** Milestones are the build order. Each task (`T#.#`) is sized to be
-> **one Claude Code PR** on David's PC (.NET 10 SDK available). Update this file when a task lands or the
+> **one Claude Code PR** on David's PC (.NET 11 SDK available). Update this file when a task lands or the
 > plan changes.
 
 ## Inputs this plan is built on
