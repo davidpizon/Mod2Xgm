@@ -1,7 +1,7 @@
 # Implementation plan
 
 > Status: **approved inputs, 2026-10-27.** Milestones are the build order. Each task (`T#.#`) is sized to be
-> **one Claude Code PR** on David's PC (.NET 10 SDK available). Update this file when a task lands or the
+> **one Claude Code PR** on David's PC (.NET 11 SDK available). Update this file when a task lands or the
 > plan changes.
 
 ## Inputs this plan is built on
@@ -141,7 +141,7 @@
 | T9.4j ✅ | Listening answers file ([ADR 0097](adr/0097-learned-listening-score.md)): `tests/golden/listening/answers.tsv` and its README; a harness command that remakes a row's clips from its recipe and checks them byte for byte; past either/or answers whose clips today's code remakes exactly (no 1–5 grades, David); a small round of about 5 pairs on half speed for dull samples, logged through it (David) | Tests; the remake check passes on every row; the round is in the file |
 | T9.4k1 ✅ | Perceptual features in `src/Scoring` (David split T9.4k in four, 2026-11-10): PEAQ-style noise-to-mask ratio, NSIM on an ERB spectrogram, envelope modulation, harmonicity; in the harness's scores and in `--remake`'s `features.tsv` ([ADR 0100](adr/0100-perceptual-features.md)) | Tests on synthetic signals; at most 20 ms per pitch region; no plan changes |
 | T9.4k2 ✅ | Score fit (ADR 0097, [ADR 0101](adr/0101-listening-score-fit.md)): pairwise logistic with L2, chosen on leave-one-song-out checks, on the features from `src/Scoring`; the score reported next to log-mel. `--fit` remakes the clips, fits, and rewrites `src/Scoring/ListeningWeights.cs` itself (David) | Tests; reports "not enough answers" until the answers allow a weight |
-| T9.4k3 | Pair picker for the pairs the model is least sure of; a round of about 10 pairs it picks (David), logged in the answers file, then the fit run on them | Tests; the round is in the file; the fit's leave-one-song-out numbers reported |
+| T9.4k3 ✅ | Pair picker for the pairs the model is least sure of ([ADR 0102](adr/0102-pair-picker.md), `--pick`); a round of about 10 pairs it picks (David), logged in the answers file, then the fit run on them: round 21, and the first weights (envelope modulation; 10 of 10 a/b picks left out one song at a time, log-mel 6) | Tests; the round is in the file; the fit's leave-one-song-out numbers reported |
 | T9.4k4 | Pretrained-embedding distances (e.g. PANNs, CLAP, CDPAM) tried as features in the harness only, through ONNX Runtime (David); the models kept outside the repository; an ADR for the library | Harness-only; ADR; compared on leave-one-song-out checks |
 | T9.4l | Hold-out round and the adoption decision for the learned score (ADR 0097) | An ADR records it |
 | T9.4m | Use the learned score in FM fit selection and the allocator's distances (ADR 0097) | Each use checked in a blind round |

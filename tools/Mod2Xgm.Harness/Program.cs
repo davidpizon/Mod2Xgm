@@ -138,6 +138,8 @@ internal static class Program
         Option<bool> verbose = new("--verbose", "-v") { Description = "Log every scoring step." };
         Option<string?> remake = new("--remake") { Description = "Instead of scoring, make every row's listening clips again from an answers file and check them byte for byte (docs/harness.md#listening-answers)." };
         Option<string?> fit = new("--fit") { Description = "Instead of scoring, remake an answers file's clips and fit the learned listening score on them, rewriting src/Scoring/ListeningWeights.cs after a fit (docs/harness.md#the-fit)." };
+        Option<string?> pick = new("--pick") { Description = "Instead of scoring, pick the next listening round's pairs, those the learned score is least sure of, given an answers file (docs/harness.md#picking-a-round)." };
+        Option<int> pairs = new("--pairs") { Description = "How many pairs --pick picks.", DefaultValueFactory = _ => 10 };
         Option<string> progress = new(ProgressModeScan.OptionName)
         {
             Description = "How progress and results are shown: fancy (the default), text, json or silent (docs/cli-output.md).",
@@ -147,7 +149,7 @@ internal static class Program
 
         RootCommand root = new("Mod2Xgm accuracy harness: scores conversions against OpenMPT (docs/harness.md).")
         {
-            inputs, output, rate, libopenmpt, furnace, noFurnace, deflemask, noDefleMask, saveReference, clip, balance, fmFit, fmRenders, psgFit, pcmFit, preMix, ch3, dropClues, noCache, cacheDir, jobs, verbose, progress, remake, fit,
+            inputs, output, rate, libopenmpt, furnace, noFurnace, deflemask, noDefleMask, saveReference, clip, balance, fmFit, fmRenders, psgFit, pcmFit, preMix, ch3, dropClues, noCache, cacheDir, jobs, verbose, progress, remake, fit, pick, pairs,
         };
         root.SetAction(result =>
         {
@@ -191,6 +193,17 @@ internal static class Program
                 throw HarnessException.Usage("--remake and --fit both given; --fit remakes the clips too");
             }
 
+            if (result.GetValue(pick) is not null && (result.GetValue(remake) is not null || result.GetValue(fit) is not null))
+            {
+                throw HarnessException.Usage("--pick with --remake or --fit; pick the round first, then remake its rows");
+            }
+
+            int pairCount = result.GetValue(pairs);
+            if (pairCount is < 1 or > 100)
+            {
+                throw HarnessException.Usage(string.Create(CultureInfo.InvariantCulture, $"--pairs {pairCount}: between 1 and 100, please"));
+            }
+
             string[] given = result.GetValue(inputs) ?? [];
             return execute(new HarnessOptions(
                 given.Length == 0 ? [DefaultCorpus] : given,
@@ -216,7 +229,9 @@ internal static class Program
                 result.GetValue(cacheDir),
                 result.GetValue(dropClues),
                 result.GetValue(remake),
-                result.GetValue(fit)));
+                result.GetValue(fit),
+                result.GetValue(pick),
+                pairCount));
         });
 
         ParseResult parsed = root.Parse(args);
@@ -257,6 +272,17 @@ internal static class Program
             RemakeResult remade = new ListeningRemake(songs, options.OutputDirectory, new OpenMptRenderer(), logger).Remake(fitAnswers, progress);
             string? weights = ListeningFit.FindWeightsFile(Environment.CurrentDirectory);
             return ListeningFitRun.Run(remade, options.OutputDirectory, weights, DateOnly.FromDateTime(DateTime.Now), logger);
+        }
+
+        if (options.Pick is { } pickAnswers)
+        {
+            if (!File.Exists(pickAnswers))
+            {
+                throw new HarnessException($"Not found: {pickAnswers}");
+            }
+
+            LibOpenMpt.UseDirectory(options.LibOpenMptDirectory);
+            return new PairPickRun(songs, options.OutputDirectory, new OpenMptRenderer(), logger).Run(pickAnswers, options.Pairs, DateOnly.FromDateTime(DateTime.Now), options.Jobs, progress);
         }
 
         progress.Begin(new RunInfo(
@@ -430,6 +456,8 @@ internal static class Program
 /// <param name="DropClues">Also find which tracks of every song are cheap to drop (<c>drop-clues.csv</c>, <c>track-levels.csv</c>).</param>
 /// <param name="Remake">An answers file whose clips to make again and check, instead of scoring, or <c>null</c>.</param>
 /// <param name="Fit">An answers file to remake and fit the learned listening score on, instead of scoring, or <c>null</c>.</param>
+/// <param name="Pick">An answers file whose next round to pick (<c>--pick</c>), instead of scoring, or <c>null</c>.</param>
+/// <param name="Pairs">How many pairs <c>--pick</c> picks.</param>
 internal sealed record HarnessOptions(
     IReadOnlyList<string> Inputs,
     string OutputDirectory,
@@ -454,4 +482,6 @@ internal sealed record HarnessOptions(
     string? CacheDirectory = null,
     bool DropClues = false,
     string? Remake = null,
-    string? Fit = null);
+    string? Fit = null,
+    string? Pick = null,
+    int Pairs = 10);

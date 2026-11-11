@@ -1,6 +1,6 @@
 # ADR 0100: Perceptual features for the learned listening score
 
-- **Status:** Proposed
+- **Status:** Proposed; the speed budget amended to 25 ms by [ADR 0103](0103-dotnet-11.md)
 - **Date:** 2026-11-10
 
 ## Context

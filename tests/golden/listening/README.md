@@ -52,6 +52,27 @@ melody over the bass, the melody hid the crunch very well (it was also the close
 rest of the mix covers it. So the round says half speed is audible on an exposed bass, not that it is always too costly;
 how much the other tracks cover a sample is ADR 0098's masking feature (T9.4n).
 
+## Round 21: pairs the picker chose
+
+The first round the pair picker chose (`mod2xgm-harness --pick`, plan T9.4k3,
+[ADR 0102](../../../docs/adr/0102-pair-picker.md)), David, 2026-11-11. Out of 998 candidates, ten pairs where the seven
+measures' votes were most split, one per song, none from round 20: each the default `--mapping optimizer` against one
+change (half the PCM memory, half speed on a dull sample, `--no-dac`, or `--mapping simple`).
+
+**Result:** the five half-speed and memory-budget pairs on big songs (hawks_claw, neon, 8-bit Castle, Rubbish,
+Stardust Jam) were "can't tell": the changes the measures argued about were too small to hear. The other five were clear:
+
+- 10kdub at half its memory: the default won; a drum hit turned to static.
+- `--no-dac` lost both times. AI Renaissance kept its FM but lost the drums; on Can't Please Everyone David heard no voice at all,
+  only the bass: the voice samples (13–16) went to FM patches, which can't sound like a voice.
+- `--mapping simple` lost both times (rsnd, Cute October): "not even close to the same voice".
+
+**The first fit** (`--fit`, 2026-11-11) on all 15 answers, every clip remade byte for byte: one weight allowed, and forward
+selection kept the envelope modulation distance (`modulation_db`, weight 6.24, λ = 0.01). Left out one song at a time, it
+guessed all 10 of David's a/b picks (log-mel alone: 6 of 10), with a log-loss of 0.396 against a coin's 0.693, and it
+gave the five "can't tell" pairs 0.50–0.55. Fifteen answers, one per song, are still few: the adoption decision waits
+for its hold-out round (T9.4l).
+
 ## A clip changes
 
 When a change to the converter makes `--remake` report a row whose clips differ, the row no longer describes what the

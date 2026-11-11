@@ -74,7 +74,7 @@ public sealed class ProgramTests
 
     /// <summary>
     /// An unknown option, a rate, job count or clip length out of range, a balance without clips, a cache folder with no
-    /// cache, or both <c>--remake</c> and <c>--fit</c>, is a usage error.
+    /// cache, both <c>--remake</c> and <c>--fit</c>, <c>--pick</c> with either, or no pairs to pick, is a usage error.
     /// </summary>
     [Theory]
     [InlineData("--no-such-option")]
@@ -84,6 +84,9 @@ public sealed class ProgramTests
     [InlineData("--balance")]
     [InlineData("--no-cache", "--cache-dir", "c")]
     [InlineData("--remake", "a.tsv", "--fit", "a.tsv")]
+    [InlineData("--pick", "a.tsv", "--fit", "a.tsv")]
+    [InlineData("--pick", "a.tsv", "--remake", "a.tsv")]
+    [InlineData("--pick", "a.tsv", "--pairs", "0")]
     public void Invoke_WithBadOptions_ReportsUsageError(params string[] args)
     {
         // Act
@@ -91,6 +94,20 @@ public sealed class ProgramTests
 
         // Assert
         Assert.Equal("usage", error.Kind);
+    }
+
+    /// <summary><c>--pick</c> takes an answers file and picks 10 pairs unless <c>--pairs</c> says otherwise.</summary>
+    [Fact]
+    public void Invoke_WithPick_ReadsAnswersAndPairs()
+    {
+        // Act
+        HarnessOptions options = Parse("--pick", "a.tsv");
+        HarnessOptions twelve = Parse("--pick", "a.tsv", "--pairs", "12");
+
+        // Assert
+        Assert.Equal("a.tsv", options.Pick);
+        Assert.Equal(10, options.Pairs);
+        Assert.Equal(12, twelve.Pairs);
     }
 
     /// <summary>Songs are the .mod files named or inside folders named, once each, sorted; nothing found is an error.</summary>

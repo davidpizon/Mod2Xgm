@@ -34,7 +34,7 @@ It can save the result in three kinds of files:
 ### Get it
 
 Release downloads aren't available yet. To build it yourself, install the
-[.NET 10 SDK](https://dotnet.microsoft.com/download), then:
+[.NET 11 SDK](https://dotnet.microsoft.com/download), then:
 
 ```
 git clone https://github.com/davidpizon/Mod2Xgm

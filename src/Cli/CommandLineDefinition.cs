@@ -233,9 +233,6 @@ internal sealed class CommandLineDefinition
         return (ExitCode)parseResult.Invoke(configuration);
     }
 
-    /// <summary>System.CommandLine's message for a missing argument (the process runs with invariant culture).</summary>
-    private const string MissingArgumentMessage = "Required argument missing";
-
     /// <summary>Whether the parse runs <c>--help</c> or <c>--version</c>, which print even beside other errors.</summary>
     private static bool AsksForHelpOrVersion(RootCommand root, ParseResult parseResult) =>
         parseResult.Action is HelpAction
@@ -248,9 +245,10 @@ internal sealed class CommandLineDefinition
         List<string> missing = [];
         foreach (ParseError parseError in parseResult.Errors)
         {
+            // Told by the parse result, not the message: System.CommandLine 3 reworded it (docs/adr/0103-dotnet-11.md).
             if (parseError.SymbolResult is ArgumentResult argumentResult
                 && argumentResult.Argument == Input
-                && parseError.Message.StartsWith(MissingArgumentMessage, StringComparison.Ordinal))
+                && argumentResult.Tokens.Count == 0)
             {
                 missing.Add(Input.Name);
                 problems.Add($"Required argument missing: <{Input.Name}>.");

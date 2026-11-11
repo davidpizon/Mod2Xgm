@@ -15,9 +15,15 @@ public sealed class PerceptualMetricsTimingTests
     /// <summary>The rate of the speed test: the analysis rate of a pitch region.</summary>
     private const int RegionRate = 44_100;
 
-    /// <summary>All four features of one pitch region (1 s at 44.1 kHz) take at most 20 ms (plan T9.4k1's budget).</summary>
+    /// <summary>
+    /// The most one pitch region may take, in milliseconds: plan T9.4k1's 20 ms, raised to 25 ms on .NET 11, where a
+    /// Debug build's fastest run took 21.9 ms (David, docs/adr/0103-dotnet-11.md).
+    /// </summary>
+    private const double BudgetMilliseconds = 25;
+
+    /// <summary>All four features of one pitch region (1 s at 44.1 kHz) take at most <see cref="BudgetMilliseconds"/>.</summary>
     [Fact]
-    public void Compare_OnePitchRegion_TakesAtMost20Ms()
+    public void Compare_OnePitchRegion_StaysWithinBudget()
     {
         // Arrange
         AudioSignal reference = PerceptualMetricsTests.Mix(TestSignals.Sine(220, 1, rate: RegionRate), TestSignals.Noise(1, 0.05, rate: RegionRate));
@@ -28,7 +34,7 @@ public sealed class PerceptualMetricsTimingTests
         double fastest = FastestMilliseconds(() => PerceptualMetrics.Compare(reference, candidate), runs: 9);
 
         // Assert
-        Assert.True(fastest <= 20, $"fastest {fastest:0.0} ms");
+        Assert.True(fastest <= BudgetMilliseconds, $"fastest {fastest:0.0} ms");
     }
 
     /// <summary>

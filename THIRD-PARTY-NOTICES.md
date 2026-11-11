@@ -14,7 +14,7 @@ Versions are pinned in [`Directory.Packages.props`](Directory.Packages.props).
 | System.CommandLine | MIT | https://github.com/dotnet/command-line-api |
 | Spectre.Console, with its dependency Spectre.Console.Ansi (`--progress fancy`; [ADR 0077](docs/adr/0077-console-output-modes.md)) | MIT | https://github.com/spectreconsole/spectre.console |
 | NWaves | MIT, notice below | https://github.com/ar1st0crat/NWaves |
-| .NET runtime and libraries (Native AOT, .NET 10) | MIT | https://github.com/dotnet/runtime |
+| .NET runtime and libraries (Native AOT, .NET 11) | MIT | https://github.com/dotnet/runtime |
 | pt2-clone: ProTracker 2.3 period tables (`src/pt2_tables.c`, in `src/Model/AmigaPitch.cs`) and replayer, ported to C# (`src/pt2_replayer.c` → `src/Mod/ModTickPlayer.cs`) | BSD-3-Clause, notice below | https://github.com/8bitbubsy/pt2-clone |
 | ymfm: the YM3438 (OPN2) emulation, ported to C# (`src/ymfm_opn.cpp`, `src/ymfm_fm.ipp`, `src/ymfm.h` → `src/Render/Fm/`; [ADR 0056](docs/adr/0056-ym3438-model.md); where the chip differs, the port follows Nuked-OPN2's behavior instead, [ADR 0064](docs/adr/0064-ym3438-chip-differences.md)) | BSD-3-Clause, notice below | https://github.com/aaronsgiles/ymfm |
 | MAME: the Sega PSG (SN76489) emulation, ported to C# (`src/devices/sound/sn76496.cpp` → `src/Render/Psg/Sn76489.cs`; [ADR 0057](docs/adr/0057-sn76489-model.md); where the chip differs, the port follows Nuked-PSG's behavior instead, [ADR 0065](docs/adr/0065-sn76489-chip-differences.md), [ADR 0067](docs/adr/0067-psg-volume-levels.md)) | BSD-3-Clause, notice below | https://github.com/mamedev/mame |

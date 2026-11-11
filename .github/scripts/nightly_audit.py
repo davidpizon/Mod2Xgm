@@ -1049,7 +1049,7 @@ def _nuget_document(path: str, package: str, version: str, severity: str, adviso
                 "path": path,
                 "frameworks": [
                     {
-                        "framework": "net10.0",
+                        "framework": "net11.0",
                         "topLevelPackages": [
                             {
                                 "id": package,
