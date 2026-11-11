@@ -8,7 +8,7 @@ public sealed class SongScorerTests
 {
     private static readonly double[] Starts = [0.5, 1.0, 1.5, 2.0, 2.5];
 
-    /// <summary>A rendering identical to the original scores 0 on every metric.</summary>
+    /// <summary>A rendering identical to the original scores 0 on every metric, and its noise-to-mask ratio is silence.</summary>
     [Fact]
     public void Compare_WithIdenticalRendering_ScoresZero()
     {
@@ -28,6 +28,8 @@ public sealed class SongScorerTests
         Assert.Equal(0, report.LagSeconds);
         Assert.Equal(0, report.LengthDifferenceSeconds);
         Assert.Equal(0, report.Combined);
+        Assert.Equal(PerceptualMetrics.SilenceDb, report.Perceptual?.NoiseToMaskDb);
+        Assert.Equal(0, report.Perceptual?.NsimDistance ?? double.NaN, 9);
     }
 
     /// <summary>A late rendering scores nearly as well as an on-time one when aligned.</summary>

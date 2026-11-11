@@ -8,7 +8,7 @@ namespace Mod2Xgm.Harness.Tests;
 /// <summary>Tests for <see cref="HarnessReport"/>: what the CSV and markdown say.</summary>
 public sealed class HarnessReportTests
 {
-    private static readonly ScoreReport Score = new(4.5, 30.25, 0.9, 0.8, 0.85, 0.012, 0.1, -0.5, 4.95);
+    private static readonly ScoreReport Score = new(4.5, 30.25, 0.9, 0.8, 0.85, 0.012, 0.1, -0.5, 4.95, new PerceptualReport(-12.5, 0.25, 3.5, 7.25));
 
     private static readonly ScoreReport Clip = new(3.25, 20.5, 1, 1, 1, 0.002, 0.1, 0, 3.25);
 
@@ -32,7 +32,7 @@ public sealed class HarnessReportTests
         new("epsilon", new DurationCheck(10, 10, 10.0000000001, 0.02, null, false), 0, [], null),
     ];
 
-    /// <summary>One CSV line per song and renderer, numbers in invariant culture, and a remark with a comma and quotes quoted.</summary>
+    /// <summary>One CSV line per song and renderer, numbers in invariant culture with the perceptual features, and a remark with a comma and quotes quoted.</summary>
     [Fact]
     public void ScoresCsv_WithRenderings_HasOneLineEach()
     {
@@ -41,12 +41,12 @@ public sealed class HarnessReportTests
 
         // Assert
         Assert.Equal(HarnessReport.ScoresHeader, lines[0]);
-        Assert.Equal("alpha,furnace,4.95,4.5,30.25,0.9,0.8,0.85,12,100,-0.5,", lines[1]);
-        Assert.Equal("alpha,deflemask,,,,,,,,,,\"stale, \"\"old\"\"\"", lines[2]);
+        Assert.Equal("alpha,furnace,4.95,4.5,30.25,0.9,0.8,0.85,12,100,-0.5,-12.5,0.25,3.5,7.25,", lines[1]);
+        Assert.Equal("alpha,deflemask,,,,,,,,,,,,,,\"stale, \"\"old\"\"\"", lines[2]);
         Assert.Equal(string.Empty, lines[3]);
     }
 
-    /// <summary>The clip CSV has the same columns, with each rendering's clip scores (empty where there are none).</summary>
+    /// <summary>The clip CSV has the same columns, with each rendering's clip scores (empty where there are none, perceptual features included).</summary>
     [Fact]
     public void ClipScoresCsv_WithClips_HasClipScores()
     {
@@ -55,8 +55,8 @@ public sealed class HarnessReportTests
 
         // Assert
         Assert.Equal(HarnessReport.ScoresHeader, lines[0]);
-        Assert.Equal("alpha,furnace,3.25,3.25,20.5,1,1,1,2,100,0,", lines[1]);
-        Assert.Equal("alpha,deflemask,,,,,,,,,,\"stale, \"\"old\"\"\"", lines[2]);
+        Assert.Equal("alpha,furnace,3.25,3.25,20.5,1,1,1,2,100,0,,,,,", lines[1]);
+        Assert.Equal("alpha,deflemask,,,,,,,,,,,,,,\"stale, \"\"old\"\"\"", lines[2]);
     }
 
     /// <summary>The balance CSV has one line per rendering with a balance; the instruments CSV one line per stem.</summary>

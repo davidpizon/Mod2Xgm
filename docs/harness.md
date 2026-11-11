@@ -203,7 +203,7 @@ In the output folder:
 | File | What it holds |
 |---|---|
 | `report.md` | Scores per song and renderer, the average per renderer, the in-app renderer against its bar, and the timeline table |
-| `scores.csv` | `song,renderer,combined,mel_db,mfcc,onset_precision,onset_recall,onset_f1,onset_timing_ms,lag_ms,length_difference_s,remark` |
+| `scores.csv` | `song,renderer,combined,mel_db,mfcc,onset_precision,onset_recall,onset_f1,onset_timing_ms,lag_ms,length_difference_s,nmr_db,nsim_distance,modulation_db,harmonicity_db,remark`; the four before `remark` are the perceptual features ([ADR 0100](adr/0100-perceptual-features.md)), features for the learned score, not part of `combined` |
 | `clip-scores.csv` | With `--clip`: the same columns as `scores.csv`, for the first seconds only |
 | `balance.csv` | With `--balance`: `song,renderer,balance_db,static_db,mix_relative_db,gain_db,stems,reference_sum_error_db,candidate_sum_error_db` |
 | `balance-instruments.csv` | With `--balance`: `song,renderer,sample,name,voices,offset_db,distance_db,frames,reference_level_db,r128_offset_lu`, one line per stem |
@@ -254,7 +254,10 @@ of each render byte for byte (`ClipWav`), and writes `listening/<round>-<questio
 `-o.wav` (libopenmpt; not hashed, since it depends on libopenmpt's version) to the output folder. A row that has
 hashes is checked: both clips must be the same files David heard, or the row is reported and the run exits 1. A row
 without hashes is a new question: its clips are made and `listening/remade.tsv` has the row with the commit and hashes
-filled in. A new round goes:
+filled in. With the reference player, `listening/features.tsv` has one line per clip
+(`row,version,mel_db,mfcc,onset_f1,nmr_db,nsim_distance,modulation_db,harmonicity_db`, tab-separated, `version` `a` or
+`b`): each clip measured against the original's clip, the table the learned score is fitted on
+([ADR 0100](adr/0100-perceptual-features.md)). A new round goes:
 
 1. Write its questions as rows without hashes or answers (the versions' order shuffled, so A isn't always the default).
 2. `--remake` them, and copy `remade.tsv`'s rows.

@@ -113,6 +113,7 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0097](0097-learned-listening-score.md) | A listening score learned from David's blind answers | 2026-11-09 | Accepted |
 | [0098](0098-learned-allocator-costs.md) | Learned costs for the allocator's choices | 2026-11-09 | Accepted |
 | [0099](0099-xgm2-writer-records-the-player.md) | The XGM2 writer records the Genesis player | 2026-11-09 | Accepted |
+| [0100](0100-perceptual-features.md) | Perceptual features for the learned listening score | 2026-11-10 | Proposed |
 
 ## Open questions
 

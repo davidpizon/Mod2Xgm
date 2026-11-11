@@ -14,7 +14,7 @@ internal static class HarnessReport
 {
     /// <summary>Header of <c>scores.csv</c>.</summary>
     public const string ScoresHeader =
-        "song,renderer,combined,mel_db,mfcc,onset_precision,onset_recall,onset_f1,onset_timing_ms,lag_ms,length_difference_s,remark";
+        "song,renderer,combined,mel_db,mfcc,onset_precision,onset_recall,onset_f1,onset_timing_ms,lag_ms,length_difference_s,nmr_db,nsim_distance,modulation_db,harmonicity_db,remark";
 
     /// <summary>Header of <c>durations.csv</c>.</summary>
     public const string DurationsHeader =
@@ -209,6 +209,10 @@ internal static class HarnessReport
                     Number(s?.OnsetTimingErrorSeconds * 1000),
                     Number(s?.LagSeconds * 1000),
                     Number(s?.LengthDifferenceSeconds),
+                    Number(s?.Perceptual?.NoiseToMaskDb),
+                    Number(s?.Perceptual?.NsimDistance),
+                    Number(s?.Perceptual?.ModulationDistanceDb),
+                    Number(s?.Perceptual?.HarmonicityDistanceDb),
                     Csv(candidate.Remark ?? string.Empty));
                 csv.Append('\n');
             }

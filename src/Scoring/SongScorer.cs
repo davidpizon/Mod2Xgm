@@ -36,6 +36,10 @@ internal sealed record ScoreOptions(
 /// The number to minimize: <paramref name="MelDistanceDb"/> plus the onset penalty (none by default). It agrees only
 /// weakly with listening so far (docs/adr/0049-simple-mapper-baseline.md).
 /// </param>
+/// <param name="Perceptual">
+/// The perceptual features (docs/adr/0100-perceptual-features.md), measured after alignment; features for the learned
+/// listening score, not part of <paramref name="Combined"/>. <c>null</c> only in reports made without them.
+/// </param>
 internal sealed record ScoreReport(
     double MelDistanceDb,
     double MfccDistance,
@@ -45,11 +49,13 @@ internal sealed record ScoreReport(
     double? OnsetTimingErrorSeconds,
     double LagSeconds,
     double LengthDifferenceSeconds,
-    double Combined);
+    double Combined,
+    PerceptualReport? Perceptual = null);
 
 /// <summary>
 /// Compares a rendering with the original and says how far apart they sound: align, then spectral distance, timbre
-/// distance and note-start match (docs/adr/0042-scoring-metrics.md). Used by the accuracy harness (T6.3) and by the
+/// distance and note-start match (docs/adr/0042-scoring-metrics.md), and the perceptual features
+/// (docs/adr/0100-perceptual-features.md). Used by the accuracy harness (T6.3) and by the
 /// optimizer's candidate tournament (M9).
 /// </summary>
 internal static class SongScorer
@@ -94,6 +100,13 @@ internal static class SongScorer
 
         double combined = mel + (settings.OnsetWeight * (1 - onsets.F1));
         logger.Debug("Combined score {Score} (lower is closer)", Format(combined));
+        PerceptualReport perceptual = PerceptualMetrics.Compare(reference, aligned);
+        logger.Debug(
+            "Perceptual: noise-to-mask {Nmr} dB, NSIM distance {Nsim}, modulation {Modulation} dB, harmonicity {Harmonicity} dB",
+            Format(perceptual.NoiseToMaskDb),
+            Format(perceptual.NsimDistance),
+            Format(perceptual.ModulationDistanceDb),
+            Format(perceptual.HarmonicityDistanceDb));
         return new ScoreReport(
             mel,
             mfcc,
@@ -103,7 +116,8 @@ internal static class SongScorer
             onsets.MeanTimingErrorSeconds,
             (double)lag / reference.SampleRate,
             lengthDifference,
-            combined);
+            combined,
+            perceptual);
     }
 
     private static string Format(double value) => value.ToString("0.###", CultureInfo.InvariantCulture);
