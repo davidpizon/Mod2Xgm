@@ -177,7 +177,7 @@ dotnet test -- --filter-not-trait "Speed=Slow"
 ## Time budgets
 
 **A test that checks a time budget** (such as the perceptual features' 20 ms per pitch region) carries
-`[Trait("Category", "Performance")]` and measures the median of several runs after a warm-up. CI's coverage job skips
+`[Trait("Category", "Performance")]` and measures the fastest of several runs after a warm-up (a shared runner only adds time, so the fastest run is the code's own cost). CI's coverage job skips
 these: instrumentation makes code about 8 times slower, so the budget means nothing there
 ([ADR 0100](adr/0100-perceptual-features.md)). The build-and-test jobs still run them, in Release.
 

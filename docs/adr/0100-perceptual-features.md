@@ -40,8 +40,8 @@ Frames more than 60 dB below the loudest frame on both sides, or below −80 dB,
 | `harmonicity_db` | How tonal the sound is: a pitched note turned buzzy or noisy | Per frame (no overlap), Boersma's harmonics-to-noise ratio: the highest peak of the normalized autocorrelation from 1 kHz down to a third of the frame, over the window's own, in dB within −10…30. Above 32 kHz the signals are first halved in rate (pairs averaged), since pitch needs no more. The mean absolute difference over frames with sound |
 
 **Speed.** Both signals of a comparison go through one complex FFT (one in the real part, one in the imaginary part),
-for the spectrogram and for both autocorrelation transforms. One second at 44.1 kHz takes 8.7 ms (median, Release,
-David's machine), under the 20 ms budget. A test checks the budget. It is tagged `Category=Performance`, which the CI
+for the spectrogram and for both autocorrelation transforms. One second at 44.1 kHz takes 8.7 ms (median of 9 runs, Release,
+David's machine), under the 20 ms budget. A test checks the budget against the fastest of 9 runs: a shared CI runner only adds time (the macOS runner measured a 23 ms median). It is tagged `Category=Performance`, which the CI
 coverage job skips, since instrumentation makes code about 8 times slower.
 
 **Where they show.** The harness's `scores.csv` and `clip-scores.csv` gain `nmr_db`, `nsim_distance`, `modulation_db`,
