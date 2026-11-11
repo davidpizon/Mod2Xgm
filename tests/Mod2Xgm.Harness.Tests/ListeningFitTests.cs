@@ -141,6 +141,52 @@ public sealed class ListeningFitTests
         Assert.Equal("result", ex.ParamName);
     }
 
+    /// <summary>A fixed set holding the feature that decides the picks guesses every one on songs left out.</summary>
+    [Fact]
+    public void Trial_WithDecidingFeature_GuessesEveryPick()
+    {
+        // Arrange
+        FitAnswer[] answers = Answers(20, songs: 4, NmrDecides);
+        double[][] differences = [.. answers.Select(a => a.A.Values.Select((v, j) => a.B.Values[j] - v).ToArray())];
+
+        // Act
+        FitTrial? sut = ListeningFit.Trial(answers, differences, [3]);
+
+        // Assert
+        Assert.NotNull(sut);
+        Assert.Equal(100, sut.Agreement);
+        Assert.True(sut.LogLoss < Math.Log(2));
+    }
+
+    /// <summary>A feature that never differs, or answers from one song, can't be compared.</summary>
+    [Fact]
+    public void Trial_WithConstantFeatureOrOneSong_IsNull()
+    {
+        // Arrange
+        FitAnswer[] answers = Answers(20, songs: 4, NmrDecides);
+        FitAnswer[] oneSong = Answers(20, songs: 1, NmrDecides);
+        double[][] differences = [.. answers.Select(a => a.A.Values.Select((v, j) => a.B.Values[j] - v).ToArray())];
+
+        // Act
+        FitTrial? constant = ListeningFit.Trial(answers, differences, [1]);
+        FitTrial? sut = ListeningFit.Trial(oneSong, differences, [3]);
+
+        // Assert
+        Assert.Null(constant);
+        Assert.Null(sut);
+    }
+
+    /// <summary>A row of differences per answer is required.</summary>
+    [Fact]
+    public void Trial_WithMismatchedRows_Throws()
+    {
+        // Act
+        ArgumentException ex = Assert.Throws<ArgumentException>(() => ListeningFit.Trial(Answers(4, songs: 2, NmrDecides), [], [0]));
+
+        // Assert
+        Assert.Equal("differences", ex.ParamName);
+    }
+
     /// <summary>NMR farther in A than in B makes David pick B (stands in for a measure the ears follow).</summary>
     private static string NmrDecides(int i) => i % 2 == 0 ? "b" : "a";
 

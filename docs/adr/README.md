@@ -117,6 +117,7 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0101](0101-listening-score-fit.md) | Fitting the learned listening score | 2026-11-10 | Proposed |
 | [0102](0102-pair-picker.md) | A pair picker for the listening rounds | 2026-11-11 | Proposed |
 | [0103](0103-dotnet-11.md) | .NET 11 and System.CommandLine 3 | 2026-11-11 | Accepted |
+| [0104](0104-pretrained-embeddings.md) | Pretrained listening models in the harness, through ONNX Runtime | 2026-11-11 | Proposed |
 
 ## Open questions
 

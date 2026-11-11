@@ -1,0 +1,3 @@
+# Python environment of the ONNX export script (tools/onnx-export/README.md)
+.venv/
+__pycache__/

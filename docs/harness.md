@@ -198,6 +198,8 @@ is one step (`song:<name>`), the result names `report.md`, and a failure to run 
 | `--fit <answers.tsv>` | | Instead of scoring: remake the clips as `--remake` does, then [fit the learned listening score](#the-fit) on them and, after a fit, rewrite `src/Scoring/ListeningWeights.cs`. Not with `--remake` |
 | `--pick <answers.tsv>` | | Instead of scoring: [pick the next listening round](#picking-a-round), the pairs the learned score is least sure of, into `listening/picked.tsv` and `listening/candidates.tsv`. Not with `--remake` or `--fit` |
 | `--pairs <n>` | 10 | With `--pick`: how many pairs to pick, 1–100 |
+| `--embeddings <answers.tsv>` | | Instead of scoring: remake the clips as `--fit` does, then [compare the pretrained models](#pretrained-models) with log-mel and the learned score, into `listening/embeddings.tsv` and `listening/embeddings.txt`. Not with `--remake`, `--fit` or `--pick` |
+| `--models <folder>` | `LocalApplicationData/Mod2Xgm/models` | With `--embeddings`: where the exported `.onnx` models are |
 
 ## Output
 
@@ -311,6 +313,27 @@ After a fit, the harness rewrites `src/Scoring/ListeningWeights.cs` (found above
 `Mod2Xgm.slnx`) with the weights, the date and the counts (David). Commit it in a PR like any change. From then on,
 `scores.csv`, `clip-scores.csv`, `features.tsv` and `report.md` show the learned score next to log-mel. Log-mel stays
 the main number until the score is adopted (T9.4l).
+
+## Pretrained models
+
+`--embeddings answers.tsv` compares pretrained listening models with the learned score
+([ADR 0104](adr/0104-pretrained-embeddings.md)): PANNs CNN14, VGGish, LAION-CLAP and CDPAM. Export them once with
+`tools/onnx-export` ([its README](../tools/onnx-export/README.md)); they stay outside the repository, by default in
+`LocalApplicationData/Mod2Xgm/models` (`%LOCALAPPDATA%\Mod2Xgm\models` on Windows), and `--models folder` points elsewhere.
+They run in process through ONNX Runtime. A model not found is listed and skipped.
+
+It remakes every row as `--fit` does and uses the same rows: answered, with clips that remake byte for byte. Each clip and
+the original's are mixed to mono, resampled to the model's rate and cut into the model's chunks; each chunk is compared
+with the same chunk of the original (the cosine distance between embeddings, or CDPAM's own distance), and the distances
+are averaged.
+
+- `listening/embeddings.tsv`: one line per clip (`row`, `version`, then `<model>_distance` for each model found).
+- `listening/embeddings.txt`, also logged: for log-mel, today's learned score, each model, and each model with today's
+  features, the leave-one-song-out log-loss next to a coin's and how often it guessed the a/b picks on songs left out.
+  A set with more features than the answers allow weights is marked "over the cap".
+
+It never writes `src/Scoring/ListeningWeights.cs`: the converter can't run these models. A model that wins the hold-out
+(T9.4l) is distilled into pure C# first (T9.4l2).
 
 ## Tests
 
