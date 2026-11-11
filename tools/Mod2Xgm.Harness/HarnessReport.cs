@@ -742,7 +742,7 @@ internal static class HarnessReport
         md.Append("Every number is the conversion against the reference; **lower is closer** except onset F1 (1 = every note start found).\n");
         md.Append("Metrics: docs/adr/0042-scoring-metrics.md. The combined score is the log-mel distance; it agrees only weakly with listening (docs/adr/0049-simple-mapper-baseline.md).\n");
         md.Append(ListeningScore.Fitted
-            ? string.Create(CultureInfo.InvariantCulture, $"Learned: the listening score fitted on {ListeningWeights.Answers} blind answers on {ListeningWeights.Fitted} (docs/adr/0101-listening-score-fit.md), next to log-mel; not the main number until adopted.\n\n")
+            ? string.Create(CultureInfo.InvariantCulture, $"Learned: the listening score fitted on {ListeningWeights.Answers} blind answers from {ListeningWeights.Songs} songs on {ListeningWeights.Fitted} (docs/adr/0101-listening-score-fit.md), next to log-mel; it guessed {ListeningWeights.LeaveOneSongOutAgreement:0.#} % of the picks on songs left out (log-mel alone: {ListeningWeights.LogMelAgreement:0.#} %). Not the main number until adopted.\n\n")
             : "Learned: the listening score fitted on blind answers (docs/adr/0101-listening-score-fit.md); not fitted yet, too few answers.\n\n");
 
         md.Append("## Scores\n\n");

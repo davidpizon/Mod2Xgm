@@ -80,7 +80,7 @@ internal static class ListeningFit
     public const int AnswersPerWeight = 10;
 
     /// <summary>The L2 strengths tried, on features scaled to unit root-mean-square difference.</summary>
-    public static IReadOnlyList<double> Lambdas { get; } = [0.01, 0.1, 1, 10];
+    private static readonly double[] Lambdas = [0.01, 0.1, 1, 10];
 
     /// <summary>The log-loss of a coin: what a fit must beat to keep a feature.</summary>
     private static readonly double CoinLogLoss = Math.Log(2);
@@ -166,8 +166,7 @@ internal static class ListeningFit
     public static IReadOnlyList<string> Describe(FitResult result)
     {
         ArgumentNullException.ThrowIfNull(result);
-        List<string> lines = [];
-        lines.Add(string.Create(CultureInfo.InvariantCulture, $"Answers: {result.Answers} from {result.Songs} songs; at most {result.MaxWeights} weights"));
+        List<string> lines = [string.Create(CultureInfo.InvariantCulture, $"Answers: {result.Answers} from {result.Songs} songs; at most {result.MaxWeights} weights")];
         if (result.Outcome == FitOutcome.Fitted)
         {
             lines.Add(string.Create(CultureInfo.InvariantCulture, $"Fitted: λ = {result.Lambda:0.###}, leave-one-song-out log-loss {result.LeftOutLogLoss:0.###} (a coin: {CoinLogLoss:0.###})"));
@@ -277,7 +276,7 @@ internal static class ListeningFit
         double right = decided.Sum(i =>
         {
             double p = chanceOfA(i);
-            return p == 0.5 ? 0.5 : (p > 0.5) == (answers[i].Pick == "a") ? 1 : 0;
+            return Math.Abs(p - 0.5) < 1e-12 ? 0.5 : (p > 0.5) == (answers[i].Pick == "a") ? 1 : 0;
         });
         return 100 * right / decided.Length;
     }
@@ -456,7 +455,7 @@ internal static class ListeningFitRun
         List<string> skipped = [];
         foreach (RemadeRow r in remake.Rows)
         {
-            if (r is { Heard: true, A: { } a, B: { } b } && r.Row.Pick.Length > 0)
+            if (r is { Heard: true, A: { } a, B: { } b, Row.Pick.Length: > 0 })
             {
                 answers.Add(new FitAnswer(r.Row.Name, r.Row.Song, r.Row.Pick, a, b));
             }
@@ -467,8 +466,7 @@ internal static class ListeningFitRun
         }
 
         FitResult result = ListeningFit.Fit(answers);
-        List<string> lines = [.. ListeningFit.Describe(result)];
-        lines.AddRange(skipped.Select(s => "Left out " + s));
+        List<string> lines = [.. ListeningFit.Describe(result), .. skipped.Select(s => "Left out " + s)];
         if (result.Outcome == FitOutcome.Fitted)
         {
             if (weightsFile is null)
