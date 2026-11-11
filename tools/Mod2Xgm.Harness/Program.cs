@@ -137,6 +137,7 @@ internal static class Program
         Option<int> jobs = new("--jobs", "-j") { Description = "Songs measured at once.", DefaultValueFactory = _ => DefaultJobs };
         Option<bool> verbose = new("--verbose", "-v") { Description = "Log every scoring step." };
         Option<string?> remake = new("--remake") { Description = "Instead of scoring, make every row's listening clips again from an answers file and check them byte for byte (docs/harness.md#listening-answers)." };
+        Option<string?> fit = new("--fit") { Description = "Instead of scoring, remake an answers file's clips and fit the learned listening score on them, rewriting src/Scoring/ListeningWeights.cs after a fit (docs/harness.md#the-fit)." };
         Option<string> progress = new(ProgressModeScan.OptionName)
         {
             Description = "How progress and results are shown: fancy (the default), text, json or silent (docs/cli-output.md).",
@@ -146,7 +147,7 @@ internal static class Program
 
         RootCommand root = new("Mod2Xgm accuracy harness: scores conversions against OpenMPT (docs/harness.md).")
         {
-            inputs, output, rate, libopenmpt, furnace, noFurnace, deflemask, noDefleMask, saveReference, clip, balance, fmFit, fmRenders, psgFit, pcmFit, preMix, ch3, dropClues, noCache, cacheDir, jobs, verbose, progress, remake,
+            inputs, output, rate, libopenmpt, furnace, noFurnace, deflemask, noDefleMask, saveReference, clip, balance, fmFit, fmRenders, psgFit, pcmFit, preMix, ch3, dropClues, noCache, cacheDir, jobs, verbose, progress, remake, fit,
         };
         root.SetAction(result =>
         {
@@ -185,6 +186,11 @@ internal static class Program
                 throw HarnessException.Usage("--no-cache and --cache-dir both given; --no-cache doesn't use a cache folder");
             }
 
+            if (result.GetValue(remake) is not null && result.GetValue(fit) is not null)
+            {
+                throw HarnessException.Usage("--remake and --fit both given; --fit remakes the clips too");
+            }
+
             string[] given = result.GetValue(inputs) ?? [];
             return execute(new HarnessOptions(
                 given.Length == 0 ? [DefaultCorpus] : given,
@@ -209,7 +215,8 @@ internal static class Program
                 result.GetValue(noCache),
                 result.GetValue(cacheDir),
                 result.GetValue(dropClues),
-                result.GetValue(remake)));
+                result.GetValue(remake),
+                result.GetValue(fit)));
         });
 
         ParseResult parsed = root.Parse(args);
@@ -237,6 +244,19 @@ internal static class Program
 
             LibOpenMpt.UseDirectory(options.LibOpenMptDirectory);
             return new ListeningRemake(songs, options.OutputDirectory, new OpenMptRenderer(), logger).Run(answers, progress);
+        }
+
+        if (options.Fit is { } fitAnswers)
+        {
+            if (!File.Exists(fitAnswers))
+            {
+                throw new HarnessException($"Not found: {fitAnswers}");
+            }
+
+            LibOpenMpt.UseDirectory(options.LibOpenMptDirectory);
+            RemakeResult remade = new ListeningRemake(songs, options.OutputDirectory, new OpenMptRenderer(), logger).Remake(fitAnswers, progress);
+            string? weights = ListeningFit.FindWeightsFile(Environment.CurrentDirectory);
+            return ListeningFitRun.Run(remade, options.OutputDirectory, weights, DateOnly.FromDateTime(DateTime.Now), logger);
         }
 
         progress.Begin(new RunInfo(
@@ -409,6 +429,7 @@ internal static class Program
 /// <param name="CacheDirectory">The candidate cache's folder, or <c>null</c> for the user's cache folder.</param>
 /// <param name="DropClues">Also find which tracks of every song are cheap to drop (<c>drop-clues.csv</c>, <c>track-levels.csv</c>).</param>
 /// <param name="Remake">An answers file whose clips to make again and check, instead of scoring, or <c>null</c>.</param>
+/// <param name="Fit">An answers file to remake and fit the learned listening score on, instead of scoring, or <c>null</c>.</param>
 internal sealed record HarnessOptions(
     IReadOnlyList<string> Inputs,
     string OutputDirectory,
@@ -432,4 +453,5 @@ internal sealed record HarnessOptions(
     bool NoCache = false,
     string? CacheDirectory = null,
     bool DropClues = false,
-    string? Remake = null);
+    string? Remake = null,
+    string? Fit = null);

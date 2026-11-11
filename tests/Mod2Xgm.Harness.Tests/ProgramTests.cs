@@ -72,7 +72,10 @@ public sealed class ProgramTests
         Assert.Equal(3, options.Jobs);
     }
 
-    /// <summary>An unknown option, a rate, job count or clip length out of range, a balance without clips, or a cache folder with no cache, is a usage error.</summary>
+    /// <summary>
+    /// An unknown option, a rate, job count or clip length out of range, a balance without clips, a cache folder with no
+    /// cache, or both <c>--remake</c> and <c>--fit</c>, is a usage error.
+    /// </summary>
     [Theory]
     [InlineData("--no-such-option")]
     [InlineData("--rate", "100")]
@@ -80,6 +83,7 @@ public sealed class ProgramTests
     [InlineData("--clip", "0.5")]
     [InlineData("--balance")]
     [InlineData("--no-cache", "--cache-dir", "c")]
+    [InlineData("--remake", "a.tsv", "--fit", "a.tsv")]
     public void Invoke_WithBadOptions_ReportsUsageError(params string[] args)
     {
         // Act

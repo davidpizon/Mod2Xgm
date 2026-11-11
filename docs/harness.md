@@ -195,6 +195,7 @@ is one step (`song:<name>`), the result names `report.md`, and a failure to run 
 | `-v`, `--verbose` | | Log every scoring step |
 | `--progress <mode>` | `fancy` | How the run is shown: `fancy`, `text`, `json` or `silent`, as `mod2xgm --progress` ([cli-output.md](cli-output.md)). Song times go to `timings.json` in the cache folder unless `--no-cache`, so the next run has an estimate from the start |
 | `--remake <answers.tsv>` | | Instead of scoring: make every row's [listening clips](#listening-answers) again from their recipes and check them byte for byte against the clips David heard. Exit 1 when a clip differs |
+| `--fit <answers.tsv>` | | Instead of scoring: remake the clips as `--remake` does, then [fit the learned listening score](#the-fit) on them and, after a fit, rewrite `src/Scoring/ListeningWeights.cs`. Not with `--remake` |
 
 ## Output
 
@@ -203,7 +204,7 @@ In the output folder:
 | File | What it holds |
 |---|---|
 | `report.md` | Scores per song and renderer, the average per renderer, the in-app renderer against its bar, and the timeline table |
-| `scores.csv` | `song,renderer,combined,mel_db,mfcc,onset_precision,onset_recall,onset_f1,onset_timing_ms,lag_ms,length_difference_s,nmr_db,nsim_distance,modulation_db,harmonicity_db,remark`; the four before `remark` are the perceptual features ([ADR 0100](adr/0100-perceptual-features.md)), features for the learned score, not part of `combined` |
+| `scores.csv` | `song,renderer,combined,mel_db,mfcc,onset_precision,onset_recall,onset_f1,onset_timing_ms,lag_ms,length_difference_s,nmr_db,nsim_distance,modulation_db,harmonicity_db,learned,remark`; `nmr_db` to `harmonicity_db` are the perceptual features ([ADR 0100](adr/0100-perceptual-features.md)), features for the learned score, not part of `combined`; `learned` is the [learned listening score](#the-fit), empty until it is fitted |
 | `clip-scores.csv` | With `--clip`: the same columns as `scores.csv`, for the first seconds only |
 | `balance.csv` | With `--balance`: `song,renderer,balance_db,static_db,mix_relative_db,gain_db,stems,reference_sum_error_db,candidate_sum_error_db` |
 | `balance-instruments.csv` | With `--balance`: `song,renderer,sample,name,voices,offset_db,distance_db,frames,reference_level_db,r128_offset_lu`, one line per stem |
@@ -255,14 +256,35 @@ of each render byte for byte (`ClipWav`), and writes `listening/<round>-<questio
 hashes is checked: both clips must be the same files David heard, or the row is reported and the run exits 1. A row
 without hashes is a new question: its clips are made and `listening/remade.tsv` has the row with the commit and hashes
 filled in. With the reference player, `listening/features.tsv` has one line per clip
-(`row,version,mel_db,mfcc,onset_f1,nmr_db,nsim_distance,modulation_db,harmonicity_db`, tab-separated, `version` `a` or
-`b`): each clip measured against the original's clip, the table the learned score is fitted on
+(`row,version,mel_db,mfcc,onset_f1,nmr_db,nsim_distance,modulation_db,harmonicity_db,learned`, tab-separated, `version`
+`a` or `b`, `learned` empty until the score is fitted): each clip measured against the original's clip, the table the learned score is fitted on
 ([ADR 0100](adr/0100-perceptual-features.md)). A new round goes:
 
 1. Write its questions as rows without hashes or answers (the versions' order shuffled, so A isn't always the default).
 2. `--remake` them, and copy `remade.tsv`'s rows.
 3. Send David the `-o`, `-a` and `-b` clips in a survey, the versions unnamed.
 4. Fill in his picks, grades and words, and add the rows to `answers.tsv`.
+
+## The fit
+
+`--fit answers.tsv` fits the learned listening score ([ADR 0097](adr/0097-learned-listening-score.md),
+[ADR 0101](adr/0101-listening-score-fit.md)). It remakes every row as `--remake` does (the same files in `listening/`),
+then learns from the rows that are answered and whose clips came out byte for byte as David heard them. A row whose clips
+differ stays in the answers file but is left out of the fit.
+
+The model is `P(A ≻ B) = σ(w · (f(B) − f(A)))` over seven distances from the original: `mel_db`, `mfcc`, `onset_miss`
+(1 − onset F1), `nmr_db`, `nsim_distance`, `modulation_db`, `harmonicity_db`. "Can't tell" counts as half a win each.
+Features and the L2 strength are chosen by forward selection on leave-one-song-out log-loss, at most one weight per 10
+answers. With fewer, or with answers from one song only, it reports "not enough answers" and fits nothing.
+
+`listening/fit.txt`, also logged, holds the summary (answers, songs, the weights kept, the leave-one-song-out log-loss
+next to a coin's), how often the fit guessed David's pick on songs it didn't learn from next to log-mel alone, one line
+per answer (the chance it gave the pick, log-mel's guess), and every row left out and why.
+
+After a fit, the harness rewrites `src/Scoring/ListeningWeights.cs` (found above the current folder, next to
+`Mod2Xgm.slnx`) with the weights, the date and the counts (David). Commit it in a PR like any change. From then on,
+`scores.csv`, `clip-scores.csv`, `features.tsv` and `report.md` show the learned score next to log-mel. Log-mel stays
+the main number until the score is adopted (T9.4l).
 
 ## Tests
 

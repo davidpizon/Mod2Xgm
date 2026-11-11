@@ -56,5 +56,6 @@ how much the other tracks cover a sample is ADR 0098's masking feature (T9.4n).
 
 When a change to the converter makes `--remake` report a row whose clips differ, the row no longer describes what the
 code makes. Leave it in the file, since David's answer is still true of the clips he heard, and note the change in the PR.
-The fit (T9.4k) takes only rows that still remake, so a row's weight comes back if its clips are restored. **Verify**
-in T9.4k whether stale rows should be dropped from the file instead.
+The fit (`--fit`, [harness.md](../../../docs/harness.md#the-fit)) takes only rows that still remake, lists the others
+in `fit.txt`, and takes a row again if its clips are restored. Stale rows stay in the file (David, 2026-11-10,
+[ADR 0101](../../../docs/adr/0101-listening-score-fit.md)).
