@@ -434,7 +434,7 @@ internal sealed class ListeningRemake(IReadOnlyList<string> songs, string output
     /// One <c>features.tsv</c> line: <paramref name="clip"/> scored against the original's clip, every measure the
     /// learned listening score may weigh (docs/adr/0097-learned-listening-score.md, docs/adr/0100-perceptual-features.md).
     /// </summary>
-    internal static string Features(string row, string version, StereoAudio original, ReadOnlySpan<byte> clip)
+    private static string Features(string row, string version, StereoAudio original, ReadOnlySpan<byte> clip)
     {
         ScoreReport score = SongScorer.Compare(original.ToMono(), WavFile.Read(clip).ToMono(), ScoreOptions.Default, Serilog.Core.Logger.None);
         PerceptualReport? p = score.Perceptual;

@@ -8,10 +8,10 @@ namespace Mod2Xgm.Scoring;
 internal sealed class ErbSpectrogram
 {
     /// <summary>The lowest band edge, in Hz: below it the corpus has little that the ear hears as pitch.</summary>
-    public const double LowHz = 50;
+    private const double LowHz = 50;
 
     /// <summary>The highest band edge, in Hz, when the sample rate allows it (at most 95 % of half the rate).</summary>
-    public const double HighHz = 16_000;
+    private const double HighHz = 16_000;
 
     private readonly int _hop;
     private readonly int _fftSize;
@@ -61,7 +61,7 @@ internal sealed class ErbSpectrogram
 
     /// <summary>Frames needed to cover <paramref name="totalSamples"/> samples: the last frame may run past the end (zero-padded).</summary>
     /// <param name="totalSamples">Length of the audio.</param>
-    public int FrameCount(int totalSamples) =>
+    private int FrameCount(int totalSamples) =>
         totalSamples <= _fftSize ? 1 : 1 + (int)Math.Ceiling((double)(totalSamples - _fftSize) / _hop);
 
     /// <summary>The ERB number of <paramref name="hertz"/>: 21.4 · log10(1 + 0.00437 f) (Glasberg and Moore, 1990).</summary>

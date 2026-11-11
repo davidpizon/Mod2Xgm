@@ -85,7 +85,7 @@ public sealed class ListeningRemakeTests : IDisposable
         Assert.Equal(ListeningRemake.FeaturesHeader, lines[0]);
         Assert.StartsWith("r1-q1\ta\t", lines[1], StringComparison.Ordinal);
         Assert.StartsWith("r1-q1\tb\t", lines[2], StringComparison.Ordinal);
-        Assert.All(lines[1].Split('\t'), cell => Assert.NotEmpty(cell));
+        Assert.All(lines[1].Split('\t'), Assert.NotEmpty);
         Assert.Equal(string.Empty, lines[3]);
     }
 

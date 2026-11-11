@@ -23,7 +23,7 @@ internal static class PerceptualMetrics
     public const double SilenceDb = -80;
 
     /// <summary>Frames this far below the loudest frame (of either side) are not counted: too quiet to matter.</summary>
-    public const double RangeDb = 60;
+    private const double RangeDb = 60;
 
     /// <summary>Analysis frame length in seconds; the FFT size is the power of two nearest to it.</summary>
     private const double FrameSeconds = 0.046;
@@ -88,7 +88,7 @@ internal static class PerceptualMetrics
     /// rendering isn't in phase with the original) over the original's masked threshold (its excitation spread over
     /// neighbouring bands, <see cref="MaskOffsetDb"/> down); the mean over bands and counted frames, in dB.
     /// </summary>
-    internal static double NoiseToMaskDb(double[][] reference, double[][] candidate, bool[] audible, double[] centresErb)
+    private static double NoiseToMaskDb(double[][] reference, double[][] candidate, bool[] audible, double[] centresErb)
     {
         int bands = centresErb.Length;
         double[,] spread = new double[bands, bands];
@@ -138,7 +138,7 @@ internal static class PerceptualMetrics
     /// 1 − NSIM (Hines et al., used by ViSQOL) over the two spectrograms in dB above <see cref="SilenceDb"/>: at each
     /// counted cell, the intensity term times the structure term over a 3×3 Gaussian neighbourhood; the mean, from 1.
     /// </summary>
-    internal static double NsimDistance(double[][] reference, double[][] candidate, bool[] audible)
+    private static double NsimDistance(double[][] reference, double[][] candidate, bool[] audible)
     {
         double[][] r = Levels(reference);
         double[][] c = Levels(candidate);
@@ -213,7 +213,7 @@ internal static class PerceptualMetrics
     /// envelope over the whole signal, as power in octave bands from 0.5 to 32 Hz relative to the envelope's mean (so
     /// it measures depth, not level), in dB; the mean absolute difference over bands and octaves.
     /// </summary>
-    internal static double ModulationDistanceDb(double[][] reference, double[][] candidate, double frameRate)
+    private static double ModulationDistanceDb(double[][] reference, double[][] candidate, double frameRate)
     {
         int frames = reference.Length;
         int bands = frames == 0 ? 0 : reference[0].Length;
@@ -294,7 +294,7 @@ internal static class PerceptualMetrics
     /// Pitches up to 1 kHz need no more than a quarter of 44.1 kHz, so above <see cref="DecimateAboveHz"/> both signals are
     /// first halved in rate (pairs of samples averaged), which halves the work.
     /// </summary>
-    internal static double HarmonicityDistanceDb(AudioSignal reference, AudioSignal candidate)
+    private static double HarmonicityDistanceDb(AudioSignal reference, AudioSignal candidate)
     {
         SpectralMetrics.CheckSameRate(reference, candidate);
         bool halve = reference.SampleRate >= DecimateAboveHz;
@@ -355,7 +355,7 @@ internal static class PerceptualMetrics
     }
 
     /// <summary>Frames where either side is within <see cref="RangeDb"/> of the loudest frame and above silence.</summary>
-    internal static bool[] Audible(double[][] reference, double[][] candidate)
+    private static bool[] Audible(double[][] reference, double[][] candidate)
     {
         double[] a = [.. reference.Select(f => f.Sum())];
         double[] b = [.. candidate.Select(f => f.Sum())];
@@ -378,9 +378,9 @@ internal static class PerceptualMetrics
         Array.Clear(real);
         Array.Clear(imag);
         double mean = 0;
-        for (int t = 0; t < power.Length; t++)
+        foreach (double[] frame in power)
         {
-            mean += Math.Sqrt(power[t][band]);
+            mean += Math.Sqrt(frame[band]);
         }
 
         mean /= power.Length;
