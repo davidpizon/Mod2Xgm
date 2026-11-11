@@ -115,6 +115,7 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0099](0099-xgm2-writer-records-the-player.md) | The XGM2 writer records the Genesis player | 2026-11-09 | Accepted |
 | [0100](0100-perceptual-features.md) | Perceptual features for the learned listening score | 2026-11-10 | Proposed |
 | [0101](0101-listening-score-fit.md) | Fitting the learned listening score | 2026-11-10 | Proposed |
+| [0102](0102-pair-picker.md) | A pair picker for the listening rounds | 2026-11-11 | Proposed |
 
 ## Open questions
 

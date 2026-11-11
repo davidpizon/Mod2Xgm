@@ -196,6 +196,8 @@ is one step (`song:<name>`), the result names `report.md`, and a failure to run 
 | `--progress <mode>` | `fancy` | How the run is shown: `fancy`, `text`, `json` or `silent`, as `mod2xgm --progress` ([cli-output.md](cli-output.md)). Song times go to `timings.json` in the cache folder unless `--no-cache`, so the next run has an estimate from the start |
 | `--remake <answers.tsv>` | | Instead of scoring: make every row's [listening clips](#listening-answers) again from their recipes and check them byte for byte against the clips David heard. Exit 1 when a clip differs |
 | `--fit <answers.tsv>` | | Instead of scoring: remake the clips as `--remake` does, then [fit the learned listening score](#the-fit) on them and, after a fit, rewrite `src/Scoring/ListeningWeights.cs`. Not with `--remake` |
+| `--pick <answers.tsv>` | | Instead of scoring: [pick the next listening round](#picking-a-round), the pairs the learned score is least sure of, into `listening/picked.tsv` and `listening/candidates.tsv`. Not with `--remake` or `--fit` |
+| `--pairs <n>` | 10 | With `--pick`: how many pairs to pick, 1–100 |
 
 ## Output
 
@@ -264,6 +266,30 @@ filled in. With the reference player, `listening/features.tsv` has one line per 
 2. `--remake` them, and copy `remade.tsv`'s rows.
 3. Send David the `-o`, `-a` and `-b` clips in a survey, the versions unnamed.
 4. Fill in his picks, grades and words, and add the rows to `answers.tsv`.
+
+## Picking a round
+
+`--pick answers.tsv` picks the next round's pairs where the learned score is least sure
+([ADR 0102](adr/0102-pair-picker.md), plan T9.4k3). Every pair is an XGM2 clip of 20 seconds: the default version
+(`--mapping optimizer`) against the same with one change, one of
+
+| Kind | Recipe of the change |
+|---|---|
+| `simple` | `--mapping simple` |
+| `budget` | `--mapping optimizer --max-pcm-bytes N`, N half the PCM bytes the default stores (its SLEN), in 256-byte blocks; not for a song that stores none |
+| `no-dac` | `--mapping optimizer --no-dac` |
+| `half-speed` | `--mapping optimizer rule:half-speed=s`, for each of the song's two dullest samples with at most 1 % of their energy above 3.325 kHz, the top of XGM2 half speed, in the pitch region they play most |
+
+Clip starts are tried every 10 seconds, and a start where the two clips are the same bytes is skipped. Each candidate
+is measured against the original's clip (libopenmpt). Without a fit, the least sure pairs are those where the seven
+measures' votes for the closer version are most split; with one, those whose chance is nearest ½. The picker takes them
+least sure first, one per song, at most 3 of each kind, and songs already in the answers file only when the others run
+out. It writes `listening/candidates.tsv` (every candidate, least sure first, with its sureness and both versions'
+measures) and `listening/picked.tsv`: the next round's rows (`r21` after `r20`), unanswered and unhashed, with the
+default as A or B by a hash of the song and start. Then the round goes on from step 2 of
+[Listening answers](#listening-answers): `--remake listening/picked.tsv`.
+
+It renders four to six versions of every song and scores every start of each, so it is slow; it runs by hand, not in CI.
 
 ## The fit
 

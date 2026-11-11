@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
+using Mod2Xgm.Analysis;
 using Mod2Xgm.Cli;
 using Mod2Xgm.Optimizer;
 using Mod2Xgm.Output;
@@ -389,28 +390,36 @@ internal sealed class ListeningRemake(IReadOnlyList<string> songs, string output
     /// <summary>Converts the row's song with <paramref name="recipeText"/>, cuts the clip, writes it to <paramref name="clipPath"/> and returns its bytes.</summary>
     private byte[] Version(ListeningRow row, string recipeText, string clipPath)
     {
-        Recipe recipe = Recipe.Parse(recipeText);
         string work = Path.Combine(Path.GetDirectoryName(clipPath)!, "work"); // clipPath is always inside the listening folder
         Directory.CreateDirectory(work);
         string stem = Path.Combine(work, Path.GetFileNameWithoutExtension(clipPath));
+        string wav = Render(SongPath(row.Song), row.Format, recipeText, stem, null, row.Name);
+        byte[] clip = ClipWav.Cut(File.ReadAllBytes(wav), row.StartSeconds, row.Seconds);
+        File.WriteAllBytes(clipPath, clip);
+        return clip;
+    }
+
+    /// <summary>
+    /// Converts <paramref name="songPath"/> for <paramref name="format"/> with <paramref name="recipeText"/>, writing the
+    /// output to <c>stem.out</c> and the render to <c>stem.genesis.wav</c>, whose path it returns. <paramref name="analyzed"/>
+    /// gets the conversion's song analysis when given; <paramref name="name"/> names the version in an error.
+    /// </summary>
+    internal static string Render(string songPath, string format, string recipeText, string stem, Action<SongAnalysis>? analyzed, string name)
+    {
+        Recipe recipe = Recipe.Parse(recipeText);
         string wav = stem + ".genesis.wav";
-        string[] args = [SongPath(row.Song), "--format", row.Format, .. recipe.Arguments, "--output", stem + ".out", "--render-wav", wav, "--force", "--progress", "silent"];
+        string[] args = [songPath, "--format", format, .. recipe.Arguments, "--output", stem + ".out", "--render-wav", wav, "--force", "--progress", "silent"];
 
         // A render left by an earlier run must never stand in for this one (a recipe of --help converts nothing).
         File.Delete(wav);
         ExitCode code = CommandLineDefinition.Invoke(
             args,
-            options => Convert(options, recipe, recipeText, wav),
+            options => Convert(options, recipe, recipeText, wav, analyzed),
             TextWriter.Null,
             TextWriter.Null);
-        if (!File.Exists(wav))
-        {
-            throw new HarnessException($"{row.Name}: the converter made no render for \"{recipeText}\" (exit {(int)code})");
-        }
-
-        byte[] clip = ClipWav.Cut(File.ReadAllBytes(wav), row.StartSeconds, row.Seconds);
-        File.WriteAllBytes(clipPath, clip);
-        return clip;
+        return File.Exists(wav)
+            ? wav
+            : throw new HarnessException($"{name}: the converter made no render for \"{recipeText}\" (exit {(int)code})");
     }
 
     /// <summary>
@@ -418,7 +427,7 @@ internal sealed class ListeningRemake(IReadOnlyList<string> songs, string output
     /// it is refused without, rather than making a version the recipe misdescribes. XGM has no writer yet: the converter
     /// writes the render and then fails for the missing file, which is the render this needs.
     /// </summary>
-    private static ExitCode Convert(ConversionOptions options, Recipe recipe, string recipeText, string wav)
+    private static ExitCode Convert(ConversionOptions options, Recipe recipe, string recipeText, string wav, Action<SongAnalysis>? analyzed)
     {
         if (recipe.Rules is not null && !options.UsesOptimizer)
         {
@@ -427,7 +436,7 @@ internal sealed class ListeningRemake(IReadOnlyList<string> songs, string output
 
         try
         {
-            return ConversionCommand.Execute(options with { ShrinkRules = recipe.Rules }, Serilog.Core.Logger.None, null, NoProgress.Instance);
+            return ConversionCommand.Execute(options with { ShrinkRules = recipe.Rules }, Serilog.Core.Logger.None, analyzed, NoProgress.Instance);
         }
         catch (ConversionException ex) when (ex.Code == ExitCode.UsageError && options.Format == OutputFormat.Xgm && File.Exists(wav))
         {
@@ -461,7 +470,7 @@ internal sealed class ListeningRemake(IReadOnlyList<string> songs, string output
     /// </summary>
     private static ListeningFeatures? Features(StringBuilder table, string row, string version, StereoAudio original, ReadOnlySpan<byte> clip)
     {
-        ScoreReport score = SongScorer.Compare(original.ToMono(), WavFile.Read(clip).ToMono(), ScoreOptions.Default, Serilog.Core.Logger.None);
+        ScoreReport score = Measure(original, clip);
         PerceptualReport? p = score.Perceptual;
         table.AppendJoin(
             '\t',
@@ -478,6 +487,10 @@ internal sealed class ListeningRemake(IReadOnlyList<string> songs, string output
         table.Append('\n');
         return ListeningFeatures.From(score);
     }
+
+    /// <summary><paramref name="clip"/> (a WAV file) scored against the original's clip, with every measure the learned score may weigh.</summary>
+    internal static ScoreReport Measure(StereoAudio original, ReadOnlySpan<byte> clip) =>
+        SongScorer.Compare(original.ToMono(), WavFile.Read(clip).ToMono(), ScoreOptions.Default, Serilog.Core.Logger.None);
 
     private static string Number(double? value) => value?.ToString("0.####", CultureInfo.InvariantCulture) ?? string.Empty;
 
