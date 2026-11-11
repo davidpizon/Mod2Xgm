@@ -9,6 +9,7 @@
     <!-- LibraryImport (source-generated P/Invoke into libopenmpt) needs pointers. -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <IsPackable>false</IsPackable>
+    <TargetFramework>net11.0</TargetFramework>
   </PropertyGroup>
 
   <ItemGroup>
