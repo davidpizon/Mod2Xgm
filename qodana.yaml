@@ -10,6 +10,12 @@ profile:
 dotnet:
   solution: Mod2Xgm.slnx
 
+# The linter image ships the .NET 10 SDK only, which can't build net11.0 projects (NETSDK1045; ADR 0103). Install the
+# .NET 11 SDK next to it before the scan; with no SDK pinned in global.json, the newest is used.
+bootstrap: >-
+  (curl -fsSL https://dot.net/v1/dotnet-install.sh || wget -qO- https://dot.net/v1/dotnet-install.sh)
+  | bash -s -- --channel 11.0 --install-dir "$(dirname "$(readlink -f "$(command -v dotnet)")")"
+
 # Documentation and reference specs aren't code.
 exclude:
   - name: All
