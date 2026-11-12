@@ -234,6 +234,34 @@ public sealed class PairPickerTests
         Assert.Equal("--mapping optimizer --no-dac", PairPicker.RecipeOf(PairKind.NoDac));
         Assert.Equal("--mapping optimizer --max-pcm-bytes 4096", PairPicker.RecipeOf(PairKind.Budget, 4096));
         Assert.Equal("--mapping optimizer rule:half-speed=3", PairPicker.RecipeOf(PairKind.HalfSpeed, 3));
+        Assert.Equal("--mapping optimizer rule:layers=off", PairPicker.RecipeOf(PairKind.NoLayers));
+        Assert.Equal("--mapping optimizer rule:pre-mix=off", PairPicker.RecipeOf(PairKind.NoPreMix));
+    }
+
+    /// <summary>Every kind's name reads back as that kind, so <c>--kinds</c> takes what <c>candidates.tsv</c> shows; other names are none.</summary>
+    [Fact]
+    public void Parse_EveryKindsName_GivesTheKind()
+    {
+        // Act & Assert
+        Assert.All(Enum.GetValues<PairKind>(), k => Assert.Equal(k, PairPicker.Parse(PairPicker.Name(k))));
+        Assert.Equal("no-layers", PairPicker.Name(PairKind.NoLayers));
+        Assert.Equal("no-pre-mix", PairPicker.Name(PairKind.NoPreMix));
+        Assert.Null(PairPicker.Parse("layers"));
+    }
+
+    /// <summary>A raised cap (<c>--max-per-kind</c>) lets more pairs of one kind in.</summary>
+    [Fact]
+    public void Pick_WithRaisedCap_TakesMoreOfOneKind()
+    {
+        // Arrange
+        ListeningFeatures splitB = new(2, 2, 2, 2, 0, 0, 0);
+        PairCandidate[] noLayers = [.. Enumerable.Range(0, 6).Select(i => Pair($"s{i}.mod", PairKind.NoLayers, Features(1), splitB))];
+
+        // Act
+        IReadOnlyList<PairCandidate> sut = PairPicker.Pick(noLayers, 10, new HashSet<string>(), NoWeights, maxPerKind: 5);
+
+        // Assert
+        Assert.Equal(5, sut.Count);
     }
 
     /// <summary>A spectrum only in the low bands has nothing above the half-speed top; one only in the top band has everything.</summary>

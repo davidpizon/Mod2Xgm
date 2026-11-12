@@ -31,6 +31,10 @@ David answered on 2026-11-11.
 - **What the pairs test (David):** a mix of the kinds of change round 21 asked about (half the memory, half speed on dull
   samples, `--no-dac`, `--mapping simple`), pairs the pair picker chooses (`--pick`, [ADR 0102](0102-pair-picker.md)),
   and kinds of change the score has never seen (for example layering or pre-mixes on and off).
+- **The new kinds (2026-11-12):** layers off and pre-mixes off, as recipe rules (`rule:layers=off`, `rule:pre-mix=off`)
+  the harness passes to the optimizer, since no converter option turns either off; the picker offers both as kinds
+  (`no-layers`, `no-pre-mix`), and `--kinds` narrows a pick to them. Round 23 is five of each: David raised the cap of 3
+  pairs per kind to 5 for that round (`--max-per-kind 5`); the cap stays 3 otherwise.
 - The hold-out answers are logged in `tests/golden/listening/answers.tsv` like any round. A row is a hold-out row
   because its song is in `tests/data/holdout/`, so no new column is needed. `--fit` and `--embeddings` leave those rows
   out, and `--holdout` scores them ([harness.md](../harness.md#the-hold-out)). `--pick` fits nothing, so it keeps them:

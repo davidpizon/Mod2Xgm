@@ -172,6 +172,41 @@ public sealed class ListeningTests
         Assert.Null(sut.Rules);
     }
 
+    /// <summary>The layers and pre-mix rules switch those off and leave the shrink rules alone; a recipe without them has neither off.</summary>
+    [Fact]
+    public void Parse_WithLayersAndPreMixRules_TurnsThemOff()
+    {
+        // Arrange
+        const string text = "--mapping optimizer rule:layers=off rule:pre-mix=off";
+
+        // Act
+        Recipe sut = Recipe.Parse(text);
+        Recipe plain = Recipe.Parse("--mapping optimizer");
+
+        // Assert
+        Assert.Equal(["--mapping", "optimizer"], sut.Arguments);
+        Assert.False(sut.Layers);
+        Assert.False(sut.PreMix);
+        Assert.Null(sut.Rules);
+        Assert.True(sut.HasRules);
+        Assert.True(plain.Layers);
+        Assert.True(plain.PreMix);
+        Assert.False(plain.HasRules);
+    }
+
+    /// <summary>The layers and pre-mix rules take only <c>off</c>: anything else is refused rather than read as the default.</summary>
+    [Theory]
+    [InlineData("rule:layers=on")]
+    [InlineData("rule:pre-mix")]
+    public void Parse_WithLayersOrPreMixNotOff_Throws(string text)
+    {
+        // Act
+        HarnessException ex = Assert.Throws<HarnessException>(() => Recipe.Parse(text));
+
+        // Assert
+        Assert.Contains("rule:layers=off", ex.Message, StringComparison.Ordinal);
+    }
+
     /// <summary>An unknown rule is refused, so a typo can't quietly make the default version.</summary>
     [Fact]
     public void Parse_WithUnknownRule_Throws()

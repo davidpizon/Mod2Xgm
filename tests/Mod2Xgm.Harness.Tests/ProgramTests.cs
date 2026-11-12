@@ -106,6 +106,11 @@ public sealed class ProgramTests
     [InlineData("--models", "m")]
     [InlineData("--holdout", "a.tsv", "--fit", "a.tsv")]
     [InlineData("--holdout", "a.tsv", "--embeddings", "a.tsv")]
+    [InlineData("--kinds", "no-layers")]
+    [InlineData("--max-per-kind", "5")]
+    [InlineData("--pick", "a.tsv", "--max-per-kind", "0")]
+    [InlineData("--pick", "a.tsv", "--kinds", "no-such-kind")]
+    [InlineData("--pick", "a.tsv", "--kinds", ",")]
     public void Invoke_WithBadOptions_ReportsUsageError(params string[] args)
     {
         // Act
@@ -147,6 +152,21 @@ public sealed class ProgramTests
         Assert.Equal("a.tsv", options.Pick);
         Assert.Equal(10, options.Pairs);
         Assert.Equal(12, twelve.Pairs);
+        Assert.Null(options.Kinds);
+        Assert.Equal(PairPicker.MaxPerKind, options.MaxPerKind);
+    }
+
+    /// <summary><c>--kinds</c> narrows <c>--pick</c> to the kinds it names and <c>--max-per-kind</c> raises the cap.</summary>
+    [Fact]
+    public void Invoke_WithPickKinds_ReadsKindsAndCap()
+    {
+        // Act
+        HarnessOptions sut = Parse("--pick", "a.tsv", "--kinds", "no-layers, no-pre-mix", "--max-per-kind", "5");
+
+        // Assert
+        Assert.NotNull(sut.Kinds);
+        Assert.Equal([PairKind.NoLayers, PairKind.NoPreMix], sut.Kinds.Order());
+        Assert.Equal(5, sut.MaxPerKind);
     }
 
     /// <summary>Songs are the .mod files named or inside folders named, once each, sorted; nothing found is an error.</summary>

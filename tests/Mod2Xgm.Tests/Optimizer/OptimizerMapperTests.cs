@@ -537,6 +537,23 @@ public sealed class OptimizerMapperTests
         Assert.Equal(0, sut.NotesMoved);
     }
 
+    /// <summary>With layers off (a listening round's version, plan T9.4l), the FM note that would take a tone plays alone.</summary>
+    [Fact]
+    public void Map_WithLayersOff_AddsNoTone()
+    {
+        // Arrange
+        Song song = SongOf(1, [(0, 0)]);
+        OptimizerMapper sut = new(Limits(PcmTarget.Dmf), [FmFirst(0)], layers: false);
+
+        // Act
+        GenesisPlan plan = sut.Map(song, PlaybackOf(song), MappingOptions.Default, Notes());
+
+        // Assert
+        IReadOnlyList<PlanCell> cells = plan.Patterns[0][0].Cells;
+        Assert.Equal(VoiceKind.Fm, cells[(int)GenesisChannel.Fm1].Voice?.Kind);
+        Assert.Null(cells[(int)GenesisChannel.Psg1].Voice);
+    }
+
     /// <summary>A recording stays alone: only FM notes take a tone.</summary>
     [Fact]
     public void Map_WithRecording_AddsNoLayer()

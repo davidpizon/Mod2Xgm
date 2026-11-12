@@ -198,6 +198,8 @@ is one step (`song:<name>`), the result names `report.md`, and a failure to run 
 | `--fit <answers.tsv>` | | Instead of scoring: remake the clips as `--remake` does, leaving out [hold-out rows](#the-hold-out), then [fit the learned listening score](#the-fit) on them and, after a fit, rewrite `src/Scoring/ListeningWeights.cs`. Not with `--remake` |
 | `--pick <answers.tsv>` | | Instead of scoring: [pick the next listening round](#picking-a-round), the pairs the learned score is least sure of, into `listening/picked.tsv` and `listening/candidates.tsv`. Not with `--remake` or `--fit` |
 | `--pairs <n>` | 10 | With `--pick`: how many pairs to pick, 1–100 |
+| `--kinds <list>` | every kind | With `--pick`: the [kinds of change](#picking-a-round) to pick from, comma-separated (`no-layers,no-pre-mix`) |
+| `--max-per-kind <n>` | 3 | With `--pick`: the most pairs of one kind, 1–100 |
 | `--embeddings <answers.tsv>` | | Instead of scoring: remake the clips as `--fit` does, then [compare the pretrained models](#pretrained-models) with log-mel and the learned score, into `listening/embeddings.tsv` and `listening/embeddings.txt`. Not with `--remake`, `--fit` or `--pick` |
 | `--models <folder>` | `LocalApplicationData/Mod2Xgm/models` | With `--embeddings`: where the exported `.onnx` models are |
 | `--holdout <answers.tsv>` | | Instead of scoring: remake only the [hold-out rows](#the-hold-out) and score the learned listening score on them against David's bar, into `listening/holdout.txt`. Not with `--remake`, `--fit`, `--pick` or `--embeddings` |
@@ -254,6 +256,8 @@ give those. The rules so far:
 | Rule | What it does |
 |---|---|
 | `rule:half-speed=<samples>` | XGM2 stores these samples (1-based, comma-separated) at half speed whether or not the song needs the room ([ADR 0098](adr/0098-learned-allocator-costs.md)). Needs `--mapping optimizer`; an identical twin of a named sample shares its stored copy and so its half speed, and no named sample merges with an unnamed one |
+| `rule:layers=off` | No note gets a second voice under it, neither a PSG tone nor a second FM voice ([ADR 0088](adr/0088-layering.md)). Needs `--mapping optimizer` |
+| `rule:pre-mix=off` | No recordings are pre-mixed: a note that finds every PCM voice busy moves to FM/PSG or is cut, as before T9.4b ([ADR 0094](adr/0094-pre-mixed-voice-steals.md)). Needs `--mapping optimizer` |
 
 `--remake answers.tsv` converts each row's song with both recipes in-process (with `--render-wav`), cuts the clip out
 of each render byte for byte (`ClipWav`), and writes `listening/<round>-<question>-a.wav`, `-b.wav` and the original's
@@ -282,17 +286,21 @@ filled in. With the reference player, `listening/features.tsv` has one line per 
 | `budget` | `--mapping optimizer --max-pcm-bytes N`, N half the PCM bytes the default stores (its SLEN), in 256-byte blocks; not for a song that stores none |
 | `no-dac` | `--mapping optimizer --no-dac` |
 | `half-speed` | `--mapping optimizer rule:half-speed=s`, for each of the song's two dullest samples with at most 1 % of their energy above 3.325 kHz, the top of XGM2 half speed, in the pitch region they play most |
+| `no-layers` | `--mapping optimizer rule:layers=off` (plan T9.4l) |
+| `no-pre-mix` | `--mapping optimizer rule:pre-mix=off` (plan T9.4l) |
+
+`--kinds` picks from only the kinds it names, and renders only those.
 
 Clip starts are tried every 10 seconds, and a start where the two clips are the same bytes is skipped. Each candidate
 is measured against the original's clip (libopenmpt). Without a fit, the least sure pairs are those where the seven
 measures' votes for the closer version are most split; with one, those whose chance is nearest ½. The picker takes them
-least sure first, one per song, at most 3 of each kind, and songs already in the answers file only when the others run
+least sure first, one per song, at most 3 of each kind (`--max-per-kind`), and songs already in the answers file only when the others run
 out. It writes `listening/candidates.tsv` (every candidate, least sure first, with its sureness and both versions'
 measures) and `listening/picked.tsv`: the next round's rows (`r21` after `r20`), unanswered and unhashed, with the
 default as A or B by a hash of the song and start. Then the round goes on from step 2 of
 [Listening answers](#listening-answers): `--remake listening/picked.tsv`.
 
-It renders four to six versions of every song and scores every start of each, so it is slow; it runs by hand, not in CI.
+It renders five to eight versions of every song and scores every start of each, so it is slow; it runs by hand, not in CI.
 
 ## The fit
 
