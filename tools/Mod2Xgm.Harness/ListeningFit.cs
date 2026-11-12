@@ -542,7 +542,7 @@ internal static class ListeningFitRun
     }
 
     /// <summary>Why a row can't teach the fit, in words.</summary>
-    private static string Why(RemadeRow row) =>
+    internal static string Why(RemadeRow row) =>
         row.Row.Pick.Length == 0 ? "not answered"
         : row.Row.Sha256A.Length == 0 ? "no hashes yet (a new question)"
         : !row.Heard ? "its clips differ from those David heard"

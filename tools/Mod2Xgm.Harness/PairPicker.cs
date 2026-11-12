@@ -26,6 +26,12 @@ internal enum PairKind
 
     /// <summary>One dull sample stored at XGM2 half speed (<c>rule:half-speed</c>).</summary>
     HalfSpeed,
+
+    /// <summary>No second voice under any note (<c>rule:layers=off</c>, docs/adr/0088-layering.md).</summary>
+    NoLayers,
+
+    /// <summary>No pre-mixes (<c>rule:pre-mix=off</c>, docs/adr/0094-pre-mixed-voice-steals.md).</summary>
+    NoPreMix,
 }
 
 /// <summary>One pair the picker may ask about: a clip of the default version and the same clip with one change.</summary>
@@ -55,7 +61,7 @@ internal static class PairPicker
     /// <summary>Seconds between the clip starts tried (David).</summary>
     private const double StartStepSeconds = 10;
 
-    /// <summary>Most pairs of one kind in a round (David).</summary>
+    /// <summary>Most pairs of one kind in a round unless <c>--max-per-kind</c> says otherwise (David).</summary>
     public const int MaxPerKind = 3;
 
     /// <summary>A sample is dull when at most this share of its energy is above <see cref="HalfSpeedTopHz"/> (Claude).</summary>
@@ -79,8 +85,15 @@ internal static class PairPicker
         PairKind.Simple => "simple",
         PairKind.Budget => "budget",
         PairKind.NoDac => "no-dac",
-        _ => "half-speed",
+        PairKind.HalfSpeed => "half-speed",
+        PairKind.NoLayers => "no-layers",
+        PairKind.NoPreMix => "no-pre-mix",
+        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
     };
+
+    /// <summary>The kind <paramref name="name"/> names, as in <c>candidates.tsv</c> and <c>--kinds</c>; <c>null</c> when none does.</summary>
+    public static PairKind? Parse(string name) =>
+        Enum.GetValues<PairKind>().Where(k => Name(k) == name).Cast<PairKind?>().FirstOrDefault();
 
     /// <summary>The recipe of the change, as a recipe cell; <paramref name="value"/> is the budget in bytes or the sample (1-based).</summary>
     public static string RecipeOf(PairKind kind, long value = 0) => kind switch
@@ -88,7 +101,10 @@ internal static class PairPicker
         PairKind.Simple => "--mapping simple",
         PairKind.Budget => string.Create(CultureInfo.InvariantCulture, $"{DefaultRecipe} --max-pcm-bytes {value}"),
         PairKind.NoDac => DefaultRecipe + " --no-dac",
-        _ => string.Create(CultureInfo.InvariantCulture, $"{DefaultRecipe} rule:half-speed={value}"),
+        PairKind.HalfSpeed => string.Create(CultureInfo.InvariantCulture, $"{DefaultRecipe} rule:half-speed={value}"),
+        PairKind.NoLayers => DefaultRecipe + " rule:layers=off",
+        PairKind.NoPreMix => DefaultRecipe + " rule:pre-mix=off",
+        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
     };
 
     /// <summary>Half the PCM bytes an XGM2 file stores (its SLEN), rounded down to 256; 0 when it stores none.</summary>
@@ -177,10 +193,10 @@ internal static class PairPicker
 
     /// <summary>
     /// The <paramref name="count"/> pairs least sure first (<see cref="Sureness"/>, ties to the smaller log-mel difference),
-    /// one per song and at most <see cref="MaxPerKind"/> per kind; songs in <paramref name="asked"/> only when the others
+    /// one per song and at most <paramref name="maxPerKind"/> per kind; songs in <paramref name="asked"/> only when the others
     /// run out.
     /// </summary>
-    public static IReadOnlyList<PairCandidate> Pick(IEnumerable<PairCandidate> candidates, int count, IReadOnlySet<string> asked, IReadOnlyList<double> weights)
+    public static IReadOnlyList<PairCandidate> Pick(IEnumerable<PairCandidate> candidates, int count, IReadOnlySet<string> asked, IReadOnlyList<double> weights, int maxPerKind = MaxPerKind)
     {
         ArgumentNullException.ThrowIfNull(candidates);
         ArgumentNullException.ThrowIfNull(asked);
@@ -197,7 +213,7 @@ internal static class PairPicker
                     return picked;
                 }
 
-                if ((!askedToo && asked.Contains(pair.Song)) || songs.Contains(pair.Song) || kinds.GetValueOrDefault(pair.Kind) >= MaxPerKind)
+                if ((!askedToo && asked.Contains(pair.Song)) || songs.Contains(pair.Song) || kinds.GetValueOrDefault(pair.Kind) >= maxPerKind)
                 {
                     continue;
                 }
@@ -337,8 +353,11 @@ internal sealed class PairPickRun(IReadOnlyList<string> songs, string outputDire
     /// <summary>The rate the converter's <c>--render-wav</c> writes.</summary>
     private const int ClipRate = 44_100;
 
-    /// <summary>Picks <paramref name="count"/> pairs, given the answers file at <paramref name="answersPath"/>; always 0.</summary>
-    public int Run(string answersPath, int count, DateOnly date, int jobs, IConversionProgress progress)
+    /// <summary>
+    /// Picks <paramref name="count"/> pairs, given the answers file at <paramref name="answersPath"/>, of the
+    /// <paramref name="kinds"/> (every kind when <c>null</c>), at most <paramref name="maxPerKind"/> of each; always 0.
+    /// </summary>
+    public int Run(string answersPath, int count, DateOnly date, int jobs, IConversionProgress progress, IReadOnlySet<PairKind>? kinds = null, int maxPerKind = PairPicker.MaxPerKind)
     {
         ArgumentNullException.ThrowIfNull(answersPath);
         ArgumentNullException.ThrowIfNull(progress);
@@ -354,7 +373,7 @@ internal sealed class PairPickRun(IReadOnlyList<string> songs, string outputDire
             IPhase phase = progress.Start(CorpusRun.PhaseId(song));
             try
             {
-                foreach (PairCandidate c in Song(song, folder))
+                foreach (PairCandidate c in Song(song, folder, kinds))
                 {
                     candidates.Add(c);
                 }
@@ -368,7 +387,7 @@ internal sealed class PairPickRun(IReadOnlyList<string> songs, string outputDire
         });
 
         IReadOnlyList<double> weights = ListeningWeights.Weights;
-        IReadOnlyList<PairCandidate> picked = PairPicker.Pick(candidates, count, asked, weights);
+        IReadOnlyList<PairCandidate> picked = PairPicker.Pick(candidates, count, asked, weights, maxPerKind);
         string round = PairPicker.NextRound(answered);
         File.WriteAllText(Path.Combine(folder, "candidates.tsv"), PairPicker.CandidatesTable(candidates, weights));
         File.WriteAllText(Path.Combine(folder, "picked.tsv"), AnswersFile.Format(PairPicker.Rows(picked, round, date)));
@@ -392,15 +411,21 @@ internal sealed class PairPickRun(IReadOnlyList<string> songs, string outputDire
         return 0;
     }
 
-    /// <summary>Every candidate pair of one song: each change against the default version at each clip start.</summary>
-    private List<PairCandidate> Song(string songPath, string folder)
+    /// <summary>Every candidate pair of one song: each change of the <paramref name="kinds"/> (all when <c>null</c>) against the default version at each clip start.</summary>
+    private List<PairCandidate> Song(string songPath, string folder, IReadOnlySet<PairKind>? kinds)
     {
         string song = Path.GetFileName(songPath);
         string stem = Path.Combine(folder, "work", "pick-" + Path.GetFileNameWithoutExtension(song));
         SongAnalysis? analysis = null;
         string defaultWav = ListeningRemake.Render(songPath, PairPicker.Format, PairPicker.DefaultRecipe, stem + "-default", a => analysis = a, song);
         byte[] defaultRender = File.ReadAllBytes(defaultWav);
-        List<(PairKind Kind, string Recipe)> changes = [(PairKind.Simple, PairPicker.RecipeOf(PairKind.Simple)), (PairKind.NoDac, PairPicker.RecipeOf(PairKind.NoDac))];
+        List<(PairKind Kind, string Recipe)> changes =
+        [
+            (PairKind.Simple, PairPicker.RecipeOf(PairKind.Simple)),
+            (PairKind.NoDac, PairPicker.RecipeOf(PairKind.NoDac)),
+            (PairKind.NoLayers, PairPicker.RecipeOf(PairKind.NoLayers)),
+            (PairKind.NoPreMix, PairPicker.RecipeOf(PairKind.NoPreMix)),
+        ];
         long budget = PairPicker.HalfBudget(File.ReadAllBytes(stem + "-default.out"));
         if (budget > 0)
         {
@@ -412,6 +437,7 @@ internal sealed class PairPickRun(IReadOnlyList<string> songs, string outputDire
             changes.AddRange(PairPicker.DullSamples(analysis.Samples).Select(s => (PairKind.HalfSpeed, PairPicker.RecipeOf(PairKind.HalfSpeed, s + 1))));
         }
 
+        changes.RemoveAll(c => kinds is not null && !kinds.Contains(c.Kind));
         StereoAudio original = reference.Render(File.ReadAllBytes(songPath), ClipRate).Audio;
         IReadOnlyList<double> starts = PairPicker.Starts(original.Left.Length / (double)ClipRate);
         Dictionary<double, (byte[] Clip, ListeningFeatures Features)> defaults = [];

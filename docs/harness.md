@@ -171,7 +171,7 @@ is one step (`song:<name>`), the result names `report.md`, and a failure to run 
 
 | Option | Default | What it does |
 |---|---|---|
-| `inputs…` | `tests/data/corpus` | MOD files or folders of them |
+| `inputs…` | `tests/data/corpus`; with `--remake`, `--fit`, `--embeddings` or `--holdout`, also `tests/data/holdout` | MOD files or folders of them |
 | `-o`, `--output` | `artifacts/harness` | Folder for the report, DMFs, logs and renders (git-ignored) |
 | `--rate` | 44100 | Rate to render and score at, in Hz (8000–192000) |
 | `--libopenmpt` | search path, then `Program Files\libopenmpt` | Folder holding libopenmpt |
@@ -195,11 +195,14 @@ is one step (`song:<name>`), the result names `report.md`, and a failure to run 
 | `-v`, `--verbose` | | Log every scoring step |
 | `--progress <mode>` | `fancy` | How the run is shown: `fancy`, `text`, `json` or `silent`, as `mod2xgm --progress` ([cli-output.md](cli-output.md)). Song times go to `timings.json` in the cache folder unless `--no-cache`, so the next run has an estimate from the start |
 | `--remake <answers.tsv>` | | Instead of scoring: make every row's [listening clips](#listening-answers) again from their recipes and check them byte for byte against the clips David heard. Exit 1 when a clip differs |
-| `--fit <answers.tsv>` | | Instead of scoring: remake the clips as `--remake` does, then [fit the learned listening score](#the-fit) on them and, after a fit, rewrite `src/Scoring/ListeningWeights.cs`. Not with `--remake` |
+| `--fit <answers.tsv>` | | Instead of scoring: remake the clips as `--remake` does, leaving out [hold-out rows](#the-hold-out), then [fit the learned listening score](#the-fit) on them and, after a fit, rewrite `src/Scoring/ListeningWeights.cs`. Not with `--remake` |
 | `--pick <answers.tsv>` | | Instead of scoring: [pick the next listening round](#picking-a-round), the pairs the learned score is least sure of, into `listening/picked.tsv` and `listening/candidates.tsv`. Not with `--remake` or `--fit` |
 | `--pairs <n>` | 10 | With `--pick`: how many pairs to pick, 1–100 |
+| `--kinds <list>` | every kind | With `--pick`: the [kinds of change](#picking-a-round) to pick from, comma-separated (`no-layers,no-pre-mix`) |
+| `--max-per-kind <n>` | 3 | With `--pick`: the most pairs of one kind, 1–100 |
 | `--embeddings <answers.tsv>` | | Instead of scoring: remake the clips as `--fit` does, then [compare the pretrained models](#pretrained-models) with log-mel and the learned score, into `listening/embeddings.tsv` and `listening/embeddings.txt`. Not with `--remake`, `--fit` or `--pick` |
 | `--models <folder>` | `LocalApplicationData/Mod2Xgm/models` | With `--embeddings`: where the exported `.onnx` models are |
+| `--holdout <answers.tsv>` | | Instead of scoring: remake only the [hold-out rows](#the-hold-out) and score the learned listening score on them against David's bar, into `listening/holdout.txt`. Not with `--remake`, `--fit`, `--pick` or `--embeddings` |
 
 ## Output
 
@@ -253,6 +256,8 @@ give those. The rules so far:
 | Rule | What it does |
 |---|---|
 | `rule:half-speed=<samples>` | XGM2 stores these samples (1-based, comma-separated) at half speed whether or not the song needs the room ([ADR 0098](adr/0098-learned-allocator-costs.md)). Needs `--mapping optimizer`; an identical twin of a named sample shares its stored copy and so its half speed, and no named sample merges with an unnamed one |
+| `rule:layers=off` | No note gets a second voice under it, neither a PSG tone nor a second FM voice ([ADR 0088](adr/0088-layering.md)). Needs `--mapping optimizer` |
+| `rule:pre-mix=off` | No recordings are pre-mixed: a note that finds every PCM voice busy moves to FM/PSG or is cut, as before T9.4b ([ADR 0094](adr/0094-pre-mixed-voice-steals.md)). Needs `--mapping optimizer` |
 
 `--remake answers.tsv` converts each row's song with both recipes in-process (with `--render-wav`), cuts the clip out
 of each render byte for byte (`ClipWav`), and writes `listening/<round>-<question>-a.wav`, `-b.wav` and the original's
@@ -281,17 +286,21 @@ filled in. With the reference player, `listening/features.tsv` has one line per 
 | `budget` | `--mapping optimizer --max-pcm-bytes N`, N half the PCM bytes the default stores (its SLEN), in 256-byte blocks; not for a song that stores none |
 | `no-dac` | `--mapping optimizer --no-dac` |
 | `half-speed` | `--mapping optimizer rule:half-speed=s`, for each of the song's two dullest samples with at most 1 % of their energy above 3.325 kHz, the top of XGM2 half speed, in the pitch region they play most |
+| `no-layers` | `--mapping optimizer rule:layers=off` (plan T9.4l) |
+| `no-pre-mix` | `--mapping optimizer rule:pre-mix=off` (plan T9.4l) |
+
+`--kinds` picks from only the kinds it names, and renders only those.
 
 Clip starts are tried every 10 seconds, and a start where the two clips are the same bytes is skipped. Each candidate
 is measured against the original's clip (libopenmpt). Without a fit, the least sure pairs are those where the seven
 measures' votes for the closer version are most split; with one, those whose chance is nearest ½. The picker takes them
-least sure first, one per song, at most 3 of each kind, and songs already in the answers file only when the others run
+least sure first, one per song, at most 3 of each kind (`--max-per-kind`), and songs already in the answers file only when the others run
 out. It writes `listening/candidates.tsv` (every candidate, least sure first, with its sureness and both versions'
 measures) and `listening/picked.tsv`: the next round's rows (`r21` after `r20`), unanswered and unhashed, with the
 default as A or B by a hash of the song and start. Then the round goes on from step 2 of
 [Listening answers](#listening-answers): `--remake listening/picked.tsv`.
 
-It renders four to six versions of every song and scores every start of each, so it is slow; it runs by hand, not in CI.
+It renders five to eight versions of every song and scores every start of each, so it is slow; it runs by hand, not in CI.
 
 ## The fit
 
@@ -314,6 +323,20 @@ After a fit, the harness rewrites `src/Scoring/ListeningWeights.cs` (found above
 `scores.csv`, `clip-scores.csv`, `features.tsv` and `report.md` show the learned score next to log-mel. Log-mel stays
 the main number until the score is adopted (T9.4l).
 
+## The hold-out
+
+A row is a hold-out row when its song is in `tests/data/holdout/` ([ADR 0105](adr/0105-hold-out-songs.md)): 28 songs
+the learned score has never learned from. `--fit` and `--embeddings` leave those rows out without remaking them (they
+stay in `remade.tsv` as they are), so the score is never fitted on them. `--pick` needs no change: it fits nothing, and
+picking a hold-out round is `--pick answers.tsv tests/data/holdout`, which keeps to one pair per song not asked yet.
+
+`--holdout answers.tsv` remakes only the hold-out rows and, for those answered whose clips came out byte for byte as David
+heard them, guesses each pair with the learned score as fitted today (`src/Scoring/ListeningWeights.cs`, no refit) and
+with log-mel, the lower distance winning; an exact tie counts as a miss. `listening/holdout.txt`, also logged, holds the
+counts, both agreements on the a/b picks ("can't tell" counts as a pair, for neither), the verdict on David's bar (at
+least 30 answered pairs; at least 70 % agreement; at least 10 points above log-mel), one line per pair, and every row
+left out and why. It never changes the weights.
+
 ## Pretrained models
 
 `--embeddings answers.tsv` compares pretrained listening models with the learned score
@@ -322,7 +345,8 @@ the main number until the score is adopted (T9.4l).
 `LocalApplicationData/Mod2Xgm/models` (`%LOCALAPPDATA%\Mod2Xgm\models` on Windows), and `--models folder` points elsewhere.
 They run in process through ONNX Runtime. A model not found is listed and skipped.
 
-It remakes every row as `--fit` does and uses the same rows: answered, with clips that remake byte for byte. Each clip and
+It remakes every row as `--fit` does and uses the same rows: answered, not [hold-out](#the-hold-out), with clips that
+remake byte for byte. Each clip and
 the original's are mixed to mono, resampled to the model's rate and cut into the model's chunks; each chunk is compared
 with the same chunk of the original (the cosine distance between embeddings, or CDPAM's own distance), and the distances
 are averaged.

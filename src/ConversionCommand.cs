@@ -148,7 +148,7 @@ internal static class ConversionCommand
         if (analysis is not null && options.UsesOptimizer)
         {
             phase = progress.Start(PhaseFit);
-            optimizer = new OptimizerMapper(limits, FitSounds(analysis, limits, mapping, options, logger, phase), options.ShrinkRules);
+            optimizer = new OptimizerMapper(limits, FitSounds(analysis, limits, mapping, options, logger, phase), options.ShrinkRules, preMix: options.PreMixRules, layers: options.Layers);
             phase.Done();
         }
 

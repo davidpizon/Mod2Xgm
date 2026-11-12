@@ -52,6 +52,18 @@ internal sealed record ConversionOptions
     /// </summary>
     public Optimizer.ShrinkRules? ShrinkRules { get; init; }
 
+    /// <summary>
+    /// The optimizer's pre-mix rules, or <c>null</c> for <see cref="Optimizer.PreMixRules.Default"/>. No option sets it: the
+    /// harness does, for a listening round's version without pre-mixes (<c>rule:pre-mix=off</c>, docs/harness.md#listening-answers).
+    /// </summary>
+    public Optimizer.PreMixRules? PreMixRules { get; init; }
+
+    /// <summary>
+    /// False: the optimizer gives no note a second voice (docs/adr/0088-layering.md). No option sets it: the harness does, for a
+    /// listening round's version without layers (<c>rule:layers=off</c>, docs/harness.md#listening-answers).
+    /// </summary>
+    public bool Layers { get; init; } = true;
+
     /// <summary>MOD sample numbers (1-based) to leave out.</summary>
     public IReadOnlySet<int> IgnoreSamples { get; init; } = new HashSet<int>();
 

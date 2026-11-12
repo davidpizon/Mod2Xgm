@@ -20,7 +20,8 @@ namespace Mod2Xgm.Optimizer;
 /// <param name="shrink">How recordings are shrunk to fit before notes give them up (plan T9.4a); <see cref="ShrinkRules.Default"/> when not given.</param>
 /// <param name="switching">How a sound keeps its voice through the song (plan T9.4c); the converter's choice when not given.</param>
 /// <param name="preMix">How recordings that find no PCM voice are pre-mixed (plan T9.4b); <see cref="PreMixRules.Default"/> when not given.</param>
-internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleSounds> menu, ShrinkRules? shrink = null, VoiceSwitching? switching = null, PreMixRules? preMix = null) : IChannelMapper
+/// <param name="layers">False: no note gets a second voice under it (docs/adr/0088-layering.md), for the listening rounds that compare the two (plan T9.4l).</param>
+internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleSounds> menu, ShrinkRules? shrink = null, VoiceSwitching? switching = null, PreMixRules? preMix = null, bool layers = true) : IChannelMapper
 {
     /// <summary>What a fully percussive sample's notes add to their importance, as a multiple of a note with no hit: a replaced attack is easy to hear, and David chose this over smaller values (docs/sample-capacity.md#importance).</summary>
     private const double PercussiveBoost = 8;
@@ -92,7 +93,7 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
         if (mixing is { Enabled: true, MakeRoom: true } && limits.PcmBytes is not null)
         {
             // A first, silent pass finds the bytes the pre-mixes want; the shrinker then leaves them that room.
-            Run probe = new(limits, menu, song, playback, options, new ConversionNotes(Serilog.Core.Logger.None), shrink ?? ShrinkRules.Default, switching ?? Switching, mixing, 0);
+            Run probe = new(limits, menu, song, playback, options, new ConversionNotes(Serilog.Core.Logger.None), shrink ?? ShrinkRules.Default, switching ?? Switching, mixing, layers, 0);
             try
             {
                 probe.Execute();
@@ -106,7 +107,7 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
             reserve = probe.MixBytes + probe.RefusedMixBytes;
         }
 
-        Run run = new(limits, menu, song, playback, options, notes, shrink ?? ShrinkRules.Default, switching ?? Switching, mixing, reserve);
+        Run run = new(limits, menu, song, playback, options, notes, shrink ?? ShrinkRules.Default, switching ?? Switching, mixing, layers, reserve);
         try
         {
             return run.Execute();
@@ -221,6 +222,7 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
 
         // Pre-mixes (plan T9.4b): the notes in each, the recordings once each by their bytes, and where tails start.
         private readonly PreMixRules _preMix;
+        private readonly bool _layers;
         private readonly long _reserve;
         private readonly List<PlannedNote> _onDac = [];
         private readonly Dictionary<PlannedNote, MixedNotes> _mixOf = [];
@@ -235,9 +237,10 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
         private int _silent;
         private int _slides;
 
-        public Run(TargetLimits limits, IReadOnlyList<SampleSounds> menu, Song song, Playback playback, MappingOptions options, ConversionNotes notes, ShrinkRules rules, VoiceSwitching switching, PreMixRules preMix, long reserve)
+        public Run(TargetLimits limits, IReadOnlyList<SampleSounds> menu, Song song, Playback playback, MappingOptions options, ConversionNotes notes, ShrinkRules rules, VoiceSwitching switching, PreMixRules preMix, bool layers, long reserve)
         {
             _preMix = preMix;
+            _layers = layers;
             _reserve = reserve;
             _rules = rules;
             _switching = switching;
@@ -298,7 +301,11 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
             }
 
             AssignColumns();
-            AddLayers();
+            if (_layers)
+            {
+                AddLayers();
+            }
+
             return Write();
         }
 

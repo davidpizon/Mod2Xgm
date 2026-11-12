@@ -140,7 +140,10 @@ internal static class Program
         Option<string?> fit = new("--fit") { Description = "Instead of scoring, remake an answers file's clips and fit the learned listening score on them, rewriting src/Scoring/ListeningWeights.cs after a fit (docs/harness.md#the-fit)." };
         Option<string?> pick = new("--pick") { Description = "Instead of scoring, pick the next listening round's pairs, those the learned score is least sure of, given an answers file (docs/harness.md#picking-a-round)." };
         Option<int> pairs = new("--pairs") { Description = "How many pairs --pick picks.", DefaultValueFactory = _ => 10 };
+        Option<string?> kinds = new("--kinds") { Description = "With --pick: the kinds of change to pick from, comma-separated (simple, budget, no-dac, half-speed, no-layers, no-pre-mix); every kind when not given." };
+        Option<int> maxPerKind = new("--max-per-kind") { Description = "With --pick: the most pairs of one kind.", DefaultValueFactory = _ => PairPicker.MaxPerKind };
         Option<string?> embeddings = new("--embeddings") { Description = "Instead of scoring, remake an answers file's clips and compare pretrained listening models (PANNs, VGGish, CLAP, CDPAM) with log-mel and the learned score on them (docs/harness.md#pretrained-models)." };
+        Option<string?> holdout = new("--holdout") { Description = "Instead of scoring, remake an answers file's hold-out rows (songs in " + HoldoutSongs.DefaultFolder + ") and score the learned listening score on them against the bar of docs/adr/0105-hold-out-songs.md (docs/harness.md#the-hold-out)." };
         Option<string?> models = new("--models") { Description = "Folder of the exported .onnx models --embeddings uses (default: the user's local data folder, Mod2Xgm/models; tools/onnx-export/README.md)." };
         Option<string> progress = new(ProgressModeScan.OptionName)
         {
@@ -151,7 +154,7 @@ internal static class Program
 
         RootCommand root = new("Mod2Xgm accuracy harness: scores conversions against OpenMPT (docs/harness.md).")
         {
-            inputs, output, rate, libopenmpt, furnace, noFurnace, deflemask, noDefleMask, saveReference, clip, balance, fmFit, fmRenders, psgFit, pcmFit, preMix, ch3, dropClues, noCache, cacheDir, jobs, verbose, progress, remake, fit, pick, pairs, embeddings, models,
+            inputs, output, rate, libopenmpt, furnace, noFurnace, deflemask, noDefleMask, saveReference, clip, balance, fmFit, fmRenders, psgFit, pcmFit, preMix, ch3, dropClues, noCache, cacheDir, jobs, verbose, progress, remake, fit, pick, pairs, kinds, maxPerKind, embeddings, models, holdout,
         };
         root.SetAction(result =>
         {
@@ -205,6 +208,11 @@ internal static class Program
                 throw HarnessException.Usage("--embeddings with --remake, --fit or --pick; --embeddings remakes the clips itself");
             }
 
+            if (result.GetValue(holdout) is not null && (result.GetValue(remake) is not null || result.GetValue(fit) is not null || result.GetValue(pick) is not null || result.GetValue(embeddings) is not null))
+            {
+                throw HarnessException.Usage("--holdout with --remake, --fit, --pick or --embeddings; --holdout remakes its rows itself");
+            }
+
             if (result.GetValue(models) is not null && result.GetValue(embeddings) is null)
             {
                 throw HarnessException.Usage("--models without --embeddings; only --embeddings runs the models");
@@ -216,9 +224,22 @@ internal static class Program
                 throw HarnessException.Usage(string.Create(CultureInfo.InvariantCulture, $"--pairs {pairCount}: between 1 and 100, please"));
             }
 
+            int perKind = result.GetValue(maxPerKind);
+            if (perKind is < 1 or > 100)
+            {
+                throw HarnessException.Usage(string.Create(CultureInfo.InvariantCulture, $"--max-per-kind {perKind}: between 1 and 100, please"));
+            }
+
+            string? kindList = result.GetValue(kinds);
+            if ((kindList is not null || result.GetResult(maxPerKind) is { Implicit: false }) && result.GetValue(pick) is null)
+            {
+                throw HarnessException.Usage("--kinds or --max-per-kind without --pick; only --pick picks pairs");
+            }
+
             string[] given = result.GetValue(inputs) ?? [];
+            bool listening = result.GetValue(remake) is not null || result.GetValue(fit) is not null || result.GetValue(embeddings) is not null || result.GetValue(holdout) is not null;
             return execute(new HarnessOptions(
-                given.Length == 0 ? [DefaultCorpus] : given,
+                given.Length > 0 ? given : listening ? ListeningInputs() : [DefaultCorpus],
                 result.GetValue(output) ?? DefaultOutput,
                 sampleRate,
                 result.GetValue(libopenmpt),
@@ -245,12 +266,30 @@ internal static class Program
                 result.GetValue(pick),
                 pairCount,
                 result.GetValue(embeddings),
-                result.GetValue(models)));
+                result.GetValue(models),
+                result.GetValue(holdout),
+                kindList is null ? null : PickKinds(kindList),
+                perKind));
         });
 
         ParseResult parsed = root.Parse(args);
         return parsed.Errors.Count > 0 ? Errors(parsed) : parsed.Invoke(new InvocationConfiguration { EnableDefaultExceptionHandler = false });
     }
+
+    /// <summary>
+    /// The listening commands' default inputs: the corpus, and the hold-out songs when their folder exists, so every row of the
+    /// answers file finds its song.
+    /// </summary>
+    internal static string[] ListeningInputs() =>
+        Directory.Exists(HoldoutSongs.DefaultFolder) ? [DefaultCorpus, HoldoutSongs.DefaultFolder] : [DefaultCorpus];
+
+    /// <summary>The kinds a <c>--kinds</c> list names; a usage error for a name that is no kind.</summary>
+    private static IReadOnlySet<PairKind> PickKinds(string list) =>
+        list.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(name => PairPicker.Parse(name) ?? throw HarnessException.Usage($"--kinds: {name} is no kind (simple, budget, no-dac, half-speed, no-layers, no-pre-mix)"))
+            .ToHashSet() is { Count: > 0 } set
+            ? set
+            : throw HarnessException.Usage("--kinds: name at least one kind");
 
     private static int Errors(ParseResult parsed) =>
         throw HarnessException.Usage(string.Join("; ", parsed.Errors.Select(e => e.Message)));
@@ -283,7 +322,8 @@ internal static class Program
             }
 
             LibOpenMpt.UseDirectory(options.LibOpenMptDirectory);
-            RemakeResult remade = new ListeningRemake(songs, options.OutputDirectory, new OpenMptRenderer(), logger).Remake(fitAnswers, progress);
+            IReadOnlySet<string> holdoutSongs = HoldoutSongs.In(HoldoutSongs.DefaultFolder);
+            RemakeResult remade = new ListeningRemake(songs, options.OutputDirectory, new OpenMptRenderer(), logger).Remake(fitAnswers, progress, r => !holdoutSongs.Contains(r.Song));
             string? weights = ListeningFit.FindWeightsFile(Environment.CurrentDirectory);
             return ListeningFitRun.Run(remade, options.OutputDirectory, weights, DateOnly.FromDateTime(DateTime.Now), logger);
         }
@@ -296,9 +336,23 @@ internal static class Program
             }
 
             LibOpenMpt.UseDirectory(options.LibOpenMptDirectory);
-            RemakeResult remade = new ListeningRemake(songs, options.OutputDirectory, new OpenMptRenderer(), logger).Remake(embeddingAnswers, progress);
+            IReadOnlySet<string> holdoutSongs = HoldoutSongs.In(HoldoutSongs.DefaultFolder);
+            RemakeResult remade = new ListeningRemake(songs, options.OutputDirectory, new OpenMptRenderer(), logger).Remake(embeddingAnswers, progress, r => !holdoutSongs.Contains(r.Song));
             string folder = options.ModelsDirectory ?? EmbeddingModel.DefaultFolder;
             return EmbeddingsRun.Run(remade, options.OutputDirectory, folder, m => new OnnxListeningModel(m, folder), logger);
+        }
+
+        if (options.Holdout is { } holdoutAnswers)
+        {
+            if (!File.Exists(holdoutAnswers))
+            {
+                throw new HarnessException($"Not found: {holdoutAnswers}");
+            }
+
+            LibOpenMpt.UseDirectory(options.LibOpenMptDirectory);
+            IReadOnlySet<string> holdoutSongs = HoldoutSongs.In(HoldoutSongs.DefaultFolder);
+            RemakeResult remade = new ListeningRemake(songs, options.OutputDirectory, new OpenMptRenderer(), logger).Remake(holdoutAnswers, progress, r => holdoutSongs.Contains(r.Song));
+            return HoldoutRun.Run(remade, options.OutputDirectory, Scoring.ListeningWeights.Weights, logger);
         }
 
         if (options.Pick is { } pickAnswers)
@@ -309,7 +363,7 @@ internal static class Program
             }
 
             LibOpenMpt.UseDirectory(options.LibOpenMptDirectory);
-            return new PairPickRun(songs, options.OutputDirectory, new OpenMptRenderer(), logger).Run(pickAnswers, options.Pairs, DateOnly.FromDateTime(DateTime.Now), options.Jobs, progress);
+            return new PairPickRun(songs, options.OutputDirectory, new OpenMptRenderer(), logger).Run(pickAnswers, options.Pairs, DateOnly.FromDateTime(DateTime.Now), options.Jobs, progress, options.Kinds, options.MaxPerKind);
         }
 
         progress.Begin(new RunInfo(
@@ -487,6 +541,9 @@ internal static class Program
 /// <param name="Pairs">How many pairs <c>--pick</c> picks.</param>
 /// <param name="Embeddings">An answers file to remake and compare the pretrained models on (<c>--embeddings</c>), instead of scoring, or <c>null</c>.</param>
 /// <param name="ModelsDirectory">The exported models' folder, or <c>null</c> for <see cref="EmbeddingModel.DefaultFolder"/>.</param>
+/// <param name="Holdout">An answers file whose hold-out rows to remake and score (<c>--holdout</c>), instead of scoring, or <c>null</c>.</param>
+/// <param name="Kinds">The kinds of change <c>--pick</c> picks from (<c>--kinds</c>), or <c>null</c> for every kind.</param>
+/// <param name="MaxPerKind">The most pairs of one kind <c>--pick</c> picks (<c>--max-per-kind</c>).</param>
 internal sealed record HarnessOptions(
     IReadOnlyList<string> Inputs,
     string OutputDirectory,
@@ -515,4 +572,7 @@ internal sealed record HarnessOptions(
     string? Pick = null,
     int Pairs = 10,
     string? Embeddings = null,
-    string? ModelsDirectory = null);
+    string? ModelsDirectory = null,
+    string? Holdout = null,
+    IReadOnlySet<PairKind>? Kinds = null,
+    int MaxPerKind = PairPicker.MaxPerKind);

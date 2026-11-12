@@ -168,8 +168,13 @@ internal static class AnswersFile
 /// </summary>
 /// <param name="Arguments">Converter options, as on its command line.</param>
 /// <param name="HalfSpeed">Samples (1-based, as on the command line) XGM2 stores at half speed: <c>rule:half-speed=4,7</c>.</param>
-internal sealed record Recipe(IReadOnlyList<string> Arguments, IReadOnlySet<int> HalfSpeed)
+/// <param name="Layers">False with <c>rule:layers=off</c>: no note gets a second voice (docs/adr/0088-layering.md).</param>
+/// <param name="PreMix">False with <c>rule:pre-mix=off</c>: no recordings are pre-mixed (docs/adr/0094-pre-mixed-voice-steals.md).</param>
+internal sealed record Recipe(IReadOnlyList<string> Arguments, IReadOnlySet<int> HalfSpeed, bool Layers = true, bool PreMix = true)
 {
+    /// <summary>The rules a recipe can give, for the usage message.</summary>
+    private const string KnownRules = "rule:half-speed=<samples>, rule:layers=off, rule:pre-mix=off";
+
     /// <summary>Options the harness sets itself, which a recipe can't.</summary>
     private static readonly string[] Reserved = ["--format", "-f", "--output", "-o", "--render-wav", "--progress", "--force", "--info"];
 
@@ -179,14 +184,25 @@ internal sealed record Recipe(IReadOnlyList<string> Arguments, IReadOnlySet<int>
         ArgumentNullException.ThrowIfNull(text);
         List<string> arguments = [];
         HashSet<int> halfSpeed = [];
+        bool layers = true;
+        bool preMix = true;
         foreach (string token in text.Split(' ', StringSplitOptions.RemoveEmptyEntries))
         {
             if (token.StartsWith("rule:", StringComparison.Ordinal))
             {
                 string[] parts = token["rule:".Length..].Split('=', 2);
-                if (parts.Length != 2 || parts[0] != "half-speed")
+                switch (parts)
                 {
-                    throw HarnessException.Usage($"recipe \"{text}\": unknown rule {token} (rules: rule:half-speed=<samples>)");
+                    case ["layers", "off"]:
+                        layers = false;
+                        continue;
+                    case ["pre-mix", "off"]:
+                        preMix = false;
+                        continue;
+                    case ["half-speed", _]:
+                        break;
+                    default:
+                        throw HarnessException.Usage($"recipe \"{text}\": unknown rule {token} (rules: {KnownRules})");
                 }
 
                 foreach (string sample in parts[1].Split(','))
@@ -206,8 +222,11 @@ internal sealed record Recipe(IReadOnlyList<string> Arguments, IReadOnlySet<int>
             }
         }
 
-        return new Recipe(arguments, halfSpeed);
+        return new Recipe(arguments, halfSpeed, layers, preMix);
     }
+
+    /// <summary>True when the recipe has a rule, which only <c>--mapping optimizer</c> reads.</summary>
+    public bool HasRules => HalfSpeed.Count > 0 || !Layers || !PreMix;
 
     /// <summary>The shrink rules the recipe asks for, or <c>null</c> for the converter's own.</summary>
     public ShrinkRules? Rules => HalfSpeed.Count == 0 ? null : ShrinkRules.Default with { ForcedHalfSpeed = HalfSpeed.Select(s => s - 1).ToHashSet() };
@@ -317,15 +336,17 @@ internal sealed class ListeningRemake(IReadOnlyList<string> songs, string output
     public int Run(string answersPath, IConversionProgress progress) => Remake(answersPath, progress).ExitCode;
 
     /// <summary>
-    /// Remakes every row of <paramref name="answersPath"/>, writes the clips, <c>remade.tsv</c> and (with a reference player)
-    /// <c>features.tsv</c>, and returns each row's result for the fit.
+    /// Remakes every row of <paramref name="answersPath"/> that <paramref name="include"/> takes (every row when it is
+    /// <c>null</c>), writes the clips, <c>remade.tsv</c> and (with a reference player) <c>features.tsv</c>, and returns each
+    /// remade row's result for the fit. A row left out is copied to <c>remade.tsv</c> as it is and isn't in the result.
     /// </summary>
-    public RemakeResult Remake(string answersPath, IConversionProgress progress)
+    public RemakeResult Remake(string answersPath, IConversionProgress progress, Func<ListeningRow, bool>? include = null)
     {
         ArgumentNullException.ThrowIfNull(answersPath);
         ArgumentNullException.ThrowIfNull(progress);
-        IReadOnlyList<ListeningRow> rows = AnswersFile.Parse(File.ReadAllText(answersPath));
-        progress.Begin(new RunInfo(answersPath, RunInfo.HarnessFormat, "normal", [.. rows.Select((r, i) => new PhaseInfo(i + 1, "row:" + r.Name, r.Name, string.Empty))]));
+        IReadOnlyList<ListeningRow> all = AnswersFile.Parse(File.ReadAllText(answersPath));
+        HashSet<ListeningRow> rows = [.. include is null ? all : all.Where(include)];
+        progress.Begin(new RunInfo(answersPath, RunInfo.HarnessFormat, "normal", [.. all.Where(rows.Contains).Select((r, i) => new PhaseInfo(i + 1, "row:" + r.Name, r.Name, string.Empty))]));
         string folder = Path.Combine(outputDirectory, "listening");
         Directory.CreateDirectory(folder);
         string commit = Commit();
@@ -333,8 +354,14 @@ internal sealed class ListeningRemake(IReadOnlyList<string> songs, string output
         List<RemadeRow> results = [];
         StringBuilder features = new StringBuilder(FeaturesHeader).Append('\n');
         int mismatches = 0;
-        foreach (ListeningRow row in rows)
+        foreach (ListeningRow row in all)
         {
+            if (!rows.Contains(row))
+            {
+                remade.Add(row);
+                continue;
+            }
+
             IPhase phase = progress.Start("row:" + row.Name);
             byte[] clipA = Version(row, row.RecipeA, Path.Combine(folder, row.Name + "-a.wav"));
             byte[] clipB = Version(row, row.RecipeB, Path.Combine(folder, row.Name + "-b.wav"));
@@ -384,6 +411,10 @@ internal sealed class ListeningRemake(IReadOnlyList<string> songs, string output
             folder,
             mismatches,
             rows.Count);
+        if (rows.Count < all.Count)
+        {
+            logger.Information("{Skipped} rows left out of this run, copied to remade.tsv as they are", all.Count - rows.Count);
+        }
         return new RemakeResult(mismatches == 0 ? 0 : 1, results);
     }
 
@@ -429,14 +460,14 @@ internal sealed class ListeningRemake(IReadOnlyList<string> songs, string output
     /// </summary>
     private static ExitCode Convert(ConversionOptions options, Recipe recipe, string recipeText, string wav, Action<SongAnalysis>? analyzed)
     {
-        if (recipe.Rules is not null && !options.UsesOptimizer)
+        if (recipe.HasRules && !options.UsesOptimizer)
         {
             throw HarnessException.Usage($"recipe \"{recipeText}\": its rules need --mapping optimizer");
         }
 
         try
         {
-            return ConversionCommand.Execute(options with { ShrinkRules = recipe.Rules }, Serilog.Core.Logger.None, analyzed, NoProgress.Instance);
+            return ConversionCommand.Execute(options with { ShrinkRules = recipe.Rules, PreMixRules = recipe.PreMix ? null : PreMixRules.None, Layers = recipe.Layers }, Serilog.Core.Logger.None, analyzed, NoProgress.Instance);
         }
         catch (ConversionException ex) when (ex.Code == ExitCode.UsageError && options.Format == OutputFormat.Xgm && File.Exists(wav))
         {
