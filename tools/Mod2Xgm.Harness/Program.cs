@@ -284,7 +284,7 @@ internal static class Program
         Directory.Exists(HoldoutSongs.DefaultFolder) ? [DefaultCorpus, HoldoutSongs.DefaultFolder] : [DefaultCorpus];
 
     /// <summary>The kinds a <c>--kinds</c> list names; a usage error for a name that is no kind.</summary>
-    internal static IReadOnlySet<PairKind> PickKinds(string list) =>
+    private static IReadOnlySet<PairKind> PickKinds(string list) =>
         list.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Select(name => PairPicker.Parse(name) ?? throw HarnessException.Usage($"--kinds: {name} is no kind (simple, budget, no-dac, half-speed, no-layers, no-pre-mix)"))
             .ToHashSet() is { Count: > 0 } set
