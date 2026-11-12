@@ -6,3 +6,5 @@ numpy<2
 panns-inference==0.1.1
 laion-clap==1.1.6
 cdpam==0.0.6
+resampy>=0.4  # torchvggish and cdpam import it but cdpam does not declare it
+torchvision  # laion-clap imports it but does not declare it
