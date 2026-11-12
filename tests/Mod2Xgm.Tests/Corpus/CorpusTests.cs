@@ -5,8 +5,9 @@ using Serilog.Core;
 namespace Mod2Xgm.Tests.Corpus;
 
 /// <summary>
-/// The corpus of freely licensed MODs (plan T6.1, tests/data/corpus): every file is listed in tests/data/LICENSES.md
-/// with a matching checksum, and every file reads as a 4-channel MOD. The 15-sample song is made by
+/// The corpus of freely licensed MODs (plan T6.1, tests/data/corpus) and the hold-out songs (plan T9.4l,
+/// tests/data/holdout): every file is listed in its section of tests/data/LICENSES.md with a matching checksum, and every
+/// file reads as a 4-channel MOD. The 15-sample song is made by
 /// <see cref="CorpusSongs"/>; run with <c>UPDATE_GOLDEN=1</c> to rewrite it after a change (then update its checksum).
 /// </summary>
 [Trait("Category", "Integration")]
@@ -16,9 +17,19 @@ public sealed class CorpusTests
 
     private static string CorpusDirectory => Path.Combine(DataDirectory, "corpus");
 
+    private static string HoldoutDirectory => Path.Combine(DataDirectory, "holdout");
+
+    /// <summary>The heading that starts the corpus's table in LICENSES.md.</summary>
+    private const string CorpusSection = "## Corpus";
+
+    /// <summary>The heading that starts the hold-out's table in LICENSES.md (docs/adr/0105-hold-out-songs.md).</summary>
+    private const string HoldoutSection = "## Hold-out";
+
     /// <summary>The corpus file names, for the theories.</summary>
-    public static TheoryData<string> Files =>
-        new(Directory.EnumerateFiles(CorpusDirectory).Select(Path.GetFileName).OfType<string>().Order(StringComparer.Ordinal));
+    public static TheoryData<string> Files => new(FileNames(CorpusDirectory));
+
+    /// <summary>The hold-out file names, for the theories.</summary>
+    public static TheoryData<string> HoldoutFiles => new(FileNames(HoldoutDirectory));
 
     /// <summary>The corpus holds 10–20 songs (plan T6.1), every one listed in LICENSES.md, and every listed one is there.</summary>
     [Fact]
@@ -28,7 +39,7 @@ public sealed class CorpusTests
         string[] files = [.. Files.Select(row => row.Data)];
 
         // Act
-        IEnumerable<string> listed = ListedChecksums().Keys.Order(StringComparer.Ordinal);
+        IEnumerable<string> listed = ListedChecksums(CorpusSection).Keys.Order(StringComparer.Ordinal);
 
         // Assert
         Assert.InRange(files.Length, 10, 20);
@@ -41,7 +52,7 @@ public sealed class CorpusTests
     public void Corpus_ForFile_MatchesListedChecksum(string file)
     {
         // Arrange
-        Dictionary<string, string> listed = ListedChecksums();
+        Dictionary<string, string> listed = ListedChecksums(CorpusSection);
 
         // Act
         string actual = Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(Path.Combine(CorpusDirectory, file))));
@@ -49,6 +60,68 @@ public sealed class CorpusTests
         // Assert
         Assert.Contains(file, listed.Keys);
         Assert.Equal(listed[file], actual);
+    }
+
+    /// <summary>The hold-out holds at least 20 songs (ADR 0105), every one listed in its LICENSES.md table, and every listed one is there.</summary>
+    [Fact]
+    public void Holdout_WithLicenseTable_ListsExactlyItsFiles()
+    {
+        // Arrange
+        string[] files = [.. HoldoutFiles.Select(row => row.Data)];
+
+        // Act
+        IEnumerable<string> listed = ListedChecksums(HoldoutSection).Keys.Order(StringComparer.Ordinal);
+
+        // Assert
+        Assert.InRange(files.Length, 20, 60);
+        Assert.Equal(files, listed);
+    }
+
+    /// <summary>Each hold-out file is the one whose license was recorded: its SHA-256 matches LICENSES.md.</summary>
+    [Theory]
+    [MemberData(nameof(HoldoutFiles))]
+    public void Holdout_ForFile_MatchesListedChecksum(string file)
+    {
+        // Arrange
+        Dictionary<string, string> listed = ListedChecksums(HoldoutSection);
+
+        // Act
+        string actual = Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(Path.Combine(HoldoutDirectory, file))));
+
+        // Assert
+        Assert.Contains(file, listed.Keys);
+        Assert.Equal(listed[file], actual);
+    }
+
+    /// <summary>Each hold-out file reads as a 4-channel MOD; conversion notes are fine, rejection is not.</summary>
+    [Theory]
+    [MemberData(nameof(HoldoutFiles))]
+    public void Read_ForHoldoutFile_ReturnsFourChannelMod(string file)
+    {
+        // Arrange
+        byte[] bytes = File.ReadAllBytes(Path.Combine(HoldoutDirectory, file));
+
+        // Act
+        ModModule module = ModReader.Read(bytes, new ConversionNotes(Logger.None));
+
+        // Assert
+        Assert.Equal(4, module.ChannelCount);
+        Assert.NotEmpty(module.Orders);
+    }
+
+    /// <summary>No hold-out song is also a corpus song, by name or by content: the hold-out is songs never used for fitting (ADR 0105).</summary>
+    [Fact]
+    public void Holdout_WithCorpus_SharesNoSong()
+    {
+        // Arrange
+        Dictionary<string, string> corpus = ListedChecksums(CorpusSection);
+
+        // Act
+        Dictionary<string, string> holdout = ListedChecksums(HoldoutSection);
+
+        // Assert
+        Assert.Empty(holdout.Keys.Intersect(corpus.Keys, StringComparer.Ordinal));
+        Assert.Empty(holdout.Values.Intersect(corpus.Values, StringComparer.Ordinal));
     }
 
     /// <summary>Each file reads as a 4-channel MOD; conversion notes are fine, rejection is not.</summary>
@@ -94,14 +167,28 @@ public sealed class CorpusTests
         Assert.Equal(ModPlayer.UltimateSoundtracker, module.Player);
     }
 
-    /// <summary>File name → SHA-256 (lower-case hex) from the corpus table in LICENSES.md.</summary>
-    private static Dictionary<string, string> ListedChecksums()
+    /// <summary>The names of the files in <paramref name="directory"/>, in order.</summary>
+    private static IEnumerable<string> FileNames(string directory) =>
+        Directory.EnumerateFiles(directory).Select(Path.GetFileName).OfType<string>().Order(StringComparer.Ordinal);
+
+    /// <summary>
+    /// File name → SHA-256 (lower-case hex) from the table in LICENSES.md's section whose heading starts with
+    /// <paramref name="section"/>, up to the next <c>## </c> heading.
+    /// </summary>
+    private static Dictionary<string, string> ListedChecksums(string section)
     {
         Dictionary<string, string> listed = new(StringComparer.Ordinal);
+        bool inSection = false;
         foreach (string line in File.ReadLines(Path.Combine(DataDirectory, "LICENSES.md")))
         {
+            if (line.StartsWith("## ", StringComparison.Ordinal))
+            {
+                inSection = line.StartsWith(section, StringComparison.Ordinal);
+                continue;
+            }
+
             string[] cells = [.. line.Split('|').Select(c => c.Trim())];
-            if (cells.Length > 2 && cells[1].StartsWith('`') && cells[1].EndsWith(".mod`", StringComparison.Ordinal))
+            if (inSection && cells.Length > 2 && cells[1].StartsWith('`') && cells[1].EndsWith(".mod`", StringComparison.Ordinal))
             {
                 listed.Add(cells[1].Trim('`'), cells[^2].Trim('`'));
             }

@@ -41,3 +41,53 @@ input only, never redistributed as part of the converter.
 **Left out on purpose** (all marked Public Domain there): covers of other people's tunes, songs whose notes say the
 samples came from someone else's song, a song whose text says "all rights reserved", a 32-channel file, and files over
 1.5 MB.
+
+## Hold-out (`holdout/`, plan T9.4l)
+
+Twenty-eight 4-channel MODs from [The Mod Archive](https://modarchive.org), kept apart from the corpus: they are the
+songs of the learned listening score's hold-out round ([ADR 0105](../../docs/adr/0105-hold-out-songs.md)) and are never
+used for fitting. Every MOD the site lists as Public Domain or CC0 that isn't in the corpus was checked on its own page
+(2026-11-11) and the same rules as the corpus applied (David). Downloaded 2026-11-11 from
+`https://api.modarchive.org/downloads.php?moduleid=<id>`, unchanged.
+
+| File | Title | Artist | License | Mod Archive ID | SHA-256 |
+|---|---|---|---|---|---|
+| `absolu.mod` | absolute xtc | m0d (Greg Tuby) | Public Domain | [32703](https://modarchive.org/index.php?request=view_by_moduleid&query=32703) | `7e8bcfb9e61219cca850c41627b538d5ea123c9d6b077056d2867dd08a16eaa6` |
+| `allsort.mod` | allsorts! | m0d (Greg Tuby) | Public Domain | [33325](https://modarchive.org/index.php?request=view_by_moduleid&query=33325) | `a421cbb3c83b7d6f977075a8ca753cb031b77238cf5cba7dc32d7741c61f4fe5` |
+| `beyond_-_remix.mod` | untitled | Beyond | Public Domain | [171888](https://modarchive.org/index.php?request=view_by_moduleid&query=171888) | `2137255e3bc4173dacb0f048c1fe5826a0779373e30b637a38c51218e2a08338` |
+| `drozerix_-_air_ride.mod` | Air Ride | Drozerix | Public Domain | [213325](https://modarchive.org/index.php?request=view_by_moduleid&query=213325) | `3f32cc282dd6352b24cd1910d96eaf3de7ef5a4a448566792d566c863039082f` |
+| `drozerix_-_may_is_4_her.mod` | May is 4 Her | Drozerix | Public Domain | [197296](https://modarchive.org/index.php?request=view_by_moduleid&query=197296) | `9286f646779b5831ab06a62ef9a4f27c422d110dd9c5b1f1ef3a2211565de03f` |
+| `drozerix_-_silicon_dancer.mod` | Silicon Dancer | Drozerix | Public Domain | [209692](https://modarchive.org/index.php?request=view_by_moduleid&query=209692) | `e0827f97a981fe00cf721320a07dbc0ca557c924d6736b902d61fb28c1dff396` |
+| `em2.mod` | everone go m21 | m0d (Greg Tuby) | Public Domain | [41778](https://modarchive.org/index.php?request=view_by_moduleid&query=41778) | `ebaec4276f0e23edbada34b70e9021c9a7b00459135f3c2e927d9a0ba7940dca` |
+| `jam_-_highway_encounter.mod` | Highway Encounter | Jam | Public Domain | [211660](https://modarchive.org/index.php?request=view_by_moduleid&query=211660) | `ce7ef7ac156887e212cd18197f82a5cc32d3015428a9fc7ec762a011aa232fbd` |
+| `loituma.mod` | Ievan Polkka | Jam | Public Domain | [195783](https://modarchive.org/index.php?request=view_by_moduleid&query=195783) | `af690866f0aaa33d523e570708f079f5e7ae2f2c5e6350dd48889fd911f26ceb` |
+| `modmon.mod` | happy | m0d (Greg Tuby) | Public Domain | [52296](https://modarchive.org/index.php?request=view_by_moduleid&query=52296) | `d0ccf583a5cbd70a9b06aa842b980ea03596a3c2b1d3daf0e8fbd8c3a4d0b7ec` |
+| `musix-after.mod` | spo | m0d (Greg Tuby) | Public Domain | [53261](https://modarchive.org/index.php?request=view_by_moduleid&query=53261) | `1f86bcd802eccdbf9492391d87e237b8b427600f320a5c54fd5f4542a4b94a37` |
+| `musix-aj.mod` | spare-a-j | m0d (MuSiX) | Public Domain | [53265](https://modarchive.org/index.php?request=view_by_moduleid&query=53265) | `835381a96b07be9f7bade062d8459f41f4e0d34fa832ffd1c27aea627e3d6ae2` |
+| `musix-burp.mod` | funny tune ((grt)) | m0d (MuSiX) | Public Domain | [53271](https://modarchive.org/index.php?request=view_by_moduleid&query=53271) | `0911ac0ac74ef961d4bddb56a2ca495526d5c14ed602a352a4987bb5f8e14ffd` |
+| `musix-calling-for-dx.mod` | calling 4 dx?! | m0d (Greg Tuby) | Public Domain | [66153](https://modarchive.org/index.php?request=view_by_moduleid&query=66153) | `e6a02aa234e835dff55e15eb599cc61ba5c2190b54b099595ad74300f290b462` |
+| `musix-heaven-rmx.mod` | heavens open | m0d (Amiga Music Workshop) | Public Domain | [53282](https://modarchive.org/index.php?request=view_by_moduleid&query=53282) | `53efbac132faba4fdada2e111e35eaa4151040c99bf5cbad3c8612142c3cb7bb` |
+| `musix-icecream-vince.mod` | vince mix | m0d (MuSiX) | Public Domain | [53285](https://modarchive.org/index.php?request=view_by_moduleid&query=53285) | `d5f2db16a86ab96bf95852c3103f762ad47611da4251fab149b7bc8de345e9da` |
+| `musix-pleasant.mod` | pleasant2 | m0d (Greg Tuby) | Public Domain | [53299](https://modarchive.org/index.php?request=view_by_moduleid&query=53299) | `4addb4477db0648933abcf13878c90c0a7d0a2363d59107e4a1af6a4947e64f5` |
+| `musix-rm.mod` | rm 2 | m0d (Greg Tuby) | Public Domain | [53304](https://modarchive.org/index.php?request=view_by_moduleid&query=53304) | `da0e446131d83519ba05dd0f17afaf6962b633084c8b06b53ff9e72045abdd1c` |
+| `musix-shine.mod` | sjhine | m0d (Greg Tuby) | Public Domain | [53315](https://modarchive.org/index.php?request=view_by_moduleid&query=53315) | `d8559038c54754554d35202a565e4521395100aa5c98bec86bf65cf6c5e85ab3` |
+| `musix-spaceman-rmx.mod` | spaced out | m0d (Greg Tuby) | Public Domain | [53317](https://modarchive.org/index.php?request=view_by_moduleid&query=53317) | `9df5d638d9bc97f6938e5f51d7731dca212770f6d3981f2594552a5bc12ba173` |
+| `musix-spider.mod` | insi spider | m0d (Greg Tuby) | Public Domain | [53321](https://modarchive.org/index.php?request=view_by_moduleid&query=53321) | `17c67f8cdc9bbbf888ac0f58ec05f76dd29528a6d193089d063021d0fe73b1bb` |
+| `musix-the-messanger.mod` | the messageman | m0d (Greg Tuby) | Public Domain | [53324](https://modarchive.org/index.php?request=view_by_moduleid&query=53324) | `5cf96de7edb91e5fa61c81417b635a06d601667fb6242b6c8c9ce2c36a63b1e4` |
+| `musix-wild-perspective.mod` | wild perspective | m0d (Greg Tuby) | Public Domain | [53329](https://modarchive.org/index.php?request=view_by_moduleid&query=53329) | `da6f0478f25435af20b2a512adbe3a842db305b35d706585c16a23b26e64078a` |
+| `musix-wormology.mod` | wormology | m0d (Greg Tuby) | Public Domain | [53333](https://modarchive.org/index.php?request=view_by_moduleid&query=53333) | `d9032ed99d10f7c224c1acfc92eb3dc64d7a35476cc5e3c7bb562d2c1787219a` |
+| `musix-x-out.mod` | x-out | m0d (Greg Tuby) | Public Domain | [53335](https://modarchive.org/index.php?request=view_by_moduleid&query=53335) | `c0e33097c1e09a3f8b54bdea3d24d9eb7a17980248778c823cfc702820ae6bd8` |
+| `sharp_objects_insideoutside.mod` | insideoutsidest | Sharp Objects | Public Domain | [196630](https://modarchive.org/index.php?request=view_by_moduleid&query=196630) | `0e2e03f7374f014b33323ccde4e839fe602d2ccfca9aa128d85b12afd0d8b18a` |
+| `tgm-alguemematapfvr.mod` | Que Porr'essa | The Goofy-Mouse | CC0 | [212613](https://modarchive.org/index.php?request=view_by_moduleid&query=212613) | `bbe58c0f50db2befd69eaf59fcc703a35d1723393bf55ffe81742ca970bfb4e3` |
+| `tgm-lazycows.mod` | Lazy Cows (bad) | The Goofy-Mouse | CC0 | [215663](https://modarchive.org/index.php?request=view_by_moduleid&query=215663) | `20ca815fd02d66ff6e829b522445e5977a389fe9067b5cb5aa351a7190399508` |
+
+"m0d" is the account that uploaded the MusiX collection. Where a song's text names its composer (Greg Tuby, of Amiga
+Music Workshop), it is in brackets; otherwise the collection is. `loituma.mod` is Jam's arrangement of Ievan Polkka, a
+traditional Finnish song. As in the corpus, several songs' texts say their samples came from various sources or were
+recorded by the artist; they are test input only, never redistributed as part of the converter.
+
+**Left out on purpose** (all marked Public Domain there, David): covers of Rainbow Factory, Drac's Night Out and Robert
+Miles' "Children"; songs whose notes say their samples came from another song or from various sources
+(`musix-retrospective`, `rexywood_-_momhometown`, `music-jump`); one whose text says "All Rights Reserved" and one with a
+"(c)" line (`musix-the-red-one`, `musix-pointless`); and three files over 1.5 MB whose notes raise doubts too: Goa
+Phantasm's "LSD" says "Track is copyrighted", and two Sharp Objects songs are a tribute to another work.
