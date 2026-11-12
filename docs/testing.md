@@ -143,4 +143,7 @@ External applications (openmpt123, DefleMask, SGDK, BlastEm, Genesis Plus GX) ar
 - **Do not commit copyrighted MOD files.** Generate modules in code, or use files with an explicit
   free license and record the license next to the file in `tests/data/LICENSES.md`.
 - Keep fixtures small (< 100 KB each). The corpus (`tests/data/corpus/`, [ADR 0046](adr/0046-mod-corpus.md)) is the
-  exception: real songs, Public Domain or CC0 only, each listed with its checksum (`CorpusTests` checks it).
+  exception: real songs, Public Domain or CC0 only, each listed with its checksum (`CorpusTests` checks it). So are the
+  hold-out songs (`tests/data/holdout/`, [ADR 0105](adr/0105-hold-out-songs.md)): the same rules, their own table in
+  LICENSES.md, and never used to fit or tune anything; the corpus and harness runs don't read that folder unless it is
+  named.
