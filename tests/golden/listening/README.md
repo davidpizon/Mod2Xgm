@@ -73,6 +73,12 @@ guessed all 10 of David's a/b picks (log-mel alone: 6 of 10), with a log-loss of
 gave the five "can't tell" pairs 0.50–0.55. Fifteen answers, one per song, are still few: the adoption decision waits
 for its hold-out round (T9.4l).
 
+## Hold-out rows
+
+Rows whose song is in `tests/data/holdout/` are the hold-out ([ADR 0105](../../../docs/adr/0105-hold-out-songs.md)):
+logged here like any round, but never fitted on. `--fit` and `--embeddings` leave them out, and `--holdout` scores the
+learned score on them against David's bar ([harness.md](../../../docs/harness.md#the-hold-out)).
+
 ## A clip changes
 
 When a change to the converter makes `--remake` report a row whose clips differ, the row no longer describes what the

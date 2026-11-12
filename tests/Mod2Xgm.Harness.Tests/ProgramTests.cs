@@ -104,6 +104,8 @@ public sealed class ProgramTests
     [InlineData("--embeddings", "a.tsv", "--fit", "a.tsv")]
     [InlineData("--embeddings", "a.tsv", "--pick", "a.tsv")]
     [InlineData("--models", "m")]
+    [InlineData("--holdout", "a.tsv", "--fit", "a.tsv")]
+    [InlineData("--holdout", "a.tsv", "--embeddings", "a.tsv")]
     public void Invoke_WithBadOptions_ReportsUsageError(params string[] args)
     {
         // Act
@@ -111,6 +113,26 @@ public sealed class ProgramTests
 
         // Assert
         Assert.Equal("usage", error.Kind);
+    }
+
+    /// <summary>
+    /// <c>--holdout</c> reaches <see cref="HarnessOptions"/>, and the listening commands default to the corpus plus the
+    /// hold-out folder (when it is there), so every answers row finds its song; plain scoring stays on the corpus.
+    /// </summary>
+    [Fact]
+    public void Invoke_WithHoldout_ReadsAnswersAndListeningInputs()
+    {
+        // Act
+        HarnessOptions sut = Parse("--holdout", "a.tsv");
+        HarnessOptions fit = Parse("--fit", "a.tsv");
+        HarnessOptions named = Parse("--holdout", "a.tsv", "song.mod");
+
+        // Assert
+        Assert.Equal("a.tsv", sut.Holdout);
+        Assert.Equal(Program.ListeningInputs(), sut.Inputs);
+        Assert.Equal(Program.ListeningInputs(), fit.Inputs);
+        Assert.Equal(["song.mod"], named.Inputs);
+        Assert.Contains(Program.DefaultCorpus, Program.ListeningInputs());
     }
 
     /// <summary><c>--pick</c> takes an answers file and picks 10 pairs unless <c>--pairs</c> says otherwise.</summary>

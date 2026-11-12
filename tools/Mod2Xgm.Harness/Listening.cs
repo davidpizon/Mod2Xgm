@@ -317,15 +317,17 @@ internal sealed class ListeningRemake(IReadOnlyList<string> songs, string output
     public int Run(string answersPath, IConversionProgress progress) => Remake(answersPath, progress).ExitCode;
 
     /// <summary>
-    /// Remakes every row of <paramref name="answersPath"/>, writes the clips, <c>remade.tsv</c> and (with a reference player)
-    /// <c>features.tsv</c>, and returns each row's result for the fit.
+    /// Remakes every row of <paramref name="answersPath"/> that <paramref name="include"/> takes (every row when it is
+    /// <c>null</c>), writes the clips, <c>remade.tsv</c> and (with a reference player) <c>features.tsv</c>, and returns each
+    /// remade row's result for the fit. A row left out is copied to <c>remade.tsv</c> as it is and isn't in the result.
     /// </summary>
-    public RemakeResult Remake(string answersPath, IConversionProgress progress)
+    public RemakeResult Remake(string answersPath, IConversionProgress progress, Func<ListeningRow, bool>? include = null)
     {
         ArgumentNullException.ThrowIfNull(answersPath);
         ArgumentNullException.ThrowIfNull(progress);
-        IReadOnlyList<ListeningRow> rows = AnswersFile.Parse(File.ReadAllText(answersPath));
-        progress.Begin(new RunInfo(answersPath, RunInfo.HarnessFormat, "normal", [.. rows.Select((r, i) => new PhaseInfo(i + 1, "row:" + r.Name, r.Name, string.Empty))]));
+        IReadOnlyList<ListeningRow> all = AnswersFile.Parse(File.ReadAllText(answersPath));
+        HashSet<ListeningRow> rows = [.. include is null ? all : all.Where(include)];
+        progress.Begin(new RunInfo(answersPath, RunInfo.HarnessFormat, "normal", [.. all.Where(rows.Contains).Select((r, i) => new PhaseInfo(i + 1, "row:" + r.Name, r.Name, string.Empty))]));
         string folder = Path.Combine(outputDirectory, "listening");
         Directory.CreateDirectory(folder);
         string commit = Commit();
@@ -333,8 +335,14 @@ internal sealed class ListeningRemake(IReadOnlyList<string> songs, string output
         List<RemadeRow> results = [];
         StringBuilder features = new StringBuilder(FeaturesHeader).Append('\n');
         int mismatches = 0;
-        foreach (ListeningRow row in rows)
+        foreach (ListeningRow row in all)
         {
+            if (!rows.Contains(row))
+            {
+                remade.Add(row);
+                continue;
+            }
+
             IPhase phase = progress.Start("row:" + row.Name);
             byte[] clipA = Version(row, row.RecipeA, Path.Combine(folder, row.Name + "-a.wav"));
             byte[] clipB = Version(row, row.RecipeB, Path.Combine(folder, row.Name + "-b.wav"));
@@ -384,6 +392,10 @@ internal sealed class ListeningRemake(IReadOnlyList<string> songs, string output
             folder,
             mismatches,
             rows.Count);
+        if (rows.Count < all.Count)
+        {
+            logger.Information("{Skipped} rows left out of this run, copied to remade.tsv as they are", all.Count - rows.Count);
+        }
         return new RemakeResult(mismatches == 0 ? 0 : 1, results);
     }
 

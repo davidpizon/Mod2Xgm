@@ -105,6 +105,23 @@ public sealed class ListeningRemakeTests : IDisposable
         Assert.False(File.Exists(Path.Combine(_folder, "listening", "features.tsv")));
     }
 
+    /// <summary>A row the filter leaves out (a hold-out row, for the fit) isn't remade or returned, but stays in remade.tsv as it is.</summary>
+    [Fact]
+    public void Remake_WithRowLeftOut_CopiesItAndReturnsNothing()
+    {
+        // Arrange
+        string answers = Answers("xgm2", "", "");
+        ListeningRemake sut = new([TestFiles.ShortSong], _folder, null, Logger.None);
+
+        // Act
+        RemakeResult result = sut.Remake(answers, NoProgress.Instance, _ => false);
+
+        // Assert
+        Assert.Empty(result.Rows);
+        Assert.Equal(File.ReadAllText(answers), File.ReadAllText(Path.Combine(_folder, "listening", "remade.tsv")));
+        Assert.False(Directory.Exists(Path.Combine(_folder, "listening", "work")));
+    }
+
     /// <summary>A reference player that plays a two-second tone, enough to cut a one-second clip from.</summary>
     private sealed class ToneReference : IReferenceRenderer
     {
