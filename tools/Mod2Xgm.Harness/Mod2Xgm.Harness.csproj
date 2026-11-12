@@ -16,6 +16,8 @@
     <PackageReference Include="System.CommandLine" />
     <!-- EBU R128 loudness of the renders (ADR 0053). -->
     <PackageReference Include="R128Net" />
+    <!-- Pretrained listening models, harness only (ADR 0104). -->
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" />
   </ItemGroup>
 
   <ItemGroup>
@@ -24,6 +26,8 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Mod2Xgm.Harness.Tests" />
+    <!-- Moq's proxies of internal interfaces (IListeningModel) in the tests. -->
+    <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
   </ItemGroup>
 
 </Project>

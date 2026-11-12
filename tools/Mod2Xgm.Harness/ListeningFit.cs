@@ -69,6 +69,12 @@ internal sealed record FitResult(
     double? LogMelAgreement,
     IReadOnlyList<FitLine> Lines);
 
+/// <summary>How one fixed set of features does on leave-one-song-out checks (<see cref="ListeningFit.Trial"/>).</summary>
+/// <param name="Lambda">The L2 strength with the lowest log-loss, on standardized features.</param>
+/// <param name="LogLoss">The mean log-loss on songs left out; ln 2 is a coin's.</param>
+/// <param name="Agreement">How often, in percent, it guessed an a/b pick on songs left out; <c>null</c> without a/b picks.</param>
+internal sealed record FitTrial(double Lambda, double LogLoss, double? Agreement);
+
 /// <summary>
 /// Fits the learned listening score (plan T9.4k2, docs/adr/0101-listening-score-fit.md): a pairwise logistic model with no
 /// intercept, <c>P(A ≻ B) = σ(w · (f(B) − f(A)))</c>, L2-regularized, its features and strength chosen by forward
@@ -160,6 +166,50 @@ internal static class ListeningFit
         FitLine[] lines = [.. answers.Select((a, i) => new FitLine(a, a.Target == 0 ? 1 - chances[i] : chances[i], MelGuess(a)))];
         double? agreement = Agreement(answers, i => chances[i]);
         return new FitResult(FitOutcome.Fitted, string.Empty, answers.Count, songs, maxWeights, weights, lambda, logLoss, agreement, logMel, lines);
+    }
+
+    /// <summary>
+    /// Leave-one-song-out checks of one fixed set of <paramref name="features"/> (columns of <paramref name="differences"/>,
+    /// one row of <c>f(B) − f(A)</c> per answer), with the λ that gives the lowest log-loss: how the pretrained models are
+    /// compared with the <c>src/Scoring</c> features (plan T9.4k4, docs/adr/0104-pretrained-embeddings.md). No cap on
+    /// weights here, as nothing is written. <c>null</c> with answers from fewer than two songs, or when a feature never differs.
+    /// </summary>
+    public static FitTrial? Trial(IReadOnlyList<FitAnswer> answers, double[][] differences, IReadOnlyList<int> features)
+    {
+        ArgumentNullException.ThrowIfNull(answers);
+        ArgumentNullException.ThrowIfNull(differences);
+        ArgumentNullException.ThrowIfNull(features);
+        if (differences.Length != answers.Count)
+        {
+            throw new ArgumentException($"{differences.Length} rows of differences for {answers.Count} answers", nameof(differences));
+        }
+
+        string[] groups = [.. answers.Select(a => a.Song.ToUpperInvariant())];
+        if (groups.Distinct(StringComparer.Ordinal).Count() < 2)
+        {
+            return null;
+        }
+
+        double[] scales = Scales(differences);
+        int[] set = [.. features];
+        if (set.Any(j => scales[j] == 0))
+        {
+            return null;
+        }
+
+        double[] targets = [.. answers.Select(a => a.Target)];
+        (double Lambda, double[] Chances, double LogLoss)? best = null;
+        foreach (double l in Lambdas)
+        {
+            (double[] chances, double loss) = LeftOut(differences, targets, groups, scales, set, l);
+            if (best is null || loss < best.Value.LogLoss - 1e-12)
+            {
+                best = (l, chances, loss);
+            }
+        }
+
+        (double lambda, double[] leftOut, double logLoss) = best!.Value; // Lambdas is never empty
+        return new FitTrial(lambda, logLoss, Agreement(answers, i => leftOut[i]));
     }
 
     /// <summary>The fit's report, one line each: the summary, then every answer (David, 2026-11-10).</summary>

@@ -140,6 +140,8 @@ internal static class Program
         Option<string?> fit = new("--fit") { Description = "Instead of scoring, remake an answers file's clips and fit the learned listening score on them, rewriting src/Scoring/ListeningWeights.cs after a fit (docs/harness.md#the-fit)." };
         Option<string?> pick = new("--pick") { Description = "Instead of scoring, pick the next listening round's pairs, those the learned score is least sure of, given an answers file (docs/harness.md#picking-a-round)." };
         Option<int> pairs = new("--pairs") { Description = "How many pairs --pick picks.", DefaultValueFactory = _ => 10 };
+        Option<string?> embeddings = new("--embeddings") { Description = "Instead of scoring, remake an answers file's clips and compare pretrained listening models (PANNs, VGGish, CLAP, CDPAM) with log-mel and the learned score on them (docs/harness.md#pretrained-models)." };
+        Option<string?> models = new("--models") { Description = "Folder of the exported .onnx models --embeddings uses (default: the user's local data folder, Mod2Xgm/models; tools/onnx-export/README.md)." };
         Option<string> progress = new(ProgressModeScan.OptionName)
         {
             Description = "How progress and results are shown: fancy (the default), text, json or silent (docs/cli-output.md).",
@@ -149,7 +151,7 @@ internal static class Program
 
         RootCommand root = new("Mod2Xgm accuracy harness: scores conversions against OpenMPT (docs/harness.md).")
         {
-            inputs, output, rate, libopenmpt, furnace, noFurnace, deflemask, noDefleMask, saveReference, clip, balance, fmFit, fmRenders, psgFit, pcmFit, preMix, ch3, dropClues, noCache, cacheDir, jobs, verbose, progress, remake, fit, pick, pairs,
+            inputs, output, rate, libopenmpt, furnace, noFurnace, deflemask, noDefleMask, saveReference, clip, balance, fmFit, fmRenders, psgFit, pcmFit, preMix, ch3, dropClues, noCache, cacheDir, jobs, verbose, progress, remake, fit, pick, pairs, embeddings, models,
         };
         root.SetAction(result =>
         {
@@ -198,6 +200,16 @@ internal static class Program
                 throw HarnessException.Usage("--pick with --remake or --fit; pick the round first, then remake its rows");
             }
 
+            if (result.GetValue(embeddings) is not null && (result.GetValue(remake) is not null || result.GetValue(fit) is not null || result.GetValue(pick) is not null))
+            {
+                throw HarnessException.Usage("--embeddings with --remake, --fit or --pick; --embeddings remakes the clips itself");
+            }
+
+            if (result.GetValue(models) is not null && result.GetValue(embeddings) is null)
+            {
+                throw HarnessException.Usage("--models without --embeddings; only --embeddings runs the models");
+            }
+
             int pairCount = result.GetValue(pairs);
             if (pairCount is < 1 or > 100)
             {
@@ -231,7 +243,9 @@ internal static class Program
                 result.GetValue(remake),
                 result.GetValue(fit),
                 result.GetValue(pick),
-                pairCount));
+                pairCount,
+                result.GetValue(embeddings),
+                result.GetValue(models)));
         });
 
         ParseResult parsed = root.Parse(args);
@@ -272,6 +286,19 @@ internal static class Program
             RemakeResult remade = new ListeningRemake(songs, options.OutputDirectory, new OpenMptRenderer(), logger).Remake(fitAnswers, progress);
             string? weights = ListeningFit.FindWeightsFile(Environment.CurrentDirectory);
             return ListeningFitRun.Run(remade, options.OutputDirectory, weights, DateOnly.FromDateTime(DateTime.Now), logger);
+        }
+
+        if (options.Embeddings is { } embeddingAnswers)
+        {
+            if (!File.Exists(embeddingAnswers))
+            {
+                throw new HarnessException($"Not found: {embeddingAnswers}");
+            }
+
+            LibOpenMpt.UseDirectory(options.LibOpenMptDirectory);
+            RemakeResult remade = new ListeningRemake(songs, options.OutputDirectory, new OpenMptRenderer(), logger).Remake(embeddingAnswers, progress);
+            string folder = options.ModelsDirectory ?? EmbeddingModel.DefaultFolder;
+            return EmbeddingsRun.Run(remade, options.OutputDirectory, folder, m => new OnnxListeningModel(m, folder), logger);
         }
 
         if (options.Pick is { } pickAnswers)
@@ -458,6 +485,8 @@ internal static class Program
 /// <param name="Fit">An answers file to remake and fit the learned listening score on, instead of scoring, or <c>null</c>.</param>
 /// <param name="Pick">An answers file whose next round to pick (<c>--pick</c>), instead of scoring, or <c>null</c>.</param>
 /// <param name="Pairs">How many pairs <c>--pick</c> picks.</param>
+/// <param name="Embeddings">An answers file to remake and compare the pretrained models on (<c>--embeddings</c>), instead of scoring, or <c>null</c>.</param>
+/// <param name="ModelsDirectory">The exported models' folder, or <c>null</c> for <see cref="EmbeddingModel.DefaultFolder"/>.</param>
 internal sealed record HarnessOptions(
     IReadOnlyList<string> Inputs,
     string OutputDirectory,
@@ -484,4 +513,6 @@ internal sealed record HarnessOptions(
     string? Remake = null,
     string? Fit = null,
     string? Pick = null,
-    int Pairs = 10);
+    int Pairs = 10,
+    string? Embeddings = null,
+    string? ModelsDirectory = null);

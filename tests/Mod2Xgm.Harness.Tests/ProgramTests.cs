@@ -72,6 +72,20 @@ public sealed class ProgramTests
         Assert.Equal(3, options.Jobs);
     }
 
+    /// <summary><c>--embeddings</c> and <c>--models</c> reach <see cref="HarnessOptions"/>; without <c>--models</c> the folder is left to the default.</summary>
+    [Fact]
+    public void Invoke_WithEmbeddings_ReadsAnswersAndModels()
+    {
+        // Act
+        HarnessOptions withModels = Parse("--embeddings", "a.tsv", "--models", "m");
+        HarnessOptions sut = Parse("--embeddings", "a.tsv");
+
+        // Assert
+        Assert.Equal("a.tsv", withModels.Embeddings);
+        Assert.Equal("m", withModels.ModelsDirectory);
+        Assert.Null(sut.ModelsDirectory);
+    }
+
     /// <summary>
     /// An unknown option, a rate, job count or clip length out of range, a balance without clips, a cache folder with no
     /// cache, both <c>--remake</c> and <c>--fit</c>, <c>--pick</c> with either, or no pairs to pick, is a usage error.
@@ -87,6 +101,9 @@ public sealed class ProgramTests
     [InlineData("--pick", "a.tsv", "--fit", "a.tsv")]
     [InlineData("--pick", "a.tsv", "--remake", "a.tsv")]
     [InlineData("--pick", "a.tsv", "--pairs", "0")]
+    [InlineData("--embeddings", "a.tsv", "--fit", "a.tsv")]
+    [InlineData("--embeddings", "a.tsv", "--pick", "a.tsv")]
+    [InlineData("--models", "m")]
     public void Invoke_WithBadOptions_ReportsUsageError(params string[] args)
     {
         // Act

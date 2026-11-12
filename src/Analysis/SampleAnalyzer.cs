@@ -141,7 +141,7 @@ internal static class SampleAnalyzer
         int[] chosen = [.. Enumerable.Range(0, song.Samples.Count).Where(s => !song.Samples[s].IsEmpty && !ignore.Contains(s))];
         work ??= NoWork.Instance;
         work.SetTotal(chosen.Length);
-        List<SampleAnalysis> analyses = new(chosen.Length);
+        List<SampleAnalysis> analyses = [with(chosen.Length)];
         foreach (int s in chosen)
         {
             analyses.Add(Analyze(s, song.Samples[s], rates[s]));
