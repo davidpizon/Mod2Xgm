@@ -93,14 +93,14 @@ internal interface IListeningModel : IDisposable
 /// <summary>A model exported to ONNX, run in process through ONNX Runtime on the CPU.</summary>
 internal sealed class OnnxListeningModel : IListeningModel
 {
-    private readonly InferenceSession session;
+    private readonly InferenceSession _session;
 
     /// <summary>Loads <paramref name="model"/>'s ONNX file from <paramref name="folder"/>.</summary>
     public OnnxListeningModel(EmbeddingModel model, string folder)
     {
         ArgumentNullException.ThrowIfNull(model);
         Model = model;
-        session = new InferenceSession(Path.Combine(folder, model.FileName));
+        _session = new InferenceSession(Path.Combine(folder, model.FileName));
     }
 
     /// <inheritdoc/>
@@ -114,7 +114,7 @@ internal sealed class OnnxListeningModel : IListeningModel
         Run([EmbeddingModel.ReferenceInput, EmbeddingModel.TestInput], [reference, test], EmbeddingModel.DistanceOutput)[0];
 
     /// <inheritdoc/>
-    public void Dispose() => session.Dispose();
+    public void Dispose() => _session.Dispose();
 
     private float[] Run(string[] names, float[][] chunks, string output)
     {
@@ -130,7 +130,7 @@ internal sealed class OnnxListeningModel : IListeningModel
         try
         {
             using RunOptions options = new();
-            using IDisposableReadOnlyCollection<OrtValue> results = session.Run(options, names, inputs, [output]);
+            using IDisposableReadOnlyCollection<OrtValue> results = _session.Run(options, names, inputs, [output]);
             return results[0].GetTensorDataAsSpan<float>().ToArray();
         }
         finally
@@ -330,7 +330,7 @@ internal static class EmbeddingsRun
         }
 
         IReadOnlyList<string> names = [.. ListeningFeatures.Names, .. models.Select(m => m.FeatureName)];
-        double[][] differences = [.. answers.Select(a => Difference(a))];
+        double[][] differences = [.. answers.Select(Difference)];
         int[] today = [.. Enumerable.Range(0, weights.Count).Where(j => weights[j] != 0)];
         int melDb = names.Select((name, j) => (name, j)).First(n => n.name == "mel_db").j;
         List<(string Label, int[] Features)> sets = [("log-mel", [melDb])];

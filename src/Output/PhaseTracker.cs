@@ -105,7 +105,7 @@ internal sealed class PhaseTracker(IConversionReporter reporter, TimeProvider ti
     private readonly long _started = time.GetTimestamp();
     private readonly Lock _lock = new();
     private readonly List<PhaseTiming> _timings = [];
-    private readonly HashSet<string> _startedIds = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _startedIds = [with(StringComparer.Ordinal)];
     private readonly Dictionary<string, TimeSpan?> _running = new(StringComparer.Ordinal);
     private IReadOnlyList<PhaseInfo> _phases = [];
     private int _jobs = 1;

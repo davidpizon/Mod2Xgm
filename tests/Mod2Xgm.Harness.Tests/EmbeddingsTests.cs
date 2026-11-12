@@ -129,7 +129,7 @@ public sealed class EmbeddingsTests
         // Assert
         Assert.Equal(["panns", "vggish", "clap", "cdpam"], sut.Select(m => m.Name));
         Assert.Single(sut, m => m.GivesDistance);
-        Assert.All(sut, m => Assert.True(m.ChunkSamples > 0 && m.RateHz > 0));
+        Assert.All(sut, m => Assert.True(m is { ChunkSamples: > 0, RateHz: > 0 }));
         Assert.Equal("panns_distance", sut[0].FeatureName);
     }
 
@@ -206,7 +206,7 @@ public sealed class EmbeddingsTests
         File.WriteAllBytes(Path.Combine(models, "panns.onnx"), []);
         RemadeRow[] rows = [.. Enumerable.Range(0, 4).Select(i => Row(i, listening))];
         RemadeRow unheard = Row(4, listening) with { Heard = false };
-        using IListeningModel model = SignEmbedder(EmbeddingModel.All[0] with { RateHz = 1_000, ChunkSamples = 100 });
+        IListeningModel model = SignEmbedder(EmbeddingModel.All[0] with { RateHz = 1_000, ChunkSamples = 100 });
 
         // Act
         int code = EmbeddingsRun.Run(new RemakeResult(0, [.. rows, unheard]), temp.Path, models, _ => model, Logger.None);

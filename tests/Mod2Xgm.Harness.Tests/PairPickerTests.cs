@@ -121,7 +121,7 @@ public sealed class PairPickerTests
         // Arrange
         PairCandidate asked = Pair("old.mod", PairKind.NoDac, Features(1), new ListeningFeatures(2, 2, 2, 2, 0, 0, 0));
         PairCandidate fresh = Pair("new.mod", PairKind.Simple, Features(1), Features(2));
-        HashSet<string> songs = new(StringComparer.OrdinalIgnoreCase) { "OLD.mod" };
+        HashSet<string> songs = [with(StringComparer.OrdinalIgnoreCase), "OLD.mod"];
 
         // Act
         IReadOnlyList<PairCandidate> one = PairPicker.Pick([asked, fresh], 1, songs, NoWeights);

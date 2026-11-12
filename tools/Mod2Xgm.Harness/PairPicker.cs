@@ -53,16 +53,16 @@ internal static class PairPicker
     public const double ClipSeconds = 20;
 
     /// <summary>Seconds between the clip starts tried (David).</summary>
-    public const double StartStepSeconds = 10;
+    private const double StartStepSeconds = 10;
 
     /// <summary>Most pairs of one kind in a round (David).</summary>
     public const int MaxPerKind = 3;
 
     /// <summary>A sample is dull when at most this share of its energy is above <see cref="HalfSpeedTopHz"/> (Claude).</summary>
-    public const double DullShare = 0.01;
+    private const double DullShare = 0.01;
 
     /// <summary>Most dull samples of one song offered at half speed: the dullest first.</summary>
-    public const int MaxHalfSpeedSamples = 2;
+    private const int MaxHalfSpeedSamples = 2;
 
     /// <summary>XGM2's PCM blocks are 256 bytes (docs/formats/xgm.md), so a budget is a multiple of it.</summary>
     private const int BlockBytes = 256;
@@ -71,7 +71,7 @@ internal static class PairPicker
     private const int SlenOffset = 6;
 
     /// <summary>The highest frequency XGM2 half speed keeps: half its 6.65 kHz rate.</summary>
-    public static double HalfSpeedTopHz { get; } = PcmTargets.PlayRateHz(PcmTarget.Xgm2, 1, halfSpeed: true) / 2;
+    private static double HalfSpeedTopHz { get; } = PcmTargets.PlayRateHz(PcmTarget.Xgm2, 1, halfSpeed: true) / 2;
 
     /// <summary>The kind's name in <c>candidates.tsv</c>.</summary>
     public static string Name(PairKind kind) => kind switch
@@ -186,7 +186,7 @@ internal static class PairPicker
         ArgumentNullException.ThrowIfNull(asked);
         PairCandidate[] ordered = [.. Order(candidates, weights)];
         List<PairCandidate> picked = [];
-        HashSet<string> songs = new(StringComparer.OrdinalIgnoreCase);
+        HashSet<string> songs = [with(StringComparer.OrdinalIgnoreCase)];
         Dictionary<PairKind, int> kinds = [];
         foreach (bool askedToo in new[] { false, true })
         {
@@ -212,7 +212,7 @@ internal static class PairPicker
     }
 
     /// <summary>The candidates least sure first, ties to the smaller log-mel difference, then by song, kind, recipe and start.</summary>
-    public static IEnumerable<PairCandidate> Order(IEnumerable<PairCandidate> candidates, IReadOnlyList<double> weights)
+    private static IEnumerable<PairCandidate> Order(IEnumerable<PairCandidate> candidates, IReadOnlyList<double> weights)
     {
         ArgumentNullException.ThrowIfNull(candidates);
         ArgumentNullException.ThrowIfNull(weights);
@@ -343,7 +343,7 @@ internal sealed class PairPickRun(IReadOnlyList<string> songs, string outputDire
         ArgumentNullException.ThrowIfNull(answersPath);
         ArgumentNullException.ThrowIfNull(progress);
         IReadOnlyList<ListeningRow> answered = AnswersFile.Parse(File.ReadAllText(answersPath));
-        HashSet<string> asked = new(answered.Select(r => r.Song), StringComparer.OrdinalIgnoreCase);
+        HashSet<string> asked = [with(StringComparer.OrdinalIgnoreCase), .. answered.Select(r => r.Song)];
         progress.Begin(new RunInfo(answersPath, RunInfo.HarnessFormat, "normal", [.. songs.Select((s, i) => new PhaseInfo(i + 1, CorpusRun.PhaseId(s), Path.GetFileNameWithoutExtension(s), string.Empty))], Math.Min(jobs, songs.Count)));
         progress.SetSongSize(SongSize.Rows, 1);
         string folder = Path.Combine(outputDirectory, "listening");
