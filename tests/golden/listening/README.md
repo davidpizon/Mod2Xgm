@@ -73,6 +73,26 @@ guessed all 10 of David's a/b picks (log-mel alone: 6 of 10), with a log-loss of
 gave the five "can't tell" pairs 0.50–0.55. Fifteen answers, one per song, are still few: the adoption decision waits
 for its hold-out round (T9.4l).
 
+## Round 22: the first hold-out round
+
+The first round on the hold-out songs ([ADR 0105](../../../docs/adr/0105-hold-out-songs.md), plan T9.4l), David,
+2026-11-12. The picker chose ten pairs, one per song, from `tests/data/holdout/`: four at half the PCM memory, three
+with a sample at half speed, two `--no-dac` and one `--mapping simple`. Every clip was pitch-checked against the original
+before the survey (no semitone shift; tuning within 19 cents).
+
+**Result:** six "can't tell": all four memory-budget pairs and two of the three half-speed pairs (Shine, Spider). The
+other four were clear:
+
+- `--no-dac` lost all three: on The Messageman it kept only the bass (the default lost the long chords); on Silicon
+  Dancer the default kept the percussion and the pulsing beat; on May Is 4 Her the default won though its whoosh at 0:02
+  came out as "a second of static" that would have been better dropped.
+- Pleasant with a sample at half speed won.
+- `--mapping simple` lost on Air Ride: its voices were close, but the percussion and bass were mostly missing.
+
+**Scored with the fitted weights, no refit:** the learned score guessed 1 of the 5 a/b picks, log-mel 4 of 5. Ten
+pairs are a third of the bar's 30, so this is no verdict yet, but it is the first sign the one-feature fit of round 21
+doesn't carry over to songs it hasn't heard.
+
 ## Hold-out rows
 
 Rows whose song is in `tests/data/holdout/` are the hold-out ([ADR 0105](../../../docs/adr/0105-hold-out-songs.md)):
