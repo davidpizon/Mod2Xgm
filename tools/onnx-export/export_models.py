@@ -14,8 +14,12 @@ The weights are downloaded from their publishers on first use and never go in th
 """
 
 import argparse
+import contextlib
+import functools
+import importlib
 import math
 import os
+import pickle
 import sys
 from pathlib import Path
 
@@ -53,17 +57,81 @@ def check_signal(rate: int, samples: int, second: bool = False) -> np.ndarray:
     return x.astype(np.float32)[None, :]
 
 
+# --- loading old checkpoints ----------------------------------------------------------------------------------------
+
+# Every Python name the CLAP and CDPAM checkpoints refer to (listed with pickletools, which runs nothing): weights only.
+# PyTorch 2.6+'s weights_only loader refuses CLAP's NumPy scalars and can't read CDPAM's legacy format at all, so these
+# two load through a pickle module that accepts exactly these names and refuses any other.
+LISTED_GLOBALS = {
+    ("_codecs", "encode"),
+    ("collections", "OrderedDict"),
+    ("numpy.core.multiarray", "scalar"),
+    ("numpy", "dtype"),
+    ("torch", "FloatStorage"),
+    ("torch", "LongStorage"),
+    ("torch._utils", "_rebuild_tensor_v2"),
+}
+
+
+class ListedUnpickler(pickle.Unpickler):
+    """An unpickler that finds only the classes and functions in LISTED_GLOBALS."""
+
+    def find_class(self, module, name):
+        if (module, name) not in LISTED_GLOBALS:
+            raise pickle.UnpicklingError(f"checkpoint refers to {module}.{name}, which is not in LISTED_GLOBALS")
+        return super().find_class(module, name)
+
+
+class ListedPickle:
+    """A stand-in for the pickle module, for torch.load's pickle_module."""
+
+    Unpickler = ListedUnpickler
+    UnpicklingError = pickle.UnpicklingError
+    __name__ = "ListedPickle"
+
+    @staticmethod
+    def load(file, **kwargs):
+        return ListedUnpickler(file, **kwargs).load()
+
+
+@contextlib.contextmanager
+def listed_torch_load():
+    """While active, torch.load reads full pickles but resolves only LISTED_GLOBALS."""
+    original = torch.load
+    torch.load = functools.partial(original, weights_only=False, pickle_module=ListedPickle)
+    try:
+        yield
+    finally:
+        torch.load = original
+
+
 # --- the models ---------------------------------------------------------------------------------------------------
 
 
 class Panns(torch.nn.Module):
     """PANNs CNN14 (Kong et al. 2020) through panns_inference: the 2048-value embedding before the classifier."""
 
+    # panns_inference fetches these with a `wget` shell command, which Windows lacks; fetch them first in Python.
+    FILES = {
+        "class_labels_indices.csv":
+            "http://storage.googleapis.com/us_audioset/youtube_corpus/v1/csv/class_labels_indices.csv",
+        "Cnn14_mAP=0.431.pth": "https://zenodo.org/record/3987831/files/Cnn14_mAP%3D0.431.pth?download=1",
+    }
+
     def __init__(self):
         super().__init__()
+        import urllib.request
+
+        data = Path.home() / "panns_data"
+        data.mkdir(exist_ok=True)
+        for file, url in self.FILES.items():
+            path = data / file
+            if not path.exists() or path.stat().st_size == 0:
+                print(f"panns: downloading {file}", flush=True)
+                urllib.request.urlretrieve(url, path)
         from panns_inference import AudioTagging
 
-        self.model = AudioTagging(checkpoint_path=None, device="cpu").model.eval()
+        self.model = AudioTagging(checkpoint_path=str(data / "Cnn14_mAP=0.431.pth"), device="cpu").model.eval()
 
     def forward(self, audio):
         return self.model(audio)["embedding"]
@@ -101,7 +169,9 @@ class Vggish(torch.nn.Module):
         super().__init__()
         model = torch.hub.load("harritaylor/torchvggish", "vggish", postprocess=False, preprocess=False)
         self.model = model.eval()
-        mel_features = sys.modules[type(model).__module__.replace("vggish", "mel_features")]
+        # torchvggish.vggish -> torchvggish.mel_features (only the last part: the package name holds "vggish" too)
+        package = type(model).__module__.rsplit(".", 1)[0]
+        mel_features = importlib.import_module(package + ".mel_features")
         self.front = VggishFrontEnd(mel_features)
 
     def forward(self, audio):
@@ -119,7 +189,8 @@ class Clap(torch.nn.Module):
         import laion_clap
 
         self.model = laion_clap.CLAP_Module(enable_fusion=False, device="cpu")
-        self.model.load_ckpt()
+        with listed_torch_load():
+            self.model.load_ckpt()
         self.model.eval()
 
     def forward(self, audio):
@@ -133,8 +204,11 @@ class Cdpam(torch.nn.Module):
         super().__init__()
         import cdpam
 
-        self.loss = cdpam.CDPAM(dev="cpu")
-        self.loss.model.eval()
+        with listed_torch_load():
+            self.loss = cdpam.CDPAM(dev="cpu")
+        # cdpam.CDPAM is a plain class: registering its network here makes its weights parameters the exporter sees,
+        # and freezing them lets it fold them into the graph.
+        self.net = self.loss.model.eval().requires_grad_(False)
 
     def forward(self, reference, test):
         return self.loss.forward(reference * 32768.0, test * 32768.0).reshape(1)

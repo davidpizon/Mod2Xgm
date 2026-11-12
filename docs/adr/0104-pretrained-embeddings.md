@@ -22,7 +22,7 @@ David answered the questions below on 2026-11-11. The details that follow from t
 |---|---|---|---|---|---|
 | `panns` | PANNs CNN14 (Kong et al. 2020), trained on AudioSet | CC BY 4.0 (code MIT) | 32 kHz | 2 s | cosine, 2048-value embedding |
 | `vggish` | VGGish (Hershey et al. 2017), via torchvggish | Apache-2.0 | 16 kHz | 0.975 s | cosine, 128-value embedding before PCA |
-| `clap` | LAION-CLAP (Wu et al. 2023), HTSAT audio tower | code CC0-1.0; **Verify** the checkpoint's | 48 kHz | 10 s | cosine, 512-value embedding |
+| `clap` | LAION-CLAP (Wu et al. 2023), HTSAT audio tower | CC0-1.0 (code, and the checkpoint per its Hugging Face repo `lukewys/laion_clap`, checked 2026-11-11) | 48 kHz | 10 s | cosine, 512-value embedding |
 | `cdpam` | CDPAM (Manocha et al. 2021), a learned perceptual distance | MIT | 22.05 kHz | 2 s | its own distance |
 
 **How the models get here (David).** `tools/onnx-export/export_models.py` downloads each publisher's weights and writes
@@ -61,6 +61,41 @@ stand-ins for the models. The test that runs each real model through ONNX Runtim
 **If a model wins (David).** A new plan task, T9.4l2, after the hold-out decision: distil the winning model into a small
 model written in pure C#, so the converter stays one Native AOT file with no ONNX Runtime and no large model file.
 
+## Results (2026-11-11)
+
+The four models exported on David's PC (each within 0.01 % of PyTorch), and `--embeddings` ran on the 15 answers, every
+clip remade byte for byte (about an hour, most of it the remake and the resampling to each model's rate). Each set is
+fitted with one song left out at a time:
+
+| Set | Log-loss (a coin: 0.693) | a/b picks guessed (of 10) |
+|---|---|---|
+| log-mel, as a one-weight fit | 0.714 | 4 |
+| today's learned score (envelope modulation) | 0.396 | 10 |
+| PANNs | 0.535 | 7 |
+| VGGish | 0.644 | 4 |
+| **CLAP** | **0.431** | **9** |
+| CDPAM | 0.716 | 3 |
+| envelope modulation + PANNs (over the cap) | 0.427 | 8 |
+| envelope modulation + VGGish (over the cap) | 0.383 | 10 |
+| envelope modulation + CLAP (over the cap) | 0.387 | 9 |
+| envelope modulation + CDPAM (over the cap) | 0.506 | 9 |
+
+- **No model beats today's C# score** on these answers. CLAP alone comes closest and is the only model that does well on
+  its own; CDPAM, the one built as a perceptual distance, does no better than a coin on chip renditions.
+- Adding a model to envelope modulation helps little (VGGish: 0.383 against 0.396) and breaks the cap of one weight per
+  10 answers, so it says nothing yet.
+- Envelope modulation was picked by forward selection on these same 15 answers, so its 10 of 10 is optimistic; the models'
+  numbers were not selected. That is what the hold-out (T9.4l) settles: it scores today's learned score and CLAP on songs
+  never used for fitting. A model goes to T9.4l2 only if it wins there.
+- The harness's log-mel line is fitted, like every set here, and gets 4 of 10; read as it is (lower is closer), log-mel
+  guesses 6 of 10 (the `--fit` report, [answers README](../../tests/golden/listening/README.md)).
+
+Making the export run on Windows took three fixes in `export_models.py`: PANNs' files are downloaded in Python
+(`panns-inference` calls `wget`); `resampy` and `torchvision`, imported but not declared by `cdpam` and `laion-clap`, are
+in `requirements.txt`; and CLAP's and CDPAM's checkpoints, which PyTorch 2.6's `weights_only` loader refuses, load
+through an unpickler that accepts only the names they contain (tensors, storages, an ordered dictionary, NumPy scalars),
+listed with `pickletools` beforehand ([onnx-export README](../../tools/onnx-export/README.md)).
+
 ## Options considered
 
 - **A separate report (chosen, David).** The answer to "is a pretrained model worth bringing into the converter?" without
@@ -83,5 +118,5 @@ model written in pure C#, so the converter stays one Native AOT file with no ONN
   `--models` in the harness ([harness.md](../harness.md#pretrained-models)); `ListeningFit.Trial` checks one fixed set.
 - `Microsoft.ML.OnnxRuntime` in `Directory.Packages.props`, THIRD-PARTY-NOTICES.md and AGENTS.md's approved list,
   harness only.
-- The comparison is run by hand on David's PC once the models are exported; its numbers go in the PR that adds them.
+- The comparison is run by hand on David's PC once the models are exported; its numbers are in [Results](#results-2026-11-11).
 - Plan T9.4l2 (distillation) runs only if a model beats the C# features on the hold-out (T9.4l).
