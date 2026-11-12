@@ -17,7 +17,7 @@ internal static class HoldoutSongs
     public static IReadOnlySet<string> In(string folder)
     {
         ArgumentNullException.ThrowIfNull(folder);
-        HashSet<string> names = new(StringComparer.OrdinalIgnoreCase);
+        HashSet<string> names = [with(StringComparer.OrdinalIgnoreCase)];
         if (Directory.Exists(folder))
         {
             names.UnionWith(Directory.EnumerateFiles(folder, "*.mod").Select(Path.GetFileName).OfType<string>());
@@ -58,13 +58,13 @@ internal sealed record HoldoutResult(
 internal static class HoldoutScore
 {
     /// <summary>The fewest answered hold-out pairs the decision may rest on (David).</summary>
-    public const int MinPairs = 30;
+    private const int MinPairs = 30;
 
     /// <summary>The learned score's agreement with David's a/b picks must reach this, in percent (David).</summary>
-    public const double MinAgreement = 70;
+    private const double MinAgreement = 70;
 
     /// <summary>And beat log-mel's agreement on the same pairs by this many points (David).</summary>
-    public const double MinLead = 10;
+    private const double MinLead = 10;
 
     /// <summary>Scores <paramref name="answers"/> with <paramref name="weights"/> (in the order of <see cref="ListeningFeatures.Names"/>).</summary>
     public static HoldoutResult Score(IReadOnlyList<FitAnswer> answers, IReadOnlyList<double> weights)
@@ -85,7 +85,7 @@ internal static class HoldoutScore
         int songs = answers.Select(a => a.Song).Distinct(StringComparer.OrdinalIgnoreCase).Count();
         bool passed = fitted
             && answers.Count >= MinPairs
-            && learned is { } ours && ours >= MinAgreement
+            && learned is { } ours and >= MinAgreement
             && logMel is { } theirs && ours - theirs >= MinLead;
         return new HoldoutResult(answers.Count, picked.Length, songs, learned, logMel, passed, lines);
     }

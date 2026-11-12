@@ -328,7 +328,7 @@ internal static class Program
             LibOpenMpt.UseDirectory(options.LibOpenMptDirectory);
             IReadOnlySet<string> holdoutSongs = HoldoutSongs.In(HoldoutSongs.DefaultFolder);
             RemakeResult remade = new ListeningRemake(songs, options.OutputDirectory, new OpenMptRenderer(), logger).Remake(holdoutAnswers, progress, r => holdoutSongs.Contains(r.Song));
-            return HoldoutRun.Run(remade, options.OutputDirectory, Mod2Xgm.Scoring.ListeningWeights.Weights, logger);
+            return HoldoutRun.Run(remade, options.OutputDirectory, Scoring.ListeningWeights.Weights, logger);
         }
 
         if (options.Pick is { } pickAnswers)
