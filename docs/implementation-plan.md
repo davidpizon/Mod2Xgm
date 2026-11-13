@@ -150,6 +150,7 @@
 | T9.4o | Training data in the harness: one choice changed at a time, plus pairs to check how costs add up (ADR 0098) | Tests; a log-mel dry run changes no plan |
 | T9.4p | 100 or more Public Domain / CC0 training songs and their licences (David); price model fitted with leave-one-song-out checks; Δs predicted on the hold-out against the measured Δs (ADR 0098) | Licences recorded; hold-out numbers reported |
 | T9.4q | Importance and `RecordingShrinker` driven by the prices behind a rule switch; half speed per sample when priced low (David) (ADR 0098) | Beats the rules on at least 5 hold-out songs over 2 blind rounds (David) |
+| T9.4r | Pan stability (David, 2026-11-13, rounds 23–24): an instrument jumping between the centre and one speaker mid-phrase, where the original doesn't, is "very unsettling". Every recording shares the DAC channel's pan, so a pre-mix of notes from different sides is centred and a clash between sides is settled moment by moment. Give such a swap a cost the allocator weighs against the others (moving the other sound to FM/PSG, skipping the pre-mix), not a fixed rule (David) | An ADR; tests; blind either/or rounds (cost on vs off) on songs where it happens decide what stays |
 | T9.5 | Render & refine loop (worst-section re-fit / re-allocate), `--quality` / `--time-budget` / `--seed` | Deterministic; improves corpus score vs greedy |
 | T9.6 | Optimizer vs simple mapper on DMF; switch default if better | Decision logged; **0.2.0** |
 
