@@ -282,7 +282,7 @@ internal static class EmbeddingsRun
                 double[] distancesB = Measure(models, original, WavFile.Read(Path.Combine(folder, r.Row.Name + "-b.wav")));
                 AppendRow(table, r.Row.Name, "a", distancesA);
                 AppendRow(table, r.Row.Name, "b", distancesB);
-                answers.Add(new EmbeddingAnswer(new FitAnswer(r.Row.Name, r.Row.Song, r.Row.Pick, a, b), distancesA, distancesB));
+                answers.Add(new EmbeddingAnswer(FitAnswer.From(r, a, b), distancesA, distancesB));
             }
 
             File.WriteAllText(Path.Combine(folder, "embeddings.tsv"), table.ToString());

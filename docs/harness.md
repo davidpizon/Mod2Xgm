@@ -310,7 +310,7 @@ then learns from the rows that are answered and whose clips came out byte for by
 differ stays in the answers file but is left out of the fit.
 
 The model is `P(A ≻ B) = σ(w · (f(B) − f(A)))` over seven distances from the original: `mel_db`, `mfcc`, `onset_miss`
-(1 − onset F1), `nmr_db`, `nsim_distance`, `modulation_db`, `harmonicity_db`. "Can't tell" counts as half a win each.
+(1 − onset F1), `nmr_db`, `nsim_distance`, `modulation_db`, `harmonicity_db`. "Can't tell" counts as a win for the version whose output file is smaller (David, [ADR 0106](adr/0106-cant-tell-smaller-wins.md)), and as half a win each only when both are the same size.
 Features and the L2 strength are chosen by forward selection on leave-one-song-out log-loss, at most one weight per 10
 answers. With fewer, or with answers from one song only, it reports "not enough answers" and fits nothing.
 
@@ -321,7 +321,7 @@ per answer (the chance it gave the pick, log-mel's guess), and every row left ou
 After a fit, the harness rewrites `src/Scoring/ListeningWeights.cs` (found above the current folder, next to
 `Mod2Xgm.slnx`) with the weights, the date and the counts (David). Commit it in a PR like any change. From then on,
 `scores.csv`, `clip-scores.csv`, `features.tsv` and `report.md` show the learned score next to log-mel. Log-mel stays
-the main number until the score is adopted (T9.4l).
+the main number: the score was not adopted ([ADR 0107](adr/0107-learned-score-not-adopted.md)), so it is shown for reading only.
 
 ## The hold-out
 
@@ -332,8 +332,10 @@ picking a hold-out round is `--pick answers.tsv tests/data/holdout`, which keeps
 
 `--holdout answers.tsv` remakes only the hold-out rows and, for those answered whose clips came out byte for byte as David
 heard them, guesses each pair with the learned score as fitted today (`src/Scoring/ListeningWeights.cs`, no refit) and
-with log-mel, the lower distance winning; an exact tie counts as a miss. `listening/holdout.txt`, also logged, holds the
-counts, both agreements on the a/b picks ("can't tell" counts as a pair, for neither), the verdict on David's bar (at
+with log-mel, the lower distance winning. A "can't tell" counts as a pick of the version whose output file is smaller
+([ADR 0106](adr/0106-cant-tell-smaller-wins.md)), and there an exact tie is right too; on an a/b pick a tie counts as a
+miss. `listening/holdout.txt`, also logged, holds the
+counts, both agreements on the a/b picks (with the "can't tell" answers the size decides; one it doesn't counts as a pair, for neither), the verdict on David's bar (at
 least 30 answered pairs; at least 70 % agreement; at least 10 points above log-mel), one line per pair, and every row
 left out and why. It never changes the weights.
 

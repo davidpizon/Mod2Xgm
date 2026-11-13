@@ -35,7 +35,10 @@ internal sealed record HoldoutLine(FitAnswer Answer, string LearnedGuess, string
 
 /// <summary>How the learned score did on the hold-out, against the bar David set (docs/adr/0105-hold-out-songs.md).</summary>
 /// <param name="Pairs">Answered hold-out pairs whose clips came out as David heard them.</param>
-/// <param name="AbPicks">Those with an a or b pick; "can't tell" counts for neither score.</param>
+/// <param name="AbPicks">
+/// Those with an a or b pick, counting a "can't tell" the smaller file decides (docs/adr/0106-cant-tell-smaller-wins.md);
+/// one the sizes don't decide counts for neither score.
+/// </param>
 /// <param name="Songs">How many songs the pairs came from.</param>
 /// <param name="LearnedAgreement">How often, in percent, the learned score guessed an a/b pick; <c>null</c> without a/b picks.</param>
 /// <param name="LogMelAgreement">How often, in percent, log-mel guessed one; <c>null</c> without a/b picks.</param>
@@ -79,7 +82,7 @@ internal static class HoldoutScore
                 fitted ? Guess(ListeningScore.Of(a.A, weights), ListeningScore.Of(a.B, weights)) : "tie",
                 Guess(a.A.MelDb, a.B.MelDb))),
         ];
-        HoldoutLine[] picked = [.. lines.Where(l => l.Answer.Pick is "a" or "b")];
+        HoldoutLine[] picked = [.. lines.Where(l => l.Answer.Decided is "a" or "b")];
         double? learned = Agreement(picked, l => l.LearnedGuess);
         double? logMel = Agreement(picked, l => l.LogMelGuess);
         int songs = answers.Select(a => a.Song).Distinct(StringComparer.OrdinalIgnoreCase).Count();
@@ -106,7 +109,7 @@ internal static class HoldoutScore
         ];
         foreach (HoldoutLine l in result.Lines)
         {
-            lines.Add($"  {l.Answer.Name} ({l.Answer.Song}): picked {Pick(l.Answer.Pick)}; learned {l.LearnedGuess}; log-mel {l.LogMelGuess}");
+            lines.Add($"  {l.Answer.Name} ({l.Answer.Song}): picked {l.Answer.Describe()}; learned {l.LearnedGuess}; log-mel {l.LogMelGuess}");
         }
 
         return lines;
@@ -140,13 +143,19 @@ internal static class HoldoutScore
     /// <summary><c>a</c> when A's distance is lower (closer), <c>b</c> when B's is, <c>tie</c> when they are equal.</summary>
     private static string Guess(double a, double b) => a < b ? "a" : b < a ? "b" : "tie";
 
-    /// <summary>The percentage of <paramref name="lines"/> whose guess is David's pick; a tie counts as a miss. <c>null</c> when empty.</summary>
+    /// <summary>
+    /// The percentage of <paramref name="lines"/> whose guess is the decided pick. A tie is a miss on David's own a/b pick and
+    /// a hit on a "can't tell" the smaller file decided, where finding both equally close is right too (David,
+    /// docs/adr/0106-cant-tell-smaller-wins.md). <c>null</c> when empty.
+    /// </summary>
     private static double? Agreement(IReadOnlyList<HoldoutLine> lines, Func<HoldoutLine, string> guess) =>
-        lines.Count == 0 ? null : 100.0 * lines.Count(l => guess(l) == l.Answer.Pick) / lines.Count;
+        lines.Count == 0 ? null : 100.0 * lines.Count(l => Right(l.Answer, guess(l))) / lines.Count;
+
+    /// <summary>True when <paramref name="guess"/> agrees with <paramref name="answer"/>'s decided pick.</summary>
+    private static bool Right(FitAnswer answer, string guess) =>
+        guess == answer.Decided || (guess == "tie" && answer.DecidedBySize);
 
     private static string Percent(double? value) => value is { } v ? v.ToString("0.0", CultureInfo.InvariantCulture) + " %" : "–";
-
-    private static string Pick(string pick) => pick == "same" ? "can't tell" : pick;
 }
 
 /// <summary>
@@ -167,7 +176,7 @@ internal static class HoldoutRun
         {
             if (r is { Heard: true, A: { } a, B: { } b, Row.Pick.Length: > 0 })
             {
-                answers.Add(new FitAnswer(r.Row.Name, r.Row.Song, r.Row.Pick, a, b));
+                answers.Add(FitAnswer.From(r, a, b));
             }
             else
             {

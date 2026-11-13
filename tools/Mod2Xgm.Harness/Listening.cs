@@ -308,7 +308,9 @@ internal static class ClipWav
 /// <param name="Heard">True when the row has hashes and both clips came out byte for byte as David heard them.</param>
 /// <param name="A">Version A's features against the original's clip; <c>null</c> without a reference player.</param>
 /// <param name="B">Version B's features; <c>null</c> without a reference player.</param>
-internal sealed record RemadeRow(ListeningRow Row, bool Heard, ListeningFeatures? A, ListeningFeatures? B);
+/// <param name="BytesA">The size of version A's output file, or <c>null</c> when the converter wrote none (XGM has no writer yet).</param>
+/// <param name="BytesB">The size of version B's output file, or <c>null</c>.</param>
+internal sealed record RemadeRow(ListeningRow Row, bool Heard, ListeningFeatures? A, ListeningFeatures? B, long? BytesA = null, long? BytesB = null);
 
 /// <summary>What <see cref="ListeningRemake.Remake"/> did.</summary>
 /// <param name="ExitCode">0 when every row with hashes remade byte for byte, 1 when one didn't.</param>
@@ -363,8 +365,8 @@ internal sealed class ListeningRemake(IReadOnlyList<string> songs, string output
             }
 
             IPhase phase = progress.Start("row:" + row.Name);
-            byte[] clipA = Version(row, row.RecipeA, Path.Combine(folder, row.Name + "-a.wav"));
-            byte[] clipB = Version(row, row.RecipeB, Path.Combine(folder, row.Name + "-b.wav"));
+            (byte[] clipA, long? bytesA) = Version(row, row.RecipeA, Path.Combine(folder, row.Name + "-a.wav"));
+            (byte[] clipB, long? bytesB) = Version(row, row.RecipeB, Path.Combine(folder, row.Name + "-b.wav"));
             string a = ClipWav.Sha256(clipA);
             string b = ClipWav.Sha256(clipB);
             ListeningFeatures? featuresA = null;
@@ -375,7 +377,7 @@ internal sealed class ListeningRemake(IReadOnlyList<string> songs, string output
                 featuresB = Features(features, row.Name, "b", original, clipB);
             }
 
-            results.Add(new RemadeRow(row, row.Sha256A.Length > 0 && a == row.Sha256A && b == row.Sha256B, featuresA, featuresB));
+            results.Add(new RemadeRow(row, row.Sha256A.Length > 0 && a == row.Sha256A && b == row.Sha256B, featuresA, featuresB, bytesA, bytesB));
             if (row.Sha256A.Length == 0)
             {
                 logger.Information("{Row:l}: made, {Song:l} from {Start} s", row.Name, row.Song, row.StartSeconds);
@@ -418,16 +420,23 @@ internal sealed class ListeningRemake(IReadOnlyList<string> songs, string output
         return new RemakeResult(mismatches == 0 ? 0 : 1, results);
     }
 
-    /// <summary>Converts the row's song with <paramref name="recipeText"/>, cuts the clip, writes it to <paramref name="clipPath"/> and returns its bytes.</summary>
-    private byte[] Version(ListeningRow row, string recipeText, string clipPath)
+    /// <summary>
+    /// Converts the row's song with <paramref name="recipeText"/>, cuts the clip, writes it to <paramref name="clipPath"/> and
+    /// returns its bytes and the size of the output file, <c>null</c> when the converter wrote none.
+    /// </summary>
+    private (byte[] Clip, long? OutputBytes) Version(ListeningRow row, string recipeText, string clipPath)
     {
         string work = Path.Combine(Path.GetDirectoryName(clipPath)!, "work"); // clipPath is always inside the listening folder
         Directory.CreateDirectory(work);
         string stem = Path.Combine(work, Path.GetFileNameWithoutExtension(clipPath));
+        string output = stem + ".out";
+
+        // An output left by an earlier run must never stand in for this one's size.
+        File.Delete(output);
         string wav = Render(SongPath(row.Song), row.Format, recipeText, stem, null, row.Name);
         byte[] clip = ClipWav.Cut(File.ReadAllBytes(wav), row.StartSeconds, row.Seconds);
         File.WriteAllBytes(clipPath, clip);
-        return clip;
+        return (clip, File.Exists(output) ? new FileInfo(output).Length : null);
     }
 
     /// <summary>

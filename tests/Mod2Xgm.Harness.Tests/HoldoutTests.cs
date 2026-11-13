@@ -72,6 +72,46 @@ public sealed class HoldoutTests
         Assert.Equal(100, sut.LearnedAgreement);
     }
 
+    /// <summary>
+    /// A "can't tell" the smaller file decides counts as a pick of the smaller version (docs/adr/0106-cant-tell-smaller-wins.md):
+    /// here the smaller is the version the learned score finds farther, so each one is a miss for it.
+    /// </summary>
+    [Fact]
+    public void Score_WithCantTellDecidedBySize_CountsItAsAPick()
+    {
+        // Arrange
+        FitAnswer[] answers = [.. Answers(30), .. Answers(4).Select(a => a with { Name = a.Name + "s", Pick = "same", Smaller = a.Pick == "a" ? "b" : "a" })];
+
+        // Act
+        HoldoutResult sut = HoldoutScore.Score(answers, ModulationOnly);
+
+        // Assert
+        Assert.Equal(34, sut.Pairs);
+        Assert.Equal(34, sut.AbPicks);
+        Assert.Equal(100.0 * 30 / 34, sut.LearnedAgreement);
+        Assert.Contains("(smaller)", string.Join('\n', HoldoutScore.Describe(sut, fitted: true)), StringComparison.Ordinal);
+    }
+
+    /// <summary>On a "can't tell" the size decided, finding both versions equally close is right; on an a/b pick it is a miss.</summary>
+    [Fact]
+    public void Score_WithEqualDistances_TieIsRightOnlyForCantTell()
+    {
+        // Arrange
+        ListeningFeatures same = new(5, 30, 0.1, -10, 0.2, 3, 6);
+        FitAnswer[] answers =
+        [
+            new("r22-q1", "song1.mod", "same", same, same, "a"),
+            new("r22-q2", "song2.mod", "b", same, same, "a"),
+        ];
+
+        // Act
+        HoldoutResult sut = HoldoutScore.Score(answers, ModulationOnly);
+
+        // Assert
+        Assert.Equal(50, sut.LearnedAgreement);
+        Assert.Equal(50, sut.LogMelAgreement);
+    }
+
     /// <summary>Without fitted weights the learned score guesses nothing and the bar can't be passed.</summary>
     [Fact]
     public void Score_WithoutWeights_IsNotPassed()
