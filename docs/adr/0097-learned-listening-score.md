@@ -1,6 +1,6 @@
 # ADR 0097: A listening score learned from David's blind answers
 
-- **Status:** Accepted (David, 2026-11-10)
+- **Status:** Accepted (David, 2026-11-10); its "can't tell" rule superseded by [ADR 0106](0106-cant-tell-smaller-wins.md)
 - **Date:** 2026-11-09
 
 ## Context

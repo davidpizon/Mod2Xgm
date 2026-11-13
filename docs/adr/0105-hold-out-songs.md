@@ -1,6 +1,6 @@
 # ADR 0105: Hold-out songs and the bar for the learned listening score
 
-- **Status:** Proposed
+- **Status:** Proposed; its "can't tell" reading superseded by [ADR 0106](0106-cant-tell-smaller-wins.md)
 - **Date:** 2026-11-11
 
 ## Context

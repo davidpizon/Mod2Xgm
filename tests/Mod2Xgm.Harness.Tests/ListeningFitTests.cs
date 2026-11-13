@@ -75,6 +75,97 @@ public sealed class ListeningFitTests
         Assert.Null(sut.LogMelAgreement);
     }
 
+    /// <summary>
+    /// "Can't tell" answers decided by the smaller file teach the fit like a/b picks (docs/adr/0106-cant-tell-smaller-wins.md):
+    /// here the smaller version always has the lower NMR, so the fit keeps NMR where the same answers undecided teach nothing.
+    /// </summary>
+    [Fact]
+    public void Fit_WithCantTellDecidedBySize_LearnsFromThem()
+    {
+        // Arrange
+        FitAnswer[] answers = [.. Answers(40, songs: 4, NmrDecides).Select(a => a with { Pick = "same", Smaller = a.Pick })];
+        int nmr = 3;
+
+        // Act
+        FitResult sut = ListeningFit.Fit(answers);
+
+        // Assert
+        Assert.Equal(FitOutcome.Fitted, sut.Outcome);
+        Assert.True(sut.Weights[nmr] > 0, "a farther NMR should lose");
+        Assert.True(sut.Agreement >= 95, $"agreement {sut.Agreement}");
+    }
+
+    /// <summary>A "can't tell" goes to the smaller file; an a/b pick never changes, and equal sizes leave it at half each.</summary>
+    [Theory]
+    [InlineData("same", "a", "a", 1.0)]
+    [InlineData("same", "b", "b", 0.0)]
+    [InlineData("same", "", "same", 0.5)]
+    [InlineData("a", "b", "a", 1.0)]
+    [InlineData("b", "a", "b", 0.0)]
+    public void Decided_WithPickAndSmaller_FollowsTheRule(string pick, string smaller, string decided, double target)
+    {
+        // Arrange
+        ListeningFeatures features = new(5, 30, 0.1, -10, 0.2, 3, 6);
+
+        // Act
+        FitAnswer sut = new("r1-q1", "song.mod", pick, features, features, smaller);
+
+        // Assert
+        Assert.Equal(decided, sut.Decided);
+        Assert.Equal(target, sut.Target);
+    }
+
+    /// <summary>The smaller of two sizes names its side; equal or unknown sizes name none.</summary>
+    [Theory]
+    [InlineData(10L, 20L, "a")]
+    [InlineData(20L, 10L, "b")]
+    [InlineData(10L, 10L, "")]
+    [InlineData(null, 10L, "")]
+    [InlineData(10L, null, "")]
+    public void SmallerOf_WithSizes_NamesTheSmaller(long? bytesA, long? bytesB, string expected)
+    {
+        // Act
+        string sut = FitAnswer.SmallerOf(bytesA, bytesB);
+
+        // Assert
+        Assert.Equal(expected, sut);
+    }
+
+    /// <summary>A report shows a "can't tell" the size decided as such, so the answer David gave stays visible.</summary>
+    [Theory]
+    [InlineData("a", "b", "a")]
+    [InlineData("same", "b", "can't tell → b (smaller)")]
+    [InlineData("same", "", "can't tell")]
+    public void Describe_WithPick_ShowsWhatDecidedIt(string pick, string smaller, string expected)
+    {
+        // Arrange
+        ListeningFeatures features = new(5, 30, 0.1, -10, 0.2, 3, 6);
+        FitAnswer sut = new("r1-q1", "song.mod", pick, features, features, smaller);
+
+        // Act
+        string text = sut.Describe();
+
+        // Assert
+        Assert.Equal(expected, text);
+    }
+
+    /// <summary>A remade row's answer takes the smaller side from the two output sizes.</summary>
+    [Fact]
+    public void From_WithRowSizes_SetsSmaller()
+    {
+        // Arrange
+        ListeningFeatures features = new(5, 30, 0.1, -10, 0.2, 3, 6);
+        ListeningRow row = new("2026-11-13", "r23", "q1", "song.mod", 0, 20, "xgm2", "", "", "c", "x", "y", "same", "", "", "");
+
+        // Act
+        FitAnswer sut = FitAnswer.From(new RemadeRow(row, true, features, features, 900, 800), features, features);
+
+        // Assert
+        Assert.Equal("r23-q1", sut.Name);
+        Assert.Equal("b", sut.Smaller);
+        Assert.Equal("b", sut.Decided);
+    }
+
     /// <summary>The report has the summary, the kept weights and one line per answer.</summary>
     [Fact]
     public void Describe_AfterFit_ListsWeightsAndEveryAnswer()

@@ -90,6 +90,43 @@ public sealed class ListeningRemakeTests : IDisposable
         Assert.Equal(string.Empty, lines[3]);
     }
 
+    /// <summary>Each version's output file size is returned, what a "can't tell" answer is decided by (docs/adr/0106-cant-tell-smaller-wins.md).</summary>
+    [Fact]
+    public void Remake_WithXgm2Row_ReturnsBothOutputSizes()
+    {
+        // Arrange
+        string answers = Answers("xgm2", "", "--no-dac");
+        ListeningRemake sut = new([TestFiles.ShortSong], _folder, null, Logger.None);
+
+        // Act
+        RemakeResult result = sut.Remake(answers, NoProgress.Instance);
+
+        // Assert
+        RemadeRow row = Assert.Single(result.Rows);
+        Assert.Equal(new FileInfo(Path.Combine(_folder, "listening", "work", "r1-q1-a.out")).Length, row.BytesA);
+        Assert.Equal(new FileInfo(Path.Combine(_folder, "listening", "work", "r1-q1-b.out")).Length, row.BytesB);
+    }
+
+    /// <summary>XGM has no writer yet, so its versions have no size, and an output left by an earlier run doesn't stand in.</summary>
+    [Fact]
+    public void Remake_WithXgmRow_HasNoOutputSizes()
+    {
+        // Arrange
+        string answers = Answers("xgm", "", "");
+        string work = Path.Combine(_folder, "listening", "work");
+        Directory.CreateDirectory(work);
+        File.WriteAllBytes(Path.Combine(work, "r1-q1-a.out"), [1, 2, 3]);
+        ListeningRemake sut = new([TestFiles.ShortSong], _folder, null, Logger.None);
+
+        // Act
+        RemakeResult result = sut.Remake(answers, NoProgress.Instance);
+
+        // Assert
+        RemadeRow row = Assert.Single(result.Rows);
+        Assert.Null(row.BytesA);
+        Assert.Null(row.BytesB);
+    }
+
     /// <summary>Without a reference player there is nothing to score the clips against, so no <c>features.tsv</c> is written.</summary>
     [Fact]
     public void Run_WithoutReference_WritesNoFeatures()

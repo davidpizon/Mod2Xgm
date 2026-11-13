@@ -14,7 +14,7 @@
     <!-- tools/Mod2Xgm.Harness only, never the converter (ADR 0053). -->
     <PackageVersion Include="R128Net" Version="1.1.2" />
     <!-- Runs the pretrained listening models in the harness only, MIT (ADR 0104). -->
-    <PackageVersion Include="Microsoft.ML.OnnxRuntime" Version="1.31.1" />
+    <PackageVersion Include="Microsoft.ML.OnnxRuntime" Version="1.32.0" />
   </ItemGroup>
   <ItemGroup Label="Tests">
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.12.0" />

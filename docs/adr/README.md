@@ -119,6 +119,7 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0103](0103-dotnet-11.md) | .NET 11 and System.CommandLine 3 | 2026-11-11 | Accepted |
 | [0104](0104-pretrained-embeddings.md) | Pretrained listening models in the harness, through ONNX Runtime | 2026-11-11 | Proposed |
 | [0105](0105-hold-out-songs.md) | Hold-out songs and the bar for the learned listening score | 2026-11-11 | Proposed |
+| [0106](0106-cant-tell-smaller-wins.md) | "Can't tell" means either is fine, and the smaller file wins | 2026-11-13 | Proposed |
 
 ## Open questions
 

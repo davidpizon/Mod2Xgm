@@ -14,15 +14,44 @@ namespace Mod2Xgm.Harness;
 /// <param name="Pick"><c>a</c>, <c>b</c> or <c>same</c>.</param>
 /// <param name="A">Version A's features.</param>
 /// <param name="B">Version B's features.</param>
-internal sealed record FitAnswer(string Name, string Song, string Pick, ListeningFeatures A, ListeningFeatures B)
+/// <param name="Smaller">
+/// <c>a</c> or <c>b</c>, the version whose output file is smaller, or empty when they are the same size or a size is
+/// unknown: what a "can't tell" answer counts as (docs/adr/0106-cant-tell-smaller-wins.md).
+/// </param>
+internal sealed record FitAnswer(string Name, string Song, string Pick, ListeningFeatures A, ListeningFeatures B, string Smaller = "")
 {
-    /// <summary>How much A won: 1 for <c>a</c>, 0 for <c>b</c>, ½ for "can't tell" (docs/adr/0097-learned-listening-score.md).</summary>
-    public double Target => Pick switch
+    /// <summary>
+    /// The pick the fit and the hold-out go by: David's <c>a</c> or <c>b</c>, and for "can't tell" the smaller version, since
+    /// either is fine and then the smaller file wins (David, docs/adr/0106-cant-tell-smaller-wins.md); <c>same</c> only when
+    /// the sizes don't decide.
+    /// </summary>
+    public string Decided => Pick == "same" && Smaller is "a" or "b" ? Smaller : Pick;
+
+    /// <summary>How much A won: 1 for <c>a</c>, 0 for <c>b</c>, by <see cref="Decided"/>; ½ for a "can't tell" the sizes don't decide.</summary>
+    public double Target => Decided switch
     {
         "a" => 1,
         "b" => 0,
         _ => 0.5,
     };
+
+    /// <summary>True for a "can't tell" answer that the smaller file decided.</summary>
+    public bool DecidedBySize => Pick == "same" && Decided != Pick;
+
+    /// <summary><c>a</c> when <paramref name="bytesA"/> is smaller, <c>b</c> when <paramref name="bytesB"/> is, empty when equal or unknown.</summary>
+    public static string SmallerOf(long? bytesA, long? bytesB) =>
+        bytesA is not { } a || bytesB is not { } b || a == b ? string.Empty : a < b ? "a" : "b";
+
+    /// <summary>The answer of a remade <paramref name="row"/> with features <paramref name="a"/> and <paramref name="b"/>.</summary>
+    public static FitAnswer From(RemadeRow row, ListeningFeatures a, ListeningFeatures b)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+        return new FitAnswer(row.Row.Name, row.Row.Song, row.Row.Pick, a, b, SmallerOf(row.BytesA, row.BytesB));
+    }
+
+    /// <summary>The pick in a report: <c>a</c>, <c>b</c>, <c>can't tell</c>, or <c>can't tell → b (smaller)</c>.</summary>
+    public string Describe() =>
+        Pick != "same" ? Pick : DecidedBySize ? "can't tell → " + Decided + " (smaller)" : "can't tell";
 }
 
 /// <summary>How a fit ended.</summary>
@@ -237,7 +266,7 @@ internal static class ListeningFit
         foreach (FitLine line in result.Lines)
         {
             string chance = line.LeftOutChance is { } c ? c.ToString("0.00", CultureInfo.InvariantCulture) : "–";
-            lines.Add($"  {line.Answer.Name} {line.Answer.Song}: picked {line.Answer.Pick}, learned gave it {chance}, log-mel says {line.LogMelGuess}");
+            lines.Add($"  {line.Answer.Name} {line.Answer.Song}: picked {line.Answer.Describe()}, learned gave it {chance}, log-mel says {line.LogMelGuess}");
         }
 
         return lines;
@@ -317,7 +346,7 @@ internal static class ListeningFit
     /// </summary>
     private static double? Agreement(IReadOnlyList<FitAnswer> answers, Func<int, double> chanceOfA)
     {
-        int[] decided = [.. Enumerable.Range(0, answers.Count).Where(i => answers[i].Pick is "a" or "b")];
+        int[] decided = [.. Enumerable.Range(0, answers.Count).Where(i => answers[i].Decided is "a" or "b")];
         if (decided.Length == 0)
         {
             return null;
@@ -326,7 +355,7 @@ internal static class ListeningFit
         double right = decided.Sum(i =>
         {
             double p = chanceOfA(i);
-            return Math.Abs(p - 0.5) < 1e-12 ? 0.5 : (p > 0.5) == (answers[i].Pick == "a") ? 1 : 0;
+            return Math.Abs(p - 0.5) < 1e-12 ? 0.5 : (p > 0.5) == (answers[i].Decided == "a") ? 1 : 0;
         });
         return 100 * right / decided.Length;
     }
@@ -507,7 +536,7 @@ internal static class ListeningFitRun
         {
             if (r is { Heard: true, A: { } a, B: { } b, Row.Pick.Length: > 0 })
             {
-                answers.Add(new FitAnswer(r.Row.Name, r.Row.Song, r.Row.Pick, a, b));
+                answers.Add(FitAnswer.From(r, a, b));
             }
             else
             {
