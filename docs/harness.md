@@ -321,7 +321,7 @@ per answer (the chance it gave the pick, log-mel's guess), and every row left ou
 After a fit, the harness rewrites `src/Scoring/ListeningWeights.cs` (found above the current folder, next to
 `Mod2Xgm.slnx`) with the weights, the date and the counts (David). Commit it in a PR like any change. From then on,
 `scores.csv`, `clip-scores.csv`, `features.tsv` and `report.md` show the learned score next to log-mel. Log-mel stays
-the main number until the score is adopted (T9.4l).
+the main number: the score was not adopted ([ADR 0107](adr/0107-learned-score-not-adopted.md)), so it is shown for reading only.
 
 ## The hold-out
 

@@ -1,6 +1,6 @@
 # ADR 0106: "Can't tell" means either is fine, and the smaller file wins
 
-- **Status:** Proposed; supersedes the "can't tell" rule of [ADR 0097](0097-learned-listening-score.md),
+- **Status:** Accepted (David, 2026-11-13); supersedes the "can't tell" rule of [ADR 0097](0097-learned-listening-score.md),
   [ADR 0101](0101-listening-score-fit.md) and [ADR 0105](0105-hold-out-songs.md)
 - **Date:** 2026-11-13
 
