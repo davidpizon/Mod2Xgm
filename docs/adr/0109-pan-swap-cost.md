@@ -71,4 +71,9 @@ To be filled in by the rounds.
   `DacLoser` in the simple mapper; the Genesis player and the DMF translator play a held recording from both speakers.
 - `--pan-swaps` also counts the versions with the rules, so each step of the ladder shows how many swaps it leaves and
   how many instruments it holds off side.
+- **The PSG tone under an FM note now stops with it** where the MOD note falls silent. [ADR 0095](0095-voices-stop-with-the-mod-note.md)
+  cut the FM voice and its FM layer but left the tone layer ([ADR 0088](0088-layering.md)) humming on from both speakers,
+  which `--pan-swaps` counted as the instrument jumping to the middle: 639 of k0w-rsnd's swaps on XGM once its robot
+  sound moved to FM. It changes every clip with a tone layer under a one-shot FM note, so older listening rows may no
+  longer remake byte for byte ([README](../../tests/golden/listening/README.md#a-clip-changes)).
 - The XGM2 writer records the player ([ADR 0099](0099-xgm2-writer-records-the-player.md)), so its output follows.

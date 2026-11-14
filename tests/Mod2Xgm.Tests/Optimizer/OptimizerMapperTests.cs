@@ -799,6 +799,27 @@ public sealed class OptimizerMapperTests
     }
 
     /// <summary>
+    /// The PSG tone under an FM note stops with it when its one-shot sample plays out, so the tone doesn't hum on from
+    /// both speakers after the MOD note is silent (docs/adr/0095-voices-stop-with-the-mod-note.md, docs/adr/0109-pan-swap-cost.md).
+    /// </summary>
+    [Fact]
+    public void Map_WithLayeredFmNoteWhoseSampleEnds_StopsTheToneWhenItEnds()
+    {
+        // Arrange: 4000 frames at 160 frames a tick play out after 25 one-tick rows.
+        (int Channel, int Sample)[][] rows = [[(0, 0)], .. Enumerable.Repeat<(int, int)[]>([(-1, 0)], 39)];
+        Song song = SongOf(1, rows);
+        OptimizerMapper sut = new(Limits(PcmTarget.Xgm), [FmFirst(0)]);
+
+        // Act
+        GenesisPlan plan = sut.Map(song, PlaybackOf(song), MappingOptions.Default, Notes());
+
+        // Assert
+        IReadOnlyList<PlanRow> pattern = plan.Patterns[0];
+        Assert.Equal(VoiceKind.PsgTone, pattern[0].Cells[(int)GenesisChannel.Psg1].Voice?.Kind);
+        Assert.Equal([25], Enumerable.Range(0, pattern.Count).Where(r => pattern[r].Cells[(int)GenesisChannel.Psg1].NoteOff));
+    }
+
+    /// <summary>
     /// A recording the MOD fades to silence (a volume slide, <c>C00</c>) stops on the tick its volume reaches 0 for good, as
     /// the DAC keeps the volume a note starts with (docs/adr/0095-voices-stop-with-the-mod-note.md).
     /// </summary>

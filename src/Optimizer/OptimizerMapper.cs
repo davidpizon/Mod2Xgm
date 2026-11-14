@@ -1765,7 +1765,7 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
                     }
 
                     Want(note.Column, tick, play.Channel);
-                    if (note is { Kind: VoiceKind.Fm, LayerColumn: >= 0, LayerKind: VoiceKind.Fm })
+                    if (note is { Kind: VoiceKind.Fm, LayerColumn: >= 0 })
                     {
                         Want(note.LayerColumn, tick, play.Channel);
                     }
