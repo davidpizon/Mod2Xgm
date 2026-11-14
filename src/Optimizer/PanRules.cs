@@ -61,7 +61,7 @@ internal enum PanFixes
 internal sealed record PanRules(PanSwapAllowance Allow, double FreeSeconds, double FreeVolume, int FreeDistance, SteadyMiddleSpan Span, PanFixes Fixes, double OffSideDb)
 {
     /// <summary>The price of a note held in the middle until the rounds set one: as much as a track's change of sound (docs/adr/0087-greedy-allocator.md).</summary>
-    public const double DefaultOffSideDb = 3;
+    private const double DefaultOffSideDb = 3;
 
     /// <summary>Every swap stands: the allocator as before T9.4r.</summary>
     public static PanRules Today { get; } = new(PanSwapAllowance.All, 0, 0, 0, SteadyMiddleSpan.Song, PanFixes.All, DefaultOffSideDb);
@@ -73,7 +73,7 @@ internal sealed record PanRules(PanSwapAllowance Allow, double FreeSeconds, doub
     /// No swap stands, and the only fix is holding recordings in the middle: round 25 (David, 2026-11-14) picked no swaps
     /// in all six pairs, and found FM in place of a recording "completely unacceptable" (docs/adr/0109-pan-swap-cost.md).
     /// </summary>
-    public static PanRules Steady { get; } = Never with { Fixes = PanFixes.SteadyMiddle };
+    private static PanRules Steady { get; } = Never with { Fixes = PanFixes.SteadyMiddle };
 
     /// <summary>The converter's rules (docs/adr/0109-pan-swap-cost.md).</summary>
     public static PanRules Default => Steady;

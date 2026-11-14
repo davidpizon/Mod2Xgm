@@ -180,10 +180,10 @@ internal sealed record Recipe(IReadOnlyList<string> Arguments, IReadOnlySet<int>
     /// The optimizer's pan rules with <c>rule:pan…</c> (docs/adr/0109-pan-swap-cost.md), or <c>null</c> for the converter's own.
     /// <c>rule:pan=short</c> alone lets stand a swap off side for 0.1 s or less, at half volume or less, to or from the middle.
     /// </summary>
-    public PanRules? Pan { get; init; }
+    public PanRules? Pan { get; private init; }
 
     /// <summary>The simple mapper's choice for a drum that loses the DAC with <c>rule:dac-loser=…</c>, or <c>null</c> for its own.</summary>
-    public Mapping.DacLoser? Loser { get; init; }
+    public Mapping.DacLoser? Loser { get; private init; }
 
     /// <summary>The swap <c>rule:pan=short</c> lets stand when <c>rule:pan-free</c> doesn't say: 0.1 s off side, half volume, to or from the middle.</summary>
     private static readonly PanRules ShortQuiet = PanRules.Today with { Allow = PanSwapAllowance.ShortQuiet, FreeSeconds = 0.1, FreeVolume = 0.5, FreeDistance = 1 };
@@ -223,7 +223,7 @@ internal sealed record Recipe(IReadOnlyList<string> Arguments, IReadOnlySet<int>
                     case ["pan", "short"]:
                         pan = pan is null ? ShortQuiet : pan with { Allow = PanSwapAllowance.ShortQuiet };
                         continue;
-                    case ["pan-free", string free]:
+                    case ["pan-free", { } free]:
                         pan = Free(pan ?? ShortQuiet, free, text);
                         continue;
                     case ["pan-span", "song"]:
@@ -232,10 +232,10 @@ internal sealed record Recipe(IReadOnlyList<string> Arguments, IReadOnlySet<int>
                     case ["pan-span", "order"]:
                         pan = (pan ?? PanRules.Today) with { Span = SteadyMiddleSpan.Order };
                         continue;
-                    case ["pan-fix", string fixes]:
+                    case ["pan-fix", { } fixes]:
                         pan = (pan ?? PanRules.Today) with { Fixes = Fixes(fixes, text) };
                         continue;
-                    case ["pan-cost", string db] when double.TryParse(db, NumberStyles.Float, CultureInfo.InvariantCulture, out double cost) && cost >= 0:
+                    case ["pan-cost", { } db] when double.TryParse(db, NumberStyles.Float, CultureInfo.InvariantCulture, out double cost) && cost >= 0:
                         pan = (pan ?? PanRules.Today) with { OffSideDb = cost };
                         continue;
                     case ["dac-loser", "noise"]:

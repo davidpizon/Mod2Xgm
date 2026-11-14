@@ -770,7 +770,7 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
             HashSet<int> stuck = [];
             SortedDictionary<int, int> centred = [];
             SortedDictionary<int, int> moved = [];
-            List<PanSwap> left = [];
+            List<PanSwap> left;
             for (int round = 0; round < (4 * _menu.Count) + 8; round++)
             {
                 left = [.. PlanSwaps().Swaps.Where(Unfixed)];
@@ -936,7 +936,7 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
         /// </summary>
         private List<PlannedNote> MiddleNotes(int sample, List<PanSwap> swaps)
         {
-            IEnumerable<PlannedNote> notes = _planned.Where(n => n.Sample == sample && n.Kind == VoiceKind.Dac && !n.Centred);
+            IEnumerable<PlannedNote> notes = _planned.Where(n => n.Sample == sample && n is { Kind: VoiceKind.Dac, Centred: false });
             if (_pans.Span == SteadyMiddleSpan.Song)
             {
                 return [.. notes];
@@ -1059,7 +1059,7 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
 
             double skip = note.Importance * ((note.Kind is { } kind ? Distance(kind, note) : UnknownDb) - Distance(VoiceKind.Dac, note));
             double held = all.Where(n => SideOf(n) != 0).Select(n => n.Sample).Distinct()
-                .Sum(s => _planned.Where(n => n.Sample == s && n.Kind == VoiceKind.Dac && !n.Centred && (_pans.Span == SteadyMiddleSpan.Song || n.Order == note.Order)).Sum(n => n.Importance));
+                .Sum(s => _planned.Where(n => n.Sample == s && n is { Kind: VoiceKind.Dac, Centred: false } && (_pans.Span == SteadyMiddleSpan.Song || n.Order == note.Order)).Sum(n => n.Importance));
             return skip < _pans.OffSideDb * (held + note.Importance);
         }
 
