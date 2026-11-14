@@ -17,6 +17,9 @@ internal enum PanCause
 
     /// <summary>The PSG has no pan: it always plays from both speakers.</summary>
     Psg,
+
+    /// <summary>The allocator plans the recording to play from both speakers all along, so a clash of sides never moves it (docs/adr/0109-pan-swap-cost.md).</summary>
+    SteadyMiddle,
 }
 
 /// <summary>Where one sounding note was heard on one tick of a render, next to where its MOD channel puts it.</summary>

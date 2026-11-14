@@ -16,6 +16,12 @@ namespace Mod2Xgm.Render;
 /// <param name="ChannelChanged">True when the note after the change comes from another MOD channel (on the same side).</param>
 internal sealed record PanSwap(int Sample, double Seconds, int Original, int From, int To, PanCause Cause, double LastsSeconds, double GapSeconds, double Volume, bool ChannelChanged)
 {
+    /// <summary>
+    /// How long the stretch off its side lasts, silences between its notes included: after the change for a swap away or
+    /// across, before it for a swap back, so a short trip away and back gives both swaps the same value (docs/adr/0109-pan-swap-cost.md).
+    /// </summary>
+    public double OffSeconds { get; init; } = LastsSeconds;
+
     /// <summary>How far it moves: 1 between one side and both, 2 from one side to the other.</summary>
     public int Distance => Math.Abs(To - From);
 
@@ -104,7 +110,10 @@ internal static class PanSwaps
             next.End - next.Start,
             Math.Max(0, next.Start - previous.End),
             off.MeanVolume,
-            previous.LastSource != next.FirstSource);
+            previous.LastSource != next.FirstSource)
+        {
+            OffSeconds = off.End - off.Start,
+        };
     }
 
     /// <summary>

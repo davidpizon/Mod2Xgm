@@ -230,6 +230,50 @@ public sealed class SimpleMapperTests
         Assert.Contains(notes, n => n.Contains("played by the PSG noise channel instead", StringComparison.Ordinal));
     }
 
+    /// <summary>
+    /// With <see cref="DacLoser.Fm"/>, a drum on the right that loses the DAC plays FM on its own channel, which keeps its
+    /// side, instead of the PSG noise, which would jump it to the middle (docs/adr/0109-pan-swap-cost.md).
+    /// </summary>
+    [Fact]
+    public void Map_WithLoserToFmAndDrumOnASide_PlaysItFmOnItsOwnChannel()
+    {
+        // Act
+        (GenesisPlan plan, _) = Map(Panned(Build([[RowOf(Play(Kick, volume: 0.9), Play(Hat, volume: 0.3))]]), 0, 1, 0, 0), loser: DacLoser.Fm);
+
+        // Assert
+        Assert.Equal(VoiceKind.Fm, CellAt(plan, GenesisChannel.Fm2).Voice?.Kind);
+        Assert.Equal(PlanCell.Empty, CellAt(plan, GenesisChannel.Psg4));
+    }
+
+    /// <summary>With <see cref="DacLoser.Fm"/>, a centred drum that loses the DAC still takes the PSG noise: it can't jump.</summary>
+    [Fact]
+    public void Map_WithLoserToFmAndCentredDrum_StillTakesTheNoise()
+    {
+        // Act
+        (GenesisPlan plan, _) = Map(Build([[RowOf(Play(Kick, volume: 0.9), Play(Hat, volume: 0.3))]]), loser: DacLoser.Fm);
+
+        // Assert
+        Assert.Equal(new PlanVoice(VoiceKind.PsgNoise, 0), CellAt(plan, GenesisChannel.Psg4).Voice);
+    }
+
+    /// <summary>
+    /// With <see cref="DacLoser.NoiseAllSong"/>, a drum on the right that loses the DAC once plays the PSG noise everywhere,
+    /// even where it would have the DAC alone, so it stays steadily in the middle.
+    /// </summary>
+    [Fact]
+    public void Map_WithNoiseAllSong_PlaysTheSideLoserOnNoiseEverywhere()
+    {
+        // Act
+        (GenesisPlan plan, List<string> notes) = Map(
+            Panned(Build([[RowOf(Play(Kick, volume: 0.9), Play(Hat, volume: 0.3))], [RowOf(Cell.Empty, Play(Hat, volume: 0.3))]]), 0, 1, 0, 0),
+            loser: DacLoser.NoiseAllSong);
+
+        // Assert
+        Assert.Equal(new PlanVoice(VoiceKind.PsgNoise, 0), CellAt(plan, GenesisChannel.Psg4, order: 1).Voice);
+        Assert.Equal(PlanCell.Empty, CellAt(plan, GenesisChannel.Fm6, order: 1));
+        Assert.Contains(notes, n => n.Contains("PSG noise channel all song", StringComparison.Ordinal));
+    }
+
     /// <summary>A <c>--require-dac</c> note that loses the DAC is dropped, never moved to FM or PSG.</summary>
     [Fact]
     public void Map_WithRequiredDacNoteLosingDac_DropsIt()
@@ -617,12 +661,16 @@ public sealed class SimpleMapperTests
         return new Song("test", [.. Enumerable.Repeat(new Channel(0), channels)], [.. Enumerable.Range(0, built.Length)], null, built, instruments, samples, new Timing(6, 125));
     }
 
+    /// <summary><paramref name="song"/> with its channels panned −1 (left) to +1 (right), one value per channel.</summary>
+    private static Song Panned(Song song, params double[] pans) =>
+        new(song.Title, [.. pans.Select(p => new Channel(p))], song.Orders, song.LoopOrder, song.Patterns, song.Instruments, song.Samples, song.Timing);
+
     /// <summary>Maps <paramref name="song"/>; without <paramref name="playback"/> (no tick player for a song built in code) every note is treated as never played.</summary>
-    private static (GenesisPlan Plan, List<string> Notes) Map(Song song, MappingOptions? options = null, Playback? playback = null)
+    private static (GenesisPlan Plan, List<string> Notes) Map(Song song, MappingOptions? options = null, Playback? playback = null, DacLoser loser = DacLoser.Default)
     {
         CollectingSink sink = new();
         ConversionNotes notes = new(sink.CreateLogger());
-        IChannelMapper sut = new SimpleMapper();
+        IChannelMapper sut = new SimpleMapper(loser);
         GenesisPlan plan = sut.Map(song, playback ?? new Playback([], null, PlaybackEnd.Stops), options ?? MappingOptions.Default, notes);
         return (plan, [.. notes.Messages]);
     }

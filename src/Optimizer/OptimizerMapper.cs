@@ -2,6 +2,7 @@ using System.Globalization;
 using Mod2Xgm.Analysis;
 using Mod2Xgm.Mapping;
 using Mod2Xgm.Model;
+using Mod2Xgm.Render;
 
 namespace Mod2Xgm.Optimizer;
 
@@ -21,7 +22,8 @@ namespace Mod2Xgm.Optimizer;
 /// <param name="switching">How a sound keeps its voice through the song (plan T9.4c); the converter's choice when not given.</param>
 /// <param name="preMix">How recordings that find no PCM voice are pre-mixed (plan T9.4b); <see cref="PreMixRules.Default"/> when not given.</param>
 /// <param name="layers">False: no note gets a second voice under it (docs/adr/0088-layering.md), for the listening rounds that compare the two (plan T9.4l).</param>
-internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleSounds> menu, ShrinkRules? shrink = null, VoiceSwitching? switching = null, PreMixRules? preMix = null, bool layers = true) : IChannelMapper
+/// <param name="pan">How pan swaps the MOD doesn't make are priced (plan T9.4r, docs/adr/0109-pan-swap-cost.md); <see cref="PanRules.Default"/> when not given.</param>
+internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleSounds> menu, ShrinkRules? shrink = null, VoiceSwitching? switching = null, PreMixRules? preMix = null, bool layers = true, PanRules? pan = null) : IChannelMapper
 {
     /// <summary>What a fully percussive sample's notes add to their importance, as a multiple of a note with no hit: a replaced attack is easy to hear, and David chose this over smaller values (docs/sample-capacity.md#importance).</summary>
     private const double PercussiveBoost = 8;
@@ -93,7 +95,7 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
         if (mixing is { Enabled: true, MakeRoom: true } && limits.PcmBytes is not null)
         {
             // A first, silent pass finds the bytes the pre-mixes want; the shrinker then leaves them that room.
-            Run probe = new(limits, menu, song, playback, options, new ConversionNotes(Serilog.Core.Logger.None), shrink ?? ShrinkRules.Default, switching ?? Switching, mixing, layers, 0);
+            Run probe = new(limits, menu, song, playback, options, new ConversionNotes(Serilog.Core.Logger.None), shrink ?? ShrinkRules.Default, switching ?? Switching, mixing, layers, 0, pan ?? PanRules.Default);
             try
             {
                 probe.Execute();
@@ -107,7 +109,7 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
             reserve = probe.MixBytes + probe.RefusedMixBytes;
         }
 
-        Run run = new(limits, menu, song, playback, options, notes, shrink ?? ShrinkRules.Default, switching ?? Switching, mixing, layers, reserve);
+        Run run = new(limits, menu, song, playback, options, notes, shrink ?? ShrinkRules.Default, switching ?? Switching, mixing, layers, reserve, pan ?? PanRules.Default);
         try
         {
             return run.Execute();
@@ -163,6 +165,9 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
 
         /// <summary>What the second voice is, when it has one.</summary>
         public VoiceKind LayerKind { get; set; }
+
+        /// <summary>True when its recording plays from both speakers, held in the middle so it doesn't jump sides (docs/adr/0109-pan-swap-cost.md).</summary>
+        public bool Centred { get; set; }
     }
 
     /// <summary>Notes mixed into one recording that plays on one PCM voice (docs/adr/0094-pre-mixed-voice-steals.md).</summary>
@@ -222,6 +227,11 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
 
         // Pre-mixes (plan T9.4b): the notes in each, the recordings once each by their bytes, and where tails start.
         private readonly PreMixRules _preMix;
+        private readonly PanRules _pans;
+        private int _mixesSkipped;
+
+        // What sounds on each tick, from the last PlanSwaps (plan T9.4r).
+        private List<(PlannedNote Note, SongNote Play)>?[] _soundingAt = [];
         private readonly bool _layers;
         private readonly long _reserve;
         private readonly List<PlannedNote> _onDac = [];
@@ -237,8 +247,9 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
         private int _silent;
         private int _slides;
 
-        public Run(TargetLimits limits, IReadOnlyList<SampleSounds> menu, Song song, Playback playback, MappingOptions options, ConversionNotes notes, ShrinkRules rules, VoiceSwitching switching, PreMixRules preMix, bool layers, long reserve)
+        public Run(TargetLimits limits, IReadOnlyList<SampleSounds> menu, Song song, Playback playback, MappingOptions options, ConversionNotes notes, ShrinkRules rules, VoiceSwitching switching, PreMixRules preMix, bool layers, long reserve, PanRules pan)
         {
+            _pans = pan;
             _preMix = preMix;
             _layers = layers;
             _reserve = reserve;
@@ -290,6 +301,7 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
             }
 
             Rescue();
+            PlanPans();
 
             foreach (MixedNotes mixed in _mixOf.Values.Distinct())
             {
@@ -736,6 +748,313 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
             return true;
         }
 
+        /// <summary>
+        /// Plans the side each recording is heard on (plan T9.4r, docs/adr/0109-pan-swap-cost.md): while the plan makes a pan
+        /// swap the MOD doesn't make and the rules don't let stand, the instrument whose swaps matter most takes the cheapest
+        /// fix: its recordings held in the middle, or it or an instrument it clashes with played with FM. Each fix holds more
+        /// notes in the middle or takes more off the DAC, so it ends. Only XGM and XGM2 share one DAC pan; a DMF is left as it is.
+        /// </summary>
+        private void PlanPans()
+        {
+            if (!_pans.Active || _dmf)
+            {
+                ReportSkippedMixes();
+                return;
+            }
+
+            Dictionary<int, double> importance = _planned.GroupBy(n => n.Sample).ToDictionary(g => g.Key, g => g.Sum(n => n.Importance));
+            HashSet<int> stuck = [];
+            SortedDictionary<int, int> centred = [];
+            SortedDictionary<int, int> moved = [];
+            List<PanSwap> left = [];
+            for (int round = 0; round < (4 * _menu.Count) + 8; round++)
+            {
+                left = [.. PlanSwaps().Swaps.Where(Unfixed)];
+                IGrouping<int, PanSwap>? worst = left
+                    .Where(s => !stuck.Contains(s.Sample))
+                    .GroupBy(s => s.Sample)
+                    .OrderByDescending(g => importance.GetValueOrDefault(g.Key))
+                    .ThenBy(g => g.Key)
+                    .FirstOrDefault();
+                if (worst is null)
+                {
+                    break;
+                }
+
+                if (!FixPan(worst.Key, [.. worst], centred, moved))
+                {
+                    stuck.Add(worst.Key);
+                }
+            }
+
+            left = [.. PlanSwaps().Swaps.Where(Unfixed)];
+            foreach ((int sample, int notes) in centred)
+            {
+                _notes.Add("Sample {Sample} plays from both speakers in {Notes} notes, held in the middle so it doesn't jump between sides", Label(sample, _song.Samples[sample].Name), notes);
+            }
+
+            foreach ((int sample, int notes) in moved)
+            {
+                _notes.Add("Sample {Sample} plays FM in place of its recording in {Notes} notes, so the recordings it clashed with don't jump between sides", Label(sample, _song.Samples[sample].Name), notes);
+            }
+
+            ReportSkippedMixes();
+            if (left.Count > 0)
+            {
+                _notes.Add("{Count} pan swaps the MOD doesn't make are left: no fix had room", left.Count);
+            }
+
+            // A recording held in the middle all song that also plays FM notes on its side still jumps; with the hold per
+            // order, its trips back to its side between orders are the rule's own.
+            bool Unfixed(PanSwap s) =>
+                (s.Cause is PanCause.SharedDac or PanCause.PreMix or PanCause.Psg || (s.Cause == PanCause.SteadyMiddle && _pans.Span == SteadyMiddleSpan.Song)) && !_pans.Free(s);
+        }
+
+        /// <summary>Adds the conversion note for the pre-mixes <see cref="SkipsMix"/> refused, if any.</summary>
+        private void ReportSkippedMixes()
+        {
+            if (_mixesSkipped > 0)
+            {
+                _notes.Add("{Count} pre-mixes of notes from both sides not made, so their instruments don't jump between sides", _mixesSkipped);
+            }
+        }
+
+        /// <summary>Takes the cheapest fix for <paramref name="sample"/>'s <paramref name="swaps"/>; false when none can be made.</summary>
+        private bool FixPan(int sample, List<PanSwap> swaps, SortedDictionary<int, int> centred, SortedDictionary<int, int> moved)
+        {
+            List<(double Cost, int Rank, int Sample, bool Middle)> fixes = [];
+            if (_pans.Fixes.HasFlag(PanFixes.SteadyMiddle) && MiddleNotes(sample, swaps) is { Count: > 0 } middle)
+            {
+                fixes.Add((_pans.OffSideDb * middle.Where(n => SideOf(n) != 0).Sum(n => n.Importance), 0, sample, true));
+            }
+
+            if (_pans.Fixes.HasFlag(PanFixes.MoveToFm))
+            {
+                foreach (int other in Culprits(sample, swaps).Prepend(sample).Distinct())
+                {
+                    if (FmCost(other) is { } cost)
+                    {
+                        fixes.Add((cost, 1, other, false));
+                    }
+                }
+            }
+
+            foreach ((double _, int _, int which, bool hold) in fixes.OrderBy(f => f.Cost).ThenBy(f => f.Rank).ThenBy(f => f.Sample))
+            {
+                if (hold)
+                {
+                    List<PlannedNote> notes = MiddleNotes(which, swaps);
+                    notes.ForEach(n => n.Centred = true);
+                    centred[which] = centred.GetValueOrDefault(which) + notes.Count;
+                    return true;
+                }
+
+                if (MoveToFm(which, out int count))
+                {
+                    moved[which] = moved.GetValueOrDefault(which) + count;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// The recordings of <paramref name="sample"/> a hold in the middle takes: every one not yet held, or, with
+        /// <see cref="SteadyMiddleSpan.Order"/>, those in the orders where <paramref name="swaps"/> keep it off its side.
+        /// </summary>
+        private List<PlannedNote> MiddleNotes(int sample, List<PanSwap> swaps)
+        {
+            IEnumerable<PlannedNote> notes = _planned.Where(n => n.Sample == sample && n.Kind == VoiceKind.Dac && !n.Centred);
+            if (_pans.Span == SteadyMiddleSpan.Song)
+            {
+                return [.. notes];
+            }
+
+            HashSet<int> orders = [.. swaps.SelectMany(OffTicks).Select(t => _playback.Ticks[t].Order)];
+            return [.. notes.Where(n => orders.Contains(n.Order))];
+        }
+
+        /// <summary>The other samples whose recordings sound while <paramref name="sample"/> is off its side by the shared DAC pan.</summary>
+        private IEnumerable<int> Culprits(int sample, List<PanSwap> swaps) =>
+            swaps.Where(s => s.Cause == PanCause.SharedDac)
+                .SelectMany(OffTicks)
+                .Distinct()
+                .SelectMany(t => _soundingAt[t] ?? [])
+                .Where(x => x.Note.Kind == VoiceKind.Dac && x.Note.Sample != sample)
+                .Select(x => x.Note.Sample)
+                .Distinct()
+                .Order();
+
+        /// <summary>The ticks <paramref name="swap"/>'s instrument spends off its side: after it for a swap away or across, before it for a swap back.</summary>
+        private IEnumerable<int> OffTicks(PanSwap swap)
+        {
+            double end = swap.Kind == PanSwapKind.Back ? swap.Seconds - swap.GapSeconds : swap.Seconds + swap.OffSeconds;
+            double start = swap.Kind == PanSwapKind.Back ? end - swap.OffSeconds : swap.Seconds;
+            for (int t = TickAt(start); t < _playback.Ticks.Count && _playback.Ticks[t].TimeSeconds < end - 1e-9; t++)
+            {
+                yield return t;
+            }
+        }
+
+        /// <summary>The tick that plays at <paramref name="seconds"/>.</summary>
+        private int TickAt(double seconds)
+        {
+            int low = 0;
+            int high = _playback.Ticks.Count - 1;
+            while (low < high)
+            {
+                int mid = (low + high + 1) / 2;
+                if (_playback.Ticks[mid].TimeSeconds <= seconds + 1e-9)
+                {
+                    low = mid;
+                }
+                else
+                {
+                    high = mid - 1;
+                }
+            }
+
+            return Math.Max(0, low);
+        }
+
+        /// <summary>
+        /// What moving every recording of <paramref name="sample"/> to FM costs: its notes' importance times how much further
+        /// FM is from them. <c>null</c> when it can't: a note may not take FM, or is in a pre-mix.
+        /// </summary>
+        private double? FmCost(int sample)
+        {
+            List<PlannedNote> notes = [.. _planned.Where(n => n.Sample == sample && n.Kind == VoiceKind.Dac)];
+            if (notes.Count == 0 || notes.Any(n => !Allowed(VoiceKind.Fm, n) || _mixOf.ContainsKey(n)))
+            {
+                return null;
+            }
+
+            return notes.Sum(n => n.Importance * (Distance(VoiceKind.Fm, n) - Distance(VoiceKind.Dac, n)));
+        }
+
+        /// <summary>Plays every recording of <paramref name="sample"/> with FM; false, changing nothing, when FM has no room for them all.</summary>
+        private bool MoveToFm(int sample, out int count)
+        {
+            List<PlannedNote> notes = [.. _planned.Where(n => n.Sample == sample && n.Kind == VoiceKind.Dac)];
+            count = notes.Count;
+            Saved saved = Save(notes);
+            foreach (PlannedNote note in notes)
+            {
+                foreach (int t in note.Plays.SelectMany(p => Enumerable.Range(p.FirstTick, p.Ticks)))
+                {
+                    _dacAt[t]--;
+                }
+
+                _onDac.Remove(note);
+            }
+
+            foreach (PlannedNote note in notes)
+            {
+                if (!Take(VoiceKind.Fm, note))
+                {
+                    Restore(saved);
+                    return false;
+                }
+
+                note.Kind = VoiceKind.Fm;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// True when the pan rules refuse to mix <paramref name="note"/> into <paramref name="mixed"/>: the mix would hold
+        /// notes from different sides and play centred, and keeping the note's own sound costs less than holding their
+        /// instruments in the middle (docs/adr/0109-pan-swap-cost.md).
+        /// </summary>
+        private bool SkipsMix(MixedNotes mixed, PlannedNote note)
+        {
+            if (!_pans.Active || _dmf || !_pans.Fixes.HasFlag(PanFixes.SkipPreMix))
+            {
+                return false;
+            }
+
+            List<PlannedNote> all = [.. mixed.Notes, note];
+            if (all.Select(SideOf).Distinct().Count() < 2)
+            {
+                return false;
+            }
+
+            if (!_pans.Fixes.HasFlag(PanFixes.SteadyMiddle))
+            {
+                return true;
+            }
+
+            double skip = note.Importance * ((note.Kind is { } kind ? Distance(kind, note) : UnknownDb) - Distance(VoiceKind.Dac, note));
+            double held = all.Where(n => SideOf(n) != 0).Select(n => n.Sample).Distinct()
+                .Sum(s => _planned.Where(n => n.Sample == s && n.Kind == VoiceKind.Dac && !n.Centred && (_pans.Span == SteadyMiddleSpan.Song || n.Order == note.Order)).Sum(n => n.Importance));
+            return skip < _pans.OffSideDb * (held + note.Importance);
+        }
+
+        /// <summary>The side the MOD plays <paramref name="note"/> on when it starts: −1 left, 0 both, +1 right.</summary>
+        private int SideOf(PlannedNote note) => PlanVoicing.Side(_playback.Ticks[note.FirstTick].Channels[note.Channel].Pan);
+
+        /// <summary>True when <paramref name="note"/>'s recording plays from both speakers: held in the middle, or in a pre-mix that is.</summary>
+        private bool Held(PlannedNote note) => note.Centred || (_mixOf.TryGetValue(note, out MixedNotes? mixed) && mixed.Notes.Any(n => n.Centred));
+
+        /// <summary>True when <paramref name="note"/> is in a pre-mix of notes from both sides, which plays centred.</summary>
+        private bool InCentredMix(PlannedNote note) => _mixOf.TryGetValue(note, out MixedNotes? mixed) && mixed.Mix?.Head.Mix is { Centred: true };
+
+        /// <summary>
+        /// The pan swaps the plan makes, worked out as the Genesis player plays it (<c>GenesisPlanPlayer</c>): each tick, the
+        /// recordings sounding share the DAC's side when they agree and play from both speakers when they don't; FM keeps its
+        /// own side and the PSG plays from both. Fills <see cref="_soundingAt"/>.
+        /// </summary>
+        private PanSwapCount PlanSwaps()
+        {
+            int ticks = _playback.Ticks.Count;
+            _soundingAt = new List<(PlannedNote Note, SongNote Play)>?[ticks];
+            foreach (PlannedNote note in _planned.Where(n => n.Kind is not null))
+            {
+                foreach (SongNote play in note.Plays)
+                {
+                    // A recording whose MOD volume fades out for good is cut there (docs/adr/0095-voices-stop-with-the-mod-note.md).
+                    int end = Math.Min(ticks, (note.Kind == VoiceKind.Dac ? FadedOut(play) : null) ?? (play.FirstTick + play.Ticks));
+                    for (int t = play.FirstTick; t < end; t++)
+                    {
+                        (_soundingAt[t] ??= []).Add((note, play));
+                    }
+                }
+            }
+
+            PanLog log = new();
+            List<int> sides = [];
+            for (int t = 0; t < ticks; t++)
+            {
+                if (_soundingAt[t] is not { } here)
+                {
+                    continue;
+                }
+
+                PlaybackTick tick = _playback.Ticks[t];
+                sides.Clear();
+                sides.AddRange(here.Where(x => x.Note.Kind == VoiceKind.Dac).Select(x => Held(x.Note) || InCentredMix(x.Note) ? 0 : PlanVoicing.Side(tick.Channels[x.Play.Channel].Pan)));
+                int dac = sides.Count > 0 && sides.TrueForAll(s => s == sides[0]) ? sides[0] : 0;
+                foreach ((PlannedNote note, SongNote play) in here)
+                {
+                    ChannelTick ch = tick.Channels[play.Channel];
+                    int original = PlanVoicing.Side(ch.Pan);
+                    (int heard, PanCause cause) = note.Kind switch
+                    {
+                        VoiceKind.Fm => (original, PanCause.None),
+                        VoiceKind.Dac when Held(note) => (0, PanCause.SteadyMiddle),
+                        VoiceKind.Dac when InCentredMix(note) => (0, PanCause.PreMix),
+                        VoiceKind.Dac => (dac, PanCause.SharedDac),
+                        _ => (0, PanCause.Psg),
+                    };
+                    log.Add(new PanTick(t, tick.TimeSeconds, tick.DurationSeconds, note.Sample, play.Channel, original, heard, heard == original ? PanCause.None : cause, ch.Volume));
+                }
+            }
+
+            return PanSwaps.Count(log);
+        }
+
         /// <summary>What a rescue can change (not the bytes refused mixes wanted), so a track that can't be rescued whole is put back as it was.</summary>
         private sealed record Saved(
             int[] DacAt,
@@ -853,6 +1172,12 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
             List<MixedNotes> candidates = MixCandidates(note);
             foreach (MixedNotes mixed in candidates)
             {
+                if (SkipsMix(mixed, note))
+                {
+                    _mixesSkipped++;
+                    continue;
+                }
+
                 if (StealMixer.Make(_song, _playback, [.. mixed.Notes.Select(n => n.Plays[0]), play], _limits.Target, _preMix) is not { } mix || !StoreMix(mixed, mix))
                 {
                     continue;
@@ -1206,7 +1531,7 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
                         int column = mixed.Lead.Column;
                         PlanVoice voice = new(VoiceKind.Dac, IndexOf(recordings, recordingIndex, tail));
                         PlannedNote last = mixed.Notes.First(n => n.Plays[0] == outlast);
-                        cells[column] = new PlanCell(last.Pitch, voice, 1.0, false, [], c, last.Sample);
+                        cells[column] = new PlanCell(last.Pitch, voice, 1.0, false, [], c, last.Sample) { Centred = last.Centred };
                         on[c] = column;
                         owner[column] = c;
                         voiceOn[column] = voice;
@@ -1310,7 +1635,7 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
                         // The pre-mix plays from its start at full volume: its notes' levels and effects are in its bytes,
                         // but a note delay still says when it starts. No channel owns it, so no channel's stop cuts it.
                         PlanVoice premix = new(VoiceKind.Dac, IndexOf(recordings, recordingIndex, mix.Head));
-                        cells[note.Column] = new PlanCell(note.Pitch, premix, 1.0, false, [.. effects.OfType<NoteDelay>()], c, note.Sample);
+                        cells[note.Column] = new PlanCell(note.Pitch, premix, 1.0, false, [.. effects.OfType<NoteDelay>()], c, note.Sample) { Centred = mixed.Notes.Any(n => n.Centred) };
                         WriteLayer(cells, c, note, effects);
                         on[c] = null;
                         owner[note.Column] = null;
@@ -1327,7 +1652,7 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
                     });
                     double level = note is { LayerColumn: >= 0, LayerKind: VoiceKind.Fm } ? _menu[note.Sample].RegionAt(note.Plays[0].RateHz)?.FirstLevel ?? 1 : 1;
                     double spread = note is { LayerColumn: >= 0, LayerKind: VoiceKind.Fm } ? _menu[note.Sample].RegionAt(note.Plays[0].RateHz)?.SpreadCents ?? 0 : 0;
-                    cells[note.Column] = new PlanCell(note.Pitch, voice, note.Volume, false, effects, c, note.Sample) { Level = level, Cents = -spread / 2 };
+                    cells[note.Column] = new PlanCell(note.Pitch, voice, note.Volume, false, effects, c, note.Sample) { Level = level, Cents = -spread / 2, Centred = kind == VoiceKind.Dac && note.Centred };
                     on[c] = note.Column;
                     owner[note.Column] = c;
                     voiceOn[note.Column] = voice;

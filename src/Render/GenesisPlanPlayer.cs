@@ -194,7 +194,7 @@ internal sealed class GenesisPlanPlayer
             (int heard, PanCause cause) = track.Kind switch
             {
                 VoiceKind.Fm => track.Centred ? (0, PanCause.CentredBass) : (original, PanCause.None),
-                VoiceKind.Dac when track.Centred => (0, PanCause.PreMix),
+                VoiceKind.Dac when track.Centred => (0, track.SteadyMiddle ? PanCause.SteadyMiddle : PanCause.PreMix),
                 VoiceKind.Dac when SharesDacPan => (SideOf(_tracks[(int)GenesisChannel.Fm6].Pan), PanCause.SharedDac),
                 VoiceKind.Dac => (original, PanCause.None),
                 _ => (0, PanCause.Psg),
@@ -233,8 +233,8 @@ internal sealed class GenesisPlanPlayer
                 ChannelTick ch = _ticks[t].Channels[track.Source];
 
                 // A pre-mix of notes from both sides plays from both speakers (docs/adr/0094-pre-mixed-voice-steals.md).
-                bool centred = track.Voice.Index < _plan.DacSamples.Count && _plan.DacSamples[track.Voice.Index].Mix is { Centred: true };
-                playing.Add((centred ? 0 : PlanVoicing.Side(ch.Pan), ch.Volume));
+                // So does a recording the allocator holds in the middle (docs/adr/0109-pan-swap-cost.md).
+                playing.Add((track.Centred ? 0 : PlanVoicing.Side(ch.Pan), ch.Volume));
             }
         }
 
@@ -403,7 +403,9 @@ internal sealed class GenesisPlanPlayer
                 break;
             case VoiceKind.Dac:
                 // A pre-mix of notes from both sides plays from both speakers, on a DMF too (docs/adr/0094-pre-mixed-voice-steals.md).
-                track.Centred = _plan.DacSamples[voice.Index].Mix is { Centred: true };
+                // So does a recording the allocator holds in the middle (docs/adr/0109-pan-swap-cost.md).
+                track.SteadyMiddle = cell.Centred && _plan.DacSamples[voice.Index].Mix is not { Centred: true };
+                track.Centred = cell.Centred || _plan.DacSamples[voice.Index].Mix is { Centred: true };
                 track.Sounding = PlayDac(c, _plan.DacSamples[voice.Index], voice.Index, ch, t);
                 break;
             case VoiceKind.PsgTone:
@@ -848,8 +850,14 @@ internal sealed class GenesisPlanPlayer
         /// <summary>The voice the note plays with.</summary>
         public PlanVoice Voice { get; set; }
 
-        /// <summary>True when an FM note plays centred whatever its channel's pan (<see cref="PlanVoicing.CentredBass"/>).</summary>
+        /// <summary>
+        /// True when the note plays centred whatever its channel's pan: an FM bass note (<see cref="PlanVoicing.CentredBass"/>),
+        /// a pre-mix of both sides, or a recording held in the middle (<see cref="PlanCell.Centred"/>).
+        /// </summary>
         public bool Centred { get; set; }
+
+        /// <summary>True when a recording plays centred because the allocator holds it in the middle (<see cref="PlanCell.Centred"/>), not because it is a pre-mix.</summary>
+        public bool SteadyMiddle { get; set; }
 
         /// <summary>The kind of <see cref="Voice"/>.</summary>
         public VoiceKind Kind => Voice.Kind;

@@ -87,6 +87,12 @@ internal sealed record PlanCell(NotePitch? Note, PlanVoice? Voice, double? Volum
 
     /// <summary>How far <see cref="Note"/>'s voice plays from the note's pitch, in cents, so that two voices of one MOD note beat as the sample's own layers do (docs/adr/0089-fm-layer.md). Only FM takes it.</summary>
     public double Cents { get; init; }
+
+    /// <summary>
+    /// True when <see cref="Note"/>'s recording plays from both speakers whatever its channel's pan: the allocator's steady
+    /// middle, so a clash of sides on the one DAC pan never moves it (XGM and XGM2, docs/adr/0109-pan-swap-cost.md).
+    /// </summary>
+    public bool Centred { get; init; }
 }
 
 /// <summary>One row of the plan.</summary>

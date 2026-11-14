@@ -65,6 +65,18 @@ internal sealed record ConversionOptions
     public bool Layers { get; init; } = true;
 
     /// <summary>
+    /// How the optimizer prices pan swaps the MOD doesn't make, or <c>null</c> for <see cref="Optimizer.PanRules.Default"/>. No
+    /// option sets it: the harness does, for the listening rounds that find the threshold (<c>rule:pan=…</c>, docs/adr/0109-pan-swap-cost.md).
+    /// </summary>
+    public Optimizer.PanRules? PanRules { get; init; }
+
+    /// <summary>
+    /// How the simple mapper plays a recording that loses the DAC to another, or <c>null</c> for its default. No option sets
+    /// it: the harness does (<c>rule:dac-loser=…</c>, docs/adr/0109-pan-swap-cost.md).
+    /// </summary>
+    public Mapping.DacLoser? DacLoser { get; init; }
+
+    /// <summary>
     /// Gets the side every note of the <c>--render-wav</c> render plays on, tick by tick, or <c>null</c>. No option sets it:
     /// the harness does, to count pan swaps (<c>--pan-swaps</c>, docs/adr/0108-pan-swap-count.md).
     /// </summary>

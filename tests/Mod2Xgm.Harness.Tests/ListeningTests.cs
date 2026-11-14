@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using Mod2Xgm.Optimizer;
 
 namespace Mod2Xgm.Harness.Tests;
 
@@ -205,6 +206,71 @@ public sealed class ListeningTests
 
         // Assert
         Assert.Contains("rule:layers=off", ex.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary><c>rule:pan=short</c> alone lets stand a swap of 0.1 s or less, at half volume or less, to or from the middle (docs/adr/0109-pan-swap-cost.md).</summary>
+    [Fact]
+    public void Parse_WithPanShort_SetsTheShortQuietStep()
+    {
+        // Act
+        Recipe sut = Recipe.Parse("--mapping optimizer rule:pan=short");
+
+        // Assert
+        Assert.Equal(PanRules.Today with { Allow = PanSwapAllowance.ShortQuiet, FreeSeconds = 0.1, FreeVolume = 0.5, FreeDistance = 1 }, sut.Pan);
+        Assert.True(sut.HasRules);
+    }
+
+    /// <summary>The pan rules combine: limits, span, fixes and price each set their own part.</summary>
+    [Fact]
+    public void Parse_WithEveryPanRule_SetsEachPart()
+    {
+        // Act
+        Recipe sut = Recipe.Parse("--mapping optimizer rule:pan-free=0.25,0.4,2 rule:pan-span=order rule:pan-fix=middle+unmix rule:pan-cost=6");
+
+        // Assert
+        Assert.Equal(new PanRules(PanSwapAllowance.ShortQuiet, 0.25, 0.4, 2, SteadyMiddleSpan.Order, PanFixes.SteadyMiddle | PanFixes.SkipPreMix, 6), sut.Pan);
+    }
+
+    /// <summary><c>rule:pan=never</c> sets the top of the ladder; a recipe without pan rules leaves the converter's own.</summary>
+    [Fact]
+    public void Parse_WithPanNever_SetsTheTopOfTheLadder()
+    {
+        // Act
+        Recipe sut = Recipe.Parse("--mapping optimizer rule:pan=never");
+
+        // Assert
+        Assert.Equal(PanRules.Never, sut.Pan);
+        Assert.Null(Recipe.Parse("--mapping optimizer").Pan);
+    }
+
+    /// <summary>A pan rule with a value it can't read is refused, naming what it needs.</summary>
+    [Theory]
+    [InlineData("rule:pan-free=0.1,2,1")]
+    [InlineData("rule:pan-free=0.1,0.5")]
+    [InlineData("rule:pan-fix=middle+left")]
+    [InlineData("rule:pan=sometimes")]
+    [InlineData("rule:pan-cost=-1")]
+    public void Parse_WithBadPanRule_Throws(string text)
+    {
+        // Act
+        HarnessException ex = Assert.Throws<HarnessException>(() => Recipe.Parse(text));
+
+        // Assert
+        Assert.Contains("rule:pan", ex.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary><c>rule:dac-loser</c> sets the simple mapper's choice and isn't an optimizer rule.</summary>
+    [Theory]
+    [InlineData("noise", "Noise")]
+    [InlineData("fm", "Fm")]
+    [InlineData("noise-all-song", "NoiseAllSong")]
+    public void Parse_WithDacLoser_SetsTheSimpleMappersChoice(string value, string expected)
+    {
+        // Act
+        Recipe sut = Recipe.Parse("--mapping simple rule:dac-loser=" + value);
+
+        // Assert
+        Assert.Equal((Enum.Parse<Mapping.DacLoser>(expected), false), (sut.Loser!.Value, sut.HasRules));
     }
 
     /// <summary>An unknown rule is refused, so a typo can't quietly make the default version.</summary>

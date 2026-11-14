@@ -717,6 +717,26 @@ public sealed class GenesisRendererTests
     }
 
     /// <summary>
+    /// A left recording the allocator holds in the middle (<see cref="PlanCell.Centred"/>) plays from both speakers even
+    /// alone, and the log names the hold as the cause (docs/adr/0109-pan-swap-cost.md).
+    /// </summary>
+    [Fact]
+    public void Render_WithPanLogAndRecordingHeldInTheMiddle_LogsItCentredByTheHold()
+    {
+        // Arrange
+        Sample recording = OneShotSine(8000, 1);
+        GenesisPlan plan = PlanOf([], [new DacSample(0, 8000)], Row((GenesisChannel.Fm6, Note(VoiceKind.Dac, rateHz: 8000) with { Centred = true })));
+        Playback playback = PlaybackOf(2, (r, t) => Playing(r == 0 && t == 0, pan: -1, rateHz: 8000, frames: recording.Length));
+        PanLog sut = new();
+
+        // Act
+        Render(plan with { DacPanClash = DacPanClash.Centre }, SongOf(1, recording), playback, ChipRate with { Driver = PcmDriver.Xgm2, Pans = sut });
+
+        // Assert
+        Assert.All(sut.Ticks, p => Assert.Equal((-1, 0, PanCause.SteadyMiddle), (p.Original, p.Heard, p.Cause)));
+    }
+
+    /// <summary>
     /// While a left and a right recording clash on XGM, the log has both heard on both speakers through the shared DAC pan;
     /// once the left one plays out it isn't logged, and the right one is heard on its own side.
     /// </summary>

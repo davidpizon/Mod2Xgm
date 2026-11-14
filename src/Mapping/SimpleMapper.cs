@@ -19,7 +19,8 @@ namespace Mod2Xgm.Mapping;
 /// <c>--require-dac</c> note that loses is dropped, never moved (ADR 0021). Playing both together as one mixed sample
 /// is a different candidate for the optimizer (plan T8.5), not done here.
 /// </summary>
-internal sealed class SimpleMapper : IChannelMapper
+/// <param name="loser">Where a drum that loses the DAC to a louder one plays (plan T9.4r, docs/adr/0109-pan-swap-cost.md).</param>
+internal sealed class SimpleMapper(DacLoser loser = DacLoser.Default) : IChannelMapper
 {
     /// <summary>MOD channels beyond this many have no FM channel (FM1–5; FM6 is the DAC) and are left out.</summary>
     private const int MappedChannels = 5;
@@ -36,8 +37,15 @@ internal sealed class SimpleMapper : IChannelMapper
             throw new ArgumentException("--no-dac and --require-dac can't both be given.", nameof(options));
         }
 
-        Run run = new(song, playback, options, notes);
-        return run.Execute();
+        if (loser != DacLoser.NoiseAllSong)
+        {
+            return new Run(song, playback, options, notes, loser, new HashSet<int>()).Execute();
+        }
+
+        // A first, silent pass finds the drums on a side that lose the DAC somewhere; they play the PSG noise all song.
+        Run probe = new(song, playback, options, new ConversionNotes(Serilog.Core.Logger.None), DacLoser.Noise, new HashSet<int>());
+        probe.Execute();
+        return new Run(song, playback, options, notes, loser, probe.SideLosers).Execute();
     }
 
     private enum Primary
@@ -98,6 +106,8 @@ internal sealed class SimpleMapper : IChannelMapper
         private int _extraChannel;
         private int _dacToNoise;
         private int _dacToFm;
+        private readonly DacLoser _loser;
+        private readonly HashSet<int> _sideLosers = [];
         private int _dacDropped;
         private int _noiseToFm;
         private int _noiseDropped;
@@ -106,17 +116,32 @@ internal sealed class SimpleMapper : IChannelMapper
         private int _dacSource = -1;
         private int _noiseSource = -1;
 
-        public Run(Song song, Playback playback, MappingOptions options, ConversionNotes notes)
+        /// <param name="song">The song.</param>
+        /// <param name="playback">How it plays.</param>
+        /// <param name="options">The user's mapping options.</param>
+        /// <param name="notes">Where conversion notes go.</param>
+        /// <param name="loser">Where a drum that loses the DAC plays.</param>
+        /// <param name="noiseAllSong">Instruments (0-based) that play the PSG noise all song, found by a first pass (<see cref="DacLoser.NoiseAllSong"/>).</param>
+        public Run(Song song, Playback playback, MappingOptions options, ConversionNotes notes, DacLoser loser, IReadOnlySet<int> noiseAllSong)
         {
             _song = song;
             _playback = playback;
             _options = options;
             _notes = notes;
-            _routes = [.. song.Instruments.Select(Classify)];
+            _loser = loser;
+            _routes = [.. song.Instruments.Select(Classify).Select((route, i) => noiseAllSong.Contains(i) && route is { Primary: Primary.Dac, NoiseLike: true, Required: false }
+                ? route with { Primary = Primary.Noise, Reason = new Why("Sample {Sample}: a drum on one side that loses the DAC to louder ones, so it is played by the PSG noise channel all song and doesn't jump between sides", [Label(song.Instruments[i].Sample, song.Samples[song.Instruments[i].Sample].Name)]) }
+                : route)];
             _instrument = [.. Enumerable.Repeat(-1, song.Channels.Count)];
             _volume = [.. Enumerable.Repeat(1.0, song.Channels.Count)];
             _sounding = [.. Enumerable.Repeat(Sounding.Nothing, song.Channels.Count)];
         }
+
+        /// <summary>Instruments (0-based) on a side that lost the DAC to the PSG noise in this pass: they would jump to the middle.</summary>
+        public IReadOnlySet<int> SideLosers => _sideLosers;
+
+        /// <summary>True when song channel <paramref name="channel"/> plays on one side only, so the PSG (no pan) would move it.</summary>
+        private bool OnASide(int channel) => PlanVoicing.Side(_song.Channels[channel].Pan) != 0;
 
         public GenesisPlan Execute()
         {
@@ -328,9 +353,14 @@ internal sealed class SimpleMapper : IChannelMapper
                     {
                         _dacDropped++;
                     }
-                    else if (route.NoiseLike)
+                    else if (route.NoiseLike && !(_loser == DacLoser.Fm && OnASide(loser.Channel)))
                     {
                         _dacToNoise++;
+                        if (OnASide(loser.Channel))
+                        {
+                            _sideLosers.Add(loser.Instrument);
+                        }
+
                         noise.Add(loser);
                     }
                     else
@@ -516,4 +546,23 @@ internal sealed class SimpleMapper : IChannelMapper
         private static string Label(int sample, string name) =>
             string.Create(CultureInfo.InvariantCulture, $"{sample + 1} \"{name}\"");
     }
+}
+
+/// <summary>
+/// Where the simple mapper plays a drum that loses the DAC to a louder one on the same row (plan T9.4r,
+/// docs/adr/0109-pan-swap-cost.md). The PSG has no pan, so a drum on one side that falls to it jumps to the middle.
+/// </summary>
+internal enum DacLoser
+{
+    /// <summary>The PSG noise channel, as in ADR 0040: a drum on one side jumps to the middle for that note.</summary>
+    Noise,
+
+    /// <summary>A drum on one side plays FM on its own channel, which keeps its side; a centred one still takes the noise.</summary>
+    Fm,
+
+    /// <summary>A drum on one side that loses the DAC anywhere plays the PSG noise all song: steadily in the middle, never jumping.</summary>
+    NoiseAllSong,
+
+    /// <summary>The mapper's choice until the rounds pick one: <see cref="Noise"/>, as before T9.4r.</summary>
+    Default = Noise,
 }

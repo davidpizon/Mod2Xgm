@@ -427,7 +427,8 @@ internal sealed class DmfPatternTranslator
             {
                 track.Centred = (voice.Kind == VoiceKind.Fm && source is { } from && from < translator._song.Channels.Count
                     && translator._voicing.CentredBass(note, sample, _panOverride[from] ?? translator._song.Channels[from].Pan))
-                    || (voice.Kind == VoiceKind.Dac && translator._plan.DacSamples[voice.Index].Mix is { Centred: true }); // A pre-mix of both sides plays from both.
+                    || (voice.Kind == VoiceKind.Dac && translator._plan.DacSamples[voice.Index].Mix is { Centred: true }) // A pre-mix of both sides plays from both,
+                    || (voice.Kind == VoiceKind.Dac && cell.Centred); // and so does a recording held in the middle (docs/adr/0109-pan-swap-cost.md).
                 switch (voice.Kind)
                 {
                     case VoiceKind.Dac:

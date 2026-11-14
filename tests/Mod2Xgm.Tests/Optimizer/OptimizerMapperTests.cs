@@ -1113,6 +1113,89 @@ public sealed class OptimizerMapperTests
         Assert.Equal(ConfidenceReason.RequiredDac, Assert.Single(sut.Confidence).Reason);
     }
 
+    /// <summary>
+    /// A left recording plays alone, then with a right one, on XGM2's shared DAC pan: today it jumps to the middle when they
+    /// meet. With no swap allowed, holding it in the middle all song (3 dB per note) costs less than FM (8 dB), so it is held
+    /// there and never jumps (docs/adr/0109-pan-swap-cost.md).
+    /// </summary>
+    [Fact]
+    public void Map_WithNoPanSwapAllowed_HoldsTheJumpingRecordingInTheMiddle()
+    {
+        // Arrange
+        Song song = Panned(SongOf(2, [(0, 0)], [(1, 1)], [(-1, 0)], [(-1, 0)]), -1, 1);
+        OptimizerMapper sut = new(Limits(PcmTarget.Xgm2), [Sounds(0), Sounds(1)], pan: PanRules.Never);
+        ConversionNotes notes = Notes();
+
+        // Act
+        GenesisPlan plan = sut.Map(song, PlaybackOf(song), MappingOptions.Default, notes);
+
+        // Assert
+        PlanCell left = Assert.Single(plan.Patterns[0].SelectMany(r => r.Cells), c => c.Sample == 0);
+        Assert.Equal((VoiceKind.Dac, true), (left.Voice!.Value.Kind, left.Centred));
+        Assert.Contains(notes.Messages, m => m.Contains("held in the middle", StringComparison.Ordinal));
+    }
+
+    /// <summary>The same song with today's rules: every swap stands, so nothing is held in the middle.</summary>
+    [Fact]
+    public void Map_WithTodaysPanRules_HoldsNothingInTheMiddle()
+    {
+        // Arrange
+        Song song = Panned(SongOf(2, [(0, 0)], [(1, 1)], [(-1, 0)], [(-1, 0)]), -1, 1);
+        OptimizerMapper sut = new(Limits(PcmTarget.Xgm2), [Sounds(0), Sounds(1)]);
+
+        // Act
+        GenesisPlan plan = sut.Map(song, PlaybackOf(song), MappingOptions.Default, Notes());
+
+        // Assert
+        Assert.DoesNotContain(plan.Patterns[0].SelectMany(r => r.Cells), c => c.Centred);
+    }
+
+    /// <summary>
+    /// When a note held in the middle costs more than FM, the less important of the two clashing instruments (the right
+    /// one, which plays shorter) moves to FM, which keeps its own pan, and the left one stays a recording on its side.
+    /// </summary>
+    [Fact]
+    public void Map_WithMiddleCostlierThanFm_MovesTheLessImportantInstrumentToFm()
+    {
+        // Arrange
+        Song song = Panned(SongOf(2, [(0, 0)], [(1, 1)], [(-1, 0)], [(-1, 0)]), -1, 1);
+        OptimizerMapper sut = new(Limits(PcmTarget.Xgm2), [Sounds(0), Sounds(1)], layers: false, pan: PanRules.Never with { OffSideDb = 100 });
+        ConversionNotes notes = Notes();
+
+        // Act
+        GenesisPlan plan = sut.Map(song, PlaybackOf(song), MappingOptions.Default, notes);
+
+        // Assert
+        PlanCell[] cells = [.. plan.Patterns[0].SelectMany(r => r.Cells).Where(c => c.Sample is not null)];
+        Assert.Equal([(0, VoiceKind.Dac, false), (1, VoiceKind.Fm, false)], cells.Select(c => (c.Sample!.Value, c.Voice!.Value.Kind, c.Centred)).OrderBy(c => c.Item1));
+        Assert.Contains(notes.Messages, m => m.Contains("plays FM in place of its recording", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// Four recordings at once on XGM2's three voices, the fourth on the right and the others on the left: allowed only to
+    /// skip pre-mixes, the allocator doesn't mix it with a left one, which would play centred, so it keeps its FM voice.
+    /// </summary>
+    [Fact]
+    public void Map_WithPreMixOfBothSidesRefused_KeepsTheNoteOnFm()
+    {
+        // Arrange
+        Song song = Panned(SongOf(4, [(0, 0), (1, 1), (2, 2), (3, 3)], [(-1, 0)], [(-1, 0)]), -1, -1, -1, 1);
+        OptimizerMapper sut = new(Limits(PcmTarget.Xgm2), [Sounds(0), Sounds(1), Sounds(2), Sounds(3)], layers: false, pan: PanRules.Never with { Fixes = PanFixes.SkipPreMix });
+        ConversionNotes notes = Notes();
+
+        // Act
+        GenesisPlan plan = sut.Map(song, PlaybackOf(song), MappingOptions.Default, notes);
+
+        // Assert
+        Assert.DoesNotContain(plan.DacSamples, d => d.Mix is not null);
+        Assert.Equal(VoiceKind.Fm, Assert.Single(plan.Patterns[0][0].Cells, c => c.Sample == 3).Voice!.Value.Kind);
+        Assert.Contains(notes.Messages, m => m.Contains("pre-mixes of notes from both sides not made", StringComparison.Ordinal));
+    }
+
+    /// <summary><paramref name="song"/> with its channels panned −1 (left) to +1 (right), one value per channel.</summary>
+    private static Song Panned(Song song, params double[] pans) =>
+        new(song.Title, [.. pans.Select(p => new Channel(p))], song.Orders, song.LoopOrder, song.Patterns, song.Instruments, song.Samples, song.Timing);
+
     private static IEnumerable<string> Kinds(GenesisPlan plan) =>
         plan.Patterns.SelectMany(p => p).SelectMany(r => r.Cells).Select(c => $"{c.Voice}/{c.Sample}");
 
@@ -1225,7 +1308,7 @@ public sealed class OptimizerMapperTests
                     Cell cell = rows[r].Cells[c];
                     int? sample = sampleOf is null ? cell.Instrument : cell.Note is null ? null : sampleOf[at];
                     channels[c] = sample is { } s && starts
-                        ? new ChannelTick(true, new NotePitch(48, 0, rate), cell.Volume ?? 1, 0, new SampleBlock(s, 0, 4000), new SampleBlock(s, 0, 2))
+                        ? new ChannelTick(true, new NotePitch(48, 0, rate), cell.Volume ?? 1, song.Channels[c].Pan, new SampleBlock(s, 0, 4000), new SampleBlock(s, 0, 2))
                         : previous[c] with { Started = null, Pitch = new NotePitch(48, 0, previous[c].Playing ? rate : Rate) };
                 }
 
