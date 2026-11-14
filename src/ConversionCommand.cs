@@ -263,7 +263,7 @@ internal static class ConversionCommand
             _ => PcmDriver.Dmf,
         };
         Stopwatch clock = Stopwatch.StartNew();
-        StereoAudio audio = GenesisRenderer.Render(plan, song, playback, new GenesisRenderOptions(driver, options.OutputRegion, RenderWavRate, options.Resampler), notes, work);
+        StereoAudio audio = GenesisRenderer.Render(plan, song, playback, new GenesisRenderOptions(driver, options.OutputRegion, RenderWavRate, options.Resampler) { Pans = options.PanLog }, notes, work);
         clock.Stop();
         int clipped = WavEncoder.ClippedSamples(audio);
         if (clipped > 0)

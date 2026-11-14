@@ -88,7 +88,8 @@ public sealed class ProgramTests
 
     /// <summary>
     /// An unknown option, a rate, job count or clip length out of range, a balance without clips, a cache folder with no
-    /// cache, both <c>--remake</c> and <c>--fit</c>, <c>--pick</c> with either, or no pairs to pick, is a usage error.
+    /// cache, both <c>--remake</c> and <c>--fit</c>, <c>--pick</c> with either, <c>--pan-swaps</c> with a listening command, or no
+    /// pairs to pick, is a usage error.
     /// </summary>
     [Theory]
     [InlineData("--no-such-option")]
@@ -106,6 +107,8 @@ public sealed class ProgramTests
     [InlineData("--models", "m")]
     [InlineData("--holdout", "a.tsv", "--fit", "a.tsv")]
     [InlineData("--holdout", "a.tsv", "--embeddings", "a.tsv")]
+    [InlineData("--pan-swaps", "--holdout", "a.tsv")]
+    [InlineData("--pan-swaps", "--pick", "a.tsv")]
     [InlineData("--kinds", "no-layers")]
     [InlineData("--max-per-kind", "5")]
     [InlineData("--pick", "a.tsv", "--max-per-kind", "0")]
@@ -138,6 +141,19 @@ public sealed class ProgramTests
         Assert.Equal(Program.ListeningInputs(), fit.Inputs);
         Assert.Equal(["song.mod"], named.Inputs);
         Assert.Contains(Program.DefaultCorpus, Program.ListeningInputs());
+    }
+
+    /// <summary><c>--pan-swaps</c> reaches <see cref="HarnessOptions"/> and, like the listening commands, counts the corpus and the hold-out songs.</summary>
+    [Fact]
+    public void Invoke_WithPanSwaps_ReadsFlagAndListeningInputs()
+    {
+        // Act
+        HarnessOptions sut = Parse("--pan-swaps");
+
+        // Assert
+        Assert.True(sut.PanSwaps);
+        Assert.False(Parse().PanSwaps);
+        Assert.Equal(Program.ListeningInputs(), sut.Inputs);
     }
 
     /// <summary><c>--pick</c> takes an answers file and picks 10 pairs unless <c>--pairs</c> says otherwise.</summary>
