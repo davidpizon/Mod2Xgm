@@ -69,8 +69,14 @@ internal sealed record PanRules(PanSwapAllowance Allow, double FreeSeconds, doub
     /// <summary>No swap stands while a fix is left: the top of the ladder.</summary>
     public static PanRules Never { get; } = Today with { Allow = PanSwapAllowance.None };
 
+    /// <summary>
+    /// No swap stands, and the only fix is holding recordings in the middle: round 25 (David, 2026-11-14) picked no swaps
+    /// in all six pairs, and found FM in place of a recording "completely unacceptable" (docs/adr/0109-pan-swap-cost.md).
+    /// </summary>
+    public static PanRules Steady { get; } = Never with { Fixes = PanFixes.SteadyMiddle };
+
     /// <summary>The converter's rules (docs/adr/0109-pan-swap-cost.md).</summary>
-    public static PanRules Default => Today;
+    public static PanRules Default => Steady;
 
     /// <summary>True when the allocator ever looks at a swap.</summary>
     public bool Active => Allow != PanSwapAllowance.All && Fixes != PanFixes.None;

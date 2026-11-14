@@ -259,7 +259,7 @@ give those. The rules so far:
 | `rule:half-speed=<samples>` | XGM2 stores these samples (1-based, comma-separated) at half speed whether or not the song needs the room ([ADR 0098](adr/0098-learned-allocator-costs.md)). Needs `--mapping optimizer`; an identical twin of a named sample shares its stored copy and so its half speed, and no named sample merges with an unnamed one |
 | `rule:layers=off` | No note gets a second voice under it, neither a PSG tone nor a second FM voice ([ADR 0088](adr/0088-layering.md)). Needs `--mapping optimizer` |
 | `rule:pre-mix=off` | No recordings are pre-mixed: a note that finds every PCM voice busy moves to FM/PSG or is cut, as before T9.4b ([ADR 0094](adr/0094-pre-mixed-voice-steals.md)). Needs `--mapping optimizer` |
-| `rule:pan=today\|short\|never` | Which pan swaps the MOD doesn't make the optimizer lets stand: all (today), only short, quiet ones close to their side, or none while a fix is left ([ADR 0109](adr/0109-pan-swap-cost.md)). `short` alone means 0.1 s or less off side, half volume or less, to or from the middle. Needs `--mapping optimizer` |
+| `rule:pan=today\|short\|never` | Which pan swaps the MOD doesn't make the optimizer lets stand: all (today), only short, quiet ones close to their side, or none while a fix is left ([ADR 0109](adr/0109-pan-swap-cost.md)). A rule here starts from today's rules, every fix allowed; a recipe with no pan rule gets the converter's default (none stand, only held in the middle, `PanRules.Steady`). Rows made before that default carry `rule:pan=today`. `short` alone means 0.1 s or less off side, half volume or less, to or from the middle. Needs `--mapping optimizer` |
 | `rule:pan-free=<s>,<volume>,<distance>` | The short, quiet swaps that stand: the longest off side in seconds, the loudest MOD volume (0–1), the furthest move (1 to or from the middle, 2 side to side). Implies `rule:pan=short` |
 | `rule:pan-span=song\|order` | A recording held in the middle stays there all song, or only in the orders where it would jump |
 | `rule:pan-fix=<middle+fm+unmix>` | What the optimizer may do in place of a swap: hold the recording in the middle, move one clashing instrument to FM, skip a pre-mix of both sides; `none` for nothing. All three by default |
@@ -372,9 +372,8 @@ It never writes `src/Scoring/ListeningWeights.cs`: the converter can't run these
 
 `--pan-swaps` (plan T9.4r, [ADR 0108](adr/0108-pan-swap-count.md)) counts where an instrument changes the side it is heard
 on while the MOD keeps it on one. Every recording on XGM and XGM2 shares the DAC's one pan, so a drum that is left in
-the MOD can wander to the centre and back. The run converts every song twelve ways: XGM and XGM2, each with
-`--mapping optimizer` (as is, `rule:pan=short` and `rule:pan=never`) and `--mapping simple` (as is,
-`rule:dac-loser=fm` and `rule:dac-loser=noise-all-song`), with no byte budget; the mapper column names the version
+the MOD can wander to the centre and back. The run converts every song eight ways: XGM and XGM2, each with
+`--mapping optimizer` (`rule:pan=today`, as is, and `rule:pan=never` with every fix) and `--mapping simple`, with no byte budget; the mapper column names the version
 ([ADR 0109](adr/0109-pan-swap-cost.md)). While the converter renders each version
 (`--render-wav`), the Genesis player writes down, on every tick, the side each sounding note plays on and its MOD
 channel's side (`PanLog`). `PanSwaps` then finds the swaps:

@@ -36,12 +36,10 @@ internal static class PanSwapReport
     /// </summary>
     public static readonly (string Name, string Recipe)[] Mappings =
     [
+        ("optimizer pan=today", "--mapping optimizer rule:pan=today"),
         ("optimizer", "--mapping optimizer"),
-        ("optimizer pan=short", "--mapping optimizer rule:pan=short"),
         ("optimizer pan=never", "--mapping optimizer rule:pan=never"),
         ("simple", "--mapping simple"),
-        ("simple dac-loser=fm", "--mapping simple rule:dac-loser=fm"),
-        ("simple dac-loser=noise-all-song", "--mapping simple rule:dac-loser=noise-all-song"),
     ];
 
     /// <summary><c>pan-swaps.csv</c>: one line per swap, versions in the order given.</summary>

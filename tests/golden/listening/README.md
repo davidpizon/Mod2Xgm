@@ -93,6 +93,23 @@ other four were clear:
 pairs are a third of the bar's 30, so this is no verdict yet, but it is the first sign the one-feature fit of round 21
 doesn't carry over to songs it hasn't heard.
 
+## Round 25: pan swaps the MOD doesn't make
+
+The first round of plan T9.4r ([ADR 0109](../../../docs/adr/0109-pan-swap-cost.md)), David, 2026-11-14, on headphones.
+Six pairs set the optimizer as it is against `rule:pan=never` on the songs with the most swaps (hit, rsnd, Dancin' on
+Amiga) and on hold-out songs (Lazy Cows, Highway Encounter, The Messanger). Four set the simple mapper against
+`rule:dac-loser=fm`.
+
+**Result:** `pan=never` won all six. David hears today's swaps as the sound "cutting" left and right. On Dancin' on
+Amiga it still won, though it "completely lacked the FM voice melody": the allocator had moved the two synth-chord
+samples (5 and 6) to FM so the recordings they clashed with would stay put; on a second listen David added that its
+bassline, held in the middle at full level, "need to be MUCH quieter". The four simple-mapper pairs were "can't tell":
+"both FM voice choices for the melody are completely unacceptable".
+
+After this round the optimizer's default became "no swap, held in the middle, 3 dB quieter" (`PanRules.Steady`). The
+recipes of every earlier row with `--mapping optimizer` gained `rule:pan=today`, the rules their clips were made with,
+so they still remake.
+
 ## Hold-out rows
 
 Rows whose song is in `tests/data/holdout/` are the hold-out ([ADR 0105](../../../docs/adr/0105-hold-out-songs.md)):

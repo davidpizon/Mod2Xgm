@@ -1162,7 +1162,7 @@ public sealed class OptimizerMapperTests
     {
         // Arrange
         Song song = Panned(SongOf(2, [(0, 0)], [(1, 1)], [(-1, 0)], [(-1, 0)]), -1, 1);
-        OptimizerMapper sut = new(Limits(PcmTarget.Xgm2), [Sounds(0), Sounds(1)]);
+        OptimizerMapper sut = new(Limits(PcmTarget.Xgm2), [Sounds(0), Sounds(1)], pan: PanRules.Today);
 
         // Act
         GenesisPlan plan = sut.Map(song, PlaybackOf(song), MappingOptions.Default, Notes());
@@ -1190,6 +1190,28 @@ public sealed class OptimizerMapperTests
         PlanCell[] cells = [.. plan.Patterns[0].SelectMany(r => r.Cells).Where(c => c.Sample is not null)];
         Assert.Equal([(0, VoiceKind.Dac, false), (1, VoiceKind.Fm, false)], cells.Select(c => (c.Sample!.Value, c.Voice!.Value.Kind, c.Centred)).OrderBy(c => c.Item1));
         Assert.Contains(notes.Messages, m => m.Contains("plays FM in place of its recording", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// The converter's default rules never move a recording to FM, however costly the middle: FM in a recording's place was
+    /// "completely unacceptable" in round 25, so both clashing recordings stay recordings (docs/adr/0109-pan-swap-cost.md).
+    /// </summary>
+    [Fact]
+    public void Map_WithDefaultPanRulesAndCostlyMiddle_KeepsBothRecordings()
+    {
+        // Arrange
+        Song song = Panned(SongOf(2, [(0, 0)], [(1, 1)], [(-1, 0)], [(-1, 0)]), -1, 1);
+        OptimizerMapper sut = new(Limits(PcmTarget.Xgm2), [Sounds(0), Sounds(1)], layers: false, pan: PanRules.Default with { OffSideDb = 100 });
+        ConversionNotes notes = Notes();
+
+        // Act
+        GenesisPlan plan = sut.Map(song, PlaybackOf(song), MappingOptions.Default, notes);
+
+        // Assert
+        PlanCell[] cells = [.. plan.Patterns[0].SelectMany(r => r.Cells).Where(c => c.Sample is not null)];
+        Assert.All(cells, c => Assert.Equal(VoiceKind.Dac, c.Voice?.Kind));
+        Assert.Contains(cells, c => c.Centred);
+        Assert.DoesNotContain(notes.Messages, m => m.Contains("plays FM in place of its recording", StringComparison.Ordinal));
     }
 
     /// <summary>

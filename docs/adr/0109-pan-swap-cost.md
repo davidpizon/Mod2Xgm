@@ -1,6 +1,6 @@
 # ADR 0109: A price for pan swaps the MOD doesn't make; the threshold set by ear
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-14
 
 ## Context
@@ -50,11 +50,33 @@ matter most takes the cheapest fix that has room. Each fix holds more notes in t
 ends. A DMF has no shared DAC pan and is left as it is.
 
 The rules reach the converter only through the harness (`rule:pan…`, `rule:dac-loser`, [harness.md](../harness.md#listening-answers));
-`PanRules.Default` is today's until the rounds decide.
+`PanRules.Default` is `PanRules.Steady`, as round 25 decided (see Results).
 
 ## Results
 
-To be filled in by the rounds.
+**Round 25** (David, 2026-11-14, headphones; [listening README](../../tests/golden/listening/README.md#round-25-pan-swaps-the-mod-doesnt-make)):
+
+- `rule:pan=never` beat today in all six optimizer pairs (Lazy Cows, Highway Encounter, hit, rsnd, The Messanger,
+  Dancin' on Amiga). David hears today's swaps as the sound "cutting" left and right. The ladder stops at its top:
+  with nothing let stand, `short` left the same swaps as `never` on every round song, so there was no lower step to test.
+- On Dancin' on Amiga the winner had moved the synth-chord samples to FM and "completely lacked the FM voice melody";
+  on a second listen David added that "the bassline needs to be MUCH quieter". The bass, held in the middle at full
+  level, measured 4 dB louder on the left than the MOD's low band, and as loud on the right.
+- The simple mapper's four pairs were "can't tell": "both FM voice choices for the melody are completely unacceptable".
+
+**What changed after it:**
+
+- **The default is `PanRules.Steady`:** no swap stands, and the only fix is the steady middle. Moving a recording to FM
+  is out (FM in its place was "completely unacceptable"), and so is skipping a pre-mix, whose note then plays FM too
+  (round 23 heard FM standing in for a pre-mix as "just noise"). The steady middle spans the song: the per-order span
+  wasn't heard, and only the whole-song hold never jumps. With no room for a hold, a swap stands and a conversion note
+  says so.
+- **A recording held in the middle plays one 3 dB step quieter** on each speaker (the stored copy one step down), so from
+  both speakers it is as loud as from one, as the centred FM bass is (`PlanVoicing.CentredGain`). With every note of the
+  sample held, it needs as many copies as before.
+- **`DacLoser` stays `Noise`:** neither other choice is better to the ear.
+- Every listening row made before this default carries `rule:pan=today`, which is how its clips were made, so it still
+  remakes.
 
 ## Options considered
 
