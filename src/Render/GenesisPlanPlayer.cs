@@ -182,9 +182,8 @@ internal sealed class GenesisPlanPlayer
     /// </summary>
     private void LogPans(PanLog pans, int t)
     {
-        for (int c = 0; c < _tracks.Length; c++)
+        foreach (Track track in _tracks)
         {
-            Track track = _tracks[c];
             if (!track.Sounding || track.Source < 0 || track.Sample < 0 || (track.Kind == VoiceKind.Dac && _tickStarts[t] >= track.DacEndsAt))
             {
                 continue;

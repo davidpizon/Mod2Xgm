@@ -757,7 +757,7 @@ public sealed class GenesisRendererTests
     {
         // Arrange
         GenesisPlan plan = PlanOf([], [], Row((GenesisChannel.Psg1, Note(VoiceKind.PsgTone))));
-        Playback playback = PlaybackOf(1, (r, t) => Playing(t == 0, pan: -1));
+        Playback playback = PlaybackOf(1, (_, t) => Playing(t == 0, pan: -1));
         PanLog sut = new();
 
         // Act
@@ -775,7 +775,7 @@ public sealed class GenesisRendererTests
         // Arrange
         FmPatch patch = new("sine", 7, 0, [new FmOperator(1, 0, 0, 0, 31, false, 0, 0, 0, 8), Muted(), Muted(), Muted()]);
         GenesisPlan plan = PlanOf([patch], [], Row((GenesisChannel.Fm1, Note(VoiceKind.Fm))));
-        Playback playback = PlaybackOf(1, (r, t) => Playing(t == 0, pan: -1));
+        Playback playback = PlaybackOf(1, (_, t) => Playing(t == 0, pan: -1));
         PanLog sut = new();
 
         // Act
