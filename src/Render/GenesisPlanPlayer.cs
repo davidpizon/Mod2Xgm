@@ -67,6 +67,7 @@ internal sealed class GenesisPlanPlayer
     private readonly Dictionary<(int Dac, int Offset, double Volume), Pcm?> _pcm = [];
     private readonly Dictionary<(int Sample, int Frames), double> _noisePeaks = [];
     private readonly Dictionary<string, int> _tallies = [];
+    private readonly PanLog? _pans;
 
     /// <summary>Prepares the chips for a render: LFO and channel 3's special mode off, every channel on both sides.</summary>
     /// <param name="plan">Which channel plays each note, with which voice.</param>
@@ -76,8 +77,10 @@ internal sealed class GenesisPlanPlayer
     /// <param name="chips">The hardware to write to.</param>
     /// <param name="resampler">How DAC samples are brought to the driver's rate.</param>
     /// <param name="notes">Collects what the render can't play as the plan says.</param>
-    public GenesisPlanPlayer(GenesisPlan plan, Song song, Playback playback, IReadOnlyList<double> durations, GenesisChips chips, ResamplingMode resampler, ConversionNotes notes)
+    /// <param name="pans">Gets the side every sounding note plays on, tick by tick, when given (docs/adr/0108-pan-swap-count.md).</param>
+    public GenesisPlanPlayer(GenesisPlan plan, Song song, Playback playback, IReadOnlyList<double> durations, GenesisChips chips, ResamplingMode resampler, ConversionNotes notes, PanLog? pans = null)
     {
+        _pans = pans;
         _plan = plan;
         _song = song;
         _ticks = playback.Ticks;
@@ -166,7 +169,48 @@ internal sealed class GenesisPlanPlayer
         {
             SetDacPan(t);
         }
+
+        if (_pans is not null)
+        {
+            LogPans(_pans, t);
+        }
     }
+
+    /// <summary>
+    /// Adds to <paramref name="pans"/> the side every sounding note of tick <paramref name="t"/> plays on, next to its song
+    /// channel's side and why the two differ (docs/adr/0108-pan-swap-count.md). A recording that has played out is silent.
+    /// </summary>
+    private void LogPans(PanLog pans, int t)
+    {
+        foreach (Track track in _tracks)
+        {
+            if (!track.Sounding || track.Source < 0 || track.Sample < 0 || (track.Kind == VoiceKind.Dac && _tickStarts[t] >= track.DacEndsAt))
+            {
+                continue;
+            }
+
+            ChannelTick ch = _ticks[t].Channels[track.Source];
+            int original = PlanVoicing.Side(ch.Pan);
+            (int heard, PanCause cause) = track.Kind switch
+            {
+                VoiceKind.Fm => track.Centred ? (0, PanCause.CentredBass) : (original, PanCause.None),
+                VoiceKind.Dac when track.Centred => (0, PanCause.PreMix),
+                VoiceKind.Dac when SharesDacPan => (SideOf(_tracks[(int)GenesisChannel.Fm6].Pan), PanCause.SharedDac),
+                VoiceKind.Dac => (original, PanCause.None),
+                _ => (0, PanCause.Psg),
+            };
+
+            pans.Add(new PanTick(t, _tickStarts[t], _durations[t], track.Sample, track.Source, original, heard, heard == original ? PanCause.None : cause, ch.Volume));
+        }
+    }
+
+    /// <summary>The side pan bits of register <c>$B4</c> play on: −1 left only, +1 right only, 0 both (or neither).</summary>
+    private static int SideOf(byte pan) => pan switch
+    {
+        PanLeft => -1,
+        PanRight => 1,
+        _ => 0,
+    };
 
     /// <summary>When each tick starts, in seconds of the render, and after the last one, its end.</summary>
     private readonly double[] _tickStarts;

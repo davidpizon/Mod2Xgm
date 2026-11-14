@@ -694,4 +694,95 @@ public sealed class GenesisRendererTests
 
     /// <summary>An operator turned all the way down.</summary>
     private static FmOperator Muted() => new(1, 0, 127, 0, 31, false, 0, 0, 0, 8);
+
+    /// <summary>
+    /// The pan log has a left pre-mix of notes from both sides centred, as a pre-mix, on its first tick (docs/adr/0108-pan-swap-count.md).
+    /// </summary>
+    [Fact]
+    public void Render_WithPanLogAndCentredPreMix_LogsItCentredByThePreMix()
+    {
+        // Arrange
+        Sample recording = OneShotSine(8000, 1);
+        DacSample mix = new(0, 8000) { Mix = new DacMix([.. recording.Data], "mix 01+02", Centred: true) };
+        GenesisPlan plan = PlanOf([], [mix], Row((GenesisChannel.Fm6, Note(VoiceKind.Dac, rateHz: 8000))));
+        Playback playback = PlaybackOf(2, (r, t) => Playing(r == 0 && t == 0, pan: -1, rateHz: 8000, frames: recording.Length));
+        PanLog sut = new();
+
+        // Act
+        Render(plan, SongOf(1, recording), playback, ChipRate with { Driver = PcmDriver.Xgm2, Pans = sut });
+
+        // Assert
+        Assert.Equal(new PanTick(0, 0, TickSeconds, 0, 0, -1, 0, PanCause.PreMix, 1), sut.Ticks[0]);
+        Assert.Equal(2 * TicksPerRow, sut.Ticks.Count);
+    }
+
+    /// <summary>
+    /// While a left and a right recording clash on XGM, the log has both heard on both speakers through the shared DAC pan;
+    /// once the left one plays out it isn't logged, and the right one is heard on its own side.
+    /// </summary>
+    [Fact]
+    public void Render_WithPanLogAndClashingRecordings_LogsTheSharedDacPan()
+    {
+        // Arrange: a 0.05 s hit on the left (song channel 0) and a 1 s tone on the right (song channel 1).
+        Sample hit = OneShotSine(8000, 0.05);
+        Sample tone = OneShotSine(8000, 1);
+        PlanCell[] wide = [.. Enumerable.Repeat(PlanCell.Empty, GenesisPlan.ColumnCount)];
+        wide[(int)GenesisChannel.Fm6] = Note(VoiceKind.Dac, rateHz: 8000);
+        wide[(int)GenesisChannel.Pcm2] = Note(VoiceKind.Dac, index: 1, rateHz: 8000) with { Source = 1, Sample = 1 };
+        GenesisPlan plan = new("test", [[new PlanRow(wide, [])]], null, new Timing(TicksPerRow, 125), [], [new DacSample(0, 8000), new DacSample(1, 8000)]) { DacPanClash = DacPanClash.Centre };
+        Playback playback = new(
+            [.. Enumerable.Range(0, 2 * TicksPerRow).Select(i => new PlaybackTick(
+                i * TickSeconds,
+                TickSeconds,
+                0,
+                i / TicksPerRow,
+                i % TicksPerRow,
+                false,
+                [Playing(i == 0, pan: -1, rateHz: 8000, frames: hit.Length), Playing(i == 0, pan: 1, rateHz: 8000, frames: tone.Length)]))],
+            null,
+            PlaybackEnd.Stops);
+        PanLog sut = new();
+
+        // Act
+        Render(plan, SongOf(2, hit, tone), playback, ChipRate with { Driver = PcmDriver.Xgm, Pans = sut });
+
+        // Assert
+        Assert.Equal([(0, 0, PanCause.SharedDac), (1, 0, PanCause.SharedDac)], sut.Ticks.Where(p => p.Tick == 0).Select(p => (p.Sample, p.Heard, p.Cause)));
+        Assert.Equal([(1, 1, PanCause.None)], sut.Ticks.Where(p => p.Tick == 5).Select(p => (p.Sample, p.Heard, p.Cause)));
+    }
+
+    /// <summary>A PSG tone from a left channel is logged on both speakers, as the PSG has no pan.</summary>
+    [Fact]
+    public void Render_WithPanLogAndPsgTone_LogsItCentredByThePsg()
+    {
+        // Arrange
+        GenesisPlan plan = PlanOf([], [], Row((GenesisChannel.Psg1, Note(VoiceKind.PsgTone))));
+        Playback playback = PlaybackOf(1, (_, t) => Playing(t == 0, pan: -1));
+        PanLog sut = new();
+
+        // Act
+        Render(plan, SongOf(1, LoopedSine()), playback, ChipRate with { Pans = sut });
+
+        // Assert
+        Assert.All(sut.Ticks, p => Assert.Equal((-1, 0, PanCause.Psg), (p.Original, p.Heard, p.Cause)));
+        Assert.Equal(TicksPerRow, sut.Ticks.Count);
+    }
+
+    /// <summary>An FM note on a left channel plays on the left: logged on its own side with no cause.</summary>
+    [Fact]
+    public void Render_WithPanLogAndFmNote_LogsItOnItsOwnSide()
+    {
+        // Arrange
+        FmPatch patch = new("sine", 7, 0, [new FmOperator(1, 0, 0, 0, 31, false, 0, 0, 0, 8), Muted(), Muted(), Muted()]);
+        GenesisPlan plan = PlanOf([patch], [], Row((GenesisChannel.Fm1, Note(VoiceKind.Fm))));
+        Playback playback = PlaybackOf(1, (_, t) => Playing(t == 0, pan: -1));
+        PanLog sut = new();
+
+        // Act
+        Render(plan, SongOf(1, LoopedSine()), playback, ChipRate with { Pans = sut });
+
+        // Assert
+        Assert.All(sut.Ticks, p => Assert.Equal((-1, -1, PanCause.None), (p.Original, p.Heard, p.Cause)));
+        Assert.NotEmpty(sut.Ticks);
+    }
 }

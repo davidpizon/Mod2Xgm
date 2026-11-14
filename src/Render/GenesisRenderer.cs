@@ -25,6 +25,9 @@ internal sealed record GenesisRenderOptions(
     /// as <see cref="ModRenderOptions.TickDurations"/>.
     /// </summary>
     public IReadOnlyList<double>? TickDurations { get; init; }
+
+    /// <summary>Gets the side every sounding note plays on, tick by tick, when given (docs/adr/0108-pan-swap-count.md).</summary>
+    public PanLog? Pans { get; init; }
 }
 
 /// <summary>
@@ -77,7 +80,7 @@ internal static class GenesisRenderer
         int[] starts = TickStarts(durations, chips.SampleRateHz);
         float[] left = new float[starts[^1]];
         float[] right = new float[starts[^1]];
-        GenesisPlanPlayer player = new(plan, song, playback, durations, chips, options.Resampler, notes);
+        GenesisPlanPlayer player = new(plan, song, playback, durations, chips, options.Resampler, notes, options.Pans);
         work.SetTotal(ticks.Count);
         for (int t = 0; t < ticks.Count; t++)
         {

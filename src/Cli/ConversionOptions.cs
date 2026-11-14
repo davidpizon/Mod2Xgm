@@ -64,6 +64,12 @@ internal sealed record ConversionOptions
     /// </summary>
     public bool Layers { get; init; } = true;
 
+    /// <summary>
+    /// Gets the side every note of the <c>--render-wav</c> render plays on, tick by tick, or <c>null</c>. No option sets it:
+    /// the harness does, to count pan swaps (<c>--pan-swaps</c>, docs/adr/0108-pan-swap-count.md).
+    /// </summary>
+    public Render.PanLog? PanLog { get; init; }
+
     /// <summary>MOD sample numbers (1-based) to leave out.</summary>
     public IReadOnlySet<int> IgnoreSamples { get; init; } = new HashSet<int>();
 

@@ -144,6 +144,7 @@ internal static class Program
         Option<int> maxPerKind = new("--max-per-kind") { Description = "With --pick: the most pairs of one kind.", DefaultValueFactory = _ => PairPicker.MaxPerKind };
         Option<string?> embeddings = new("--embeddings") { Description = "Instead of scoring, remake an answers file's clips and compare pretrained listening models (PANNs, VGGish, CLAP, CDPAM) with log-mel and the learned score on them (docs/harness.md#pretrained-models)." };
         Option<string?> holdout = new("--holdout") { Description = "Instead of scoring, remake an answers file's hold-out rows (songs in " + HoldoutSongs.DefaultFolder + ") and score the learned listening score on them against the bar of docs/adr/0105-hold-out-songs.md (docs/harness.md#the-hold-out)." };
+        Option<bool> panSwaps = new("--pan-swaps") { Description = "Instead of scoring, convert every song for XGM and XGM2 with the optimizer and the simple mapper and count where an instrument changes side while the MOD keeps it on one; writes pan-swaps/ (docs/harness.md#pan-swaps)." };
         Option<string?> models = new("--models") { Description = "Folder of the exported .onnx models --embeddings uses (default: the user's local data folder, Mod2Xgm/models; tools/onnx-export/README.md)." };
         Option<string> progress = new(ProgressModeScan.OptionName)
         {
@@ -154,7 +155,7 @@ internal static class Program
 
         RootCommand root = new("Mod2Xgm accuracy harness: scores conversions against OpenMPT (docs/harness.md).")
         {
-            inputs, output, rate, libopenmpt, furnace, noFurnace, deflemask, noDefleMask, saveReference, clip, balance, fmFit, fmRenders, psgFit, pcmFit, preMix, ch3, dropClues, noCache, cacheDir, jobs, verbose, progress, remake, fit, pick, pairs, kinds, maxPerKind, embeddings, models, holdout,
+            inputs, output, rate, libopenmpt, furnace, noFurnace, deflemask, noDefleMask, saveReference, clip, balance, fmFit, fmRenders, psgFit, pcmFit, preMix, ch3, dropClues, noCache, cacheDir, jobs, verbose, progress, remake, fit, pick, pairs, kinds, maxPerKind, embeddings, models, holdout, panSwaps,
         };
         root.SetAction(result =>
         {
@@ -213,6 +214,11 @@ internal static class Program
                 throw HarnessException.Usage("--holdout with --remake, --fit, --pick or --embeddings; --holdout remakes its rows itself");
             }
 
+            if (result.GetValue(panSwaps) && (result.GetValue(remake) is not null || result.GetValue(fit) is not null || result.GetValue(pick) is not null || result.GetValue(embeddings) is not null || result.GetValue(holdout) is not null))
+            {
+                throw HarnessException.Usage("--pan-swaps with --remake, --fit, --pick, --embeddings or --holdout; run it on its own");
+            }
+
             if (result.GetValue(models) is not null && result.GetValue(embeddings) is null)
             {
                 throw HarnessException.Usage("--models without --embeddings; only --embeddings runs the models");
@@ -237,7 +243,7 @@ internal static class Program
             }
 
             string[] given = result.GetValue(inputs) ?? [];
-            bool listening = result.GetValue(remake) is not null || result.GetValue(fit) is not null || result.GetValue(embeddings) is not null || result.GetValue(holdout) is not null;
+            bool listening = result.GetValue(remake) is not null || result.GetValue(fit) is not null || result.GetValue(embeddings) is not null || result.GetValue(holdout) is not null || result.GetValue(panSwaps);
             return execute(new HarnessOptions(
                 given.Length > 0 ? given : listening ? ListeningInputs() : [DefaultCorpus],
                 result.GetValue(output) ?? DefaultOutput,
@@ -269,7 +275,8 @@ internal static class Program
                 result.GetValue(models),
                 result.GetValue(holdout),
                 kindList is null ? null : PickKinds(kindList),
-                perKind));
+                perKind,
+                result.GetValue(panSwaps)));
         });
 
         ParseResult parsed = root.Parse(args);
@@ -353,6 +360,11 @@ internal static class Program
             IReadOnlySet<string> holdoutSongs = HoldoutSongs.In(HoldoutSongs.DefaultFolder);
             RemakeResult remade = new ListeningRemake(songs, options.OutputDirectory, new OpenMptRenderer(), logger).Remake(holdoutAnswers, progress, r => holdoutSongs.Contains(r.Song));
             return HoldoutRun.Run(remade, options.OutputDirectory, Scoring.ListeningWeights.Weights, logger);
+        }
+
+        if (options.PanSwaps)
+        {
+            return new PanSwapRun(songs, options.OutputDirectory, logger).Run(options.Jobs, progress);
         }
 
         if (options.Pick is { } pickAnswers)
@@ -544,6 +556,7 @@ internal static class Program
 /// <param name="Holdout">An answers file whose hold-out rows to remake and score (<c>--holdout</c>), instead of scoring, or <c>null</c>.</param>
 /// <param name="Kinds">The kinds of change <c>--pick</c> picks from (<c>--kinds</c>), or <c>null</c> for every kind.</param>
 /// <param name="MaxPerKind">The most pairs of one kind <c>--pick</c> picks (<c>--max-per-kind</c>).</param>
+/// <param name="PanSwaps">True for <c>--pan-swaps</c>: count the pan swaps the MOD doesn't make instead of scoring (docs/adr/0108-pan-swap-count.md).</param>
 internal sealed record HarnessOptions(
     IReadOnlyList<string> Inputs,
     string OutputDirectory,
@@ -575,4 +588,5 @@ internal sealed record HarnessOptions(
     string? ModelsDirectory = null,
     string? Holdout = null,
     IReadOnlySet<PairKind>? Kinds = null,
-    int MaxPerKind = PairPicker.MaxPerKind);
+    int MaxPerKind = PairPicker.MaxPerKind,
+    bool PanSwaps = false);

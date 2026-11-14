@@ -442,9 +442,10 @@ internal sealed class ListeningRemake(IReadOnlyList<string> songs, string output
     /// <summary>
     /// Converts <paramref name="songPath"/> for <paramref name="format"/> with <paramref name="recipeText"/>, writing the
     /// output to <c>stem.out</c> and the render to <c>stem.genesis.wav</c>, whose path it returns. <paramref name="analyzed"/>
-    /// gets the conversion's song analysis when given; <paramref name="name"/> names the version in an error.
+    /// gets the conversion's song analysis when given, and <paramref name="pans"/> the render's sides (docs/adr/0108-pan-swap-count.md);
+    /// <paramref name="name"/> names the version in an error.
     /// </summary>
-    internal static string Render(string songPath, string format, string recipeText, string stem, Action<SongAnalysis>? analyzed, string name)
+    internal static string Render(string songPath, string format, string recipeText, string stem, Action<SongAnalysis>? analyzed, string name, PanLog? pans = null)
     {
         Recipe recipe = Recipe.Parse(recipeText);
         string wav = stem + ".genesis.wav";
@@ -454,7 +455,7 @@ internal sealed class ListeningRemake(IReadOnlyList<string> songs, string output
         File.Delete(wav);
         ExitCode code = CommandLineDefinition.Invoke(
             args,
-            options => Convert(options, recipe, recipeText, wav, analyzed),
+            options => Convert(options with { PanLog = pans }, recipe, recipeText, wav, analyzed),
             TextWriter.Null,
             TextWriter.Null);
         return File.Exists(wav)

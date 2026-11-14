@@ -171,7 +171,7 @@ is one step (`song:<name>`), the result names `report.md`, and a failure to run 
 
 | Option | Default | What it does |
 |---|---|---|
-| `inputs…` | `tests/data/corpus`; with `--remake`, `--fit`, `--embeddings` or `--holdout`, also `tests/data/holdout` | MOD files or folders of them |
+| `inputs…` | `tests/data/corpus`; with `--remake`, `--fit`, `--embeddings`, `--holdout` or `--pan-swaps`, also `tests/data/holdout` | MOD files or folders of them |
 | `-o`, `--output` | `artifacts/harness` | Folder for the report, DMFs, logs and renders (git-ignored) |
 | `--rate` | 44100 | Rate to render and score at, in Hz (8000–192000) |
 | `--libopenmpt` | search path, then `Program Files\libopenmpt` | Folder holding libopenmpt |
@@ -203,6 +203,7 @@ is one step (`song:<name>`), the result names `report.md`, and a failure to run 
 | `--embeddings <answers.tsv>` | | Instead of scoring: remake the clips as `--fit` does, then [compare the pretrained models](#pretrained-models) with log-mel and the learned score, into `listening/embeddings.tsv` and `listening/embeddings.txt`. Not with `--remake`, `--fit` or `--pick` |
 | `--models <folder>` | `LocalApplicationData/Mod2Xgm/models` | With `--embeddings`: where the exported `.onnx` models are |
 | `--holdout <answers.tsv>` | | Instead of scoring: remake only the [hold-out rows](#the-hold-out) and score the learned listening score on them against David's bar, into `listening/holdout.txt`. Not with `--remake`, `--fit`, `--pick` or `--embeddings` |
+| `--pan-swaps` | | Instead of scoring: convert every song for XGM and XGM2 with the optimizer and the simple mapper and [count the pan swaps](#pan-swaps) the MOD doesn't make, into `pan-swaps/pan-swaps.csv` and `pan-swaps/report.md`. Not with `--remake`, `--fit`, `--pick`, `--embeddings` or `--holdout` |
 
 ## Output
 
@@ -360,6 +361,30 @@ are averaged.
 
 It never writes `src/Scoring/ListeningWeights.cs`: the converter can't run these models. A model that wins the hold-out
 (T9.4l) is distilled into pure C# first (T9.4l2).
+
+## Pan swaps
+
+`--pan-swaps` (plan T9.4r, [ADR 0108](adr/0108-pan-swap-count.md)) counts where an instrument changes the side it is heard
+on while the MOD keeps it on one. Every recording on XGM and XGM2 shares the DAC's one pan, so a drum that is left in
+the MOD can wander to the centre and back. The run converts every song four ways: XGM and XGM2, each with
+`--mapping optimizer` and `--mapping simple`, with no byte budget. While the converter renders each version
+(`--render-wav`), the Genesis player writes down, on every tick, the side each sounding note plays on and its MOD
+channel's side (`PanLog`). `PanSwaps` then finds the swaps:
+
+- An instrument is a song sample. Its side on a tick is that of its loudest note there.
+- A swap is a change of the side it is heard on while its MOD side stays the same, however long the silence between (David).
+  When the MOD moves it to a channel on the other side, the count starts over. When its notes on one tick are on
+  different MOD sides, the count starts over too.
+- Its cause is what puts the instrument off its side: `shared-dac` (the clash rule picked another side for every
+  recording), `pre-mix` (a pre-mix of notes from both sides plays centred), `centred-bass` (an FM note below 250 Hz) or
+  `psg` (the PSG has no pan).
+
+`pan-swaps/pan-swaps.csv` has one line per swap: song, format, mapper, sample (1-based) and name, when it starts (s), the
+MOD side, the sides before and after (`L`, `C`, `R`), the kind (`away` from the MOD side, `back` to it, `across` from one
+wrong side to another), how far it moves (1 to or from the centre, 2 left to right), the cause, how long it stays on the new
+side (`lasts_s`), how long the instrument was silent before it (`gap_s`), its mean MOD volume while off its side, and
+whether the note after the swap comes from another MOD channel. `pan-swaps/report.md` has the totals per format and mapper
+by cause, then one line per version, with the instruments steadily on the wrong side (off it, but never swapping).
 
 ## Tests
 
