@@ -747,7 +747,7 @@ public sealed class GenesisRendererTests
         Sample recording = OneShotSine(8000, 1);
         Playback playback = PlaybackOf(2, (r, t) => Playing(r == 0 && t == 0, pan: -1, rateHz: 8000, frames: recording.Length));
         GenesisPlan side = PlanOf([], [new DacSample(0, 8000)], Row((GenesisChannel.Fm6, Note(VoiceKind.Dac, rateHz: 8000))));
-        GenesisPlan held = PlanOf([], [new DacSample(0, 8000)], Row((GenesisChannel.Fm6, Note(VoiceKind.Dac, rateHz: 8000) with { Centred = true })));
+        GenesisPlan held = PlanOf([], [new DacSample(0, 8000) { HeldSteps = 1 }], Row((GenesisChannel.Fm6, Note(VoiceKind.Dac, rateHz: 8000) with { Centred = true })));
 
         // Act
         StereoAudio own = Render(side, SongOf(1, recording), playback, ChipRate with { Driver = PcmDriver.Xgm2 });

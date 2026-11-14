@@ -1156,6 +1156,48 @@ public sealed class OptimizerMapperTests
         Assert.Contains(notes.Messages, m => m.Contains("held in the middle", StringComparison.Ordinal));
     }
 
+    /// <summary>
+    /// A recording held in the middle plays one 3 dB step quieter, so from both speakers it is as loud as from one: its
+    /// copies one step down fit, as they replace the ones it no longer plays (docs/adr/0109-pan-swap-cost.md).
+    /// </summary>
+    [Fact]
+    public void Map_WithRecordingHeldInTheMiddle_PlaysItOneStepQuieter()
+    {
+        // Arrange
+        Song song = Panned(SongOf(2, [(0, 0)], [(1, 1)], [(-1, 0)], [(-1, 0)]), -1, 1);
+        OptimizerMapper sut = new(Limits(PcmTarget.Xgm2), [Sounds(0), Sounds(1)], pan: PanRules.Default);
+
+        // Act
+        GenesisPlan plan = sut.Map(song, PlaybackOf(song), MappingOptions.Default, Notes());
+
+        // Assert
+        PlanCell left = Assert.Single(plan.Patterns[0].SelectMany(r => r.Cells), c => c.Sample == 0);
+        Assert.Equal((true, 1), (left.Centred, plan.DacSamples[left.Voice!.Value.Index].HeldSteps));
+    }
+
+    /// <summary>
+    /// With two slots for three recordings, the shrinker shares one copy per 6 dB between the held sample's two notes
+    /// (3 and 6 dB down); one step quieter they would need two copies, which don't fit, so the sample is held at its own
+    /// level and a conversion note says so.
+    /// </summary>
+    [Fact]
+    public void Map_WithHeldRecordingWhoseQuieterCopiesDoNotFit_HoldsItAtItsOwnLevel()
+    {
+        // Arrange
+        Cell Note(int sample, double volume) => new(new NotePitch(48, 0, Rate), sample, volume, []);
+        Song song = Panned(Assemble(2, 1, [new Row([Note(0, 0.708), Cell.Empty]), new Row([Note(0, 0.5), Note(1, 1)]), new Row([Cell.Empty, Cell.Empty]), new Row([Cell.Empty, Cell.Empty])]), -1, 1);
+        OptimizerMapper sut = new(Limits(PcmTarget.Xgm2) with { PcmSlots = 2 }, [Sounds(0), Sounds(1)], layers: false, pan: PanRules.Default);
+        ConversionNotes notes = Notes();
+
+        // Act
+        GenesisPlan plan = sut.Map(song, PlaybackOf(song), MappingOptions.Default, notes);
+
+        // Assert
+        PlanCell[] held = [.. plan.Patterns[0].SelectMany(r => r.Cells).Where(c => c.Sample == 0)];
+        Assert.All(held, c => Assert.Equal((VoiceKind.Dac, true, 0), (c.Voice!.Value.Kind, c.Centred, plan.DacSamples[c.Voice.Value.Index].HeldSteps)));
+        Assert.Contains(notes.Messages, m => m.Contains("plays at its own level from both speakers", StringComparison.Ordinal));
+    }
+
     /// <summary>The same song with today's rules: every swap stands, so nothing is held in the middle.</summary>
     [Fact]
     public void Map_WithTodaysPanRules_HoldsNothingInTheMiddle()

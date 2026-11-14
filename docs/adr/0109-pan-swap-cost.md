@@ -72,11 +72,25 @@ The rules reach the converter only through the harness (`rule:pan…`, `rule:dac
   wasn't heard, and only the whole-song hold never jumps. With no room for a hold, a swap stands and a conversion note
   says so.
 - **A recording held in the middle plays one 3 dB step quieter** on each speaker (the stored copy one step down), so from
-  both speakers it is as loud as from one, as the centred FM bass is (`PlanVoicing.CentredGain`). With every note of the
-  sample held, it needs as many copies as before.
+  both speakers it is as loud as from one, as the centred FM bass is (`PlanVoicing.CentredGain`). These are other copies
+  than the ones the shrinker sized: where it shares one copy per 6 dB, one step down can need more of them. So after the
+  pans are planned, each held sample, most important first, plays quieter only where its copies still fit the target
+  (`DacSample.HeldSteps`); otherwise it is held at its own level, and a conversion note says so. Without that check, AI
+  Renaissance and Stardust Jam needed more than XGM2's 123 recordings and couldn't be written.
 - **`DacLoser` stays `Noise`:** neither other choice is better to the ear.
 - Every listening row made before this default carries `rule:pan=today`, which is how its clips were made, so it still
   remakes.
+
+**The count on all 47 songs** (`--pan-swaps`, 2026-11-14), swaps the MOD doesn't make:
+
+| Format | Optimizer today | Default (`Steady`) | `pan=never` | Simple mapper |
+|---|---|---|---|---|
+| XGM | 14 502 (43 songs) | 957 (17 songs) | 1 185 (16 songs) | 3 033 (24 songs) |
+| XGM2 | 13 373 (45 songs) | 1 028 (21 songs) | 1 301 (24 songs) | 3 031 (24 songs) |
+
+What the default leaves is mostly the centred FM bass, left out on purpose (725 on XGM, 805 on XGM2), and notes of a
+held sample that play FM on its side (207 and 178). The shared DAC pan, nine in ten of today's swaps, leaves 25 and 7,
+where no hold had room. Lazy Cows keeps 29, as in round 25.
 
 ## Options considered
 

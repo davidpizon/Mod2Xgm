@@ -106,7 +106,8 @@ samples (5 and 6) to FM so the recordings they clashed with would stay put; on a
 bassline, held in the middle at full level, "need to be MUCH quieter". The four simple-mapper pairs were "can't tell":
 "both FM voice choices for the melody are completely unacceptable".
 
-After this round the optimizer's default became "no swap, held in the middle, 3 dB quieter" (`PanRules.Steady`). The
+After this round the optimizer's default became "no swap, held in the middle, 3 dB quieter where the quieter copies
+fit" (`PanRules.Steady`). The
 recipes of every earlier row with `--mapping optimizer` gained `rule:pan=today`, the rules their clips were made with,
 so they still remake.
 

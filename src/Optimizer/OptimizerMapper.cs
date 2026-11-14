@@ -230,6 +230,9 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
         private readonly PanRules _pans;
         private int _mixesSkipped;
 
+        // The samples held in the middle whose recordings play one step quieter: those whose quieter copies fit (plan T9.4r).
+        private readonly HashSet<int> _quieter = [];
+
         // What sounds on each tick, from the last PlanSwaps (plan T9.4r).
         private List<(PlannedNote Note, SongNote Play)>?[] _soundingAt = [];
         private readonly bool _layers;
@@ -302,6 +305,7 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
 
             Rescue();
             PlanPans();
+            PlanQuieterHolds();
 
             foreach (MixedNotes mixed in _mixOf.Values.Distinct())
             {
@@ -808,6 +812,73 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
             // order, its trips back to its side between orders are the rule's own.
             bool Unfixed(PanSwap s) =>
                 (s.Cause is PanCause.SharedDac or PanCause.PreMix or PanCause.Psg || (s.Cause == PanCause.SteadyMiddle && _pans.Span == SteadyMiddleSpan.Song)) && !_pans.Free(s);
+        }
+
+        /// <summary>
+        /// Lets each sample held in the middle play one step quieter, most important first, where its quieter copies fit the
+        /// target's slots and bytes: they are other copies than the ones the shrinker sized (docs/adr/0109-pan-swap-cost.md).
+        /// A sample they don't fit stays held at its own level, and a conversion note says so.
+        /// </summary>
+        private void PlanQuieterHolds()
+        {
+            Dictionary<int, double> importance = _planned.Where(n => n.Kind == VoiceKind.Dac && Held(n))
+                .GroupBy(n => n.Sample)
+                .ToDictionary(g => g.Key, g => g.Sum(n => n.Importance));
+            foreach (int sample in importance.Keys.OrderByDescending(s => importance[s]).ThenBy(s => s))
+            {
+                _quieter.Add(sample);
+                Dictionary<StoredCopy, int> used = UsedCopies();
+                if (used.Count + _mixes.Count > _limits.PcmSlots || (_limits.PcmBytes is { } budget && used.Values.Sum(b => (long)b) + MixBytes > budget))
+                {
+                    _quieter.Remove(sample);
+                    _notes.Add("Sample {Sample} plays at its own level from both speakers: its copies one step quieter don't fit", Label(sample, _song.Samples[sample].Name));
+                }
+            }
+        }
+
+        /// <summary>
+        /// The stored copies the plan's recordings play, with their bytes: a note held in the middle, of a sample in
+        /// <see cref="_quieter"/>, plays its copy one step down. A copy the allocator counted that no note plays stays counted,
+        /// unless only such held notes played it.
+        /// </summary>
+        private Dictionary<StoredCopy, int> UsedCopies()
+        {
+            Dictionary<StoredCopy, int> used = [];
+            HashSet<StoredCopy> vacated = [];
+            foreach (PlannedNote note in _planned.Where(n => n.Kind == VoiceKind.Dac))
+            {
+                bool quieter = _quieter.Contains(note.Sample) && Held(note);
+                foreach (((int Sample, double RateHz, int StartFrame, int VolumeSteps) key, _) in note.Plays.SelectMany(p => CapacityCheck.Copies([p], _song, _storedAs)))
+                {
+                    StoredCopy copy = _shrunk is not null && _shrunk.Stored.TryGetValue(key, out StoredCopy shrunk) ? shrunk : new StoredCopy(key.Sample, key.RateHz, key.StartFrame, key.VolumeSteps, false);
+                    int bytes = _copyBytes.GetValueOrDefault(copy);
+                    if (quieter)
+                    {
+                        vacated.Add(copy);
+                        copy = Quieter(key.VolumeSteps, key.Sample, copy);
+                    }
+
+                    used[copy] = Math.Max(used.GetValueOrDefault(copy), bytes);
+                }
+            }
+
+            foreach (StoredCopy copy in _stored.Where(c => !vacated.Contains(c)))
+            {
+                used.TryAdd(copy, _copyBytes.GetValueOrDefault(copy));
+            }
+
+            return used;
+        }
+
+        /// <summary>
+        /// The copy a held note plays one step quieter, as the Genesis player picks it: the note's own steps plus one, less a
+        /// merged look-alike's gain, at the shrinker's loudness share (<see cref="RecordingShrinker.StoredSteps"/>).
+        /// </summary>
+        private StoredCopy Quieter(int steps, int sample, StoredCopy copy)
+        {
+            double gainDb = copy.Sample == sample ? 0 : _shrunk?.MergeGainDb.GetValueOrDefault(sample) ?? 0;
+            bool loudness = _shrunk?.Steps.Any(s => s.Move == ShrinkMove.ShareLoudness && s.Sample == copy.Sample) == true;
+            return copy with { VolumeSteps = RecordingShrinker.StoredSteps(steps + 1, gainDb, loudness ? _rules.LoudnessShareSteps : 1) };
         }
 
         /// <summary>Adds the conversion note for the pre-mixes <see cref="SkipsMix"/> refused, if any.</summary>
@@ -1904,6 +1975,7 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
             {
                 HalfSpeed = copy.HalfSpeed,
                 LoudnessShareSteps = loudness ? _rules.LoudnessShareSteps : 0,
+                HeldSteps = _quieter.Contains(note.Sample) && note.Centred ? 1 : 0,
                 // Only a note that plays a merged look-alike's sound takes its gain. The DMF writer sets loudness from the
                 // notes' volumes alone: the shrinker merges only look-alikes within half a step there.
                 GainDb = _dmf || copy.Sample == StoredAs(note.Sample) ? 0 : _shrunk?.MergeGainDb.GetValueOrDefault(StoredAs(note.Sample)) ?? 0,

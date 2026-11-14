@@ -158,6 +158,12 @@ internal sealed record DacSample(int Sample, double PlaybackRateHz)
     /// </summary>
     public int LoudnessShareSteps { get; init; }
 
+    /// <summary>
+    /// How many 3 dB steps quieter its notes play on XGM and XGM2 when held in the middle (<see cref="PlanCell.Centred"/>), so
+    /// from both speakers they are as loud as from one: 1, or 0 where the quieter copies don't fit (docs/adr/0109-pan-swap-cost.md).
+    /// </summary>
+    public int HeldSteps { get; init; }
+
     /// <summary>The gain its notes take, in dB: a look-alike sample merged into <see cref="Sample"/> plays at its own level (docs/adr/0091-shrinking-recordings.md).</summary>
     public double GainDb { get; init; }
 

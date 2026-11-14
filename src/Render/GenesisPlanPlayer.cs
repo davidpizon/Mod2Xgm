@@ -737,8 +737,8 @@ internal sealed class GenesisPlanPlayer
     /// The PCM a DAC note plays, made on first use: the sample played out from <paramref name="offset"/>, at the driver's
     /// rate, at <paramref name="volume"/>; <c>null</c> when it is silent. The DMF keeps DefleMask's rate codes and makes
     /// its copies 3 dB apart, as the DMF writer does; XGM and XGM2 keep 3 dB steps too, at their driver's exact rate. A
-    /// recording <paramref name="held"/> in the middle plays one step quieter, so from both speakers it is as loud as from one
-    /// (<see cref="PlanVoicing.CentredGain"/>, docs/adr/0109-pan-swap-cost.md).
+    /// recording <paramref name="held"/> in the middle plays <see cref="DacSample.HeldSteps"/> steps quieter, so from both
+    /// speakers it is as loud as from one (<see cref="PlanVoicing.CentredGain"/>, docs/adr/0109-pan-swap-cost.md).
     /// </summary>
     private Pcm? Prepare(DacSample dac, int index, int offset, double volume, bool held = false)
     {
@@ -753,7 +753,7 @@ internal sealed class GenesisPlanPlayer
             // XGM and XGM2 store a copy per 3 dB step of loudness, or per several steps when the shrinker shares them: the
             // note plays at its copy's, as the capacity check and the shrinker counted it (docs/adr/0091-shrinking-recordings.md,
             // docs/adr/0099-xgm2-writer-records-the-player.md).
-            int stored = RecordingShrinker.StoredSteps(DmfPatternTranslator.DacVolumeSteps(volume) + (held ? 1 : 0), dac.GainDb, Math.Max(1, dac.LoudnessShareSteps));
+            int stored = RecordingShrinker.StoredSteps(DmfPatternTranslator.DacVolumeSteps(volume) + (held ? dac.HeldSteps : 0), dac.GainDb, Math.Max(1, dac.LoudnessShareSteps));
             volume = Math.Pow(10, -stored * DmfPatternTranslator.DacVolumeStepDb / 20);
         }
         else
