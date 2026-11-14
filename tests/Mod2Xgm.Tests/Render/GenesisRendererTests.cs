@@ -717,6 +717,49 @@ public sealed class GenesisRendererTests
     }
 
     /// <summary>
+    /// A left recording the allocator holds in the middle (<see cref="PlanCell.Centred"/>) plays from both speakers even
+    /// alone, and the log names the hold as the cause (docs/adr/0109-pan-swap-cost.md).
+    /// </summary>
+    [Fact]
+    public void Render_WithPanLogAndRecordingHeldInTheMiddle_LogsItCentredByTheHold()
+    {
+        // Arrange
+        Sample recording = OneShotSine(8000, 1);
+        GenesisPlan plan = PlanOf([], [new DacSample(0, 8000)], Row((GenesisChannel.Fm6, Note(VoiceKind.Dac, rateHz: 8000) with { Centred = true })));
+        Playback playback = PlaybackOf(2, (r, t) => Playing(r == 0 && t == 0, pan: -1, rateHz: 8000, frames: recording.Length));
+        PanLog sut = new();
+
+        // Act
+        Render(plan with { DacPanClash = DacPanClash.Centre }, SongOf(1, recording), playback, ChipRate with { Driver = PcmDriver.Xgm2, Pans = sut });
+
+        // Assert
+        Assert.All(sut.Ticks, p => Assert.Equal((-1, 0, PanCause.SteadyMiddle), (p.Original, p.Heard, p.Cause)));
+    }
+
+    /// <summary>
+    /// A recording held in the middle plays one 3 dB step quieter on each speaker than on its own side, so from both
+    /// speakers it is as loud as from one (David, round 25: the bass held in the middle was too loud; docs/adr/0109-pan-swap-cost.md).
+    /// </summary>
+    [Fact]
+    public void Render_WithRecordingHeldInTheMiddle_PlaysItOneStepQuieter()
+    {
+        // Arrange
+        Sample recording = OneShotSine(8000, 1);
+        Playback playback = PlaybackOf(2, (r, t) => Playing(r == 0 && t == 0, pan: -1, rateHz: 8000, frames: recording.Length));
+        GenesisPlan side = PlanOf([], [new DacSample(0, 8000)], Row((GenesisChannel.Fm6, Note(VoiceKind.Dac, rateHz: 8000))));
+        GenesisPlan held = PlanOf([], [new DacSample(0, 8000) { HeldSteps = 1 }], Row((GenesisChannel.Fm6, Note(VoiceKind.Dac, rateHz: 8000) with { Centred = true })));
+
+        // Act
+        StereoAudio own = Render(side, SongOf(1, recording), playback, ChipRate with { Driver = PcmDriver.Xgm2 });
+        StereoAudio sut = Render(held, SongOf(1, recording), playback, ChipRate with { Driver = PcmDriver.Xgm2 });
+
+        // Assert
+        double ownDb = Db(own.Left, own.SampleRate, 0.05, 0.2);
+        Assert.Equal(ownDb - 3, Db(sut.Left, sut.SampleRate, 0.05, 0.2), 0.5);
+        Assert.Equal(ownDb - 3, Db(sut.Right, sut.SampleRate, 0.05, 0.2), 0.5);
+    }
+
+    /// <summary>
     /// While a left and a right recording clash on XGM, the log has both heard on both speakers through the shared DAC pan;
     /// once the left one plays out it isn't logged, and the right one is heard on its own side.
     /// </summary>

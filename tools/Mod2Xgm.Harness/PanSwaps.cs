@@ -30,8 +30,17 @@ internal static class PanSwapReport
     /// <summary>The formats every song is converted for: the two whose recordings share one DAC pan (David).</summary>
     public static readonly string[] Formats = ["xgm", "xgm2"];
 
-    /// <summary>The mappers every song is converted with (David: both, to compare).</summary>
-    public static readonly string[] Mappings = ["optimizer", "simple"];
+    /// <summary>
+    /// The versions every song is converted with: each mapper (David: both, to compare), and each with the pan rules of
+    /// plan T9.4r's ladder (docs/adr/0109-pan-swap-cost.md). The name goes in the report's mapper column.
+    /// </summary>
+    public static readonly (string Name, string Recipe)[] Mappings =
+    [
+        ("optimizer pan=today", "--mapping optimizer rule:pan=today"),
+        ("optimizer", "--mapping optimizer"),
+        ("optimizer pan=never", "--mapping optimizer rule:pan=never"),
+        ("simple", "--mapping simple"),
+    ];
 
     /// <summary><c>pan-swaps.csv</c>: one line per swap, versions in the order given.</summary>
     public static string Csv(IEnumerable<PanSwapVersion> versions)
@@ -58,12 +67,12 @@ internal static class PanSwapReport
             .Append("Plan T9.4r, [ADR 0108](../../docs/adr/0108-pan-swap-count.md). A swap: an instrument changes the side it is heard on while its MOD side stays the same. ")
             .Append("Every line of `pan-swaps.csv` is one.\n\n")
             .Append("## Totals\n\n")
-            .Append("| Format | Mapper | Swaps | Shared DAC | Pre-mix | Centred bass | PSG | Songs with swaps | Instruments with swaps | Steadily off side |\n")
-            .Append("|---|---|---|---|---|---|---|---|---|---|\n");
+            .Append("| Format | Mapper | Swaps | Shared DAC | Pre-mix | Centred bass | PSG | Steady middle | Songs with swaps | Instruments with swaps | Steadily off side |\n")
+            .Append("|---|---|---|---|---|---|---|---|---|---|---|\n");
         foreach (IGrouping<(string Format, string Mapping), PanSwapVersion> group in versions.GroupBy(v => (v.Format, v.Mapping)))
         {
             PanSwap[] swaps = [.. group.SelectMany(v => v.Count.Swaps)];
-            md.Append(CultureInfo.InvariantCulture, $"| {group.Key.Format} | {group.Key.Mapping} | {swaps.Length} | {Of(PanCause.SharedDac)} | {Of(PanCause.PreMix)} | {Of(PanCause.CentredBass)} | {Of(PanCause.Psg)} | ")
+            md.Append(CultureInfo.InvariantCulture, $"| {group.Key.Format} | {group.Key.Mapping} | {swaps.Length} | {Of(PanCause.SharedDac)} | {Of(PanCause.PreMix)} | {Of(PanCause.CentredBass)} | {Of(PanCause.Psg)} | {Of(PanCause.SteadyMiddle)} | ")
                 .Append(CultureInfo.InvariantCulture, $"{group.Count(v => v.Count.Swaps.Count > 0)} of {group.Count()} | {group.Sum(v => v.Count.Samples.Count(s => s.Swaps > 0))} | {group.Sum(v => v.Count.Samples.Count(s => s.SteadilyOffSide))} |\n");
 
             int Of(PanCause cause) => swaps.Count(s => s.Cause == cause);
@@ -99,6 +108,7 @@ internal static class PanSwapReport
         PanCause.PreMix => "pre-mix",
         PanCause.CentredBass => "centred-bass",
         PanCause.Psg => "psg",
+        PanCause.SteadyMiddle => "steady-middle",
         _ => "none",
     };
 
@@ -177,13 +187,13 @@ internal sealed class PanSwapRun(IReadOnlyList<string> songs, string outputDirec
 
         foreach (string format in PanSwapReport.Formats)
         {
-            foreach (string mapping in PanSwapReport.Mappings)
+            foreach ((string mapping, string recipe) in PanSwapReport.Mappings)
             {
                 PanLog pans = new();
-                string stem = Path.Combine(work, $"{Path.GetFileNameWithoutExtension(song)}.{format}.{mapping}");
+                string stem = Path.Combine(work, $"{Path.GetFileNameWithoutExtension(song)}.{format}.{mapping.Replace(' ', '.').Replace('=', '-')}");
                 try
                 {
-                    string wav = ListeningRemake.Render(song, format, "--mapping " + mapping, stem, null, $"{name} {format} {mapping}", pans);
+                    string wav = ListeningRemake.Render(song, format, recipe, stem, null, $"{name} {format} {mapping}", pans);
                     File.Delete(wav);
                 }
                 catch (Exception ex) when (ex is HarnessException or ConversionException or IOException)

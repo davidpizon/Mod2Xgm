@@ -87,6 +87,12 @@ internal sealed record PlanCell(NotePitch? Note, PlanVoice? Voice, double? Volum
 
     /// <summary>How far <see cref="Note"/>'s voice plays from the note's pitch, in cents, so that two voices of one MOD note beat as the sample's own layers do (docs/adr/0089-fm-layer.md). Only FM takes it.</summary>
     public double Cents { get; init; }
+
+    /// <summary>
+    /// True when <see cref="Note"/>'s recording plays from both speakers whatever its channel's pan: the allocator's steady
+    /// middle, so a clash of sides on the one DAC pan never moves it (XGM and XGM2, docs/adr/0109-pan-swap-cost.md).
+    /// </summary>
+    public bool Centred { get; init; }
 }
 
 /// <summary>One row of the plan.</summary>
@@ -151,6 +157,12 @@ internal sealed record DacSample(int Sample, double PlaybackRateHz)
     /// plays every note at its own loudness (docs/adr/0091-shrinking-recordings.md).
     /// </summary>
     public int LoudnessShareSteps { get; init; }
+
+    /// <summary>
+    /// How many 3 dB steps quieter its notes play on XGM and XGM2 when held in the middle (<see cref="PlanCell.Centred"/>), so
+    /// from both speakers they are as loud as from one: 1, or 0 where the quieter copies don't fit (docs/adr/0109-pan-swap-cost.md).
+    /// </summary>
+    public int HeldSteps { get; init; }
 
     /// <summary>The gain its notes take, in dB: a look-alike sample merged into <see cref="Sample"/> plays at its own level (docs/adr/0091-shrinking-recordings.md).</summary>
     public double GainDb { get; init; }

@@ -148,12 +148,12 @@ internal static class ConversionCommand
         if (analysis is not null && options.UsesOptimizer)
         {
             phase = progress.Start(PhaseFit);
-            optimizer = new OptimizerMapper(limits, FitSounds(analysis, limits, mapping, options, logger, phase), options.ShrinkRules, preMix: options.PreMixRules, layers: options.Layers);
+            optimizer = new OptimizerMapper(limits, FitSounds(analysis, limits, mapping, options, logger, phase), options.ShrinkRules, preMix: options.PreMixRules, layers: options.Layers, pan: options.PanRules);
             phase.Done();
         }
 
         phase = progress.Start(PhaseMap);
-        GenesisPlan plan = (optimizer ?? (IChannelMapper)new SimpleMapper()).Map(song, playback, mapping, notes);
+        GenesisPlan plan = (optimizer ?? (IChannelMapper)new SimpleMapper(options.DacLoser ?? DacLoser.Default)).Map(song, playback, mapping, notes);
         logger.Debug(
             "Mapped {Orders} orders: {FmPatches} FM patches, {DacSamples} DAC samples",
             plan.Patterns.Count,

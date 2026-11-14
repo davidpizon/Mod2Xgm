@@ -36,8 +36,8 @@ public sealed class PanSwapReportTests
         string sut = PanSwapReport.Markdown([Version(), Version(mapping: "simple") with { Count = new PanSwapCount([], []) }]);
 
         // Assert
-        Assert.Contains("| xgm2 | optimizer | 1 | 1 | 0 | 0 | 0 | 1 of 1 | 1 | 1 |", sut, StringComparison.Ordinal);
-        Assert.Contains("| xgm2 | simple | 0 | 0 | 0 | 0 | 0 | 0 of 1 | 0 | 0 |", sut, StringComparison.Ordinal);
+        Assert.Contains("| xgm2 | optimizer | 1 | 1 | 0 | 0 | 0 | 0 | 1 of 1 | 1 | 1 |", sut, StringComparison.Ordinal);
+        Assert.Contains("| xgm2 | simple | 0 | 0 | 0 | 0 | 0 | 0 | 0 of 1 | 0 | 0 |", sut, StringComparison.Ordinal);
         Assert.Contains("| song.mod | xgm2 | optimizer | 1 | 1 | 2.25 | 0.75 | 5 |", sut, StringComparison.Ordinal);
         Assert.Contains("| song.mod | xgm2 | simple | 0 | 0 | – | – | – |", sut, StringComparison.Ordinal);
     }

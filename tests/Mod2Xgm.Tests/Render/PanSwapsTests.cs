@@ -39,12 +39,27 @@ public sealed class PanSwapsTests
         // Assert
         Assert.Equal(
             [
-                new PanSwap(0, 0.02, -1, -1, 0, PanCause.SharedDac, 0.04, 0, 0.5, false),
-                new PanSwap(0, 0.06, -1, 0, -1, PanCause.SharedDac, 0.02, 0, 0.5, false),
+                new PanSwap(0, 0.02, -1, -1, 0, PanCause.SharedDac, 0.04, 0, 0.5, false) { OffSeconds = 0.04 },
+                new PanSwap(0, 0.06, -1, 0, -1, PanCause.SharedDac, 0.02, 0, 0.5, false) { OffSeconds = 0.04 },
             ],
-            sut.Swaps.Select(s => s with { Seconds = Math.Round(s.Seconds, 9), LastsSeconds = Math.Round(s.LastsSeconds, 9) }));
+            sut.Swaps.Select(s => s with { Seconds = Math.Round(s.Seconds, 9), LastsSeconds = Math.Round(s.LastsSeconds, 9), OffSeconds = Math.Round(s.OffSeconds, 9) }));
         Assert.Equal([PanSwapKind.Away, PanSwapKind.Back], sut.Swaps.Select(s => s.Kind));
         Assert.Equal(1, sut.Swaps[0].Distance);
+    }
+
+    /// <summary>A short trip away and back gives both swaps the length of the stretch off side, though the swap back lasts longer.</summary>
+    [Fact]
+    public void Count_WhenAwayBriefly_GivesBothSwapsTheTimeOffSide()
+    {
+        // Arrange
+        PanLog log = LogOf((0, -1, -1, PanCause.None), (1, -1, 0, PanCause.SharedDac), (2, -1, -1, PanCause.None), (3, -1, -1, PanCause.None), (4, -1, -1, PanCause.None));
+
+        // Act
+        PanSwapCount sut = PanSwaps.Count(log);
+
+        // Assert
+        Assert.Equal([0.02, 0.02], sut.Swaps.Select(s => Math.Round(s.OffSeconds, 9)));
+        Assert.Equal(0.06, Math.Round(sut.Swaps[1].LastsSeconds, 9));
     }
 
     /// <summary>A silence between the two sides doesn't hide the swap, and its length is the gap (David).</summary>

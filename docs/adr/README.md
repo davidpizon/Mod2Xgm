@@ -122,6 +122,7 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0106](0106-cant-tell-smaller-wins.md) | "Can't tell" means either is fine, and the smaller file wins | 2026-11-13 | Accepted |
 | [0107](0107-learned-score-not-adopted.md) | The learned listening score is not adopted; log-mel stays the main number | 2026-11-13 | Accepted |
 | [0108](0108-pan-swap-count.md) | Counting the pan swaps the MOD doesn't make | 2026-11-13 | Accepted |
+| [0109](0109-pan-swap-cost.md) | A price for pan swaps the MOD doesn't make; the threshold set by ear | 2026-11-14 | Accepted |
 
 ## Open questions
 

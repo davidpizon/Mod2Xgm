@@ -173,7 +173,20 @@ internal static class AnswersFile
 internal sealed record Recipe(IReadOnlyList<string> Arguments, IReadOnlySet<int> HalfSpeed, bool Layers = true, bool PreMix = true)
 {
     /// <summary>The rules a recipe can give, for the usage message.</summary>
-    private const string KnownRules = "rule:half-speed=<samples>, rule:layers=off, rule:pre-mix=off";
+    private const string KnownRules = "rule:half-speed=<samples>, rule:layers=off, rule:pre-mix=off, rule:pan=today|short|never, rule:pan-free=<seconds>,<volume>,<distance>, "
+        + "rule:pan-span=song|order, rule:pan-fix=<middle+fm+unmix or none>, rule:pan-cost=<dB>, rule:dac-loser=noise|fm|noise-all-song";
+
+    /// <summary>
+    /// The optimizer's pan rules with <c>rule:pan…</c> (docs/adr/0109-pan-swap-cost.md), or <c>null</c> for the converter's own.
+    /// <c>rule:pan=short</c> alone lets stand a swap off side for 0.1 s or less, at half volume or less, to or from the middle.
+    /// </summary>
+    public PanRules? Pan { get; private init; }
+
+    /// <summary>The simple mapper's choice for a drum that loses the DAC with <c>rule:dac-loser=…</c>, or <c>null</c> for its own.</summary>
+    public Mapping.DacLoser? Loser { get; private init; }
+
+    /// <summary>The swap <c>rule:pan=short</c> lets stand when <c>rule:pan-free</c> doesn't say: 0.1 s off side, half volume, to or from the middle.</summary>
+    private static readonly PanRules ShortQuiet = PanRules.Today with { Allow = PanSwapAllowance.ShortQuiet, FreeSeconds = 0.1, FreeVolume = 0.5, FreeDistance = 1 };
 
     /// <summary>Options the harness sets itself, which a recipe can't.</summary>
     private static readonly string[] Reserved = ["--format", "-f", "--output", "-o", "--render-wav", "--progress", "--force", "--info"];
@@ -186,6 +199,8 @@ internal sealed record Recipe(IReadOnlyList<string> Arguments, IReadOnlySet<int>
         HashSet<int> halfSpeed = [];
         bool layers = true;
         bool preMix = true;
+        PanRules? pan = null;
+        Mapping.DacLoser? loser = null;
         foreach (string token in text.Split(' ', StringSplitOptions.RemoveEmptyEntries))
         {
             if (token.StartsWith("rule:", StringComparison.Ordinal))
@@ -198,6 +213,39 @@ internal sealed record Recipe(IReadOnlyList<string> Arguments, IReadOnlySet<int>
                         continue;
                     case ["pre-mix", "off"]:
                         preMix = false;
+                        continue;
+                    case ["pan", "today"]:
+                        pan = (pan ?? PanRules.Today) with { Allow = PanSwapAllowance.All };
+                        continue;
+                    case ["pan", "never"]:
+                        pan = (pan ?? PanRules.Today) with { Allow = PanSwapAllowance.None };
+                        continue;
+                    case ["pan", "short"]:
+                        pan = pan is null ? ShortQuiet : pan with { Allow = PanSwapAllowance.ShortQuiet };
+                        continue;
+                    case ["pan-free", { } free]:
+                        pan = Free(pan ?? ShortQuiet, free, text);
+                        continue;
+                    case ["pan-span", "song"]:
+                        pan = (pan ?? PanRules.Today) with { Span = SteadyMiddleSpan.Song };
+                        continue;
+                    case ["pan-span", "order"]:
+                        pan = (pan ?? PanRules.Today) with { Span = SteadyMiddleSpan.Order };
+                        continue;
+                    case ["pan-fix", { } fixes]:
+                        pan = (pan ?? PanRules.Today) with { Fixes = Fixes(fixes, text) };
+                        continue;
+                    case ["pan-cost", { } db] when double.TryParse(db, NumberStyles.Float, CultureInfo.InvariantCulture, out double cost) && cost >= 0:
+                        pan = (pan ?? PanRules.Today) with { OffSideDb = cost };
+                        continue;
+                    case ["dac-loser", "noise"]:
+                        loser = Mapping.DacLoser.Noise;
+                        continue;
+                    case ["dac-loser", "fm"]:
+                        loser = Mapping.DacLoser.Fm;
+                        continue;
+                    case ["dac-loser", "noise-all-song"]:
+                        loser = Mapping.DacLoser.NoiseAllSong;
                         continue;
                     case ["half-speed", _]:
                         break;
@@ -222,11 +270,42 @@ internal sealed record Recipe(IReadOnlyList<string> Arguments, IReadOnlySet<int>
             }
         }
 
-        return new Recipe(arguments, halfSpeed, layers, preMix);
+        return new Recipe(arguments, halfSpeed, layers, preMix) { Pan = pan, Loser = loser };
     }
 
-    /// <summary>True when the recipe has a rule, which only <c>--mapping optimizer</c> reads.</summary>
-    public bool HasRules => HalfSpeed.Count > 0 || !Layers || !PreMix;
+    /// <summary>True when the recipe has a rule only <c>--mapping optimizer</c> reads.</summary>
+    public bool HasRules => HalfSpeed.Count > 0 || !Layers || !PreMix || Pan is not null;
+
+    /// <summary><c>rule:pan-free=seconds,volume,distance</c>: the swaps <see cref="PanSwapAllowance.ShortQuiet"/> lets stand.</summary>
+    private static PanRules Free(PanRules pan, string value, string text)
+    {
+        string[] parts = value.Split(',');
+        return parts.Length == 3
+            && double.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out double seconds) && seconds >= 0
+            && double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out double volume) && volume is >= 0 and <= 1
+            && int.TryParse(parts[2], NumberStyles.None, CultureInfo.InvariantCulture, out int distance) && distance is 1 or 2
+            ? pan with { Allow = PanSwapAllowance.ShortQuiet, FreeSeconds = seconds, FreeVolume = volume, FreeDistance = distance }
+            : throw HarnessException.Usage($"recipe \"{text}\": rule:pan-free={value} needs seconds, a volume from 0 to 1 and a distance of 1 or 2, e.g. 0.1,0.5,1");
+    }
+
+    /// <summary><c>rule:pan-fix=middle+fm+unmix</c>, or <c>none</c>: what the allocator may do in place of a swap.</summary>
+    private static PanFixes Fixes(string value, string text)
+    {
+        PanFixes fixes = PanFixes.None;
+        foreach (string name in value.Split('+'))
+        {
+            fixes |= name switch
+            {
+                "none" => PanFixes.None,
+                "middle" => PanFixes.SteadyMiddle,
+                "fm" => PanFixes.MoveToFm,
+                "unmix" => PanFixes.SkipPreMix,
+                _ => throw HarnessException.Usage($"recipe \"{text}\": rule:pan-fix={value}: {name} is not middle, fm, unmix or none"),
+            };
+        }
+
+        return fixes;
+    }
 
     /// <summary>The shrink rules the recipe asks for, or <c>null</c> for the converter's own.</summary>
     public ShrinkRules? Rules => HalfSpeed.Count == 0 ? null : ShrinkRules.Default with { ForcedHalfSpeed = HalfSpeed.Select(s => s - 1).ToHashSet() };
@@ -475,9 +554,15 @@ internal sealed class ListeningRemake(IReadOnlyList<string> songs, string output
             throw HarnessException.Usage($"recipe \"{recipeText}\": its rules need --mapping optimizer");
         }
 
+        if (recipe.Loser is not null && options.UsesOptimizer)
+        {
+            throw HarnessException.Usage($"recipe \"{recipeText}\": rule:dac-loser is for the simple mapper, not --mapping optimizer");
+        }
+
         try
         {
-            return ConversionCommand.Execute(options with { ShrinkRules = recipe.Rules, PreMixRules = recipe.PreMix ? null : PreMixRules.None, Layers = recipe.Layers }, Serilog.Core.Logger.None, analyzed, NoProgress.Instance);
+            ConversionOptions ruled = options with { ShrinkRules = recipe.Rules, PreMixRules = recipe.PreMix ? null : PreMixRules.None, Layers = recipe.Layers, PanRules = recipe.Pan, DacLoser = recipe.Loser };
+            return ConversionCommand.Execute(ruled, Serilog.Core.Logger.None, analyzed, NoProgress.Instance);
         }
         catch (ConversionException ex) when (ex.Code == ExitCode.UsageError && options.Format == OutputFormat.Xgm && File.Exists(wav))
         {
