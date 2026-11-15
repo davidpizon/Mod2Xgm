@@ -206,6 +206,7 @@ is one step (`song:<name>`), the result names `report.md`, and a failure to run 
 | `--pan-swaps` | | Instead of scoring: convert every song for XGM and XGM2 with the optimizer and the simple mapper and [count the pan swaps](#pan-swaps) the MOD doesn't make, into `pan-swaps/pan-swaps.csv` and `pan-swaps/report.md`. Not with `--remake`, `--fit`, `--pick`, `--embeddings` or `--holdout` |
 | `--squeeze <answers.tsv>` | | Instead of scoring: make the next [squeeze round](#squeeze-rounds), into `listening/squeeze.tsv` and `listening/squeeze-round.tsv`. Not with the other listening modes |
 | `--budget <percent>` | 50 | With `--squeeze`: the share of each song's PCM bytes today both ways may use, 1–99 |
+| `--ways <list>` | every way | With `--squeeze`: the ways to try against today's, comma-separated by key (see [Squeeze rounds](#squeeze-rounds)) |
 
 ## Output
 
@@ -272,6 +273,9 @@ give those. The rules so far:
 | `rule:half-speed=all` | Every sample at half speed, as `rule:half-speed` with all 31: a squeeze round's way ([ADR 0113](adr/0113-squeeze-rounds.md)) |
 | `rule:shrink=off` | Recordings aren't shrunk to fit (no merging, shared pitches or loudness): notes give them up to FM/PSG instead, a squeeze round's way (ADR 0113). Needs `--mapping optimizer` |
 | `rule:keep=importance\|drums\|tonal` | Which tracks choose their sound first, and so keep a recording when the budget can't hold them all: the most important (the converter's own), drums (samples that hit at least half, by the analysis), or tonal sounds; then by importance (ADR 0113). Needs `--mapping optimizer` |
+| `rule:pitch-share=<cents>` | Pitches within this many cents share one stored copy (the converter's own: 10), 1–100; a squeeze dial (plan T9.4t5, ADR 0113). Needs `--mapping optimizer` |
+| `rule:loudness-share=<steps>` | Loudness shares one copy across this many 3 dB steps (the converter's own: 2, so 6 dB), 2–8 whole; `4` is 12 dB (plan T9.4t5). Needs `--mapping optimizer` |
+| `rule:merge=<percent>` | Samples at least this alike are merged into one (the converter's own: 98), 50–100 whole (plan T9.4t5). Needs `--mapping optimizer` |
 
 `--remake answers.tsv` converts each row's song with both recipes in-process (with `--render-wav`), cuts the clip out
 of each render byte for byte (`ClipWav`), and writes `listening/<round>-<question>-a.wav`, `-b.wav` and the original's
@@ -438,22 +442,27 @@ about 15 versions of each place's song, so it is slow and runs by hand.
 `--squeeze answers.tsv --budget P` (plan T9.4t1, [ADR 0113](adr/0113-squeeze-rounds.md)) asks which ways of fitting a
 smaller budget keep the most sound. For every song it is given, it makes today's version (`--mapping optimizer`, no
 budget) and reads the PCM bytes it stores (the XGM2 header's SLEN). The six that store the most are squeezed: each gets
-`--max-pcm-bytes` at P % of its bytes, rounded down to 256-byte blocks, and is made every way:
+`--max-pcm-bytes` at P % of its bytes, rounded down to 256-byte blocks, and is made every way `--ways` names (all of them by default):
 
-| Way | Recipe at the budget |
-|---|---|
-| `today` | the converter's own: shrink the recordings, then the least important notes give theirs up |
-| `no shrinking` | `rule:shrink=off` |
-| `half speed for all` | `rule:half-speed=all` |
-| `drums keep theirs first` | `rule:keep=drums` |
-| `tonal sounds keep theirs first` | `rule:keep=tonal` |
+| Way | `--ways` key | Recipe at the budget |
+|---|---|---|
+| `today` | (always) | the converter's own: shrink the recordings, then the least important notes give theirs up |
+| `no shrinking` | `no-shrink` | `rule:shrink=off` |
+| `half speed for all` | `half-speed-all` | `rule:half-speed=all` |
+| `drums keep theirs first` | `drums-first` | `rule:keep=drums` |
+| `tonal sounds keep theirs first` | `tonal-first` | `rule:keep=tonal` |
+| `pitches share within 25 cents` | `pitch-25` | `rule:pitch-share=25` (from round 28, plan T9.4t5) |
+| `pitches share within 50 cents` | `pitch-50` | `rule:pitch-share=50` |
+| `a copy per 12 dB` | `loudness-12` | `rule:loudness-share=4` |
+| `merge samples 90 % alike` | `merge-90` | `rule:merge=90` |
+| `half speed for dull samples` | `half-speed-dull` | `rule:half-speed=` the samples with little above 3.3 kHz; skipped in a song with none |
 
 Each way is set against today's at the same budget, at the 20-second clip where the two differ most by log-mel; ways
 that sound the same as today's everywhere are left out, and the three most different pairs of each song go to the round.
 It writes `listening/squeeze.tsv` (every pair: song, budget, the two ways, clip start, how far apart in dB, whether it
 went to the round) and `listening/squeeze-round.tsv` (the next round's rows, the versions' order by a hash of the song
 and start), then logs each song's bytes. The round goes on from step 2 of [Listening answers](#listening-answers):
-`--remake listening/squeeze-round.tsv`. Each squeezed song is made six times, so it is slow and runs by hand; pass the
+`--remake listening/squeeze-round.tsv`. Each squeezed song is made once per way, so it is slow and runs by hand; pass the
 songs to measure, since measuring every song makes each once.
 
 ## Tests

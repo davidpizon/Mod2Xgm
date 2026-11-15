@@ -37,6 +37,10 @@ public sealed class SqueezeTests
     [InlineData("HalfSpeedAll", "--mapping optimizer --max-pcm-bytes 4096 rule:half-speed=all")]
     [InlineData("DrumsFirst", "--mapping optimizer --max-pcm-bytes 4096 rule:keep=drums")]
     [InlineData("TonalFirst", "--mapping optimizer --max-pcm-bytes 4096 rule:keep=tonal")]
+    [InlineData("PitchShare25", "--mapping optimizer --max-pcm-bytes 4096 rule:pitch-share=25")]
+    [InlineData("PitchShare50", "--mapping optimizer --max-pcm-bytes 4096 rule:pitch-share=50")]
+    [InlineData("LoudnessShare12", "--mapping optimizer --max-pcm-bytes 4096 rule:loudness-share=4")]
+    [InlineData("Merge90", "--mapping optimizer --max-pcm-bytes 4096 rule:merge=90")]
     public void RecipeOf_EveryWay_IsTheBudgetAndItsRule(string way, string expected)
     {
         // Act
@@ -45,6 +49,51 @@ public sealed class SqueezeTests
         // Assert
         Assert.Equal(expected, sut);
         Assert.NotNull(Recipe.Parse(sut));
+    }
+
+    /// <summary>Half speed for dull samples names them 1-based and in order, so the recipe stores just those at half speed.</summary>
+    [Fact]
+    public void RecipeOf_HalfSpeedDull_ListsTheDullSamples()
+    {
+        // Act
+        string sut = Squeeze.RecipeOf(SqueezeWay.HalfSpeedDull, 4096, [6, 2]);
+
+        // Assert
+        Assert.Equal("--mapping optimizer --max-pcm-bytes 4096 rule:half-speed=3,7", sut);
+        Assert.Equal([2, 6], Recipe.Parse(sut).Rules!.ForcedHalfSpeed.Order());
+    }
+
+    /// <summary>A <c>--ways</c> list gives those ways in the usual order, with today's always first.</summary>
+    [Fact]
+    public void ParseWays_WithList_AddsTodayAndKeepsTheOrder()
+    {
+        // Act
+        IReadOnlyList<SqueezeWay> sut = Squeeze.ParseWays("merge-90, pitch-25,half-speed-dull");
+
+        // Assert
+        Assert.Equal([SqueezeWay.Today, SqueezeWay.PitchShare25, SqueezeWay.Merge90, SqueezeWay.HalfSpeedDull], sut);
+    }
+
+    /// <summary>A way <c>--ways</c> doesn't know is a usage error that names it.</summary>
+    [Fact]
+    public void ParseWays_WithUnknownWay_Throws()
+    {
+        // Act
+        HarnessException ex = Assert.Throws<HarnessException>(() => Squeeze.ParseWays("pitch-25,louder"));
+
+        // Assert
+        Assert.Contains("louder", ex.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>Every way's <c>--ways</c> key reads back as that way.</summary>
+    [Fact]
+    public void Key_EveryWay_ParsesBack()
+    {
+        // Act
+        IReadOnlyList<SqueezeWay> sut = Squeeze.ParseWays(string.Join(',', Squeeze.Ways.Select(Squeeze.Key)));
+
+        // Assert
+        Assert.Equal(Squeeze.Ways, sut);
     }
 
     /// <summary>Of one song's pairs, those whose ways sound the same are left out and the most different few are chosen.</summary>

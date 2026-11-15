@@ -338,6 +338,53 @@ public sealed class ListeningTests
         Assert.False(sut.HasRules);
     }
 
+    /// <summary>The dial rules set how far pitches and loudness share a copy and how alike merged samples must be (plan T9.4t5).</summary>
+    [Fact]
+    public void Parse_WithDialRules_SetsTheShrinkDials()
+    {
+        // Act
+        Recipe sut = Recipe.Parse("--mapping optimizer rule:pitch-share=25 rule:loudness-share=4 rule:merge=90");
+
+        // Assert
+        Assert.Equal((25.0, 4, 0.9), (sut.PitchShareCents.GetValueOrDefault(), sut.LoudnessShareSteps.GetValueOrDefault(), sut.MergeLikeness.GetValueOrDefault()));
+        Assert.Equal(ShrinkRules.Default.Order, sut.Rules!.Order);
+        Assert.Equal((25.0, 4, 0.9), (sut.Rules.PitchShareCents, sut.Rules.LoudnessShareSteps, sut.Rules.MergeCorrelation));
+        Assert.True(sut.HasRules);
+    }
+
+    /// <summary>One dial changes only itself; the others keep the converter's own values.</summary>
+    [Fact]
+    public void Parse_WithOneDial_KeepsTheOthersAtDefault()
+    {
+        // Act
+        Recipe sut = Recipe.Parse("--mapping optimizer rule:pitch-share=50");
+
+        // Assert
+        Assert.Equal(
+            (50.0, ShrinkRules.Default.LoudnessShareSteps, ShrinkRules.Default.MergeCorrelation),
+            (sut.Rules!.PitchShareCents, sut.Rules.LoudnessShareSteps, sut.Rules.MergeCorrelation));
+    }
+
+    /// <summary>A dial outside its range, not a number, or not whole where it must be is refused, naming the rule.</summary>
+    [Theory]
+    [InlineData("rule:pitch-share=0")]
+    [InlineData("rule:pitch-share=101")]
+    [InlineData("rule:pitch-share=wide")]
+    [InlineData("rule:loudness-share=1")]
+    [InlineData("rule:loudness-share=9")]
+    [InlineData("rule:loudness-share=2.5")]
+    [InlineData("rule:merge=49")]
+    [InlineData("rule:merge=101")]
+    [InlineData("rule:merge=90.5")]
+    public void Parse_WithBadDial_Throws(string rule)
+    {
+        // Act
+        HarnessException ex = Assert.Throws<HarnessException>(() => Recipe.Parse("--mapping optimizer " + rule));
+
+        // Assert
+        Assert.Contains(rule, ex.Message, StringComparison.Ordinal);
+    }
+
     /// <summary>A keep or shrink rule with a value it doesn't know is refused, naming the rule.</summary>
     [Theory]
     [InlineData("rule:keep=bass")]
