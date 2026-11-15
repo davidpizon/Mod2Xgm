@@ -308,6 +308,49 @@ public sealed class ListeningTests
         Assert.Null(Recipe.Parse("--mapping optimizer").Levels);
     }
 
+    /// <summary>The squeeze rules: no shrinking, every sample at half speed, and who keeps a recording first (docs/adr/0113-squeeze-rounds.md).</summary>
+    [Fact]
+    public void Parse_WithSqueezeRules_SetsShrinkHalfSpeedAndKeep()
+    {
+        // Act
+        Recipe sut = Recipe.Parse("--mapping optimizer rule:shrink=off rule:half-speed=all rule:keep=drums");
+
+        // Assert
+        Assert.False(sut.Shrink);
+        Assert.Equal(31, sut.HalfSpeed.Count);
+        Assert.Equal(KeepFirst.Drums, sut.Keep);
+        Assert.Empty(sut.Rules!.Order);
+        Assert.Equal(Enumerable.Range(0, 31), sut.Rules.ForcedHalfSpeed.Order());
+        Assert.True(sut.HasRules);
+    }
+
+    /// <summary>Without squeeze rules a recipe shrinks as the converter does and keeps by importance, so it has no rules.</summary>
+    [Fact]
+    public void Parse_WithoutSqueezeRules_KeepsTheConvertersOwn()
+    {
+        // Act
+        Recipe sut = Recipe.Parse("--mapping optimizer rule:keep=importance");
+
+        // Assert
+        Assert.True(sut.Shrink);
+        Assert.Equal(KeepFirst.Importance, sut.Keep);
+        Assert.Null(sut.Rules);
+        Assert.False(sut.HasRules);
+    }
+
+    /// <summary>A keep or shrink rule with a value it doesn't know is refused, naming the rule.</summary>
+    [Theory]
+    [InlineData("rule:keep=bass")]
+    [InlineData("rule:shrink=on")]
+    public void Parse_WithBadSqueezeRule_Throws(string rule)
+    {
+        // Act
+        HarnessException ex = Assert.Throws<HarnessException>(() => Recipe.Parse("--mapping optimizer " + rule));
+
+        // Assert
+        Assert.Contains(rule, ex.Message, StringComparison.Ordinal);
+    }
+
     /// <summary>A level rule with a sample or dB it can't read is refused, naming the rule.</summary>
     [Theory]
     [InlineData("rule:quieter=0:3")]

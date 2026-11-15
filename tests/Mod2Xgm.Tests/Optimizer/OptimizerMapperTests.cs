@@ -483,6 +483,29 @@ public sealed class OptimizerMapperTests
         Assert.Equal(1, plan.Patterns[0][0].Cells[(int)GenesisChannel.Fm6].Sample);
     }
 
+    /// <summary>
+    /// With one DAC voice for a hit and a held note, the keep rule says who keeps the recording: the hit by importance and
+    /// with drums first, the held note with tonal sounds first (plan T9.4t1, docs/adr/0113-squeeze-rounds.md).
+    /// </summary>
+    [Theory]
+    [InlineData("Importance", 1)]
+    [InlineData("Drums", 1)]
+    [InlineData("Tonal", 0)]
+    public void Map_WithKeepRule_GivesTheDacToTheTrackItPutsFirst(string keep, int dacSample)
+    {
+        // Arrange
+        Song song = SongOf(2, [(0, 0, 1.0), (1, 1, 1.0)]);
+        SampleSounds held = Sounds(0) with { Percussive = 0 };
+        SampleSounds hit = Sounds(1) with { Percussive = 1 };
+        OptimizerMapper sut = new(Limits(PcmTarget.Dmf), [held, hit], null, null, PreMixRules.None, keep: Enum.Parse<KeepFirst>(keep));
+
+        // Act
+        GenesisPlan plan = sut.Map(song, PlaybackOf(song), MappingOptions.Default, Notes());
+
+        // Assert
+        Assert.Equal(dacSample, plan.Patterns[0][0].Cells[(int)GenesisChannel.Fm6].Sample);
+    }
+
     /// <summary>The optimizer's plan asks for the levels and pans David chose by ear.</summary>
     [Fact]
     public void Map_Always_MarksPlanTunedByEar()

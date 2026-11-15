@@ -159,6 +159,14 @@
 | T9.4s4 | The "acceptable?" check and retry in the converter, learned from the `neither` answers (ADR 0111) | Passes on new hold-out songs and in blind rounds before it changes a plan |
 | T9.4s5 | Instrument labels from CLAP, and rules that adapt to them (e.g. no voice on FM) (ADR 0111) | Labels checked against David's names on the corpus; blind rounds before a rule uses them |
 | T9.4s6 | FM patch choice by CLAP distance as well as log-mel: T9.4m's idea with CLAP as the ruler (ADR 0111) | Blind rounds |
+| T9.4t1 ✅ | Squeeze rounds in the harness ([ADR 0113](adr/0113-squeeze-rounds.md)): `--squeeze` and `--budget` (a share of each song's XGM2 PCM bytes today, the six biggest songs), `rule:shrink=off`, `rule:half-speed=all`, `rule:keep=importance|drums|tonal`; the first round at 50 %. Done: round 27, no way won everywhere | Tests; every byte-exact test unchanged without the rules; a round logged |
+| T9.4t2 | The harder FM search in the harness: several fits per region from different seeds and structures, CLAP choosing among them (`rule:fm=clap`, T9.4s6's idea, ADR 0113) | Tests; the pick is the same on every run |
+| T9.4t3 | Squeeze rounds (ADR 0113): each song's traits (percussive share, FM confidence, look-alikes, sound above 6.65 kHz) and the fitted order; pairs of two ways at one budget on the six biggest songs, until the fitted order is 95 % sure for each kind of song or can't be heard; new songs join to check it | Each round logged with how sure the order is |
+| T9.4t4 | The order the rounds settled, in the converter; a price for size from their answers, behind a rule switch (ADR 0113, replacing ADR 0110's ties only after blind rounds) | Blind rounds |
+| T9.4t5 | Squeeze dials as ways (ADR 0113): pitch sharing at 25 and 50 cents, a copy per 6 dB, merging at 90 % alike, half speed for dull samples only, tails cut at 30 dB | Tests; in a squeeze round |
+| T9.4t6 | A recorded attack with an FM tail (ADR 0113): a long sound's first part a recording, its fitted FM patch carrying the rest, the hand-over level-matched | Tests; in a squeeze round |
+| T9.4t7 | Made loops (ADR 0113): a seamless loop found in a long one-shot's steady part, so only that much is stored | Tests; in a squeeze round |
+| T9.4t8 | Noise for hi-hats and cymbals first, and masked notes skipped (ADR 0113) | Tests; in a squeeze round |
 | T9.5 | Render & refine loop (worst-section re-fit / re-allocate), `--quality` / `--time-budget` / `--seed` | Deterministic; improves corpus score vs greedy (log-mel plus ADR 0110's penalties, the file size breaking ties) |
 | T9.6 | Optimizer vs simple mapper on DMF; switch default if better | Decision logged; **0.2.0** |
 

@@ -204,6 +204,8 @@ is one step (`song:<name>`), the result names `report.md`, and a failure to run 
 | `--models <folder>` | `LocalApplicationData/Mod2Xgm/models` | With `--embeddings`: where the exported `.onnx` models are |
 | `--holdout <answers.tsv>` | | Instead of scoring: remake only the [hold-out rows](#the-hold-out) and score the learned listening score on them against David's bar, into `listening/holdout.txt`. Not with `--remake`, `--fit`, `--pick` or `--embeddings` |
 | `--pan-swaps` | | Instead of scoring: convert every song for XGM and XGM2 with the optimizer and the simple mapper and [count the pan swaps](#pan-swaps) the MOD doesn't make, into `pan-swaps/pan-swaps.csv` and `pan-swaps/report.md`. Not with `--remake`, `--fit`, `--pick`, `--embeddings` or `--holdout` |
+| `--squeeze <answers.tsv>` | | Instead of scoring: make the next [squeeze round](#squeeze-rounds), into `listening/squeeze.tsv` and `listening/squeeze-round.tsv`. Not with the other listening modes |
+| `--budget <percent>` | 50 | With `--squeeze`: the share of each song's PCM bytes today both ways may use, 1–99 |
 
 ## Output
 
@@ -267,6 +269,9 @@ give those. The rules so far:
 | `rule:dac-loser=noise\|fm\|noise-all-song` | Where the simple mapper plays a drum that loses the DAC: the PSG noise (today), FM on its own channel when it is on one side, or the PSG noise all song for a drum on one side that ever loses it. Needs `--mapping simple` |
 | `rule:quieter=<sample>:<dB>[,…]` | These samples (1-based) play this many dB quieter as recordings, above 0 and at most 24: a retry's fix for a recording that clips ([ADR 0112](adr/0112-retry-list.md)). A pre-mix keeps the levels its notes were mixed at. XGM and XGM2 only; needs `--mapping optimizer` |
 | `rule:song-quieter=<dB>` | The whole song plays this many dB quieter: FM, PSG, every recording and pre-mix (ADR 0112). XGM and XGM2 only; needs `--mapping optimizer` |
+| `rule:half-speed=all` | Every sample at half speed, as `rule:half-speed` with all 31: a squeeze round's way ([ADR 0113](adr/0113-squeeze-rounds.md)) |
+| `rule:shrink=off` | Recordings aren't shrunk to fit (no merging, shared pitches or loudness): notes give them up to FM/PSG instead, a squeeze round's way (ADR 0113). Needs `--mapping optimizer` |
+| `rule:keep=importance\|drums\|tonal` | Which tracks choose their sound first, and so keep a recording when the budget can't hold them all: the most important (the converter's own), drums (samples that hit at least half, by the analysis), or tonal sounds; then by importance (ADR 0113). Needs `--mapping optimizer` |
 
 `--remake answers.tsv` converts each row's song with both recipes in-process (with `--render-wav`), cuts the clip out
 of each render byte for byte (`ClipWav`), and writes `listening/<round>-<question>-a.wav`, `-b.wav` and the original's
@@ -428,8 +433,31 @@ step 2 of [Listening answers](#listening-answers): `--remake listening/retry-rou
 model folder (`--models`, [Pretrained models](#pretrained-models)); `--jobs` makes several places at once. It renders
 about 15 versions of each place's song, so it is slow and runs by hand.
 
+## Squeeze rounds
+
+`--squeeze answers.tsv --budget P` (plan T9.4t1, [ADR 0113](adr/0113-squeeze-rounds.md)) asks which ways of fitting a
+smaller budget keep the most sound. For every song it is given, it makes today's version (`--mapping optimizer`, no
+budget) and reads the PCM bytes it stores (the XGM2 header's SLEN). The six that store the most are squeezed: each gets
+`--max-pcm-bytes` at P % of its bytes, rounded down to 256-byte blocks, and is made every way:
+
+| Way | Recipe at the budget |
+|---|---|
+| `today` | the converter's own: shrink the recordings, then the least important notes give theirs up |
+| `no shrinking` | `rule:shrink=off` |
+| `half speed for all` | `rule:half-speed=all` |
+| `drums keep theirs first` | `rule:keep=drums` |
+| `tonal sounds keep theirs first` | `rule:keep=tonal` |
+
+Each way is set against today's at the same budget, at the 20-second clip where the two differ most by log-mel; ways
+that sound the same as today's everywhere are left out, and the three most different pairs of each song go to the round.
+It writes `listening/squeeze.tsv` (every pair: song, budget, the two ways, clip start, how far apart in dB, whether it
+went to the round) and `listening/squeeze-round.tsv` (the next round's rows, the versions' order by a hash of the song
+and start), then logs each song's bytes. The round goes on from step 2 of [Listening answers](#listening-answers):
+`--remake listening/squeeze-round.tsv`. Each squeezed song is made six times, so it is slow and runs by hand; pass the
+songs to measure, since measuring every song makes each once.
+
 ## Tests
 
-`tests/Mod2Xgm.Harness.Tests` covers the WAV reader and writer, the answers file and its recipes and clips, the retry list, the report, the length check, the command line, the
+`tests/Mod2Xgm.Harness.Tests` covers the WAV reader and writer, the answers file and its recipes and clips, the retry list, the squeeze rounds, the report, the length check, the command line, the
 stems, the loudness meter (with BS.1770's calibration tone) and a whole run with stand-in renderers. These run in CI. The tests that need libopenmpt or Furnace skip themselves where
 those aren't installed, as on the CI runners. Coverage is measured on the converter (`Mod2Xgm.Tests`) only.

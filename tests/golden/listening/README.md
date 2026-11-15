@@ -145,6 +145,29 @@ today's default won, the retry "dropping notes from the melody"; the other four 
 `neither`, so every place left the retry list: the change that fixed them was the optimizer's default since rounds
 23–25, not the retries.
 
+## Round 27: squeezed to half
+
+The first squeeze round (plan T9.4t1, [ADR 0113](../../../docs/adr/0113-squeeze-rounds.md)), David, 2026-11-15. The six
+listening songs that store the most PCM bytes today (Spaceman remix 2.8 MB, Burp 2.4 MB, EM2 2.1 MB, Wormology 2.0 MB,
+The Messanger 1.8 MB, Heaven remix 1.6 MB) each had to fit half of that. Seventeen pairs set today's way of fitting
+against another way at the same budget, at the clip where the two differ most: half speed for all
+(`rule:half-speed=all`), tonal sounds first (`rule:keep=tonal`), drums first (`rule:keep=drums`) and no shrinking
+(`rule:shrink=off`). Drums first was today's way exactly on four songs, no shrinking on The Messanger.
+
+**Result:** no way wins everywhere; each song leans its own way, as David expected.
+
+| Way against today's | Won | Lost | Can't tell | Songs where it won |
+|---|---|---|---|---|
+| Half speed for all | 3 | 3 | 0 | EM2, The Messanger, Heaven remix |
+| Tonal sounds first | 2 | 3 | 0 | Wormology, The Messanger |
+| Drums first | 1 | 1 | 0 | Burp ("sounds great") |
+| No shrinking | 1 | 1 | 2 | Heaven remix |
+
+David's words: the percussion "is extremely important" (Burp, where tonal-first gave it up); the melody still clips in
+Spaceman remix (q1–q3, in both versions of q2); the main chords go missing in The Messanger's today-at-half and in both
+versions of Heaven remix's q17. Half speed, which lost everywhere in round 11, won on three of six songs here, against a
+squeeze twice as hard on songs that store far more.
+
 ## Hold-out rows
 
 Rows whose song is in `tests/data/holdout/` are the hold-out ([ADR 0105](../../../docs/adr/0105-hold-out-songs.md)):
