@@ -91,7 +91,10 @@ combination of changes wins ([Passes](#passes)).
   [ADR 0098](adr/0098-learned-allocator-costs.md), plan T9.4j–T9.4q). A score learned from David's blind A/B answers
   (`tests/golden/listening/answers.tsv`) stands in for log-mel once it beats it on hold-out songs. A model trained on it
   prices each choice (FM, PSG, a shrink move, a pre-mix, a cut) in the mix, and the allocator and shrinker take the
-  cheapest; they alone still check the target's limits.
+  cheapest; they alone still check the target's limits. The learned score wasn't adopted ([ADR 0107](adr/0107-learned-score-not-adopted.md)),
+  so a price measures log-mel plus ear penalties (a missing instrument, a side jump, harsh clipping, a voice switch), and
+  on XGM and XGM2 the smaller file wins between choices closer than a "can't hear it" line; once the prices are adopted, a
+  song that fits may take only shrinks below that line ([ADR 0110](adr/0110-price-ruler.md)).
 
 ## Constraints the allocator enforces
 

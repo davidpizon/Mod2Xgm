@@ -1,6 +1,6 @@
 # ADR 0098: Learned costs for the allocator's choices
 
-- **Status:** Accepted (David, 2026-11-10)
+- **Status:** Accepted (David, 2026-11-10); superseded in part by [ADR 0110](0110-price-ruler.md) (what Δs measures, the gate on ADR 0097's score, the hold-out)
 - **Date:** 2026-11-09
 
 ## Context
