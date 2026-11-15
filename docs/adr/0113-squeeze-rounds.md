@@ -87,3 +87,8 @@ David, 2026-11-15.
   5, drums first 1 of 2, no shrinking 1 of 4 (2 can't tell); David: percussion "is extremely important"
   ([round 27](../../tests/golden/listening/README.md#round-27-squeezed-to-half)). The order depends on the song, so the
   rounds go on.
+- **Round 28** (2026-11-15, 25 %, the dials): half speed for dull samples won 3 of 4 pairs, pitches sharing within 25
+  cents 2 of 3 (1 neither), a copy per 12 dB 1 of 1, merging at 90 % alike 0 of 2. Sharing within 50 cents made the same
+  files as 25 cents. David heard background chords and melody notes go missing at a quarter
+  ([round 28](../../tests/golden/listening/README.md#round-28-squeezed-to-a-quarter-by-dials)); the dials that keep more
+  notes recorded won.

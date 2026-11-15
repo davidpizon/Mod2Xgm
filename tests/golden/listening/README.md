@@ -168,6 +168,29 @@ Spaceman remix (q1–q3, in both versions of q2); the main chords go missing in 
 versions of Heaven remix's q17. Half speed, which lost everywhere in round 11, won on three of six songs here, against a
 squeeze twice as hard on songs that store far more.
 
+## Round 28: squeezed to a quarter, by dials
+
+The second squeeze round (plan T9.4t5, [ADR 0113](../../../docs/adr/0113-squeeze-rounds.md)), David, 2026-11-15. The
+same six songs had to fit a quarter of today's PCM bytes. Each pair set today's way against one turned dial at the same
+budget: pitches sharing within 25 cents (`rule:pitch-share=25`), a copy per 12 dB (`rule:loudness-share=4`), merging at
+90 % alike (`rule:merge=90`) and half speed for the dull samples only (`rule:half-speed=` those with little above
+3.3 kHz). Sharing within 50 cents made the same files as 25 cents in all three songs where it changed anything (notes sit
+100 cents apart), so those three pairs were left out: ten pairs. Many dials changed nothing in a song; those weren't asked.
+
+**Result:** every dial but merging beat today's way more often than not.
+
+| Dial against today's | Won | Lost | Neither | Songs where it won |
+|---|---|---|---|---|
+| Half speed for dull samples | 3 | 1 | 0 | Burp, EM2, Wormology (lost The Messanger) |
+| Pitches share within 25 cents | 2 | 0 | 1 | Spaceman remix, Burp (neither: Heaven remix) |
+| A copy per 12 dB | 1 | 0 | 0 | EM2 |
+| Merging at 90 % alike | 0 | 2 | 0 | (lost EM2, Heaven remix) |
+
+David's words are the same in five of the seven notes: the losing version "is missing all the background chords", the
+winner "only missing some". In EM2's q6 the melody notes go missing too. At a quarter, notes that give up their
+recording seem to go silent rather than move to FM or the PSG (to be checked), so the dials that keep more notes recorded
+win. Heaven remix's q12 was "too many missing notes" in both.
+
 ## Hold-out rows
 
 Rows whose song is in `tests/data/holdout/` are the hold-out ([ADR 0105](../../../docs/adr/0105-hold-out-songs.md)):
