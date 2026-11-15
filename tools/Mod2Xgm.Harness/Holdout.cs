@@ -174,7 +174,7 @@ internal static class HoldoutRun
         List<string> skipped = [];
         foreach (RemadeRow r in remake.Rows)
         {
-            if (r is { Heard: true, A: { } a, B: { } b, Row.Pick.Length: > 0 })
+            if (r is { Heard: true, A: { } a, B: { } b, Row.Ranks: true })
             {
                 answers.Add(FitAnswer.From(r, a, b));
             }

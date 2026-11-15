@@ -23,11 +23,31 @@ thousands separator.
 | `recipe_a`, `recipe_b` | How each version is made: converter options, plus harness rules such as `rule:half-speed=3` ([harness.md](../../../docs/harness.md#listening-answers)). A and B are the versions as the survey showed them, X and Y |
 | `commit` | The commit that made the clips |
 | `sha256_a`, `sha256_b` | The SHA-256 of each clip file David heard, as `--remake` cuts it |
-| `pick` | `a`, `b`, or `same` for "can't tell"; empty for a question not answered yet |
+| `pick` | `a`, `b`, `same` for "can't tell" (either is fine), or `neither` for "both are unacceptable" ([below](#neither)); empty for a question not answered yet |
 | `grade_a`, `grade_b` | A 1–5 grade of each version when the round asked for one; empty otherwise |
 | `words` | What David said about it, on one line |
 
 Every question is heard against the original MOD (libopenmpt), played first.
+
+## Neither
+
+`neither` means both versions are unacceptable ([ADR 0111](../../../docs/adr/0111-neither-and-listening-models.md)):
+not the same instrument any more, or a fault David can't accept in either. It is not a "can't tell": `same` says either
+is fine and the smaller file wins ([ADR 0106](../../../docs/adr/0106-cant-tell-smaller-wins.md)), while `neither` says
+nothing about which is closer. So `--fit`, `--holdout` and `--embeddings` leave it out and list it with why
+([harness.md](../../../docs/harness.md#the-fit)), and the file's size never decides it. `--remake` still checks its
+clips, and `--pick` counts its song as asked. Each `neither` puts its place on the retry list (plan T9.4s2) and is a
+label for the "acceptable?" check (T9.4s4).
+
+Before the answer existed, such pairs were marked `same` with the reason in `words`. Seven were relabelled `neither`,
+each confirmed by David (2026-11-14, plan T9.4s1), with the words kept:
+
+| Row | Song | Why both were unacceptable |
+|---|---|---|
+| r23-q5 | musix-burp | The main melody clips harshly in both |
+| r23-q6 | tgm-lazycows | The percussion shifts between the centre and the left in both: "very disorienting" |
+| r24-q1 | jam_-_highway_encounter | The voices cut over to the right when the melody stops: "very unsettling" |
+| r25-q7–q10 | k0w-rsnd, musix-the-messanger, tgm-lazycows, hit | `--mapping simple`'s FM melody: "completely unacceptable" |
 
 ## Rounds 1–19
 
@@ -103,8 +123,8 @@ Amiga) and on hold-out songs (Lazy Cows, Highway Encounter, The Messanger). Four
 **Result:** `pan=never` won all six. David hears today's swaps as the sound "cutting" left and right. On Dancin' on
 Amiga it still won, though it "completely lacked the FM voice melody": the allocator had moved the two synth-chord
 samples (5 and 6) to FM so the recordings they clashed with would stay put; on a second listen David added that its
-bassline, held in the middle at full level, "need to be MUCH quieter". The four simple-mapper pairs were "can't tell":
-"both FM voice choices for the melody are completely unacceptable".
+bassline, held in the middle at full level, "need to be MUCH quieter". The four simple-mapper pairs were marked "can't
+tell", then relabelled `neither` ([above](#neither)): "both FM voice choices for the melody are completely unacceptable".
 
 After this round the optimizer's default became "no swap, held in the middle, 3 dB quieter where the quieter copies
 fit" (`PanRules.Steady`). The

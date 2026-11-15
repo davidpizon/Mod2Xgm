@@ -534,7 +534,7 @@ internal static class ListeningFitRun
         List<string> skipped = [];
         foreach (RemadeRow r in remake.Rows)
         {
-            if (r is { Heard: true, A: { } a, B: { } b, Row.Pick.Length: > 0 })
+            if (r is { Heard: true, A: { } a, B: { } b, Row.Ranks: true })
             {
                 answers.Add(FitAnswer.From(r, a, b));
             }
@@ -574,6 +574,7 @@ internal static class ListeningFitRun
     internal static string Why(RemadeRow row) =>
         row.Row.Pick.Length == 0 ? "not answered"
         : row.Row.Sha256A.Length == 0 ? "no hashes yet (a new question)"
+        : !row.Row.Ranks ? "both unacceptable (neither), which says nothing about which is closer"
         : !row.Heard ? "its clips differ from those David heard"
         : "no features (no reference player)";
 }

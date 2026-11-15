@@ -272,7 +272,7 @@ internal static class EmbeddingsRun
             StringBuilder table = new StringBuilder("row\tversion").AppendJoin(string.Empty, models.Select(m => "\t" + m.Model.FeatureName)).Append('\n');
             foreach (RemadeRow r in remake.Rows)
             {
-                if (r is not { Heard: true, A: { } a, B: { } b, Row.Pick.Length: > 0 })
+                if (r is not { Heard: true, A: { } a, B: { } b, Row.Ranks: true })
                 {
                     continue;
                 }
