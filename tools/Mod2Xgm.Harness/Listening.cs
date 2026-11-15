@@ -389,7 +389,7 @@ internal sealed record Recipe(IReadOnlyList<string> Arguments, IReadOnlySet<int>
     /// whole when <paramref name="whole"/>; throws a usage <see cref="HarnessException"/> naming the rule otherwise.
     /// </summary>
     private static double Dial(string value, double min, double max, string rule, string unit, string text, bool whole = false) =>
-        double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double number) && number >= min && number <= max && (!whole || number == Math.Floor(number))
+        double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double number) && number >= min && number <= max && (!whole || double.IsInteger(number))
             ? number
             : throw HarnessException.Usage(string.Create(CultureInfo.InvariantCulture, $"recipe \"{text}\": rule:{rule}={value} is not {(whole ? "a whole number of" : "a number of")} {unit} from {min} to {max}"));
 
