@@ -131,6 +131,20 @@ fit" (`PanRules.Steady`). The
 recipes of every earlier row with `--mapping optimizer` gained `rule:pan=today`, the rules their clips were made with,
 so they still remake.
 
+## Round 26: second tries
+
+The first round of the retry list (plan T9.4s2, [ADR 0112](../../../docs/adr/0112-retry-list.md)), David, 2026-11-15.
+`mod2xgm-harness --retry` took the six places still marked `neither` (Burp, Lazy Cows, Highway Encounter, rsnd, The
+Messanger, Hit). At all six, today's default (`--mapping optimizer`, no pan swaps since round 25) made a different clip
+from the rejected ones, so each pair set today's default against the try CLAP put closest to the MOD: a sound kept as a
+recording (`--require-dac`) at Burp, Lazy Cows, Highway Encounter and Hit, sample 6 3 dB quieter at rsnd, no pre-mixes
+at The Messanger.
+
+**Result:** David found every melody "exceedingly close". At Burp the retry (`--require-dac 27`) won; at Lazy Cows
+today's default won, the retry "dropping notes from the melody"; the other four were "can't tell". No answer was
+`neither`, so every place left the retry list: the change that fixed them was the optimizer's default since rounds
+23–25, not the retries.
+
 ## Hold-out rows
 
 Rows whose song is in `tests/data/holdout/` are the hold-out ([ADR 0105](../../../docs/adr/0105-hold-out-songs.md)):

@@ -76,3 +76,6 @@ David, 2026-11-14.
 - That recordings clip on their own when made into 8-bit copies is a converter fault the retries may confirm by ear;
   fixing it by default is a separate change, once a round shows the quieter versions pass.
 - The retries' answers are labels for the "acceptable?" check (T9.4s4).
+- **Round 26** (2026-11-15) asked the six places: Burp's retry (`--require-dac 27`) won, Lazy Cows' default won (the
+  retry dropped melody notes), the other four were "can't tell". None stayed `neither`
+  ([round 26](../../tests/golden/listening/README.md#round-26-second-tries)).
