@@ -57,10 +57,10 @@ internal sealed record SqueezePair(string Song, SqueezeWay First, SqueezeWay Sec
 internal static class Squeeze
 {
     /// <summary>Most pairs of one song in a round: those whose ways differ most (Claude: six songs make a round of at most 18).</summary>
-    public const int MaxPairsPerSong = 3;
+    private const int MaxPairsPerSong = 3;
 
     /// <summary>How many songs a squeeze round squeezes: those that store the most PCM bytes today (David).</summary>
-    public const int MaxSongs = 6;
+    private const int MaxSongs = 6;
 
     /// <summary>The <see cref="MaxSongs"/> songs that store the most PCM bytes, biggest first; ties by name. A song that stores none can't be squeezed.</summary>
     public static IReadOnlyList<string> Biggest(IReadOnlyDictionary<string, long> stored)
