@@ -179,11 +179,22 @@ internal static class AnswersFile
 /// <param name="HalfSpeed">Samples (1-based, as on the command line) XGM2 stores at half speed: <c>rule:half-speed=4,7</c>.</param>
 /// <param name="Layers">False with <c>rule:layers=off</c>: no note gets a second voice (docs/adr/0088-layering.md).</param>
 /// <param name="PreMix">False with <c>rule:pre-mix=off</c>: no recordings are pre-mixed (docs/adr/0094-pre-mixed-voice-steals.md).</param>
+/// <remarks>Level rules (<c>rule:quieter</c>, <c>rule:song-quieter</c>) are in <see cref="Levels"/>: a retry's fixes (docs/adr/0112-retry-list.md).</remarks>
 internal sealed record Recipe(IReadOnlyList<string> Arguments, IReadOnlySet<int> HalfSpeed, bool Layers = true, bool PreMix = true)
 {
     /// <summary>The rules a recipe can give, for the usage message.</summary>
     private const string KnownRules = "rule:half-speed=<samples>, rule:layers=off, rule:pre-mix=off, rule:pan=today|short|never, rule:pan-free=<seconds>,<volume>,<distance>, "
-        + "rule:pan-span=song|order, rule:pan-fix=<middle+fm+unmix or none>, rule:pan-cost=<dB>, rule:dac-loser=noise|fm|noise-all-song";
+        + "rule:pan-span=song|order, rule:pan-fix=<middle+fm+unmix or none>, rule:pan-cost=<dB>, rule:dac-loser=noise|fm|noise-all-song, "
+        + "rule:quieter=<sample>:<dB>[,…], rule:song-quieter=<dB>";
+
+    /// <summary>The most dB a level rule turns a sound down: past it a recording is all but silent on XGM2's 3 dB steps.</summary>
+    private const double MaxQuieterDb = 24;
+
+    /// <summary>
+    /// How much quieter the plan plays with <c>rule:quieter=…</c> and <c>rule:song-quieter=…</c> (docs/adr/0112-retry-list.md),
+    /// or <c>null</c> for its own levels.
+    /// </summary>
+    public LevelRules? Levels { get; private init; }
 
     /// <summary>
     /// The optimizer's pan rules with <c>rule:pan…</c> (docs/adr/0109-pan-swap-cost.md), or <c>null</c> for the converter's own.
@@ -210,6 +221,7 @@ internal sealed record Recipe(IReadOnlyList<string> Arguments, IReadOnlySet<int>
         bool preMix = true;
         PanRules? pan = null;
         Mapping.DacLoser? loser = null;
+        LevelRules? levels = null;
         foreach (string token in text.Split(' ', StringSplitOptions.RemoveEmptyEntries))
         {
             if (token.StartsWith("rule:", StringComparison.Ordinal))
@@ -256,6 +268,12 @@ internal sealed record Recipe(IReadOnlyList<string> Arguments, IReadOnlySet<int>
                     case ["dac-loser", "noise-all-song"]:
                         loser = Mapping.DacLoser.NoiseAllSong;
                         continue;
+                    case ["quieter", { } list]:
+                        levels = Quieter(levels ?? LevelRules.None, list, text);
+                        continue;
+                    case ["song-quieter", { } db]:
+                        levels = (levels ?? LevelRules.None) with { SongDb = Decibels(db, "song-quieter", text) };
+                        continue;
                     case ["half-speed", _]:
                         break;
                     default:
@@ -279,11 +297,35 @@ internal sealed record Recipe(IReadOnlyList<string> Arguments, IReadOnlySet<int>
             }
         }
 
-        return new Recipe(arguments, halfSpeed, layers, preMix) { Pan = pan, Loser = loser };
+        return new Recipe(arguments, halfSpeed, layers, preMix) { Pan = pan, Loser = loser, Levels = levels };
     }
 
     /// <summary>True when the recipe has a rule only <c>--mapping optimizer</c> reads.</summary>
-    public bool HasRules => HalfSpeed.Count > 0 || !Layers || !PreMix || Pan is not null;
+    public bool HasRules => HalfSpeed.Count > 0 || !Layers || !PreMix || Pan is not null || Levels is not null;
+
+    /// <summary><c>rule:quieter=3:6,7:3</c>: samples (1-based) and how many dB quieter each plays as a recording.</summary>
+    private static LevelRules Quieter(LevelRules levels, string list, string text)
+    {
+        Dictionary<int, double> quieter = new(levels.RecordingDb);
+        foreach (string item in list.Split(','))
+        {
+            string[] parts = item.Split(':');
+            if (parts.Length != 2 || !int.TryParse(parts[0], NumberStyles.None, CultureInfo.InvariantCulture, out int sample) || sample is < 1 or > 31)
+            {
+                throw HarnessException.Usage($"recipe \"{text}\": rule:quieter={list}: {item} is not <sample 1–31>:<dB>, e.g. 3:6");
+            }
+
+            quieter[sample - 1] = Decibels(parts[1], "quieter", text);
+        }
+
+        return levels with { RecordingDb = quieter };
+    }
+
+    /// <summary>A level rule's dB: more than 0, at most <see cref="MaxQuieterDb"/>.</summary>
+    private static double Decibels(string value, string rule, string text) =>
+        double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double db) && db is > 0 and <= MaxQuieterDb
+            ? db
+            : throw HarnessException.Usage(string.Create(CultureInfo.InvariantCulture, $"recipe \"{text}\": rule:{rule}: {value} is not a number of dB above 0 and at most {MaxQuieterDb}"));
 
     /// <summary><c>rule:pan-free=seconds,volume,distance</c>: the swaps <see cref="PanSwapAllowance.ShortQuiet"/> lets stand.</summary>
     private static PanRules Free(PanRules pan, string value, string text)
@@ -563,6 +605,11 @@ internal sealed class ListeningRemake(IReadOnlyList<string> songs, string output
             throw HarnessException.Usage($"recipe \"{recipeText}\": its rules need --mapping optimizer");
         }
 
+        if (recipe.Levels is not null && options.Format == OutputFormat.Dmf)
+        {
+            throw HarnessException.Usage($"recipe \"{recipeText}\": rule:quieter and rule:song-quieter are for XGM and XGM2; a DMF plays its own levels");
+        }
+
         if (recipe.Loser is not null && options.UsesOptimizer)
         {
             throw HarnessException.Usage($"recipe \"{recipeText}\": rule:dac-loser is for the simple mapper, not --mapping optimizer");
@@ -570,7 +617,7 @@ internal sealed class ListeningRemake(IReadOnlyList<string> songs, string output
 
         try
         {
-            ConversionOptions ruled = options with { ShrinkRules = recipe.Rules, PreMixRules = recipe.PreMix ? null : PreMixRules.None, Layers = recipe.Layers, PanRules = recipe.Pan, DacLoser = recipe.Loser };
+            ConversionOptions ruled = options with { ShrinkRules = recipe.Rules, PreMixRules = recipe.PreMix ? null : PreMixRules.None, Layers = recipe.Layers, PanRules = recipe.Pan, DacLoser = recipe.Loser, LevelRules = recipe.Levels };
             return ConversionCommand.Execute(ruled, Serilog.Core.Logger.None, analyzed, NoProgress.Instance);
         }
         catch (ConversionException ex) when (ex.Code == ExitCode.UsageError && options.Format == OutputFormat.Xgm && File.Exists(wav))

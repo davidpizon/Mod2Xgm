@@ -71,6 +71,12 @@ internal sealed record ConversionOptions
     public Optimizer.PanRules? PanRules { get; init; }
 
     /// <summary>
+    /// How much quieter the optimizer's plan plays, or <c>null</c> for its own levels. No option sets it: the harness does,
+    /// for a retry of a place that clips (<c>rule:quieter</c>, <c>rule:song-quieter</c>, docs/adr/0112-retry-list.md).
+    /// </summary>
+    public Optimizer.LevelRules? LevelRules { get; init; }
+
+    /// <summary>
     /// How the simple mapper plays a recording that loses the DAC to another, or <c>null</c> for its default. No option sets
     /// it: the harness does (<c>rule:dac-loser=…</c>, docs/adr/0109-pan-swap-cost.md).
     /// </summary>

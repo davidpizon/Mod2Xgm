@@ -293,6 +293,38 @@ public sealed class ListeningTests
         Assert.Contains("rule:pan", ex.Message, StringComparison.Ordinal);
     }
 
+    /// <summary><c>rule:quieter</c> turns samples (1-based) down and <c>rule:song-quieter</c> the whole song, for a retry (docs/adr/0112-retry-list.md).</summary>
+    [Fact]
+    public void Parse_WithLevelRules_SetsTheLevels()
+    {
+        // Act
+        Recipe sut = Recipe.Parse("--mapping optimizer rule:quieter=3:6,7:3 rule:song-quieter=1.5");
+
+        // Assert
+        Assert.Equal(1.5, sut.Levels!.SongDb);
+        Assert.Equal([(2, 6.0), (6, 3.0)], sut.Levels.RecordingDb.OrderBy(p => p.Key).Select(p => (p.Key, p.Value)));
+        Assert.Equal(-6, sut.Levels.RecordingGainDb(2));
+        Assert.True(sut.HasRules);
+        Assert.Null(Recipe.Parse("--mapping optimizer").Levels);
+    }
+
+    /// <summary>A level rule with a sample or dB it can't read is refused, naming the rule.</summary>
+    [Theory]
+    [InlineData("rule:quieter=0:3")]
+    [InlineData("rule:quieter=3")]
+    [InlineData("rule:quieter=3:0")]
+    [InlineData("rule:quieter=x:3")]
+    [InlineData("rule:song-quieter=30")]
+    [InlineData("rule:song-quieter=loud")]
+    public void Parse_WithBadLevelRule_Throws(string text)
+    {
+        // Act
+        HarnessException ex = Assert.Throws<HarnessException>(() => Recipe.Parse(text));
+
+        // Assert
+        Assert.Contains("quieter", ex.Message, StringComparison.Ordinal);
+    }
+
     /// <summary><c>rule:dac-loser</c> sets the simple mapper's choice and isn't an optimizer rule.</summary>
     [Theory]
     [InlineData("noise", "Noise")]

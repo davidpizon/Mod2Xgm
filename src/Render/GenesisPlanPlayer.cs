@@ -467,6 +467,12 @@ internal sealed class GenesisPlanPlayer
         track.Voice = voice;
     }
 
+    /// <summary>
+    /// The factor everything plays at on XGM and XGM2: 1, or less under a retry's rule (<see cref="GenesisPlan.SongGainDb"/>,
+    /// docs/adr/0112-retry-list.md). A DMF's plan never has one.
+    /// </summary>
+    private double SongGain => Math.Pow(10, _plan.SongGainDb / 20);
+
     /// <summary>The factor on the MOD volume of <paramref name="sample"/> on FM patch <paramref name="patch"/>, as this note is panned.</summary>
     private double FmGain(Track track, int sample, int patch) =>
         _voicing.FmLevel(sample, patch).Gain * (track.Centred ? PlanVoicing.CentredGain : 1);
@@ -538,7 +544,7 @@ internal sealed class GenesisPlanPlayer
             }
         }
 
-        double level = ch.Volume * track.Gain;
+        double level = ch.Volume * track.Gain * SongGain;
         int steps = level <= 0 ? MaxTl : (int)Math.Round(-20 * Math.Log10(level) / TlStepDb, MidpointRounding.AwayFromZero);
         FmPatch patch = _plan.FmPatches[track.Voice.Index];
         foreach (int op in VoiceLevel.Carriers(patch.Algorithm))
@@ -600,7 +606,7 @@ internal sealed class GenesisPlanPlayer
     {
         Sample sample = _song.Samples[track.Sample];
         double rms = WindowRms(sample, (int)track.NoiseFrame, track.NoiseWindow);
-        double level = ch.Volume * track.Gain * (track.NoisePeak > 0 ? rms / track.NoisePeak : 0);
+        double level = ch.Volume * track.Gain * SongGain * (track.NoisePeak > 0 ? rms / track.NoisePeak : 0);
         int volume = PsgLevels.Nearest(level);
         WritePsgVolume(c, track, volume);
         track.NoiseFrame += ch.Pitch.PlaybackRateHz * seconds;
@@ -753,7 +759,7 @@ internal sealed class GenesisPlanPlayer
             // XGM and XGM2 store a copy per 3 dB step of loudness, or per several steps when the shrinker shares them: the
             // note plays at its copy's, as the capacity check and the shrinker counted it (docs/adr/0091-shrinking-recordings.md,
             // docs/adr/0099-xgm2-writer-records-the-player.md).
-            int stored = RecordingShrinker.StoredSteps(DmfPatternTranslator.DacVolumeSteps(volume) + (held ? dac.HeldSteps : 0), dac.GainDb, Math.Max(1, dac.LoudnessShareSteps));
+            int stored = RecordingShrinker.StoredSteps(DmfPatternTranslator.DacVolumeSteps(volume) + (held ? dac.HeldSteps : 0), dac.GainDb + _plan.SongGainDb, Math.Max(1, dac.LoudnessShareSteps));
             volume = Math.Pow(10, -stored * DmfPatternTranslator.DacVolumeStepDb / 20);
         }
         else
@@ -821,7 +827,8 @@ internal sealed class GenesisPlanPlayer
         else
         {
             double rate = _chips.Driver == PcmDriver.Xgm ? XgmPcmDriver.BeatRateHz(_chips.YmClockHz) : Xgm2PcmDriver.BeatRateHz(_chips.YmClockHz);
-            sbyte[] pcm8 = SampleProcessor.ToSigned8(SampleProcessor.Resample(mix.Points, dac.PlaybackRateHz, rate, _resampler), mix.Name, _notes);
+            float[] points = SampleProcessor.Resample(mix.Points, dac.PlaybackRateHz, rate, _resampler);
+            sbyte[] pcm8 = SampleProcessor.ToSigned8(_plan.SongGainDb == 0 ? points : SampleProcessor.ApplyGain(points, SongGain), mix.Name, _notes);
             pcm = pcm8.Length == 0 ? null : new Pcm(null, pcm8, (int)Math.Round(rate), mix.Name);
         }
 

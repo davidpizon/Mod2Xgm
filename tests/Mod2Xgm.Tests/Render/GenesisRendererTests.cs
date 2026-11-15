@@ -624,6 +624,40 @@ public sealed class GenesisRendererTests
         Assert.Equal(-2.5, Db(stored.Left, stored.SampleRate, 0.2, 1.0) - Db(asked.Left, asked.SampleRate, 0.2, 1.0), 0.5);
     }
 
+    /// <summary>
+    /// A plan 6 dB quieter as a whole (a retry's rule, docs/adr/0112-retry-list.md) plays its recordings, pre-mixes and FM
+    /// 6 dB down on XGM2: two 3 dB steps, eight FM TL steps.
+    /// </summary>
+    [Fact]
+    public void Render_WithSongGain_PlaysEverything6DbQuieter()
+    {
+        // Arrange
+        Sample recording = OneShotSine(8000, 1);
+        Playback dacPlayback = PlaybackOf(2, (r, t) => Playing(r == 0 && t == 0, rateHz: 8000, frames: recording.Length));
+        Playback fmPlayback = PlaybackOf(10, (r, t) => Playing(r == 0 && t == 0));
+        GenesisPlan dac = PlanOf([], [new DacSample(0, 8000)], Row((GenesisChannel.Fm6, Note(VoiceKind.Dac, rateHz: 8000))));
+        GenesisPlan mix = PlanOf([], [new DacSample(0, 8000) { Mix = new DacMix([.. recording.Data.Select(v => v * 0.5f)], "mix 01+02", Centred: false) }], Row((GenesisChannel.Fm6, Note(VoiceKind.Dac, rateHz: 8000))));
+        GenesisPlan fm = PlanOf([FmPatchLibrary.Sine], [], Row((GenesisChannel.Fm1, Note(VoiceKind.Fm))));
+        GenesisRenderOptions xgm2 = ChipRate with { Driver = PcmDriver.Xgm2 };
+
+        // Act
+        double dacDb = Level(dac, SongOf(1, recording), dacPlayback, xgm2, 0.05, 0.2);
+        double mixDb = Level(mix, SongOf(1, recording), dacPlayback, xgm2, 0.05, 0.2);
+        double fmDb = Level(fm, SongOf(1, LoopedSine()), fmPlayback, xgm2, 0.2, 1.0);
+
+        // Assert
+        Assert.Equal(-6, Level(dac with { SongGainDb = -6 }, SongOf(1, recording), dacPlayback, xgm2, 0.05, 0.2) - dacDb, 0.5);
+        Assert.Equal(-6, Level(mix with { SongGainDb = -6 }, SongOf(1, recording), dacPlayback, xgm2, 0.05, 0.2) - mixDb, 0.5);
+        Assert.Equal(-6, Level(fm with { SongGainDb = -6 }, SongOf(1, LoopedSine()), fmPlayback, xgm2, 0.2, 1.0) - fmDb, 0.5);
+    }
+
+    /// <summary>The left channel's level from <paramref name="from"/> to <paramref name="to"/> seconds of the plan's render, in dB.</summary>
+    private static double Level(GenesisPlan plan, Song song, Playback playback, GenesisRenderOptions options, double from, double to)
+    {
+        StereoAudio audio = Render(plan, song, playback, options);
+        return Db(audio.Left, audio.SampleRate, from, to);
+    }
+
     /// <summary>A PSG square at the loudest volume has Furnace's RMS, with no DC.</summary>
     [Fact]
     public void Render_WithPsgSquare_PlaysAtFurnacesLevel()
