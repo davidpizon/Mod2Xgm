@@ -1,6 +1,6 @@
 # ADR 0104: Pretrained listening models in the harness, through ONNX Runtime
 
-- **Status:** Proposed
+- **Status:** Proposed; superseded in part by [ADR 0111](0111-neither-and-listening-models.md) (the converter may load the models from an optional folder)
 - **Date:** 2026-11-11
 
 ## Context

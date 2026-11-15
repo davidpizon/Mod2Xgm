@@ -117,13 +117,14 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0101](0101-listening-score-fit.md) | Fitting the learned listening score | 2026-11-10 | Proposed |
 | [0102](0102-pair-picker.md) | A pair picker for the listening rounds | 2026-11-11 | Proposed |
 | [0103](0103-dotnet-11.md) | .NET 11 and System.CommandLine 3 | 2026-11-11 | Accepted |
-| [0104](0104-pretrained-embeddings.md) | Pretrained listening models in the harness, through ONNX Runtime | 2026-11-11 | Proposed |
+| [0104](0104-pretrained-embeddings.md) | Pretrained listening models in the harness, through ONNX Runtime | 2026-11-11 | Proposed; superseded in part by 0111 |
 | [0105](0105-hold-out-songs.md) | Hold-out songs and the bar for the learned listening score | 2026-11-11 | Accepted |
 | [0106](0106-cant-tell-smaller-wins.md) | "Can't tell" means either is fine, and the smaller file wins | 2026-11-13 | Accepted |
 | [0107](0107-learned-score-not-adopted.md) | The learned listening score is not adopted; log-mel stays the main number | 2026-11-13 | Accepted |
 | [0108](0108-pan-swap-count.md) | Counting the pan swaps the MOD doesn't make | 2026-11-13 | Accepted |
 | [0109](0109-pan-swap-cost.md) | A price for pan swaps the MOD doesn't make; the threshold set by ear | 2026-11-14 | Accepted |
 | [0110](0110-price-ruler.md) | What a price measures: log-mel with ear penalties, then the file's size on a tie | 2026-11-14 | Accepted; supersedes 0098 in part |
+| [0111](0111-neither-and-listening-models.md) | "Neither" answers, retries, and listening models the converter loads from an optional folder | 2026-11-14 | Accepted; supersedes 0104 in part |
 
 ## Open questions
 
