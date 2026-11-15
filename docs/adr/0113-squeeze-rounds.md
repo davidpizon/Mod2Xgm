@@ -81,3 +81,7 @@ David, 2026-11-15.
   rule to choose its order (a later plan task), and the price for size follows.
 - The FM pair is the first use of CLAP in patch choice (T9.4s6); the converter gets it only after T9.4s3.
 - The rounds' answers go in the answers file like any other, as labels for the "acceptable?" check (T9.4s4) too.
+- **Round 27** (2026-11-15, 50 %): no way won everywhere. Half speed for all won 3 of 6 pairs, tonal sounds first 2 of
+  5, drums first 1 of 2, no shrinking 1 of 4 (2 can't tell); David: percussion "is extremely important"
+  ([round 27](../../tests/golden/listening/README.md#round-27-squeezed-to-half)). The order depends on the song, so the
+  rounds go on.
