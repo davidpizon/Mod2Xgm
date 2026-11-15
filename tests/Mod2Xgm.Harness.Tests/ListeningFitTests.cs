@@ -318,7 +318,7 @@ public sealed class ListeningFitRunTests : IDisposable
     {
         // Arrange
         string weights = _temp.Combine("ListeningWeights.cs");
-        RemakeResult remake = new(1, [.. Rows(40), Row("r9-q1", heard: false, pick: "a"), Row("r9-q2", heard: true, pick: "")]);
+        RemakeResult remake = new(1, [.. Rows(40), Row("r9-q1", heard: false, pick: "a"), Row("r9-q2", heard: true, pick: ""), Row("r9-q3", heard: true, pick: "neither")]);
 
         // Act
         int code = ListeningFitRun.Run(remake, _temp.Path, weights, new DateOnly(2026, 11, 10), Logger.None);
@@ -330,6 +330,7 @@ public sealed class ListeningFitRunTests : IDisposable
         Assert.Contains("Answers: 40 from 4 songs", report, StringComparison.Ordinal);
         Assert.Contains("Left out r9-q1: its clips differ from those David heard", report, StringComparison.Ordinal);
         Assert.Contains("Left out r9-q2: not answered", report, StringComparison.Ordinal);
+        Assert.Contains("Left out r9-q3: both unacceptable (neither)", report, StringComparison.Ordinal);
     }
 
     /// <summary>With too few answers the weights file is left alone.</summary>

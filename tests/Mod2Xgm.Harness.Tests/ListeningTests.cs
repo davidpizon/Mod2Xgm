@@ -72,7 +72,41 @@ public sealed class ListeningTests
         Assert.Contains("line 1", ex.Message, StringComparison.Ordinal);
     }
 
-    /// <summary>A pick other than a, b or same is refused, naming the line.</summary>
+    /// <summary>A <c>neither</c> pick ("both unacceptable", ADR 0111) is read and written back as it is.</summary>
+    [Fact]
+    public void Parse_WithNeitherPick_ReadsAndWritesIt()
+    {
+        // Arrange
+        string text = AnswersFile.Header + "\n" + AnsweredRow.Replace("\tbb\tb\t", "\tbb\tneither\t", StringComparison.Ordinal) + "\n";
+
+        // Act
+        IReadOnlyList<ListeningRow> sut = AnswersFile.Parse(text);
+
+        // Assert
+        Assert.Equal("neither", Assert.Single(sut).Pick);
+        Assert.Equal(text, AnswersFile.Format(sut));
+    }
+
+    /// <summary>Only a, b and same rank the two versions; neither and an unanswered question don't.</summary>
+    [Theory]
+    [InlineData("a", true)]
+    [InlineData("b", true)]
+    [InlineData("same", true)]
+    [InlineData("neither", false)]
+    [InlineData("", false)]
+    public void Ranks_ForEachPick_IsTrueOnlyForAbOrSame(string pick, bool expected)
+    {
+        // Arrange
+        ListeningRow sut = new("2026-11-14", "r25", "q7", "song.mod", 0, 20, "xgm2", "", "", "c", "x", "y", pick, "", "", "");
+
+        // Act
+        bool ranks = sut.Ranks;
+
+        // Assert
+        Assert.Equal(expected, ranks);
+    }
+
+    /// <summary>A pick other than a, b, same or neither is refused, naming the line.</summary>
     [Fact]
     public void Parse_WithUnknownPick_ThrowsNamingTheLine()
     {

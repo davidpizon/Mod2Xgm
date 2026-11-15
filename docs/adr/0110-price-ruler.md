@@ -1,6 +1,7 @@
 # ADR 0110: What a price measures: log-mel with ear penalties, then the file's size on a tie
 
-- **Status:** Accepted (David, 2026-11-14); supersedes in part [ADR 0098](0098-learned-allocator-costs.md)
+- **Status:** Accepted (David, 2026-11-14); supersedes in part [ADR 0098](0098-learned-allocator-costs.md);
+  [ADR 0111](0111-neither-and-listening-models.md) leaves `neither` answers out of the tie line
 - **Date:** 2026-11-14
 
 ## Context

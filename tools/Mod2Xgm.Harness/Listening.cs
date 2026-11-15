@@ -30,7 +30,10 @@ namespace Mod2Xgm.Harness;
 /// <param name="Commit">The commit that made the clips; empty until they are made.</param>
 /// <param name="Sha256A">The SHA-256 of version A's clip file; empty until it is made.</param>
 /// <param name="Sha256B">The SHA-256 of version B's clip file; empty until it is made.</param>
-/// <param name="Pick"><c>a</c>, <c>b</c>, <c>same</c> (can't tell), or empty while the question waits for an answer.</param>
+/// <param name="Pick">
+/// <c>a</c>, <c>b</c>, <c>same</c> (can't tell), <c>neither</c> (both unacceptable,
+/// docs/adr/0111-neither-and-listening-models.md), or empty while the question waits for an answer.
+/// </param>
 /// <param name="GradeA">A 1–5 grade of version A, when David gave one; empty otherwise.</param>
 /// <param name="GradeB">A 1–5 grade of version B, when David gave one; empty otherwise.</param>
 /// <param name="Words">What David said about it, with tabs and line breaks as spaces.</param>
@@ -54,6 +57,12 @@ internal sealed record ListeningRow(
 {
     /// <summary>The row's name in logs and clip file names: round and question.</summary>
     public string Name => Round + "-" + Question;
+
+    /// <summary>
+    /// True when the pick ranks the two versions: <c>a</c>, <c>b</c> or <c>same</c>. A <c>neither</c> says both are
+    /// unacceptable, not which is closer, so the fit, the hold-out and the embeddings leave it out (David, plan T9.4s1).
+    /// </summary>
+    public bool Ranks => Pick is "a" or "b" or "same";
 }
 
 /// <summary>Reads and writes the answers file: tab-separated, a header line, invariant numbers (tests/golden/listening/README.md).</summary>
@@ -62,7 +71,7 @@ internal static class AnswersFile
     /// <summary>The header line, which every file starts with.</summary>
     public const string Header = "date\tround\tquestion\tsong\tstart_s\tseconds\tformat\trecipe_a\trecipe_b\tcommit\tsha256_a\tsha256_b\tpick\tgrade_a\tgrade_b\twords";
 
-    private static readonly string[] Picks = ["", "a", "b", "same"];
+    private static readonly string[] Picks = ["", "a", "b", "same", "neither"];
     private static readonly string[] Grades = ["", "1", "2", "3", "4", "5"];
 
     /// <summary>Reads the rows of <paramref name="text"/>; throws <see cref="HarnessException"/> naming the line of any row it can't read.</summary>
@@ -147,7 +156,7 @@ internal static class AnswersFile
 
         if (!Picks.Contains(row.Pick, StringComparer.Ordinal))
         {
-            throw new HarnessException($"line {line}: pick \"{row.Pick}\" is not a, b, same or empty");
+            throw new HarnessException($"line {line}: pick \"{row.Pick}\" is not a, b, same, neither or empty");
         }
 
         if (!Grades.Contains(row.GradeA, StringComparer.Ordinal) || !Grades.Contains(row.GradeB, StringComparer.Ordinal))

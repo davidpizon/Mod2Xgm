@@ -152,7 +152,12 @@ public sealed class HoldoutTests
         using TempDirectory temp = new();
         FitAnswer answer = Answers(1)[0];
         ListeningRow row = new("2026-11-12", "r22", "q1", answer.Song, 0, 20, "xgm2", "", "", "c", "x", "y", "a", "", "", "");
-        RemakeResult remake = new(0, [new RemadeRow(row, true, answer.A, answer.B), new RemadeRow(row with { Question = "q2", Pick = "" }, true, answer.A, answer.B)]);
+        RemakeResult remake = new(0,
+        [
+            new RemadeRow(row, true, answer.A, answer.B),
+            new RemadeRow(row with { Question = "q2", Pick = "" }, true, answer.A, answer.B),
+            new RemadeRow(row with { Question = "q3", Pick = "neither" }, true, answer.A, answer.B),
+        ]);
 
         // Act
         int code = HoldoutRun.Run(remake, temp.Path, ModulationOnly, Logger.None);
@@ -163,6 +168,7 @@ public sealed class HoldoutTests
         Assert.Contains("Hold-out: 1 answered pairs from 1 songs, 1 of them a/b picks", report, StringComparison.Ordinal);
         Assert.Contains("Verdict: not passed yet", report, StringComparison.Ordinal);
         Assert.Contains("Left out r22-q2: not answered", report, StringComparison.Ordinal);
+        Assert.Contains("Left out r22-q3: both unacceptable (neither)", report, StringComparison.Ordinal);
     }
 
     /// <summary>

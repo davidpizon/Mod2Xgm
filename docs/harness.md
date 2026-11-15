@@ -314,7 +314,8 @@ It renders five to eight versions of every song and scores every start of each, 
 `--fit answers.tsv` fits the learned listening score ([ADR 0097](adr/0097-learned-listening-score.md),
 [ADR 0101](adr/0101-listening-score-fit.md)). It remakes every row as `--remake` does (the same files in `listening/`),
 then learns from the rows that are answered and whose clips came out byte for byte as David heard them. A row whose clips
-differ stays in the answers file but is left out of the fit.
+differ stays in the answers file but is left out of the fit, and so is a `neither` ("both unacceptable",
+[ADR 0111](adr/0111-neither-and-listening-models.md)), which says nothing about which version is closer.
 
 The model is `P(A ≻ B) = σ(w · (f(B) − f(A)))` over seven distances from the original: `mel_db`, `mfcc`, `onset_miss`
 (1 − onset F1), `nmr_db`, `nsim_distance`, `modulation_db`, `harmonicity_db`. "Can't tell" counts as a win for the version whose output file is smaller (David, [ADR 0106](adr/0106-cant-tell-smaller-wins.md)), and as half a win each only when both are the same size.
@@ -341,7 +342,7 @@ picking a hold-out round is `--pick answers.tsv tests/data/holdout`, which keeps
 heard them, guesses each pair with the learned score as fitted today (`src/Scoring/ListeningWeights.cs`, no refit) and
 with log-mel, the lower distance winning. A "can't tell" counts as a pick of the version whose output file is smaller
 ([ADR 0106](adr/0106-cant-tell-smaller-wins.md)), and there an exact tie is right too; on an a/b pick a tie counts as a
-miss. `listening/holdout.txt`, also logged, holds the
+miss. A `neither` is left out, as in `--fit`. `listening/holdout.txt`, also logged, holds the
 counts, both agreements on the a/b picks (with the "can't tell" answers the size decides; one it doesn't counts as a pair, for neither), the verdict on David's bar (at
 least 30 answered pairs; at least 70 % agreement; at least 10 points above log-mel), one line per pair, and every row
 left out and why. It never changes the weights.
@@ -354,8 +355,8 @@ left out and why. It never changes the weights.
 `LocalApplicationData/Mod2Xgm/models` (`%LOCALAPPDATA%\Mod2Xgm\models` on Windows), and `--models folder` points elsewhere.
 They run in process through ONNX Runtime. A model not found is listed and skipped.
 
-It remakes every row as `--fit` does and uses the same rows: answered, not [hold-out](#the-hold-out), with clips that
-remake byte for byte. Each clip and
+It remakes every row as `--fit` does and uses the same rows: answered and not `neither`, not [hold-out](#the-hold-out),
+with clips that remake byte for byte. Each clip and
 the original's are mixed to mono, resampled to the model's rate and cut into the model's chunks; each chunk is compared
 with the same chunk of the original (the cosine distance between embeddings, or CDPAM's own distance), and the distances
 are averaged.
