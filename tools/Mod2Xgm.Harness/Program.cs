@@ -146,6 +146,8 @@ internal static class Program
         Option<string?> holdout = new("--holdout") { Description = "Instead of scoring, remake an answers file's hold-out rows (songs in " + HoldoutSongs.DefaultFolder + ") and score the learned listening score on them against the bar of docs/adr/0105-hold-out-songs.md (docs/harness.md#the-hold-out)." };
         Option<string?> retry = new("--retry") { Description = "Instead of scoring, make the retry list of an answers file: for each place whose last answer is neither, different kinds of fix, screened by CLAP, the most promising written as the next round's rows (docs/harness.md#retries)." };
         Option<bool> panSwaps = new("--pan-swaps") { Description = "Instead of scoring, convert every song for XGM and XGM2 with the optimizer and the simple mapper and count where an instrument changes side while the MOD keeps it on one; writes pan-swaps/ (docs/harness.md#pan-swaps)." };
+        Option<string?> squeeze = new("--squeeze") { Description = "Instead of scoring, make a squeeze round for an answers file: each song at --budget % of its PCM bytes, squeezed different ways, each against today's way (docs/harness.md#squeeze-rounds)." };
+        Option<int> budget = new("--budget") { Description = "The share of each song's PCM bytes today a --squeeze round may use, 1 to 99 (default 50).", DefaultValueFactory = _ => 50 };
         Option<string?> models = new("--models") { Description = "Folder of the exported .onnx models --embeddings and --retry use (default: the user's local data folder, Mod2Xgm/models; tools/onnx-export/README.md)." };
         Option<string> progress = new(ProgressModeScan.OptionName)
         {
@@ -156,7 +158,7 @@ internal static class Program
 
         RootCommand root = new("Mod2Xgm accuracy harness: scores conversions against OpenMPT (docs/harness.md).")
         {
-            inputs, output, rate, libopenmpt, furnace, noFurnace, deflemask, noDefleMask, saveReference, clip, balance, fmFit, fmRenders, psgFit, pcmFit, preMix, ch3, dropClues, noCache, cacheDir, jobs, verbose, progress, remake, fit, pick, pairs, kinds, maxPerKind, embeddings, models, holdout, panSwaps, retry,
+            inputs, output, rate, libopenmpt, furnace, noFurnace, deflemask, noDefleMask, saveReference, clip, balance, fmFit, fmRenders, psgFit, pcmFit, preMix, ch3, dropClues, noCache, cacheDir, jobs, verbose, progress, remake, fit, pick, pairs, kinds, maxPerKind, embeddings, models, holdout, panSwaps, retry, squeeze, budget,
         };
         root.SetAction(result =>
         {
@@ -225,6 +227,22 @@ internal static class Program
                 throw HarnessException.Usage("--retry with --remake, --fit, --pick, --embeddings, --holdout or --pan-swaps; run it on its own, then --remake its round");
             }
 
+            if (result.GetValue(squeeze) is not null && (result.GetValue(remake) is not null || result.GetValue(fit) is not null || result.GetValue(pick) is not null || result.GetValue(embeddings) is not null || result.GetValue(holdout) is not null || result.GetValue(panSwaps) || result.GetValue(retry) is not null))
+            {
+                throw HarnessException.Usage("--squeeze with --remake, --fit, --pick, --embeddings, --holdout, --pan-swaps or --retry; run it on its own, then --remake its round");
+            }
+
+            int share = result.GetValue(budget);
+            if (result.GetResult(budget) is { Implicit: false } && result.GetValue(squeeze) is null)
+            {
+                throw HarnessException.Usage("--budget without --squeeze; only --squeeze squeezes");
+            }
+
+            if (share is < 1 or > 99)
+            {
+                throw HarnessException.Usage(string.Create(CultureInfo.InvariantCulture, $"--budget {share}: between 1 and 99 %, please"));
+            }
+
             if (result.GetValue(models) is not null && result.GetValue(embeddings) is null && result.GetValue(retry) is null)
             {
                 throw HarnessException.Usage("--models without --embeddings or --retry; only they run the models");
@@ -249,7 +267,7 @@ internal static class Program
             }
 
             string[] given = result.GetValue(inputs) ?? [];
-            bool listening = result.GetValue(remake) is not null || result.GetValue(fit) is not null || result.GetValue(embeddings) is not null || result.GetValue(holdout) is not null || result.GetValue(panSwaps) || result.GetValue(retry) is not null;
+            bool listening = result.GetValue(remake) is not null || result.GetValue(fit) is not null || result.GetValue(embeddings) is not null || result.GetValue(holdout) is not null || result.GetValue(panSwaps) || result.GetValue(retry) is not null || result.GetValue(squeeze) is not null;
             return execute(new HarnessOptions(
                 given.Length > 0 ? given : listening ? ListeningInputs() : [DefaultCorpus],
                 result.GetValue(output) ?? DefaultOutput,
@@ -283,7 +301,9 @@ internal static class Program
                 kindList is null ? null : PickKinds(kindList),
                 perKind,
                 result.GetValue(panSwaps),
-                result.GetValue(retry)));
+                result.GetValue(retry),
+                result.GetValue(squeeze),
+                share));
         });
 
         ParseResult parsed = root.Parse(args);
@@ -391,6 +411,16 @@ internal static class Program
             LibOpenMpt.UseDirectory(options.LibOpenMptDirectory);
             using OnnxListeningModel model = new(clap, folder);
             return new RetryRun(songs, options.OutputDirectory, new OpenMptRenderer(), model, logger).Run(retryAnswers, DateOnly.FromDateTime(DateTime.Now), options.Jobs, progress);
+        }
+
+        if (options.Squeeze is { } squeezeAnswers)
+        {
+            if (!File.Exists(squeezeAnswers))
+            {
+                throw new HarnessException($"Not found: {squeezeAnswers}");
+            }
+
+            return new SqueezeRun(songs, options.OutputDirectory, logger).Run(squeezeAnswers, options.Budget, DateOnly.FromDateTime(DateTime.Now), options.Jobs, progress);
         }
 
         if (options.Pick is { } pickAnswers)
@@ -584,6 +614,8 @@ internal static class Program
 /// <param name="MaxPerKind">The most pairs of one kind <c>--pick</c> picks (<c>--max-per-kind</c>).</param>
 /// <param name="PanSwaps">True for <c>--pan-swaps</c>: count the pan swaps the MOD doesn't make instead of scoring (docs/adr/0108-pan-swap-count.md).</param>
 /// <param name="Retry">An answers file whose retry list to make (<c>--retry</c>, docs/adr/0112-retry-list.md), instead of scoring, or <c>null</c>.</param>
+/// <param name="Squeeze">An answers file to make the next squeeze round for (<c>--squeeze</c>, docs/adr/0113-squeeze-rounds.md), instead of scoring, or <c>null</c>.</param>
+/// <param name="Budget">The share of each song's PCM bytes today the squeeze round may use (<c>--budget</c>), 1 to 99.</param>
 internal sealed record HarnessOptions(
     IReadOnlyList<string> Inputs,
     string OutputDirectory,
@@ -617,4 +649,6 @@ internal sealed record HarnessOptions(
     IReadOnlySet<PairKind>? Kinds = null,
     int MaxPerKind = PairPicker.MaxPerKind,
     bool PanSwaps = false,
-    string? Retry = null);
+    string? Retry = null,
+    string? Squeeze = null,
+    int Budget = 50);

@@ -108,7 +108,10 @@ internal static class PairPicker
     };
 
     /// <summary>Half the PCM bytes an XGM2 file stores (its SLEN), rounded down to 256; 0 when it stores none.</summary>
-    public static long HalfBudget(ReadOnlySpan<byte> xgm2)
+    public static long HalfBudget(ReadOnlySpan<byte> xgm2) => StoredBytes(xgm2) / 2 / BlockBytes * BlockBytes;
+
+    /// <summary>The PCM bytes an XGM2 file stores: its SLEN, in 256-byte blocks.</summary>
+    public static long StoredBytes(ReadOnlySpan<byte> xgm2)
     {
         if (xgm2.Length < SlenOffset + 2)
         {
@@ -116,7 +119,7 @@ internal static class PairPicker
         }
 
         long bytes = BinaryPrimitives.ReadUInt16LittleEndian(xgm2[SlenOffset..]) * (long)BlockBytes;
-        return bytes / 2 / BlockBytes * BlockBytes;
+        return bytes;
     }
 
     /// <summary>

@@ -77,6 +77,12 @@ internal sealed record ConversionOptions
     public Optimizer.LevelRules? LevelRules { get; init; }
 
     /// <summary>
+    /// Which tracks choose their sound first under a squeezed budget (plan T9.4t1, docs/adr/0113-squeeze-rounds.md). No
+    /// option sets it: the harness does, for a squeeze round.
+    /// </summary>
+    public Optimizer.KeepFirst KeepFirst { get; init; }
+
+    /// <summary>
     /// How the simple mapper plays a recording that loses the DAC to another, or <c>null</c> for its default. No option sets
     /// it: the harness does (<c>rule:dac-loser=…</c>, docs/adr/0109-pan-swap-cost.md).
     /// </summary>

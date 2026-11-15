@@ -180,21 +180,31 @@ internal static class AnswersFile
 /// <param name="Layers">False with <c>rule:layers=off</c>: no note gets a second voice (docs/adr/0088-layering.md).</param>
 /// <param name="PreMix">False with <c>rule:pre-mix=off</c>: no recordings are pre-mixed (docs/adr/0094-pre-mixed-voice-steals.md).</param>
 /// <remarks>Level rules (<c>rule:quieter</c>, <c>rule:song-quieter</c>) are in <see cref="Levels"/>: a retry's fixes (docs/adr/0112-retry-list.md).</remarks>
+/// <remarks>Squeeze rules (<c>rule:shrink=off</c>, <c>rule:keep</c>) are in <see cref="Shrink"/> and <see cref="Keep"/>: a squeeze round's ways (docs/adr/0113-squeeze-rounds.md).</remarks>
 internal sealed record Recipe(IReadOnlyList<string> Arguments, IReadOnlySet<int> HalfSpeed, bool Layers = true, bool PreMix = true)
 {
     /// <summary>The rules a recipe can give, for the usage message.</summary>
     private const string KnownRules = "rule:half-speed=<samples>, rule:layers=off, rule:pre-mix=off, rule:pan=today|short|never, rule:pan-free=<seconds>,<volume>,<distance>, "
         + "rule:pan-span=song|order, rule:pan-fix=<middle+fm+unmix or none>, rule:pan-cost=<dB>, rule:dac-loser=noise|fm|noise-all-song, "
-        + "rule:quieter=<sample>:<dB>[,…], rule:song-quieter=<dB>";
+        + "rule:quieter=<sample>:<dB>[,…], rule:song-quieter=<dB>, rule:half-speed=all, rule:shrink=off, rule:keep=importance|drums|tonal";
 
     /// <summary>The most dB a level rule turns a sound down: past it a recording is all but silent on XGM2's 3 dB steps.</summary>
     private const double MaxQuieterDb = 24;
+
+    /// <summary>The highest sample number a MOD has (docs/formats/mod.md#sample-header).</summary>
+    private const int MaxSample = 31;
 
     /// <summary>
     /// How much quieter the plan plays with <c>rule:quieter=…</c> and <c>rule:song-quieter=…</c> (docs/adr/0112-retry-list.md),
     /// or <c>null</c> for its own levels.
     /// </summary>
     public LevelRules? Levels { get; private init; }
+
+    /// <summary>False with <c>rule:shrink=off</c>: recordings aren't shrunk to fit, so notes give them up to FM/PSG instead (docs/adr/0113-squeeze-rounds.md).</summary>
+    public bool Shrink { get; private init; } = true;
+
+    /// <summary>Which tracks keep a recording first with <c>rule:keep=…</c> (docs/adr/0113-squeeze-rounds.md).</summary>
+    public KeepFirst Keep { get; private init; }
 
     /// <summary>
     /// The optimizer's pan rules with <c>rule:pan…</c> (docs/adr/0109-pan-swap-cost.md), or <c>null</c> for the converter's own.
@@ -222,6 +232,8 @@ internal sealed record Recipe(IReadOnlyList<string> Arguments, IReadOnlySet<int>
         PanRules? pan = null;
         Mapping.DacLoser? loser = null;
         LevelRules? levels = null;
+        bool shrink = true;
+        KeepFirst keep = KeepFirst.Importance;
         foreach (string token in text.Split(' ', StringSplitOptions.RemoveEmptyEntries))
         {
             if (token.StartsWith("rule:", StringComparison.Ordinal))
@@ -274,6 +286,21 @@ internal sealed record Recipe(IReadOnlyList<string> Arguments, IReadOnlySet<int>
                     case ["song-quieter", { } db]:
                         levels = (levels ?? LevelRules.None) with { SongDb = Decibels(db, "song-quieter", text) };
                         continue;
+                    case ["half-speed", "all"]:
+                        halfSpeed.UnionWith(Enumerable.Range(1, MaxSample));
+                        continue;
+                    case ["shrink", "off"]:
+                        shrink = false;
+                        continue;
+                    case ["keep", "importance"]:
+                        keep = KeepFirst.Importance;
+                        continue;
+                    case ["keep", "drums"]:
+                        keep = KeepFirst.Drums;
+                        continue;
+                    case ["keep", "tonal"]:
+                        keep = KeepFirst.Tonal;
+                        continue;
                     case ["half-speed", _]:
                         break;
                     default:
@@ -282,7 +309,7 @@ internal sealed record Recipe(IReadOnlyList<string> Arguments, IReadOnlySet<int>
 
                 foreach (string sample in parts[1].Split(','))
                 {
-                    halfSpeed.Add(int.TryParse(sample, NumberStyles.None, CultureInfo.InvariantCulture, out int n) && n is >= 1 and <= 31
+                    halfSpeed.Add(int.TryParse(sample, NumberStyles.None, CultureInfo.InvariantCulture, out int n) && n is >= 1 and <= MaxSample
                         ? n
                         : throw HarnessException.Usage($"recipe \"{text}\": {sample} is not a sample number from 1 to 31"));
                 }
@@ -297,11 +324,11 @@ internal sealed record Recipe(IReadOnlyList<string> Arguments, IReadOnlySet<int>
             }
         }
 
-        return new Recipe(arguments, halfSpeed, layers, preMix) { Pan = pan, Loser = loser, Levels = levels };
+        return new Recipe(arguments, halfSpeed, layers, preMix) { Pan = pan, Loser = loser, Levels = levels, Shrink = shrink, Keep = keep };
     }
 
     /// <summary>True when the recipe has a rule only <c>--mapping optimizer</c> reads.</summary>
-    public bool HasRules => HalfSpeed.Count > 0 || !Layers || !PreMix || Pan is not null || Levels is not null;
+    public bool HasRules => HalfSpeed.Count > 0 || !Layers || !PreMix || Pan is not null || Levels is not null || !Shrink || Keep != KeepFirst.Importance;
 
     /// <summary><c>rule:quieter=3:6,7:3</c>: samples (1-based) and how many dB quieter each plays as a recording.</summary>
     private static LevelRules Quieter(LevelRules levels, string list, string text)
@@ -359,7 +386,12 @@ internal sealed record Recipe(IReadOnlyList<string> Arguments, IReadOnlySet<int>
     }
 
     /// <summary>The shrink rules the recipe asks for, or <c>null</c> for the converter's own.</summary>
-    public ShrinkRules? Rules => HalfSpeed.Count == 0 ? null : ShrinkRules.Default with { ForcedHalfSpeed = HalfSpeed.Select(s => s - 1).ToHashSet() };
+    public ShrinkRules? Rules => (Shrink, HalfSpeed.Count) switch
+    {
+        (true, 0) => null,
+        (true, _) => ShrinkRules.Default with { ForcedHalfSpeed = HalfSpeed.Select(s => s - 1).ToHashSet() },
+        _ => ShrinkRules.None with { ForcedHalfSpeed = HalfSpeed.Select(s => s - 1).ToHashSet() },
+    };
 }
 
 /// <summary>Cuts a listening clip out of a 16-bit stereo WAV, byte for byte, so a clip made again from the same render is the same file.</summary>
@@ -617,7 +649,7 @@ internal sealed class ListeningRemake(IReadOnlyList<string> songs, string output
 
         try
         {
-            ConversionOptions ruled = options with { ShrinkRules = recipe.Rules, PreMixRules = recipe.PreMix ? null : PreMixRules.None, Layers = recipe.Layers, PanRules = recipe.Pan, DacLoser = recipe.Loser, LevelRules = recipe.Levels };
+            ConversionOptions ruled = options with { ShrinkRules = recipe.Rules, PreMixRules = recipe.PreMix ? null : PreMixRules.None, Layers = recipe.Layers, PanRules = recipe.Pan, DacLoser = recipe.Loser, LevelRules = recipe.Levels, KeepFirst = recipe.Keep };
             return ConversionCommand.Execute(ruled, Serilog.Core.Logger.None, analyzed, NoProgress.Instance);
         }
         catch (ConversionException ex) when (ex.Code == ExitCode.UsageError && options.Format == OutputFormat.Xgm && File.Exists(wav))
