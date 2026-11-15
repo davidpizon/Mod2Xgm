@@ -144,8 +144,9 @@ internal static class Program
         Option<int> maxPerKind = new("--max-per-kind") { Description = "With --pick: the most pairs of one kind.", DefaultValueFactory = _ => PairPicker.MaxPerKind };
         Option<string?> embeddings = new("--embeddings") { Description = "Instead of scoring, remake an answers file's clips and compare pretrained listening models (PANNs, VGGish, CLAP, CDPAM) with log-mel and the learned score on them (docs/harness.md#pretrained-models)." };
         Option<string?> holdout = new("--holdout") { Description = "Instead of scoring, remake an answers file's hold-out rows (songs in " + HoldoutSongs.DefaultFolder + ") and score the learned listening score on them against the bar of docs/adr/0105-hold-out-songs.md (docs/harness.md#the-hold-out)." };
+        Option<string?> retry = new("--retry") { Description = "Instead of scoring, make the retry list of an answers file: for each place whose last answer is neither, different kinds of fix, screened by CLAP, the most promising written as the next round's rows (docs/harness.md#retries)." };
         Option<bool> panSwaps = new("--pan-swaps") { Description = "Instead of scoring, convert every song for XGM and XGM2 with the optimizer and the simple mapper and count where an instrument changes side while the MOD keeps it on one; writes pan-swaps/ (docs/harness.md#pan-swaps)." };
-        Option<string?> models = new("--models") { Description = "Folder of the exported .onnx models --embeddings uses (default: the user's local data folder, Mod2Xgm/models; tools/onnx-export/README.md)." };
+        Option<string?> models = new("--models") { Description = "Folder of the exported .onnx models --embeddings and --retry use (default: the user's local data folder, Mod2Xgm/models; tools/onnx-export/README.md)." };
         Option<string> progress = new(ProgressModeScan.OptionName)
         {
             Description = "How progress and results are shown: fancy (the default), text, json or silent (docs/cli-output.md).",
@@ -155,7 +156,7 @@ internal static class Program
 
         RootCommand root = new("Mod2Xgm accuracy harness: scores conversions against OpenMPT (docs/harness.md).")
         {
-            inputs, output, rate, libopenmpt, furnace, noFurnace, deflemask, noDefleMask, saveReference, clip, balance, fmFit, fmRenders, psgFit, pcmFit, preMix, ch3, dropClues, noCache, cacheDir, jobs, verbose, progress, remake, fit, pick, pairs, kinds, maxPerKind, embeddings, models, holdout, panSwaps,
+            inputs, output, rate, libopenmpt, furnace, noFurnace, deflemask, noDefleMask, saveReference, clip, balance, fmFit, fmRenders, psgFit, pcmFit, preMix, ch3, dropClues, noCache, cacheDir, jobs, verbose, progress, remake, fit, pick, pairs, kinds, maxPerKind, embeddings, models, holdout, panSwaps, retry,
         };
         root.SetAction(result =>
         {
@@ -219,9 +220,14 @@ internal static class Program
                 throw HarnessException.Usage("--pan-swaps with --remake, --fit, --pick, --embeddings or --holdout; run it on its own");
             }
 
-            if (result.GetValue(models) is not null && result.GetValue(embeddings) is null)
+            if (result.GetValue(retry) is not null && (result.GetValue(remake) is not null || result.GetValue(fit) is not null || result.GetValue(pick) is not null || result.GetValue(embeddings) is not null || result.GetValue(holdout) is not null || result.GetValue(panSwaps)))
             {
-                throw HarnessException.Usage("--models without --embeddings; only --embeddings runs the models");
+                throw HarnessException.Usage("--retry with --remake, --fit, --pick, --embeddings, --holdout or --pan-swaps; run it on its own, then --remake its round");
+            }
+
+            if (result.GetValue(models) is not null && result.GetValue(embeddings) is null && result.GetValue(retry) is null)
+            {
+                throw HarnessException.Usage("--models without --embeddings or --retry; only they run the models");
             }
 
             int pairCount = result.GetValue(pairs);
@@ -243,7 +249,7 @@ internal static class Program
             }
 
             string[] given = result.GetValue(inputs) ?? [];
-            bool listening = result.GetValue(remake) is not null || result.GetValue(fit) is not null || result.GetValue(embeddings) is not null || result.GetValue(holdout) is not null || result.GetValue(panSwaps);
+            bool listening = result.GetValue(remake) is not null || result.GetValue(fit) is not null || result.GetValue(embeddings) is not null || result.GetValue(holdout) is not null || result.GetValue(panSwaps) || result.GetValue(retry) is not null;
             return execute(new HarnessOptions(
                 given.Length > 0 ? given : listening ? ListeningInputs() : [DefaultCorpus],
                 result.GetValue(output) ?? DefaultOutput,
@@ -276,7 +282,8 @@ internal static class Program
                 result.GetValue(holdout),
                 kindList is null ? null : PickKinds(kindList),
                 perKind,
-                result.GetValue(panSwaps)));
+                result.GetValue(panSwaps),
+                result.GetValue(retry)));
         });
 
         ParseResult parsed = root.Parse(args);
@@ -365,6 +372,25 @@ internal static class Program
         if (options.PanSwaps)
         {
             return new PanSwapRun(songs, options.OutputDirectory, logger).Run(options.Jobs, progress);
+        }
+
+        if (options.Retry is { } retryAnswers)
+        {
+            if (!File.Exists(retryAnswers))
+            {
+                throw new HarnessException($"Not found: {retryAnswers}");
+            }
+
+            string folder = options.ModelsDirectory ?? EmbeddingModel.DefaultFolder;
+            EmbeddingModel clap = EmbeddingModel.All.Single(m => m.Name == "clap");
+            if (!File.Exists(Path.Combine(folder, clap.FileName)))
+            {
+                throw new HarnessException($"--retry screens its tries with CLAP: {clap.FileName} not found in {folder} (tools/onnx-export/README.md)");
+            }
+
+            LibOpenMpt.UseDirectory(options.LibOpenMptDirectory);
+            using OnnxListeningModel model = new(clap, folder);
+            return new RetryRun(songs, options.OutputDirectory, new OpenMptRenderer(), model, logger).Run(retryAnswers, DateOnly.FromDateTime(DateTime.Now), options.Jobs, progress);
         }
 
         if (options.Pick is { } pickAnswers)
@@ -557,6 +583,7 @@ internal static class Program
 /// <param name="Kinds">The kinds of change <c>--pick</c> picks from (<c>--kinds</c>), or <c>null</c> for every kind.</param>
 /// <param name="MaxPerKind">The most pairs of one kind <c>--pick</c> picks (<c>--max-per-kind</c>).</param>
 /// <param name="PanSwaps">True for <c>--pan-swaps</c>: count the pan swaps the MOD doesn't make instead of scoring (docs/adr/0108-pan-swap-count.md).</param>
+/// <param name="Retry">An answers file whose retry list to make (<c>--retry</c>, docs/adr/0112-retry-list.md), instead of scoring, or <c>null</c>.</param>
 internal sealed record HarnessOptions(
     IReadOnlyList<string> Inputs,
     string OutputDirectory,
@@ -589,4 +616,5 @@ internal sealed record HarnessOptions(
     string? Holdout = null,
     IReadOnlySet<PairKind>? Kinds = null,
     int MaxPerKind = PairPicker.MaxPerKind,
-    bool PanSwaps = false);
+    bool PanSwaps = false,
+    string? Retry = null);

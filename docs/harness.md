@@ -265,6 +265,8 @@ give those. The rules so far:
 | `rule:pan-fix=<middle+fm+unmix>` | What the optimizer may do in place of a swap: hold the recording in the middle, move one clashing instrument to FM, skip a pre-mix of both sides; `none` for nothing. All three by default |
 | `rule:pan-cost=<dB>` | The price of a note held on the wrong side, in dB per unit of importance (default 3), set against how much further FM is |
 | `rule:dac-loser=noise\|fm\|noise-all-song` | Where the simple mapper plays a drum that loses the DAC: the PSG noise (today), FM on its own channel when it is on one side, or the PSG noise all song for a drum on one side that ever loses it. Needs `--mapping simple` |
+| `rule:quieter=<sample>:<dB>[,…]` | These samples (1-based) play this many dB quieter as recordings, above 0 and at most 24: a retry's fix for a recording that clips ([ADR 0112](adr/0112-retry-list.md)). A pre-mix keeps the levels its notes were mixed at. XGM and XGM2 only; needs `--mapping optimizer` |
+| `rule:song-quieter=<dB>` | The whole song plays this many dB quieter: FM, PSG, every recording and pre-mix (ADR 0112). XGM and XGM2 only; needs `--mapping optimizer` |
 
 `--remake answers.tsv` converts each row's song with both recipes in-process (with `--render-wav`), cuts the clip out
 of each render byte for byte (`ClipWav`), and writes `listening/<round>-<question>-a.wav`, `-b.wav` and the original's
@@ -395,8 +397,39 @@ side (`lasts_s`), how long the instrument was silent before it (`gap_s`), its me
 whether the note after the swap comes from another MOD channel. `pan-swaps/report.md` has the totals per format and mapper
 by cause, then one line per version, with the instruments steadily on the wrong side (off it, but never swapping).
 
+## Retries
+
+`--retry answers.tsv` (plan T9.4s2, [ADR 0112](adr/0112-retry-list.md)) makes the retry list: a place (song, clip start,
+length and format) is on it while its last answered row is `neither` ([ADR 0111](adr/0111-neither-and-listening-models.md)).
+For each place it renders, as whole-song conversions:
+
+1. Today's default, `--mapping optimizer`. If its clip is one David rejected there (the same SHA-256), the place is still
+   as bad; otherwise it has changed since.
+2. Both versions of every `neither` row there, from their recipes: the closer one's CLAP distance is the screen.
+3. Every try, from today's default:
+
+| Kind | Tries |
+|---|---|
+| `keep-recording` | `--require-dac N` for each of the three sounds that play most in the clip (seconds × MOD volume × the sample's RMS level); if one finds no room, again with the sound that plays least there left out (`--ignore-samples`) |
+| `no-pre-mix`, `no-layers`, `no-pre-mix-no-layers` | `rule:pre-mix=off`, `rule:layers=off`, both |
+| `recording-quieter` | `rule:quieter=N:3` and `N:6` for the sound that plays most |
+| `song-quieter` | `rule:song-quieter=3` and `6` |
+
+Each clip is measured against the original's (libopenmpt) by CLAP, as `--embeddings` does. A try whose clip is today's
+default's changes nothing; a try as far from the MOD as the screen or further doesn't pass. The closest tries that pass
+go to the round: two against each other where today's default is still rejected, one against today's default where it
+changed. When none passes, the closest go anyway, marked `doubted`.
+
+It writes `listening/retries.tsv` (one line for today's default and one per try at every place, closest first: kind,
+what it changes, recipe, CLAP distance, the screen, and whether it changed anything, passed and was chosen),
+`listening/retry-round.tsv` (the next round's rows, unanswered and unhashed, the versions' order by a hash of the
+place), and every clip under `listening/retry/` with the original's (`-o.wav`) for listening. Then the round goes on from
+step 2 of [Listening answers](#listening-answers): `--remake listening/retry-round.tsv`. It needs `clap.onnx` in the
+model folder (`--models`, [Pretrained models](#pretrained-models)); `--jobs` makes several places at once. It renders
+about 15 versions of each place's song, so it is slow and runs by hand.
+
 ## Tests
 
-`tests/Mod2Xgm.Harness.Tests` covers the WAV reader and writer, the answers file and its recipes and clips, the report, the length check, the command line, the
+`tests/Mod2Xgm.Harness.Tests` covers the WAV reader and writer, the answers file and its recipes and clips, the retry list, the report, the length check, the command line, the
 stems, the loudness meter (with BS.1770's calibration tone) and a whole run with stand-in renderers. These run in CI. The tests that need libopenmpt or Furnace skip themselves where
 those aren't installed, as on the CI runners. Coverage is measured on the converter (`Mod2Xgm.Tests`) only.

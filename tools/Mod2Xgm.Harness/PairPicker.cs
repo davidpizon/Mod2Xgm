@@ -325,7 +325,8 @@ internal static class PairPicker
 
     private static string Number(double value) => value.ToString("0.####", CultureInfo.InvariantCulture);
 
-    private static bool ChangedFirst(string song, double start)
+    /// <summary>True when the changed version goes first, as A: a hash of the song and start, so the order is the same every run.</summary>
+    internal static bool ChangedFirst(string song, double start)
     {
         byte[] hash = SHA256.HashData(Encoding.UTF8.GetBytes(song.ToUpperInvariant() + "@" + start.ToString("R", CultureInfo.InvariantCulture)));
         return (hash[0] & 1) == 1;

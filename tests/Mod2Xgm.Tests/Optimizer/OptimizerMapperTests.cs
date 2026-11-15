@@ -1176,6 +1176,29 @@ public sealed class OptimizerMapperTests
     }
 
     /// <summary>
+    /// A retry's level rules (plan T9.4s2, docs/adr/0112-retry-list.md): on XGM2 the turned-down sample's recordings take
+    /// its gain and the plan the song's; a DMF plays its own levels.
+    /// </summary>
+    [Theory]
+    [InlineData(true, -3, -6)]
+    [InlineData(false, 0, 0)]
+    public void Map_WithLevelRules_PlaysTheSampleAndTheSongQuieter(bool xgm2, double sampleGainDb, double songGainDb)
+    {
+        // Arrange
+        Song song = SongOf(2, [(0, 0)], [(1, 1)], [(-1, 0)], [(-1, 0)]);
+        OptimizerMapper sut = new(Limits(xgm2 ? PcmTarget.Xgm2 : PcmTarget.Dmf), [Sounds(0), Sounds(1)], levels: new LevelRules(6, new Dictionary<int, double> { [0] = 3 }));
+
+        // Act
+        GenesisPlan plan = sut.Map(song, PlaybackOf(song), MappingOptions.Default, Notes());
+
+        // Assert
+        Assert.Equal(songGainDb, plan.SongGainDb);
+        Assert.All(plan.DacSamples.Where(d => d.Sample == 0), d => Assert.Equal(sampleGainDb, d.GainDb));
+        Assert.All(plan.DacSamples.Where(d => d.Sample == 1), d => Assert.Equal(0, d.GainDb));
+        Assert.Contains(plan.DacSamples, d => d.Sample == 0);
+    }
+
+    /// <summary>
     /// With two slots for three recordings, the shrinker shares one copy per 6 dB between the held sample's two notes
     /// (3 and 6 dB down); one step quieter they would need two copies, which don't fit, so the sample is held at its own
     /// level and a conversion note says so.

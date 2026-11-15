@@ -23,7 +23,8 @@ namespace Mod2Xgm.Optimizer;
 /// <param name="preMix">How recordings that find no PCM voice are pre-mixed (plan T9.4b); <see cref="PreMixRules.Default"/> when not given.</param>
 /// <param name="layers">False: no note gets a second voice under it (docs/adr/0088-layering.md), for the listening rounds that compare the two (plan T9.4l).</param>
 /// <param name="pan">How pan swaps the MOD doesn't make are priced (plan T9.4r, docs/adr/0109-pan-swap-cost.md); <see cref="PanRules.Default"/> when not given.</param>
-internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleSounds> menu, ShrinkRules? shrink = null, VoiceSwitching? switching = null, PreMixRules? preMix = null, bool layers = true, PanRules? pan = null) : IChannelMapper
+/// <param name="levels">How much quieter the plan plays on XGM and XGM2, a retry's rule (plan T9.4s2, docs/adr/0112-retry-list.md); <see cref="LevelRules.None"/> when not given.</param>
+internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleSounds> menu, ShrinkRules? shrink = null, VoiceSwitching? switching = null, PreMixRules? preMix = null, bool layers = true, PanRules? pan = null, LevelRules? levels = null) : IChannelMapper
 {
     /// <summary>What a fully percussive sample's notes add to their importance, as a multiple of a note with no hit: a replaced attack is easy to hear, and David chose this over smaller values (docs/sample-capacity.md#importance).</summary>
     private const double PercussiveBoost = 8;
@@ -95,7 +96,7 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
         if (mixing is { Enabled: true, MakeRoom: true } && limits.PcmBytes is not null)
         {
             // A first, silent pass finds the bytes the pre-mixes want; the shrinker then leaves them that room.
-            Run probe = new(limits, menu, song, playback, options, new ConversionNotes(Serilog.Core.Logger.None), shrink ?? ShrinkRules.Default, switching ?? Switching, mixing, layers, 0, pan ?? PanRules.Default);
+            Run probe = new(limits, menu, song, playback, options, new ConversionNotes(Serilog.Core.Logger.None), shrink ?? ShrinkRules.Default, switching ?? Switching, mixing, layers, 0, pan ?? PanRules.Default, levels ?? LevelRules.None);
             try
             {
                 probe.Execute();
@@ -109,7 +110,7 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
             reserve = probe.MixBytes + probe.RefusedMixBytes;
         }
 
-        Run run = new(limits, menu, song, playback, options, notes, shrink ?? ShrinkRules.Default, switching ?? Switching, mixing, layers, reserve, pan ?? PanRules.Default);
+        Run run = new(limits, menu, song, playback, options, notes, shrink ?? ShrinkRules.Default, switching ?? Switching, mixing, layers, reserve, pan ?? PanRules.Default, levels ?? LevelRules.None);
         try
         {
             return run.Execute();
@@ -228,6 +229,9 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
         // Pre-mixes (plan T9.4b): the notes in each, the recordings once each by their bytes, and where tails start.
         private readonly PreMixRules _preMix;
         private readonly PanRules _pans;
+
+        // How much quieter the plan plays than its own levels: a retry's rule, XGM and XGM2 only (plan T9.4s2).
+        private readonly LevelRules _levels;
         private int _mixesSkipped;
 
         // The samples held in the middle whose recordings play one step quieter: those whose quieter copies fit (plan T9.4r).
@@ -250,9 +254,10 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
         private int _silent;
         private int _slides;
 
-        public Run(TargetLimits limits, IReadOnlyList<SampleSounds> menu, Song song, Playback playback, MappingOptions options, ConversionNotes notes, ShrinkRules rules, VoiceSwitching switching, PreMixRules preMix, bool layers, long reserve, PanRules pan)
+        public Run(TargetLimits limits, IReadOnlyList<SampleSounds> menu, Song song, Playback playback, MappingOptions options, ConversionNotes notes, ShrinkRules rules, VoiceSwitching switching, PreMixRules preMix, bool layers, long reserve, PanRules pan, LevelRules levels)
         {
             _pans = pan;
+            _levels = levels;
             _preMix = preMix;
             _layers = layers;
             _reserve = reserve;
@@ -1579,7 +1584,7 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
             _planned.ForEach(Count);
             ReportNotes();
             HashSet<int> wanted = [.. _planned.Where(n => FirstChoice(n) == VoiceKind.Dac).Select(n => n.Sample)];
-            return new GenesisPlan(_song.Title, patterns, _song.LoopOrder, _song.Timing, patches, recordings) { PcmSamples = wanted, TunedByEar = true, DacPanClash = PanClash };
+            return new GenesisPlan(_song.Title, patterns, _song.LoopOrder, _song.Timing, patches, recordings) { PcmSamples = wanted, TunedByEar = true, DacPanClash = PanClash, SongGainDb = _dmf ? 0 : -_levels.SongDb };
 
             PlanRow WriteRow(Row row, int order, int r)
             {
@@ -1967,7 +1972,7 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
         {
             if (note.Plays.SelectMany(CopiesOf).Cast<StoredCopy?>().FirstOrDefault() is not { } copy)
             {
-                return new DacSample(StoredAs(note.Sample), note.Plays[0].RateHz);
+                return new DacSample(StoredAs(note.Sample), note.Plays[0].RateHz) { GainDb = _dmf ? 0 : _levels.RecordingGainDb(note.Sample) };
             }
 
             bool loudness = _shrunk?.Steps.Any(s => s.Move == ShrinkMove.ShareLoudness && s.Sample == copy.Sample) == true;
@@ -1978,7 +1983,8 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
                 HeldSteps = _quieter.Contains(note.Sample) && note.Centred ? 1 : 0,
                 // Only a note that plays a merged look-alike's sound takes its gain. The DMF writer sets loudness from the
                 // notes' volumes alone: the shrinker merges only look-alikes within half a step there.
-                GainDb = _dmf || copy.Sample == StoredAs(note.Sample) ? 0 : _shrunk?.MergeGainDb.GetValueOrDefault(StoredAs(note.Sample)) ?? 0,
+                // A retry's rule may play the sample quieter still (plan T9.4s2).
+                GainDb = _dmf ? 0 : (copy.Sample == StoredAs(note.Sample) ? 0 : _shrunk?.MergeGainDb.GetValueOrDefault(StoredAs(note.Sample)) ?? 0) + _levels.RecordingGainDb(note.Sample),
             };
         }
 

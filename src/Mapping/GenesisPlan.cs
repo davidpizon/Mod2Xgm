@@ -223,4 +223,10 @@ internal sealed record GenesisPlan(
 
     /// <summary>Where the DAC plays when recordings from both sides sound at once (XGM and XGM2; a DMF plays one recording at a time).</summary>
     public DacPanClash DacPanClash { get; init; }
+
+    /// <summary>
+    /// The gain everything plays at on XGM and XGM2, in dB, 0 or less: FM, PSG and every recording (pre-mixes included). Only
+    /// a retry's harness rule sets it (<see cref="Optimizer.LevelRules"/>, docs/adr/0112-retry-list.md); a DMF ignores it.
+    /// </summary>
+    public double SongGainDb { get; init; }
 }

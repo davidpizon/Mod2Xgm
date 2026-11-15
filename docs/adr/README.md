@@ -125,6 +125,7 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0109](0109-pan-swap-cost.md) | A price for pan swaps the MOD doesn't make; the threshold set by ear | 2026-11-14 | Accepted |
 | [0110](0110-price-ruler.md) | What a price measures: log-mel with ear penalties, then the file's size on a tie | 2026-11-14 | Accepted; supersedes 0098 in part |
 | [0111](0111-neither-and-listening-models.md) | "Neither" answers, retries, and listening models the converter loads from an optional folder | 2026-11-14 | Accepted; supersedes 0104 in part |
+| [0112](0112-retry-list.md) | The retry list: kinds of fix, CLAP's screen, and the round it asks | 2026-11-14 | Accepted |
 
 ## Open questions
 
