@@ -111,7 +111,7 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0095](0095-voices-stop-with-the-mod-note.md) | A voice stops when the MOD's note falls silent | 2026-11-09 | Proposed |
 | [0096](0096-fm-confidence.md) | FM confidence per sample | 2026-11-09 | Superseded by 0098 |
 | [0097](0097-learned-listening-score.md) | A listening score learned from David's blind answers | 2026-11-09 | Accepted |
-| [0098](0098-learned-allocator-costs.md) | Learned costs for the allocator's choices | 2026-11-09 | Accepted |
+| [0098](0098-learned-allocator-costs.md) | Learned costs for the allocator's choices | 2026-11-09 | Accepted; superseded in part by 0110 |
 | [0099](0099-xgm2-writer-records-the-player.md) | The XGM2 writer records the Genesis player | 2026-11-09 | Accepted |
 | [0100](0100-perceptual-features.md) | Perceptual features for the learned listening score | 2026-11-10 | Proposed |
 | [0101](0101-listening-score-fit.md) | Fitting the learned listening score | 2026-11-10 | Proposed |
@@ -123,6 +123,7 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0107](0107-learned-score-not-adopted.md) | The learned listening score is not adopted; log-mel stays the main number | 2026-11-13 | Accepted |
 | [0108](0108-pan-swap-count.md) | Counting the pan swaps the MOD doesn't make | 2026-11-13 | Accepted |
 | [0109](0109-pan-swap-cost.md) | A price for pan swaps the MOD doesn't make; the threshold set by ear | 2026-11-14 | Accepted |
+| [0110](0110-price-ruler.md) | What a price measures: log-mel with ear penalties, then the file's size on a tie | 2026-11-14 | Accepted; supersedes 0098 in part |
 
 ## Open questions
 
