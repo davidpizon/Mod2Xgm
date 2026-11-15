@@ -78,10 +78,10 @@ internal sealed record RetryChoice(RetryPlace Place, bool DefaultRejected, doubl
 internal static class RetryList
 {
     /// <summary>The sounds that play most at a place each get a <see cref="RetryKind.KeepRecording"/> try: at most this many.</summary>
-    public const int MaxKept = 3;
+    private const int MaxKept = 3;
 
     /// <summary>How many dB quieter <see cref="RetryKind.RecordingQuieter"/> and <see cref="RetryKind.SongQuieter"/> try: a little and clearly (David chose both).</summary>
-    public static IReadOnlyList<double> QuieterDb { get; } = [3, 6];
+    private static IReadOnlyList<double> QuieterDb { get; } = [3, 6];
 
     /// <summary>
     /// The places on the list: grouped by song (any case), start, length and format, those whose last answered row is
