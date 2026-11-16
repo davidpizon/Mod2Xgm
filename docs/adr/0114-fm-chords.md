@@ -79,3 +79,5 @@ Behind the harness rule `rule:chords=on` (`ConversionOptions.Chords`) until a bl
   above: only octaves and fifths are overtones, the window is 15 dB, and a chord needs a third or seventh. EM2's three
   chord samples now play E, G# and B (MELLOW MAJ7), A, E and C# (MELLO MAJ) and E, B and G# (MELLO MAJG). Round 30 checks
   it.
+- **Round 30 (2026-11-16):** with the third, the chords won both of EM2's pairs ("The chords are very good"). In one,
+  David heard melody notes missing, which is still to be explained before the rule is turned on by default.

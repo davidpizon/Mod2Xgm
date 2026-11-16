@@ -203,6 +203,18 @@ Messanger the chord rule made the same files, so those seven weren't asked. In E
 chord." q3 (0:20) was can't tell: "Both versions X and Y were acceptable." The extra voices are heard, but not as the chord, so the rule stays off. Why it isn't
 heard as a chord (pitches, levels or the one patch) is still to be found.
 
+## Round 30: FM chords with their thirds
+
+Plan T9.4t9 ([ADR 0114](../../../docs/adr/0114-fm-chords.md)), David, 2026-11-16. Round 29's q1 and q2 again, after the
+note rule was fixed to keep the chord's third: MELLO MAJ, MELLO MAJG and MELLOW MAJ7 now play four notes each. Round 29's
+q3 wasn't asked again (its chord clip came out the same), nor the other five songs, whose two versions were still the
+same files. In q1 the page's Version X was the chord version (the swap is undone in `pick`; the words keep the page's
+letters); in q2 it was Version Y.
+
+**Result:** the chords won both. q1 (2:00): "X is closer with the chords. However the melody notes are missing." q2
+(1:50): "The chords are very good in version Y. Version X doesn't appear to have chords -- just a single note." The
+missing melody in q1 is still to be explained.
+
 ## Hold-out rows
 
 Rows whose song is in `tests/data/holdout/` are the hold-out ([ADR 0105](../../../docs/adr/0105-hold-out-songs.md)):
