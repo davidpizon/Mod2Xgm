@@ -24,10 +24,11 @@ and when FM channels run out, drop notes rather than take a voice from another t
 Behind the harness rule `rule:chords=on` (`ConversionOptions.Chords`) until a blind round decides:
 
 - **The chord's notes.** A region's notes are the harmonics of its measured root, up to the 16th (four octaves up),
-  within 12 dB of the loudest (`SoundMenu.ChordTones`). A harmonic that is a multiple of a note already found and at
-  least 3 dB quieter than it is that note's overtone, not a note of its own. Only the four loudest notes are kept, and a
-  region needs two to be a chord. `SoundMenu.IsChord` isn't required: EM2's chord samples failed it, because their
-  bass or second harmonic is loud.
+  within 15 dB of the loudest (`SoundMenu.ChordTones`). A harmonic that is an octave or fifth of a note already found (a
+  ratio made of 2s and 3s) and at least 3 dB quieter than it is that note's overtone, not a note of its own. A third or
+  seventh (a ratio with a 5 or 7) is always a note. Notes that are all octaves and fifths of one pitch are one bright
+  note, not a chord. At most four notes are kept: the loudest of each pitch first, then octaves of them. `SoundMenu.IsChord`
+  isn't required: EM2's chord samples failed it, because their bass or second harmonic is loud.
 - **One patch.** A chord sample is usually one instrument playing several notes, so all its voices play one patch.
   It is fitted with the usual FM fitter to one note's own harmonics (`SoundMenu.ToneTarget`): the note that shares the
   fewest harmonics with the others (`SoundMenu.ReferenceTone`). Each of the fitter's tries (library, exhaustive,
@@ -72,3 +73,9 @@ Behind the harness rule `rule:chords=on` (`ConversionOptions.Chords`) until a bl
 - **Round 29 (2026-11-15):** only EM2 changed (the other five songs made the same files). Two of its three pairs were
   neither ("background notes but not what sounds like a chord"), one can't tell. So the rule stays off by default until
   a change makes the voices heard as the chord.
+- **The missing third (2026-11-16).** Round 29's note rule counted every harmonic of a lower note as its overtone. In a
+  chord that sounds its root, that threw out the third (the 5th harmonic): MELLOW MAJ7 played E-E-B, an "empty" chord, and
+  MELLO MAJ (A-A-E) lost to one voice. The third's 5th harmonic was also just past the 12 dB window. Hence the rule
+  above: only octaves and fifths are overtones, the window is 15 dB, and a chord needs a third or seventh. EM2's three
+  chord samples now play E, G# and B (MELLOW MAJ7), A, E and C# (MELLO MAJ) and E, B and G# (MELLO MAJG). Round 30 checks
+  it.

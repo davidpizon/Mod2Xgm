@@ -200,7 +200,7 @@ Messanger the chord rule made the same files, so those seven weren't asked. In E
 25 FM notes) and MELLOW MAJ7 (3 notes, 7 FM notes), none short of FM channels.
 
 **Result:** no gain. q1 (2:00) and q2 (1:50) were neither: "There are background notes but not what sounds like a
-chord." q3 (0:20) was can't tell. The extra voices are heard, but not as the chord, so the rule stays off. Why it isn't
+chord." q3 (0:20) was can't tell: "Both versions X and Y were acceptable." The extra voices are heard, but not as the chord, so the rule stays off. Why it isn't
 heard as a chord (pitches, levels or the one patch) is still to be found.
 
 ## Hold-out rows

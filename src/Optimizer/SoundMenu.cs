@@ -110,7 +110,7 @@ internal static class SoundMenu
         [.. Enumerable.Range(0, harmonicsDb[0].Length).Select(h => 10 * Math.Log10(harmonicsDb.Average(frame => Math.Pow(10, frame[h] / 10))))];
 
     /// <summary>How far under the loudest harmonic a chord's note may be and still count as one of its notes, in dB (docs/adr/0114-fm-chords.md).</summary>
-    private const double ChordToneDb = 12;
+    private const double ChordToneDb = 15;
 
     /// <summary>The highest harmonic of the root a chord's note is looked for at: four octaves up.</summary>
     private const int MaxChordHarmonic = 16;
@@ -126,11 +126,14 @@ internal static class SoundMenu
 
     /// <summary>
     /// The notes of the chord in <paramref name="harmonicsDb"/>, as harmonics of the root the analysis measures, low to high
-    /// (docs/adr/0114-fm-chords.md): each harmonic within <see cref="ChordToneDb"/> of the loudest, unless it is a harmonic of
-    /// a lower note and <see cref="OvertoneDb"/> or more under it. kc's SynthFMaj, C-F-A, is harmonics 3, 4 and 5; 6, 8 and
-    /// 10 are those notes' own overtones. EM2's chords have a bass note or a loud second harmonic, which
-    /// <see cref="IsChord"/> doesn't take, so it isn't asked: the chord's voices must still come closer to the sample than one
-    /// voice does. Only the loudest <see cref="MaxChordTones"/> are kept. Empty when fewer than two notes are found.
+    /// (docs/adr/0114-fm-chords.md): each harmonic within <see cref="ChordToneDb"/> of the loudest, unless it is an octave or
+    /// fifth of a lower note (a ratio of 2s and 3s) and <see cref="OvertoneDb"/> or more under it. kc's SynthFMaj, C-F-A, is
+    /// harmonics 3, 4 and 5; 6, 8 and 10 are those notes' own overtones. A third or seventh (a ratio of 5 or 7) is never an
+    /// overtone, so a chord that sounds its root keeps its third (EM2's MELLOW MAJ7: 1, 4, 5 and 6). Notes that are all
+    /// octaves and fifths of one pitch are a bright note, not a chord. EM2's chords have a bass note or a loud second
+    /// harmonic, which <see cref="IsChord"/> doesn't take, so it isn't asked: the chord's voices must still come closer to the
+    /// sample than one voice does. At most <see cref="MaxChordTones"/> are kept: the loudest of each pitch first, then the
+    /// loudest octaves of them. Empty when there's no chord.
     /// </summary>
     internal static IReadOnlyList<int> ChordTones(IReadOnlyList<float[]> harmonicsDb)
     {
@@ -145,13 +148,51 @@ internal static class SoundMenu
         List<int> tones = [];
         for (int h = 1; h <= Math.Min(db.Length, MaxChordHarmonic); h++)
         {
-            if (db[h - 1] >= loudest - ChordToneDb && !tones.Any(t => h % t == 0 && db[h - 1] <= db[t - 1] - OvertoneDb))
+            if (db[h - 1] >= loudest - ChordToneDb && !tones.Any(t => h % t == 0 && Colour(h / t) == 1 && db[h - 1] <= db[t - 1] - OvertoneDb))
             {
                 tones.Add(h);
             }
         }
 
-        return tones.Count < 2 ? [] : [.. tones.OrderByDescending(t => db[t - 1]).ThenBy(t => t).Take(MaxChordTones).Order()];
+        if (tones.Select(Colour).Distinct().Count() < 2)
+        {
+            return [];
+        }
+
+        // The loudest note of each pitch first, then octaves of them: a third outranks a louder doubled root.
+        return [.. tones
+            .OrderByDescending(t => db[t - 1]).ThenBy(t => t)
+            .Select((t, i) => (Tone: t, First: tones.Where(u => OddPart(u) == OddPart(t)).MaxBy(u => db[u - 1]) == t, Rank: i))
+            .OrderByDescending(x => x.First).ThenBy(x => x.Rank)
+            .Take(MaxChordTones)
+            .Select(x => x.Tone)
+            .Order()];
+    }
+
+    /// <summary><paramref name="n"/> without its factors of 2: harmonics with the same odd part are octaves of one pitch.</summary>
+    private static int OddPart(int n)
+    {
+        while (n % 2 == 0)
+        {
+            n /= 2;
+        }
+
+        return n;
+    }
+
+    /// <summary>
+    /// <paramref name="n"/> without its factors of 2 and 3. A harmonic of a note at a ratio whose colour is 1 is an octave or
+    /// fifth of it, as a single note's own harmonics are; a ratio of colour 5 or 7 is a third or seventh, a chord's note.
+    /// </summary>
+    private static int Colour(int n)
+    {
+        n = OddPart(n);
+        while (n % 3 == 0)
+        {
+            n /= 3;
+        }
+
+        return n;
     }
 
     /// <summary>

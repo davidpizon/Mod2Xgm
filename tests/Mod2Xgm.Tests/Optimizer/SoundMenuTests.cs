@@ -120,6 +120,48 @@ public sealed class SoundMenuTests
         Assert.Empty(sut);
     }
 
+    /// <summary>Checks that a chord sounding its root keeps its third, as EM2's MELLOW MAJ7 does: the 5 isn't the 1's overtone, the 2 and 8 are.</summary>
+    [Fact]
+    public void ChordTones_WithRootAmongTheNotes_KeepsTheThird()
+    {
+        // Arrange
+        float[][] harmonics = [[0, -5, -17, 0, -6, 0, -39, -7, -29, -28, -47, -15, -48, -19, -31, -19]];
+
+        // Act
+        IReadOnlyList<int> sut = SoundMenu.ChordTones(harmonics);
+
+        // Assert
+        Assert.Equal([1, 4, 5, 6], sut);
+    }
+
+    /// <summary>Checks that a bright note with loud octave and fifth harmonics, but no third or seventh, isn't taken for a chord.</summary>
+    [Fact]
+    public void ChordTones_WithOnlyOctavesAndFifths_ReturnsNone()
+    {
+        // Arrange
+        float[][] harmonics = [[0, 0, -1, -5, -20, -12]];
+
+        // Act
+        IReadOnlyList<int> sut = SoundMenu.ChordTones(harmonics);
+
+        // Assert
+        Assert.Empty(sut);
+    }
+
+    /// <summary>Checks that when there are more notes than voices, a quieter third is kept before a louder octave of a note already kept.</summary>
+    [Fact]
+    public void ChordTones_WithMoreNotesThanVoices_KeepsTheThirdBeforeAnOctave()
+    {
+        // Arrange
+        float[][] harmonics = [[-60, -2, -3, 0, -9, -60, -60, -60, -60, -60, -60, -60, -60, -60, -60, -1]];
+
+        // Act
+        IReadOnlyList<int> sut = SoundMenu.ChordTones(harmonics);
+
+        // Assert
+        Assert.Equal([3, 4, 5, 16], sut);
+    }
+
     /// <summary>Checks that of five chord notes only the four loudest are kept, low to high.</summary>
     [Fact]
     public void ChordTones_WithFiveNotes_KeepsTheLoudestFour()
