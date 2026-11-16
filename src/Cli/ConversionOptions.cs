@@ -65,6 +65,12 @@ internal sealed record ConversionOptions
     public bool Layers { get; init; } = true;
 
     /// <summary>
+    /// True: the optimizer plays a chord sample's notes as FM voices of their own (docs/adr/0114-fm-chords.md). No option sets
+    /// it: the harness does, for the listening rounds that judge it (<c>rule:chords=on</c>, docs/harness.md#listening-answers).
+    /// </summary>
+    public bool Chords { get; init; }
+
+    /// <summary>
     /// How the optimizer prices pan swaps the MOD doesn't make, or <c>null</c> for <see cref="Optimizer.PanRules.Default"/>. No
     /// option sets it: the harness does, for the listening rounds that find the threshold (<c>rule:pan=…</c>, docs/adr/0109-pan-swap-cost.md).
     /// </summary>

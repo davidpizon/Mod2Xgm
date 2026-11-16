@@ -706,6 +706,58 @@ public sealed class OptimizerMapperTests
         Assert.Contains(notes.Messages, m => m.Contains("a chord, so its 1 FM notes also sound a second FM voice", StringComparison.Ordinal));
     }
 
+    /// <summary>A chord's notes each play on an FM voice of their own, of one patch, each at its pitch over the root and its share of the level.</summary>
+    [Fact]
+    public void Map_WithFmChord_PlaysEachNoteOnItsOwnVoice()
+    {
+        // Arrange
+        Song song = SongOf(1, [(0, 0)]);
+        OptimizerMapper sut = new(Limits(PcmTarget.Dmf), [FmChord(0)]);
+
+        // Act
+        GenesisPlan plan = sut.Map(song, PlaybackOf(song), MappingOptions.Default, Notes());
+
+        // Assert
+        PlanCell[] voices = [.. plan.Patterns[0][0].Cells.Where(c => c.Sample == 0).OrderBy(c => c.Cents)];
+        Assert.Equal([1200 * Math.Log2(3), 2400, 1200 * Math.Log2(5)], voices.Select(c => c.Cents));
+        Assert.Equal([1, 0.5, 0.25], voices.Select(c => c.Level));
+        Assert.All(voices, c => Assert.Equal("chord", c.Voice is { } voice ? plan.FmPatches[voice.Index].Name : null));
+    }
+
+    /// <summary>With FM room for two of a chord's three notes, the top note is left out and the conversion notes say so (David, 2026-11-15).</summary>
+    [Fact]
+    public void Map_WithRoomForTwoChordNotes_DropsTheTopNote()
+    {
+        // Arrange
+        Song song = SongOf(4, [(0, 0), (1, 1), (2, 1), (3, 1)]);
+        OptimizerMapper sut = new(Limits(PcmTarget.Dmf), [FmChord(0), FmFirst(1)]);
+        ConversionNotes notes = Notes();
+
+        // Act
+        GenesisPlan plan = sut.Map(song, PlaybackOf(song), MappingOptions.Default, notes);
+
+        // Assert
+        PlanCell[] voices = [.. plan.Patterns[0][0].Cells.Where(c => c.Sample == 0).OrderBy(c => c.Cents)];
+        Assert.Equal([1200 * Math.Log2(3), 2400], voices.Select(c => c.Cents));
+        Assert.Contains(notes.Messages, m => m.Contains("a chord of 3 notes, so its 1 FM notes play its notes as FM voices of their own; 1 of them leave out the top notes", StringComparison.Ordinal));
+    }
+
+    /// <summary>A sliding chord keeps one voice even with chord voices to give: a slide's cell has one column, so they wouldn't follow.</summary>
+    [Fact]
+    public void Map_WithSlidingFmChord_LeavesItOneVoice()
+    {
+        // Arrange
+        Song song = SongOf(1, [(0, 0)], [(-1, 0)]);
+        OptimizerMapper sut = new(Limits(PcmTarget.Dmf), [FmChord(0)]);
+
+        // Act
+        GenesisPlan plan = sut.Map(song, PlaybackOf(song, [Rate, Rate * 1.5], [true, false]), MappingOptions.Default, Notes());
+
+        // Assert
+        PlanCell voice = Assert.Single(plan.Patterns[0][0].Cells, c => c.Voice?.Kind == VoiceKind.Fm);
+        Assert.Equal(0, voice.Cents);
+    }
+
     /// <summary>With every FM column but FM6 taken by a note, a chord stays one voice: the second never takes FM6, the first DAC voice's only column.</summary>
     [Fact]
     public void Map_WithOnlyFm6Free_LeavesChordOneVoice()
@@ -1360,6 +1412,13 @@ public sealed class OptimizerMapperTests
         sample,
         0.5,
         [new RegionSounds(0, 1e6, FmPatchLibrary.Sine, 8, 15, 25, FmPatchLibrary.Sine with { Name = "second" }, 0.5, 22)],
+        new Dictionary<double, double>());
+
+    /// <summary>A sample with no recording whose one region is a chord of harmonics 3, 4 and 5, each quieter than the one below.</summary>
+    private static SampleSounds FmChord(int sample) => new(
+        sample,
+        0.5,
+        [new RegionSounds(0, 1e6, FmPatchLibrary.Sine, 8, 15, 25, Chord: new ChordVoices(FmPatchLibrary.Sine with { Name = "chord" }, [new(3, 1), new(4, 0.5), new(5, 0.25)], 5))],
         new Dictionary<double, double>());
 
     /// <summary>A song of one order per row list after the first (<see cref="SongOf(int, int, ValueTuple{int, int}[][])"/> with one order).</summary>

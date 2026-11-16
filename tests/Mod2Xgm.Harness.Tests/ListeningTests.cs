@@ -229,6 +229,34 @@ public sealed class ListeningTests
         Assert.False(plain.HasRules);
     }
 
+    /// <summary><c>rule:chords=on</c> plays chords as FM voices of their own (docs/adr/0114-fm-chords.md); without it they stay off.</summary>
+    [Fact]
+    public void Parse_WithChordsRule_TurnsChordsOn()
+    {
+        // Act
+        Recipe sut = Recipe.Parse("--mapping optimizer rule:chords=on");
+        Recipe plain = Recipe.Parse("--mapping optimizer");
+
+        // Assert
+        Assert.Equal(["--mapping", "optimizer"], sut.Arguments);
+        Assert.True(sut.Chords);
+        Assert.True(sut.HasRules);
+        Assert.False(plain.Chords);
+    }
+
+    /// <summary><c>rule:chords</c> takes only <c>on</c>: anything else is refused, naming the rule.</summary>
+    [Theory]
+    [InlineData("rule:chords=off")]
+    [InlineData("rule:chords")]
+    public void Parse_WithChordsNotOn_Throws(string text)
+    {
+        // Act
+        HarnessException ex = Assert.Throws<HarnessException>(() => Recipe.Parse(text));
+
+        // Assert
+        Assert.Contains("rule:chords=on", ex.Message, StringComparison.Ordinal);
+    }
+
     /// <summary>The layers and pre-mix rules take only <c>off</c>: anything else is refused rather than read as the default.</summary>
     [Theory]
     [InlineData("rule:layers=on")]

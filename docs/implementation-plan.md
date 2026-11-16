@@ -167,6 +167,7 @@
 | T9.4t6 | A recorded attack with an FM tail (ADR 0113): a long sound's first part a recording, its fitted FM patch carrying the rest, the hand-over level-matched | Tests; in a squeeze round |
 | T9.4t7 | Made loops and cut tails (ADR 0113): a seamless loop found in a long one-shot's steady part, so only that much is stored; tails stored only to 30 dB below the peak (today the 48 dB trim only counts bytes) | Tests; in a squeeze round |
 | T9.4t8 | Noise for hi-hats and cymbals first, and masked notes skipped (ADR 0113) | Tests; in a squeeze round |
+| T9.4t9 | FM chords ([ADR 0114](adr/0114-fm-chords.md)): a chord sample's notes found from its harmonics and played as FM voices of one patch, each at its pitch, the top notes dropped first when FM channels run out; behind `rule:chords=on`; round 29 against today's at the quarter budgets | Tests; in a blind round |
 | T9.5 | Render & refine loop (worst-section re-fit / re-allocate), `--quality` / `--time-budget` / `--seed` | Deterministic; improves corpus score vs greedy (log-mel plus ADR 0110's penalties, the file size breaking ties) |
 | T9.6 | Optimizer vs simple mapper on DMF; switch default if better | Decision logged; **0.2.0** |
 
