@@ -116,7 +116,7 @@ internal static class SoundMenu
     private const int MaxChordHarmonic = 16;
 
     /// <summary>Most notes a chord plays with: as many as one FM channel has operators, and more than the free channels usually hold.</summary>
-    internal const int MaxChordTones = 4;
+    private const int MaxChordTones = 4;
 
     /// <summary>
     /// How much quieter than a lower note a harmonic of it must be to count as that note's overtone rather than a note of its
