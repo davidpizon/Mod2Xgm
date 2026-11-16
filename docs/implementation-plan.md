@@ -167,6 +167,7 @@
 | T9.4t6 | A recorded attack with an FM tail (ADR 0113): a long sound's first part a recording, its fitted FM patch carrying the rest, the hand-over level-matched | Tests; in a squeeze round |
 | T9.4t7 | Made loops (ADR 0113): a seamless loop found in a long one-shot's steady part, so only that much is stored | Tests; in a squeeze round |
 | T9.4t8 | Noise for hi-hats and cymbals first, and masked notes skipped (ADR 0113) | Tests; in a squeeze round |
+| T9.4t10 | Drums baked into recordings, and recording bytes given where the fallback hurts most ([ADR 0115](adr/0115-drum-bakes.md), David, round 30): when bytes run short they go to the samples whose fallback (noise, FM, tone, cut) loses most per byte; drum hits that land together and whole repeating beats become allocation candidates, the score choosing per song; behind `rule:bytes=score` and `rule:bake=together|beat|both` | Tests; every byte-exact test unchanged without the rules; blind rounds at round 28's budgets decide the default |
 | T9.5 | Render & refine loop (worst-section re-fit / re-allocate), `--quality` / `--time-budget` / `--seed` | Deterministic; improves corpus score vs greedy (log-mel plus ADR 0110's penalties, the file size breaking ties) |
 | T9.6 | Optimizer vs simple mapper on DMF; switch default if better | Decision logged; **0.2.0** |
 
