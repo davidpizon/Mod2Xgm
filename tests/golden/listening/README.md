@@ -211,9 +211,10 @@ q3 wasn't asked again (its chord clip came out the same), nor the other five son
 same files. In q1 the page's Version X was the chord version (the swap is undone in `pick`; the words keep the page's
 letters); in q2 it was Version Y.
 
-**Result:** the chords won both. q1 (2:00): "X is closer with the chords. However the melody notes are missing." q2
-(1:50): "The chords are very good in version Y. Version X doesn't appear to have chords -- just a single note." The
-missing melody in q1 is still to be explained.
+**Result:** the chords won both. q1 (2:00): "Version X chord is perfect." q2 (1:50): "Version X chord is just a single
+note." (David saved twice; his first words for q1 also heard melody notes missing, which his second save left out. The
+log keeps the second.) In both versions David heard "the noise channel is a poor substitute for the percussion", and
+asked whether the drums could be baked into the drum voice.
 
 ## Hold-out rows
 
