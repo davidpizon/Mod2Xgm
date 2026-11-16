@@ -29,7 +29,7 @@ public sealed class ListeningFileTests
         ListeningRow[] neither = [.. AnswersFile.Parse(text).Where(r => r.Pick == "neither")];
 
         // Assert
-        Assert.Equal(["r23-q5", "r23-q6", "r24-q1", "r25-q7", "r25-q8", "r25-q9", "r25-q10"], neither.Select(r => r.Name));
+        Assert.Equal(["r23-q5", "r23-q6", "r24-q1", "r25-q7", "r25-q8", "r25-q9", "r25-q10", "r28-q12"], neither.Select(r => r.Name));
         Assert.All(neither, r => Assert.NotEmpty(r.Words));
     }
 }
