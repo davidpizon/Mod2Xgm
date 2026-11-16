@@ -23,9 +23,11 @@ and when FM channels run out, drop notes rather than take a voice from another t
 
 Behind the harness rule `rule:chords=on` (`ConversionOptions.Chords`) until a blind round decides:
 
-- **The chord's notes.** For a region that is a chord (`SoundMenu.IsChord`), its notes are the harmonics of the root
-  within 12 dB of the loudest that aren't harmonics of a lower note (`SoundMenu.ChordTones`). Only harmonics up to the
-  16th count, four octaves up, and only the four loudest notes are kept.
+- **The chord's notes.** A region's notes are the harmonics of its measured root, up to the 16th (four octaves up),
+  within 12 dB of the loudest (`SoundMenu.ChordTones`). A harmonic that is a multiple of a note already found and at
+  least 3 dB quieter than it is that note's overtone, not a note of its own. Only the four loudest notes are kept, and a
+  region needs two to be a chord. `SoundMenu.IsChord` isn't required: EM2's chord samples failed it, because their
+  bass or second harmonic is loud.
 - **One patch.** A chord sample is usually one instrument playing several notes, so all its voices play one patch.
   It is fitted with the usual FM fitter to one note's own harmonics (`SoundMenu.ToneTarget`): the note that shares the
   fewest harmonics with the others (`SoundMenu.ReferenceTone`). Each of the fitter's tries (library, exhaustive,
@@ -67,3 +69,6 @@ Behind the harness rule `rule:chords=on` (`ConversionOptions.Chords`) until a bl
 - The harness takes `rule:chords=on` (docs/harness.md). Round 29 compares it with today's version at the budgets of
   round 28, on the passages where David heard chords go missing.
 - If it wins, a later change turns it on by default and records that in a new ADR. The golden files change then.
+- **Round 29 (2026-11-15):** only EM2 changed (the other five songs made the same files). Two of its three pairs were
+  neither ("background notes but not what sounds like a chord"), one can't tell. So the rule stays off by default until
+  a change makes the voices heard as the chord.

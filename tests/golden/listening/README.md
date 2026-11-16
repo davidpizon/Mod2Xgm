@@ -191,6 +191,18 @@ winner "only missing some". In EM2's q6 the melody notes go missing too. At a qu
 recording seem to go silent rather than move to FM or the PSG (to be checked), so the dials that keep more notes recorded
 win. Heaven remix's q12 was "too many missing notes" in both.
 
+## Round 29: chord samples as FM chords
+
+Plan T9.4t9 ([ADR 0114](../../../docs/adr/0114-fm-chords.md)), David, 2026-11-15. At round 28's quarter budgets, today's
+version against `rule:chords=on`, which plays a chord sample's notes as FM voices of their own. Ten pairs were made from
+round 28's six songs, but only EM2's three differed: in Burp, the Spaceman and Heaven remixes, Wormology and The
+Messanger the chord rule made the same files, so those seven weren't asked. In EM2 the chords played MELLO MAJG (4 notes,
+25 FM notes) and MELLOW MAJ7 (3 notes, 7 FM notes), none short of FM channels.
+
+**Result:** no gain. q1 (2:00) and q2 (1:50) were neither: "There are background notes but not what sounds like a
+chord." q3 (0:20) was can't tell. The extra voices are heard, but not as the chord, so the rule stays off. Why it isn't
+heard as a chord (pitches, levels or the one patch) is still to be found.
+
 ## Hold-out rows
 
 Rows whose song is in `tests/data/holdout/` are the hold-out ([ADR 0105](../../../docs/adr/0105-hold-out-songs.md)):
