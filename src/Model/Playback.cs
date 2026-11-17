@@ -53,7 +53,14 @@ internal enum PlaybackEnd
 /// <param name="Tick">Tick within the row (0 = the row's first tick).</param>
 /// <param name="LowPassFilter">True while the output's low-pass filter is on (MOD <c>E0x</c>, the Amiga's "LED" filter).</param>
 /// <param name="Channels">One entry per song channel, in channel order.</param>
-internal sealed record PlaybackTick(double TimeSeconds, double DurationSeconds, int Order, int Row, int Tick, bool LowPassFilter, IReadOnlyList<ChannelTick> Channels);
+internal sealed record PlaybackTick(double TimeSeconds, double DurationSeconds, int Order, int Row, int Tick, bool LowPassFilter, IReadOnlyList<ChannelTick> Channels)
+{
+    /// <summary>
+    /// True on the first tick of a row's repeat while a pattern delay holds it (MOD <c>EEx</c>): <see cref="Tick"/> is 0
+    /// again, but no new row starts, so the window cut (docs/adr/0116-song-window.md) doesn't start one there.
+    /// </summary>
+    public bool DelayRepeat { get; init; }
+}
 
 /// <summary>
 /// A channel's sound during one tick, as the sound chip plays it (Amiga Paula for MODs): pitch, volume and pan, plus

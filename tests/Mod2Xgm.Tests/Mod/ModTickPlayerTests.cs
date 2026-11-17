@@ -208,6 +208,22 @@ public sealed class ModTickPlayerTests
         Assert.Equal(1, playback.Ticks[18].Row);
     }
 
+    /// <summary>EEx's repeats of a row are marked, so the window cut (ADR 0116) doesn't take them for rows of their own.</summary>
+    [Fact]
+    public void Play_WithPatternDelay_MarksRepeatedRowTicks()
+    {
+        // Arrange
+        ModBuilder song = Song().WithCell(0, row: 0, channel: 0, sample: 0, period: 0, effect: 0xE, parameter: 0xE2);
+
+        // Act
+        Playback playback = Play(song);
+
+        // Assert
+        Assert.Equal([6, 12], playback.Ticks.Select((t, i) => (t, i)).Where(x => x.t.DelayRepeat).Select(x => x.i));
+        Assert.False(playback.Ticks[0].DelayRepeat);
+        Assert.False(playback.Ticks[18].DelayRepeat);
+    }
+
     /// <summary>Wrapping past the end to a row never played isn't a loop: playback ends there, with a note.</summary>
     [Fact]
     public void Play_WhenWrappingToUnplayedRow_StopsWithNote()

@@ -2,6 +2,7 @@ using Mod2Xgm.Analysis;
 using Mod2Xgm.Cli;
 using Mod2Xgm.Dmf;
 using Mod2Xgm.Mod;
+using Mod2Xgm.Model.Window;
 using Mod2Xgm.Tests.Dmf;
 using Mod2Xgm.Tests.Mod;
 using Serilog.Core;
@@ -949,8 +950,117 @@ public sealed class ConversionCommandTests
         Assert.Equal(ExitCode.OutputNotWritable, CodeOf(() => ConversionCommand.Execute(options)));
     }
 
+    /// <summary>
+    /// A window of two orders with a fade-out: the XGM2 and its WAV are written, the WAV is the window's length, and the
+    /// run reports where the window lies and where each position snapped.
+    /// </summary>
+    [Fact]
+    public void Execute_WithWindow_WritesWindowAndReportsIt()
+    {
+        // Arrange
+        using TempDirectory temp = new();
+        CollectingSink sink = new();
+        ConversionOptions options = new()
+        {
+            InputPath = temp.CreateFile("song.mod", FourOrders()),
+            Format = OutputFormat.Xgm2,
+            RenderWav = true,
+            Window = new SongWindowRequest(new TrackerPosition(1, 0), new TrackerPosition(3, 0), null, 1),
+        };
+
+        // Act
+        ExitCode code = ConversionCommand.Execute(options, sink.CreateLogger());
+
+        // Assert
+        Assert.Equal(ExitCode.Success, code);
+        Assert.True(File.Exists(temp.Combine("song.xgm2")));
+        double seconds = (new FileInfo(temp.Combine("song.genesis.wav")).Length - 44) / (44_100 * 4.0);
+        Assert.InRange(seconds, 15.3, 15.4); // 2 orders of 64 rows, 6 ticks of 20 ms each.
+        Assert.Contains(sink.Messages(LogEventLevel.Information), m => m.StartsWith("Window: 0:07.680 (order 1 row 0) to 0:23.041 (order 3 row 0)", StringComparison.Ordinal));
+        Assert.Contains(sink.Messages(LogEventLevel.Warning), m => m.Contains("--start o1r0 is order 1 row 0", StringComparison.Ordinal));
+    }
+
+    /// <summary>A DMF window is written as new patterns in play order, and says so.</summary>
+    [Fact]
+    public void Execute_WithWindowToDmf_WritesPatternsInPlayOrder()
+    {
+        // Arrange
+        using TempDirectory temp = new();
+        CollectingSink sink = new();
+        ConversionOptions options = new()
+        {
+            InputPath = temp.CreateFile("song.mod", FourOrders()),
+            InfoOnly = true,
+            Window = new SongWindowRequest(new TimePosition(10), null, null, null),
+        };
+
+        // Act
+        ExitCode code = ConversionCommand.Execute(options, sink.CreateLogger());
+
+        // Assert
+        Assert.Equal(ExitCode.Success, code);
+        Assert.Contains(sink.Messages(LogEventLevel.Warning), m => m.Contains("The window is written as 3 new patterns in play order", StringComparison.Ordinal));
+    }
+
+    /// <summary>A tracker position past the song's orders is a usage error, after report sections 1-2.</summary>
+    [Fact]
+    public void Execute_WithWindowOrderPastSong_ThrowsUsageError()
+    {
+        // Arrange
+        using TempDirectory temp = new();
+        CollectingSink sink = new();
+        ConversionOptions options = new() { InputPath = temp.CreateFile("song.mod", FourOrders()), Window = new SongWindowRequest(null, new TrackerPosition(9, 0), null, null) };
+
+        // Act
+        ConversionException ex = Assert.Throws<ConversionException>(() => ConversionCommand.Execute(options, sink.CreateLogger()));
+
+        // Assert
+        Assert.Equal(ExitCode.UsageError, ex.Code);
+        Assert.Contains("--end o9r0: this song has orders 0-3 only.", ex.Message, StringComparison.Ordinal);
+        Assert.Contains(sink.Messages(LogEventLevel.Information), m => m.StartsWith("Title       :", StringComparison.Ordinal));
+    }
+
+    /// <summary>A window the song can't give (a row it never plays) is a usage error.</summary>
+    [Fact]
+    public void Execute_WithWindowOnRowNeverPlayed_ThrowsUsageError()
+    {
+        // Arrange
+        using TempDirectory temp = new();
+        ConversionOptions options = new() { InputPath = temp.CreateFile("song.mod", FourOrders()), InfoOnly = true, Window = new SongWindowRequest(new TimePosition(100), null, null, null) };
+
+        // Act & Assert
+        Assert.Equal(ExitCode.UsageError, CodeOf(() => ConversionCommand.Execute(options, Logger.None)));
+    }
+
+    /// <summary>The window step is listed only when a window is asked for.</summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Phases_WithWindow_ListsWindowStepOnlyThen(bool window)
+    {
+        // Arrange
+        ConversionOptions options = new() { InputPath = "song.mod", Window = window ? new SongWindowRequest(new TimePosition(1), null, null, null) : null };
+
+        // Act
+        bool listed = ConversionCommand.Phases(options, analyzes: false).Any(p => p.Id == "window");
+
+        // Assert
+        Assert.Equal(window, listed);
+    }
+
     /// <summary>The exit code of the <see cref="ConversionException"/> <paramref name="action"/> throws.</summary>
     private static ExitCode CodeOf(Action action) => Assert.Throws<ConversionException>(action).Code;
+
+    /// <summary>Four orders of one note each; the song ends after them (an F00 on the last row).</summary>
+    private static byte[] FourOrders() => new ModBuilder()
+        .WithSample(1, "lead", 16_000, loopStart: 0, loopLength: 16_000)
+        .WithOrders(0, 1, 2, 3)
+        .WithCell(0, row: 0, channel: 0, sample: 1, period: 428)
+        .WithCell(1, row: 0, channel: 0, sample: 1, period: 404)
+        .WithCell(2, row: 0, channel: 0, sample: 1, period: 381)
+        .WithCell(3, row: 0, channel: 0, sample: 1, period: 360)
+        .WithCell(3, row: 63, channel: 1, sample: 0, period: 0, effect: 0xF, parameter: 0)
+        .Build();
 
     /// <summary>A MOD whose second one-shot starts a row after the first, which rings on for about a second.</summary>
     private static byte[] OverlappingRecordings() => new ModBuilder()

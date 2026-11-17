@@ -118,6 +118,7 @@ depends on its options:
 | 3 | Scan sample use (`scan`) | always | `rows` played (at the end) |
 | 4 | Build song model (`model`) | always | — |
 | 5 | Play ticks (`play`) | always | — |
+| 5a | Cut window (`window`) | `--start`, `--end`, `--loop-from` or `--fade-out` ([ADR 0116](adr/0116-song-window.md)) | — |
 | 6 | Analyze samples (`analyze`) | `--verbose`, the harness, and (M9) the optimizer | `samples`, one by one |
 | 7 | Fit sounds (`fit`) | `--mapping optimizer` | `samples`, one by one |
 | 8 | Map channels (`map`) | always | — |
@@ -206,9 +207,14 @@ note: Effect 7xy (tremolo) on channel 2, row 14 dropped
 step 5/9 mapping done | 4.0s
 output dmf fm=1 psg=1 dac=3 pcm_bytes=13312
 output FM 01 <- 01 "lead", 02 "pad" (Sine patch)
+window start=o3r13@30.001 end=o11r25@125.044 ending=stops fade_s=4 seconds=95.043
 time read=0.0s scan=0.1s model=0.0s play=0.4s map=4.0s write=0.1s total=18.2s
 result ok exit=0 out=C:\music\song.dmf notes=12 time=18.2s
 ```
+
+The `window` line (only with a window; `end=song_end@<s>` when it runs to the song's end, `loop=` when it loops) gives
+each position as `o<order>r<row>@<source seconds>`. In `fancy` it prints as the `Window:` line of the report
+([cli.md](cli.md#converting-part-of-a-song)).
 
 Other lines: `note: <message>` for each conversion note, `info <message>` and `debug <message>` (with `--verbose`) for
 everything else, the message on one line with its strings unquoted. Names and titles are always quoted; other text is
@@ -235,6 +241,7 @@ Written with `Utf8JsonWriter`, so nothing is serialized by reflection. Strings a
 | `metadata` | `file`, `bytes`, `title`, `tracker`, `tag`, `channels`, `slots`, `orders`, `restart`, `patterns`, `speed`, `bpm` |
 | `sample` | `n`, `name`, `length`, `loop_start`, `loop_length` (only when it loops), `volume`, `finetune`, `notes`, `status` |
 | `output` | `format`, `fm`, `psg`, `dac`, `pcm_bytes` |
+| `window` | with a window: `start_order`, `start_row`, `start_s`, `end_order` / `end_row` (left out when it runs to the song's end), `end_s`, `end` (`stops` / `loops`), `loop_order`, `loop_row`, `loop_s` (seconds into the window; only when it loops), `fade_s` (only with `--fade-out`), `seconds` |
 | `instrument` | `kind` (`FM`, `PSG`, `DAC`), `n`, `from` (sample numbers), `detail`, and for PCM `rate_hz`, `bytes`, `offset`, `volume_db` (each only when it applies) |
 | `analysis` | with `--verbose`: `n`, `name`, `kind`, `percussive`, `tonal`, `noisy`, `period_frames`, `voiced`, `deviation_cents`, `drift_cents`, `peak_db`, `attack_ms`, `decay_ms`, `sustain_db`, `loop_start`, `loop_length`, `regions` (missing facts left out) |
 | `phase` | `n`, `of`, `id`, `event` (`start` / `progress` / `end`), `done`, `total`, `unit`, `elapsed_s`, `eta_s`, `total_eta_s`, `eta_partial`; progress at most once a second |

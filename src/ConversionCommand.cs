@@ -6,6 +6,7 @@ using Mod2Xgm.Dmf;
 using Mod2Xgm.Mapping;
 using Mod2Xgm.Mod;
 using Mod2Xgm.Model;
+using Mod2Xgm.Model.Window;
 using Mod2Xgm.Optimizer;
 using Mod2Xgm.Output;
 using Mod2Xgm.Render;
@@ -106,6 +107,7 @@ internal static class ConversionCommand
             usage.LoopsBack);
         ModReport.LogSamples(logger, module, usage, options.IgnoreSamples);
         CheckSampleNumbers(options, module);
+        CheckWindowOrders(options, module);
         CheckFormat(options, logger);
         TargetLimits limits = TargetLimits.For(options, notes);
         LogLimits(limits, logger);
@@ -119,6 +121,17 @@ internal static class ConversionCommand
         Playback playback = ModTickPlayer.Play(module, options.AmigaClockHz, options.AmigaTickRateScale, notes);
         progress.SetSongSize(SongSize.Ticks, playback.Ticks.Count);
         phase.Done();
+        WindowSummary? window = null;
+        if (options.Window is { } request)
+        {
+            phase = progress.Start(PhaseWindow);
+            WindowedSong windowed = CutWindow(song, playback, request, notes);
+            (song, playback, window) = (windowed.Song, windowed.Playback, windowed.Summary);
+            WindowReport.Log(logger, window);
+            progress.SetSongSize(SongSize.Ticks, playback.Ticks.Count);
+            phase.Done();
+        }
+
         MappingOptions mapping = MappingOptions.From(options);
         progress.SetSongSize(SongSize.Samples, Enumerable.Range(0, song.Samples.Count).Count(s => !song.Samples[s].IsEmpty && !mapping.Ignore.Contains(s)));
         SongAnalysis? analysis = null;
@@ -129,7 +142,7 @@ internal static class ConversionCommand
             IReadOnlyList<SampleAnalysis> analyses = SampleAnalyzer.AnalyzeSong(song, playback, mapping.Ignore, phase);
             analysis = new(song, playback, analyses, SongVoices.Count(song, playback))
             {
-                Source = AnalysisSource(mod, module, options, mapping.Ignore),
+                Source = AnalysisSource(mod, module, options, mapping.Ignore, window),
             };
             if (verbose)
             {
@@ -296,6 +309,11 @@ internal static class ConversionCommand
             (PhaseModel, "Build song model", string.Empty),
             (PhasePlay, "Play ticks", string.Empty),
         ];
+        if (options.Window is not null)
+        {
+            steps.Add((PhaseWindow, "Cut window", string.Empty));
+        }
+
         if (analyzes)
         {
             steps.Add((PhaseAnalyze, "Analyze samples", "samples"));
@@ -326,6 +344,7 @@ internal static class ConversionCommand
     private const string PhaseScan = "scan";
     private const string PhaseModel = "model";
     private const string PhasePlay = "play";
+    private const string PhaseWindow = "window";
     private const string PhaseAnalyze = "analyze";
     private const string PhaseFit = "fit";
     private const string PhaseMap = "map";
@@ -452,13 +471,39 @@ internal static class ConversionCommand
         LogSampleList(logger, "Samples required as FM {Samples}", options.RequireFm);
         LogSampleList(logger, "Samples required as DAC {Samples}", options.RequireDac);
         LogSampleList(logger, "Samples required as PSG {Samples}", options.RequirePsg);
+        if (options.Window is { } window)
+        {
+            logger.Debug(
+                "Window: start {Start:l}, end {End:l}, loop from {LoopFrom:l}, fade-out {FadeOut:l}",
+                window.Start?.Display ?? "song start",
+                window.End?.Display ?? "song end",
+                window.LoopFrom?.Display ?? "none",
+                window.FadeOutSeconds is { } fade ? SongTime.Format(fade) : "none");
+        }
+    }
+
+    /// <summary>
+    /// Cuts the part of the song <c>--start</c>, <c>--end</c>, <c>--loop-from</c> and <c>--fade-out</c> choose
+    /// (docs/adr/0116-song-window.md); one this song can't give is a usage error.
+    /// </summary>
+    private static WindowedSong CutWindow(Song song, Playback playback, SongWindowRequest request, ConversionNotes notes)
+    {
+        try
+        {
+            return SongWindow.Cut(song, playback, request, notes);
+        }
+        catch (WindowException ex)
+        {
+            throw new ConversionException(ExitCode.UsageError, ex.Message, ex);
+        }
     }
 
     /// <summary>
     /// What the analysis is made from, the key of the song's cached candidates (docs/adr/0074-candidate-cache.md): the
-    /// file, the player that reads it, the Amiga's clock and tick rate, and the samples left out.
+    /// file, the player that reads it, the Amiga's clock and tick rate, the samples left out, and the part of the song
+    /// converted, so a window never gets the whole song's candidates.
     /// </summary>
-    private static Fingerprint AnalysisSource(byte[] mod, ModModule module, ConversionOptions options, IReadOnlySet<int> ignore)
+    private static Fingerprint AnalysisSource(byte[] mod, ModModule module, ConversionOptions options, IReadOnlySet<int> ignore, WindowSummary? window)
     {
         using Hasher key = new();
         key.Add(Fingerprint.Of(mod));
@@ -469,6 +514,14 @@ internal static class ConversionCommand
         foreach (int sample in ignore.Order())
         {
             key.Add(sample);
+        }
+
+        if (window is not null)
+        {
+            key.Add(window.Ticks.Start);
+            key.Add(window.Ticks.End);
+            key.Add(window.Ticks.Loop);
+            key.Add(window.FadeSeconds ?? 0);
         }
 
         return key.Finish();
@@ -493,6 +546,32 @@ internal static class ConversionCommand
         AddUnknown(problems, "--require-fm", options.RequireFm, module.Samples.Count);
         AddUnknown(problems, "--require-dac", options.RequireDac, module.Samples.Count);
         AddUnknown(problems, "--require-psg", options.RequirePsg, module.Samples.Count);
+        if (problems.Count > 0)
+        {
+            throw new ConversionException(ExitCode.UsageError, string.Join(Environment.NewLine, problems));
+        }
+    }
+
+    /// <summary>
+    /// Tracker positions are checked against 0–127 when parsed; this rejects orders the song doesn't have. Runs after the
+    /// report, like <see cref="CheckSampleNumbers"/>. Every problem is reported at once.
+    /// </summary>
+    private static void CheckWindowOrders(ConversionOptions options, ModModule module)
+    {
+        if (options.Window is not { } window)
+        {
+            return;
+        }
+
+        List<string> problems = [];
+        foreach ((string option, SongPosition? position) in new[] { ("--start", window.Start), ("--end", window.End), ("--loop-from", window.LoopFrom) })
+        {
+            if (position is TrackerPosition { Order: var order } && order >= module.SongLength)
+            {
+                problems.Add(FormattableString.Invariant($"{option} {position.Display}: this song has orders 0-{module.SongLength - 1} only."));
+            }
+        }
+
         if (problems.Count > 0)
         {
             throw new ConversionException(ExitCode.UsageError, string.Join(Environment.NewLine, problems));
