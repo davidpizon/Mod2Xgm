@@ -75,6 +75,7 @@ channel 9: orders [0 1 2], effect columns 1
 channel 10: orders [0 1 2], effect columns 1
 conversion notes:
   Sample 1 "sine lead": it loops, so it is a sustained tone and is played by the Sine FM patch
+  Sample 1 "sine lead": its fundamental holds 100 % of its tone, so it is played as a plain sine
   Sample 1 "sine lead": its tone repeats every 31.98 frames, so its FM notes play at that pitch (C-2 sounds at 259.1 Hz)
   The song changes tempo between 2 values; DMF has one tick rate, so rows at the other tempos get tick times that make them as long as the MOD's
   The song changes speed or tempo and also jumps or loops; DMF timing follows the rows top to bottom, so a change that depends on the way through the jumps may be off

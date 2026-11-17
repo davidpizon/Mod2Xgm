@@ -71,7 +71,8 @@ internal sealed class SimpleMapper(DacLoser loser = DacLoser.Default) : IChannel
     /// <param name="Required">True when a <c>--require-…</c> option chose the voice.</param>
     /// <param name="Reason">The conversion note that says why.</param>
     /// <param name="Assumption">A conversion note said before <paramref name="Reason"/>: what the mapper took the sample to be.</param>
-    private sealed record Route(Primary Primary, FmPatch Fallback, bool NoiseLike, bool Required, Why? Reason = null, Why? Assumption = null);
+    /// <param name="Detail">A conversion note said after <paramref name="Reason"/>: how its FM patch was chosen.</param>
+    private sealed record Route(Primary Primary, FmPatch Fallback, bool NoiseLike, bool Required, Why? Reason = null, Why? Assumption = null, Why? Detail = null);
 
     /// <summary>The conversion note that explains a lossy routing choice, said once, when the instrument is first played.</summary>
     private sealed record Why(string Template, object[] Values);
@@ -105,6 +106,7 @@ internal sealed class SimpleMapper(DacLoser loser = DacLoser.Default) : IChannel
         private readonly ConversionNotes _notes;
         private readonly Route[] _routes;
         private readonly List<FmPatch> _patches = [];
+        private readonly Dictionary<int, HarmonicPatch?> _harmonics = [];
         private readonly List<int> _dacSamples = [];
         private readonly Dictionary<int, Dictionary<int, (int Count, double Rate)>> _dacPitches = [];
         private readonly HashSet<int> _played = [];
@@ -197,7 +199,8 @@ internal sealed class SimpleMapper(DacLoser loser = DacLoser.Default) : IChannel
             bool pitchedTail = loop == LoopKind.Tail && SamplePitch.Measure(sample).PeriodFrames is not null;
             Why? notTone = pitchedTail ? null : NotTone(sample, loop, label);
             bool sustained = loop == LoopKind.Tone || pitchedTail;
-            FmPatch patch = sustained ? FmPatchLibrary.ForSustained(traits.Brightness) : FmPatchLibrary.ForOneShot(traits.Brightness);
+            HarmonicPatch? harmonic = loop == LoopKind.Tone ? Harmonics(instrument.Sample) : null;
+            FmPatch patch = harmonic?.Patch ?? (sustained ? FmPatchLibrary.ForSustained(traits.Brightness) : FmPatchLibrary.ForOneShot(traits.Brightness));
             bool requireDac = _options.RequireDac.Contains(instrument.Sample);
 
             if (_options.RequireFm.Contains(instrument.Sample))
@@ -222,7 +225,7 @@ internal sealed class SimpleMapper(DacLoser loser = DacLoser.Default) : IChannel
 
             if (sustained)
             {
-                return new Route(Primary.Fm, patch, traits.NoiseLike, false, new Why("Sample {Sample}: it loops, so it is a sustained tone and is played by the {Patch} FM patch", [label, patch.Name]));
+                return new Route(Primary.Fm, patch, traits.NoiseLike, false, new Why("Sample {Sample}: it loops, so it is a sustained tone and is played by the {Patch} FM patch", [label, patch.Name]), Detail: HarmonicNote(harmonic, label));
             }
 
             if (_options.UseDac)
@@ -237,6 +240,31 @@ internal sealed class SimpleMapper(DacLoser loser = DacLoser.Default) : IChannel
 
             return new Route(Primary.Fm, patch, false, false, new Why("Sample {Sample}: the DAC is off (--no-dac), so it is played by the {Patch} FM patch", [label, patch.Name]), notTone);
         }
+
+        /// <summary>The sample's loop measured as harmonics of its pitch, once per sample; <c>null</c> when it has no pitch or can't be measured.</summary>
+        private HarmonicPatch? Harmonics(int sample)
+        {
+            if (!_harmonics.TryGetValue(sample, out HarmonicPatch? harmonic))
+            {
+                Sample data = _song.Samples[sample];
+                harmonic = SamplePitch.Measure(data).PeriodFrames is { } period ? HarmonicPatch.Of(data, period) : null;
+                _harmonics[sample] = harmonic;
+            }
+
+            return harmonic;
+        }
+
+        /// <summary>
+        /// The note that says whether a sustained tone's patch was built from its harmonics or chosen by brightness, or
+        /// <c>null</c> when its harmonics couldn't be measured (docs/adr/0118-harmonic-patches.md).
+        /// </summary>
+        private static Why? HarmonicNote(HarmonicPatch? harmonic, string label) => harmonic switch
+        {
+            null => null,
+            { Patch: not null, Harmonics: [1] } => new Why("Sample {Sample}: its fundamental holds {Capture:0.#} % of its tone, so it is played as a plain sine", [label, harmonic.Capture * 100]),
+            { Patch: not null } => new Why("Sample {Sample}: harmonics {Harmonics} hold {Capture:0.#} % of its tone, so its FM patch sounds those harmonics at their levels", [label, string.Join(", ", harmonic.Harmonics), harmonic.Capture * 100]),
+            _ => new Why("Sample {Sample}: its four loudest harmonics ({Harmonics}) hold only {Capture:0.#} % of its tone, so its FM patch is chosen by how bright it is", [label, string.Join(", ", harmonic.Harmonics), harmonic.Capture * 100]),
+        };
 
         /// <summary>The note that says why a looping sample isn't played as a sustained tone, or <c>null</c> when it is one or doesn't loop.</summary>
         private static Why? NotTone(Sample sample, LoopKind kind, string label) => (kind, sample.Loop) switch
@@ -582,7 +610,7 @@ internal sealed class SimpleMapper(DacLoser loser = DacLoser.Default) : IChannel
             }
 
             Route route = _routes[instrument];
-            foreach (Why why in new[] { route.Assumption, route.Reason }.OfType<Why>())
+            foreach (Why why in new[] { route.Assumption, route.Reason, route.Detail }.OfType<Why>())
             {
                 _notes.Add(why.Template, why.Values);
             }
