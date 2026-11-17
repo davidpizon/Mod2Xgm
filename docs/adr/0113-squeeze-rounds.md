@@ -40,12 +40,14 @@ David, 2026-11-15.
      structures), the closest by CLAP chosen among them (plan T9.4s6's idea), checked first in the harness as ADR 0111
      asks. One such pair per song at 25 %, and at 0 %, where FM is all there is.
 - **More ways, from round 28 (David, 2026-11-15):** each joins the rounds as it is built, so round 27 isn't remade:
-  5. **Dials the converter has:** pitch sharing at 25 and 50 cents (today 10), one copy per 6 dB of loudness (today
-     3), merging look-alikes at 90 % alike (today 98 %), half speed only for dull samples (little above 3.3 kHz), and
-     tails cut 30 dB below the peak (today 48).
+  5. **Dials the converter has (plan T9.4t5):** pitch sharing at 25 and 50 cents (today 10), one copy per 12 dB of
+     loudness (today 6 dB: shared copies already span two 3 dB steps), merging look-alikes at 90 % alike (today 98 %),
+     and half speed only for dull samples (little above 3.3 kHz). Round 28 tries them at 25 %.
   6. **A recorded attack with an FM tail:** a long sound's first part stays a recording, and an FM note of its fitted
      patch carries the rest.
-  7. **A made loop:** a long one-shot with a steady part gets a seamless loop there, so only that much is stored.
+  7. **A made loop, and a cut tail:** a long one-shot with a steady part gets a seamless loop there, so only that much
+     is stored; or its tail is cut 30 dB below the peak (today 48 dB, but that only counts bytes: the whole sample is
+     still stored, so cutting it is new work, done with the loops).
   8. **Noise for hi-hats and cymbals:** bright noisy hits give up their recordings to the PSG's noise first.
   9. **Hidden notes skipped:** a note masked by a louder one at the same moment stores no copy of its own.
 - **Learning the order.** Each song is described by measured traits: the share of its importance in percussive
@@ -85,3 +87,8 @@ David, 2026-11-15.
   5, drums first 1 of 2, no shrinking 1 of 4 (2 can't tell); David: percussion "is extremely important"
   ([round 27](../../tests/golden/listening/README.md#round-27-squeezed-to-half)). The order depends on the song, so the
   rounds go on.
+- **Round 28** (2026-11-15, 25 %, the dials): half speed for dull samples won 3 of 4 pairs, pitches sharing within 25
+  cents 2 of 3 (1 neither), a copy per 12 dB 1 of 1, merging at 90 % alike 0 of 2. Sharing within 50 cents made the same
+  files as 25 cents. David heard background chords and melody notes go missing at a quarter
+  ([round 28](../../tests/golden/listening/README.md#round-28-squeezed-to-a-quarter-by-dials)); the dials that keep more
+  notes recorded won.

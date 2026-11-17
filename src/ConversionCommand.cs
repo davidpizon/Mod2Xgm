@@ -207,7 +207,7 @@ internal static class ConversionCommand
     {
         CandidateCache? cache = options.NoCache ? null : new CandidateCache(options.CacheDirectory ?? CandidateCache.DefaultRoot, logger);
         FmFitOptions fm = new(SoundMenu.FmRendersPerStep, options.Seed, Lfo: false);
-        return SoundMenu.Make(analysis, limits.Target, mapping, fm, cache, work);
+        return SoundMenu.Make(analysis, limits.Target, mapping, fm, cache, work, options.Chords);
     }
 
     /// <summary>Plans the DMF's timing, builds it, prints report section 3 and writes the file (unless <c>--info</c>).</summary>

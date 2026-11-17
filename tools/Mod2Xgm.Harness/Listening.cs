@@ -186,13 +186,22 @@ internal sealed record Recipe(IReadOnlyList<string> Arguments, IReadOnlySet<int>
     /// <summary>The rules a recipe can give, for the usage message.</summary>
     private const string KnownRules = "rule:half-speed=<samples>, rule:layers=off, rule:pre-mix=off, rule:pan=today|short|never, rule:pan-free=<seconds>,<volume>,<distance>, "
         + "rule:pan-span=song|order, rule:pan-fix=<middle+fm+unmix or none>, rule:pan-cost=<dB>, rule:dac-loser=noise|fm|noise-all-song, "
-        + "rule:quieter=<sample>:<dB>[,…], rule:song-quieter=<dB>, rule:half-speed=all, rule:shrink=off, rule:keep=importance|drums|tonal";
+        + "rule:quieter=<sample>:<dB>[,…], rule:song-quieter=<dB>, rule:half-speed=all, rule:shrink=off, rule:keep=importance|drums|tonal, rule:pitch-share=<cents>, rule:loudness-share=<steps>, rule:merge=<percent>, rule:chords=on";
 
     /// <summary>The most dB a level rule turns a sound down: past it a recording is all but silent on XGM2's 3 dB steps.</summary>
     private const double MaxQuieterDb = 24;
 
     /// <summary>The highest sample number a MOD has (docs/formats/mod.md#sample-header).</summary>
     private const int MaxSample = 31;
+
+    /// <summary>The widest <c>rule:pitch-share</c>: a semitone, past which a shared copy plays another note.</summary>
+    private const double MaxPitchShareCents = 100;
+
+    /// <summary>The most 3 dB steps <c>rule:loudness-share</c> lets one copy cover: 24 dB.</summary>
+    private const int MaxLoudnessShareSteps = 8;
+
+    /// <summary>The least alike, in percent, <c>rule:merge</c> lets two samples be.</summary>
+    private const int MinMergePercent = 50;
 
     /// <summary>
     /// How much quieter the plan plays with <c>rule:quieter=…</c> and <c>rule:song-quieter=…</c> (docs/adr/0112-retry-list.md),
@@ -205,6 +214,18 @@ internal sealed record Recipe(IReadOnlyList<string> Arguments, IReadOnlySet<int>
 
     /// <summary>Which tracks keep a recording first with <c>rule:keep=…</c> (docs/adr/0113-squeeze-rounds.md).</summary>
     public KeepFirst Keep { get; private init; }
+
+    /// <summary>True with <c>rule:chords=on</c>: a chord sample's notes play as FM voices of their own (docs/adr/0114-fm-chords.md).</summary>
+    public bool Chords { get; private init; }
+
+    /// <summary>With <c>rule:pitch-share=&lt;cents&gt;</c>: how far apart pitches may share a copy when the budget pinches, in place of the converter's 10 cents (docs/adr/0113-squeeze-rounds.md).</summary>
+    public double? PitchShareCents { get; private init; }
+
+    /// <summary>With <c>rule:loudness-share=&lt;steps&gt;</c>: how many 3 dB steps one copy covers when the budget pinches, in place of the converter's 2 (docs/adr/0113-squeeze-rounds.md).</summary>
+    public int? LoudnessShareSteps { get; private init; }
+
+    /// <summary>With <c>rule:merge=&lt;percent&gt;</c>: how alike, 0–1, two samples must be to merge, in place of the converter's 0.98 (docs/adr/0113-squeeze-rounds.md).</summary>
+    public double? MergeLikeness { get; private init; }
 
     /// <summary>
     /// The optimizer's pan rules with <c>rule:pan…</c> (docs/adr/0109-pan-swap-cost.md), or <c>null</c> for the converter's own.
@@ -234,6 +255,10 @@ internal sealed record Recipe(IReadOnlyList<string> Arguments, IReadOnlySet<int>
         LevelRules? levels = null;
         bool shrink = true;
         KeepFirst keep = KeepFirst.Importance;
+        double? pitchShare = null;
+        int? loudnessShare = null;
+        double? merge = null;
+        bool chords = false;
         foreach (string token in text.Split(' ', StringSplitOptions.RemoveEmptyEntries))
         {
             if (token.StartsWith("rule:", StringComparison.Ordinal))
@@ -241,6 +266,9 @@ internal sealed record Recipe(IReadOnlyList<string> Arguments, IReadOnlySet<int>
                 string[] parts = token["rule:".Length..].Split('=', 2);
                 switch (parts)
                 {
+                    case ["chords", "on"]:
+                        chords = true;
+                        continue;
                     case ["layers", "off"]:
                         layers = false;
                         continue;
@@ -301,6 +329,15 @@ internal sealed record Recipe(IReadOnlyList<string> Arguments, IReadOnlySet<int>
                     case ["keep", "tonal"]:
                         keep = KeepFirst.Tonal;
                         continue;
+                    case ["pitch-share", { } cents]:
+                        pitchShare = Dial(cents, 1, MaxPitchShareCents, "pitch-share", "cents", text);
+                        continue;
+                    case ["loudness-share", { } steps]:
+                        loudnessShare = (int)Dial(steps, 2, MaxLoudnessShareSteps, "loudness-share", "3 dB steps", text, whole: true);
+                        continue;
+                    case ["merge", { } percent]:
+                        merge = Dial(percent, MinMergePercent, 100, "merge", "percent alike", text, whole: true) / 100;
+                        continue;
                     case ["half-speed", _]:
                         break;
                     default:
@@ -324,11 +361,11 @@ internal sealed record Recipe(IReadOnlyList<string> Arguments, IReadOnlySet<int>
             }
         }
 
-        return new Recipe(arguments, halfSpeed, layers, preMix) { Pan = pan, Loser = loser, Levels = levels, Shrink = shrink, Keep = keep };
+        return new Recipe(arguments, halfSpeed, layers, preMix) { Pan = pan, Loser = loser, Levels = levels, Shrink = shrink, Keep = keep, PitchShareCents = pitchShare, LoudnessShareSteps = loudnessShare, MergeLikeness = merge, Chords = chords };
     }
 
     /// <summary>True when the recipe has a rule only <c>--mapping optimizer</c> reads.</summary>
-    public bool HasRules => HalfSpeed.Count > 0 || !Layers || !PreMix || Pan is not null || Levels is not null || !Shrink || Keep != KeepFirst.Importance;
+    public bool HasRules => HalfSpeed.Count > 0 || !Layers || !PreMix || Pan is not null || Levels is not null || !Shrink || Keep != KeepFirst.Importance || PitchShareCents is not null || LoudnessShareSteps is not null || MergeLikeness is not null || Chords;
 
     /// <summary><c>rule:quieter=3:6,7:3</c>: samples (1-based) and how many dB quieter each plays as a recording.</summary>
     private static LevelRules Quieter(LevelRules levels, string list, string text)
@@ -353,6 +390,15 @@ internal sealed record Recipe(IReadOnlyList<string> Arguments, IReadOnlySet<int>
         double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double db) && db is > 0 and <= MaxQuieterDb
             ? db
             : throw HarnessException.Usage(string.Create(CultureInfo.InvariantCulture, $"recipe \"{text}\": rule:{rule}: {value} is not a number of dB above 0 and at most {MaxQuieterDb}"));
+
+    /// <summary>
+    /// A squeeze dial's value (docs/adr/0113-squeeze-rounds.md): a number from <paramref name="min"/> to <paramref name="max"/>,
+    /// whole when <paramref name="whole"/>; throws a usage <see cref="HarnessException"/> naming the rule otherwise.
+    /// </summary>
+    private static double Dial(string value, double min, double max, string rule, string unit, string text, bool whole = false) =>
+        double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double number) && number >= min && number <= max && (!whole || double.IsInteger(number))
+            ? number
+            : throw HarnessException.Usage(string.Create(CultureInfo.InvariantCulture, $"recipe \"{text}\": rule:{rule}={value} is not {(whole ? "a whole number of" : "a number of")} {unit} from {min} to {max}"));
 
     /// <summary><c>rule:pan-free=seconds,volume,distance</c>: the swaps <see cref="PanSwapAllowance.ShortQuiet"/> lets stand.</summary>
     private static PanRules Free(PanRules pan, string value, string text)
@@ -386,12 +432,25 @@ internal sealed record Recipe(IReadOnlyList<string> Arguments, IReadOnlySet<int>
     }
 
     /// <summary>The shrink rules the recipe asks for, or <c>null</c> for the converter's own.</summary>
-    public ShrinkRules? Rules => (Shrink, HalfSpeed.Count) switch
+    public ShrinkRules? Rules
     {
-        (true, 0) => null,
-        (true, _) => ShrinkRules.Default with { ForcedHalfSpeed = HalfSpeed.Select(s => s - 1).ToHashSet() },
-        _ => ShrinkRules.None with { ForcedHalfSpeed = HalfSpeed.Select(s => s - 1).ToHashSet() },
-    };
+        get
+        {
+            if (Shrink && HalfSpeed.Count == 0 && PitchShareCents is null && LoudnessShareSteps is null && MergeLikeness is null)
+            {
+                return null;
+            }
+
+            ShrinkRules start = Shrink ? ShrinkRules.Default : ShrinkRules.None;
+            return start with
+            {
+                ForcedHalfSpeed = HalfSpeed.Select(s => s - 1).ToHashSet(),
+                PitchShareCents = PitchShareCents ?? start.PitchShareCents,
+                LoudnessShareSteps = LoudnessShareSteps ?? start.LoudnessShareSteps,
+                MergeCorrelation = MergeLikeness ?? start.MergeCorrelation,
+            };
+        }
+    }
 }
 
 /// <summary>Cuts a listening clip out of a 16-bit stereo WAV, byte for byte, so a clip made again from the same render is the same file.</summary>
@@ -649,7 +708,7 @@ internal sealed class ListeningRemake(IReadOnlyList<string> songs, string output
 
         try
         {
-            ConversionOptions ruled = options with { ShrinkRules = recipe.Rules, PreMixRules = recipe.PreMix ? null : PreMixRules.None, Layers = recipe.Layers, PanRules = recipe.Pan, DacLoser = recipe.Loser, LevelRules = recipe.Levels, KeepFirst = recipe.Keep };
+            ConversionOptions ruled = options with { ShrinkRules = recipe.Rules, PreMixRules = recipe.PreMix ? null : PreMixRules.None, Layers = recipe.Layers, PanRules = recipe.Pan, DacLoser = recipe.Loser, LevelRules = recipe.Levels, KeepFirst = recipe.Keep, Chords = recipe.Chords };
             return ConversionCommand.Execute(ruled, Serilog.Core.Logger.None, analyzed, NoProgress.Instance);
         }
         catch (ConversionException ex) when (ex.Code == ExitCode.UsageError && options.Format == OutputFormat.Xgm && File.Exists(wav))
