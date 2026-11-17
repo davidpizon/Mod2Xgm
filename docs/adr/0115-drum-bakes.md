@@ -77,6 +77,11 @@ David's answers (2026-11-16):
   (Spaceman remix, Heaven remix, Wormology) lose chords and other sounds in both versions, without T9.4t9's FM chords.
   Not yet enough to make either rule the default; the next round should separate `bytes=score` from the bakes and run
   on top of T9.4t9.
+- **Round 32** (2026-11-17, [tests/golden/listening](../../tests/golden/listening/README.md#round-32-one-drum-rule-at-a-time)),
+  each rule alone with FM chords on: `bytes=score` won 3 (EM2, Burp, Spaceman remix), lost 1 (Heaven remix), with 1 can't
+  tell and 1 neither; the bakes won 2 of EM2's 3 and changed nothing on Burp. In EM2 both versions still drop the drums
+  to noise for part of the song (the bakes after 0:17, today's before it), and David hears noise as no substitute there.
+  Next: keep a drum sample on one sound for the whole song, so the bakes' bytes cover every bar or none.
 - Every byte-exact test is unchanged with the rules off.
 - The harness takes the two rules (docs/harness.md); squeeze rounds at round 28's budgets on the six biggest songs, with
   EM2's drums among the pairs.
