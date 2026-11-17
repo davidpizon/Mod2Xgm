@@ -168,6 +168,27 @@ Spaceman remix (q1–q3, in both versions of q2); the main chords go missing in 
 versions of Heaven remix's q17. Half speed, which lost everywhere in round 11, won on three of six songs here, against a
 squeeze twice as hard on songs that store far more.
 
+## Round 31: drums baked into recordings
+
+Plan T9.4t10 ([ADR 0115](../../../docs/adr/0115-drum-bakes.md)), David, 2026-11-16. Ten pairs from the six squeeze songs
+at round 28's budgets set today's way (`a`) against recording bytes by score with both kinds of drum baking
+(`rule:bytes=score rule:bake=both`, `b`). The page was blind, with X and Y swapped on q2, q3, q5, q8 and q10; picks are in
+file terms, and q1's "Y" is `b`.
+
+**Result:** the new rules won 3 and lost 2, with 1 can't tell and 4 where neither was acceptable.
+
+| Song | New rules won | Lost | Can't tell | Neither |
+|---|---|---|---|---|
+| EM2 | 2 (q1: "The drums are more accurate") | 1 | 0 | 0 |
+| Burp | 1 | 1 | 0 | 0 |
+| The Messanger | 0 | 0 | 1 | 0 |
+| Spaceman remix, Heaven remix, Wormology | 0 | 0 | 0 | 4 |
+
+David's words for the four rejected pairs: the chords are missing in both versions (Spaceman remix, Heaven remix), and
+"Too many missing sounds" (Heaven remix, Wormology). This branch was cut from `main` without T9.4t9's FM chords, so the
+chord samples there still play as one FM voice. In The Messanger, a long drone that changes shape in the original is
+held flat in both.
+
 ## Hold-out rows
 
 Rows whose song is in `tests/data/holdout/` are the hold-out ([ADR 0105](../../../docs/adr/0105-hold-out-songs.md)):
