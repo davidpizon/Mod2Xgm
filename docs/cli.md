@@ -16,6 +16,10 @@ mod2xgm <input.mod> [options]
 | `--output-region <pal\|ntsc>` | `pal` | Region of the Genesis the output is made for: its clocks and frame rate. See [Regions](#regions). |
 | `--player <protracker\|ust>` | by file | Whose rules to read and play the MOD by: `protracker` (ProTracker 2) or `ust` (Ultimate Soundtracker). Default: `ust` for 15-sample files, `protracker` otherwise. See [Players](#players). |
 | `--resampler <smooth\|amiga>` | `smooth` | How samples are played at the target's rates: `smooth` (the smooth sound between the points, as OpenMPT plays it) or `amiga` (Paula's steps, with their fizzy overtones). Both are band-limited, so neither aliases. See [ADR 0038](adr/0038-sample-processor.md). |
+| `--start <pos>` | song start | Convert from this place in the song: a time (`90`, `1:30`, `1:30.5`) or an order and row (`o4r16`). Snaps to the nearest row start. See [Converting part of a song](#converting-part-of-a-song). |
+| `--end <pos>` | song end | Stop before this place (that row isn't played); same syntax. Past the end of a song that stops, it is cut to the song's end with a note. |
+| `--loop-from <pos>` | none | After the end, loop back to this place (inside the part converted) instead of stopping. |
+| `--fade-out <time>` | none | Fade to silence over this long before the end (`4`, `4.5s`, `0:04`); the song then stops. Can't be combined with `--loop-from`. |
 | `--mapping <name>` | TBD | Channel-mapping strategy (see [channel-mapping.md](channel-mapping.md)). |
 | `--ignore-samples <list>` | none | MOD sample numbers to leave out, 1-based, comma-separated, ranges allowed: `3,7,12-14`. Hex accepted with `0x` (trackers show hex: `0x1F` = 31). Repeatable. Unknown/empty numbers → exit 1. A note of an ignored sample silences its track until the next note (a conversion note says how many were left out). |
 | `--require-fm <list>` | none | MOD samples that **must** be played by FM (never the DAC or PSG). Same list syntax as `--ignore-samples`. See [sample-capacity.md](sample-capacity.md#required-fm-dac-and-psg-samples). |
@@ -57,8 +61,47 @@ Parsed by System.CommandLine; values are converted and checked by `src/Cli/Optio
 - `--no-dac` and `--require-dac` together are a usage error (exit 1): "--no-dac keeps every sample off the DAC".
 - `--max-pcm-bytes`: optional; with none, XGM and XGM2 hold what the format can ([ADR 0093](adr/0093-optional-pcm-budget.md)). A positive integer, optional `K` (×1024) or `M` (×1024²) suffix, case-insensitive. XGM and XGM2 hold at most 16,776,960 bytes: a bigger value is cut to that, with a conversion note ([ADR 0085](adr/0085-target-limits.md)). DMF has no byte limit; there the value only stops bigger pre-mixes being made ([ADR 0078](adr/0078-pre-mix-budget-cap.md)).
 - `--time-budget`: positive integer with optional `s`, `m` or `h` (plain number = seconds).
+- `--start`, `--end`, `--loop-from`: a time — seconds (`125`, `125.5`, `125.5s`), `m:ss` (`2:05`, `2:05.250`) or `h:mm:ss` —
+  or a tracker position `o<order>[r<row>]` (`o11r25`; `o3` is row 0), 0-based as conversion notes print them, order
+  0–127 and row 0–63. `11:25` is a time (11 min 25 s), never an order and row. An order the song doesn't have is
+  rejected after report sections 1–2 (exit 1: `--end o14r0: this song has orders 0-12 only.`).
+- `--fade-out`: a length above 0, as seconds or `m:ss`; not a tracker position.
+- **Window conflicts (exit 1, every problem reported):** `--fade-out` with `--loop-from`; `--end` not after `--start`
+  (both times, or the same tracker position); a time `--loop-from` outside `--start`…`--end`; a fade as long as the
+  part converted or longer. Positions the song never reaches (a row it skips, a start past the end of a song that
+  stops) are found once the song is played, also exit 1.
 - `--reserve-sfx-channels`: `0`–`4` for `xgm`, `0`–`3` for `xgm2`; must be `0` for `dmf` (one DAC channel, nothing to reserve).
 - `--mapping`: `simple` or `optimizer`, anything else is a usage error (exit 1). Without it, `simple`, until plan T9.6 compares them. `optimizer` wins over `--quality fast` ([ADR 0087](adr/0087-greedy-allocator.md)).
+
+## Converting part of a song
+
+`--start`, `--end`, `--loop-from` and `--fade-out` convert a window of the song ([ADR 0116](adr/0116-song-window.md)).
+Times are on the MOD's own timeline (its tick rate under `--input-region`), as the conversion notes and the `Window:`
+line print them.
+
+- **Snapping.** Every position moves to the nearest row start (the earlier on a tie); a conversion note gives the order,
+  row and time used: `--end 2:05.000 is order 11 row 25, 2:05.044 into the song`. A tracker position is the first time
+  the song plays that row (at or after `--start` for `--end` and `--loop-from`).
+- **The end is exclusive**: `--end o12r0` plays up to the row before order 12 row 0.
+- **How it ends.** With `--end`, the song stops there. Without it, the window keeps the song's own ending: it stops where
+  the song stops, or plays to the end of the song's first pass and loops back to the song's loop point. A `--start`
+  inside the song's loop plays one whole turn of the loop from there and loops back to `--start`. `--loop-from` replaces
+  the ending with a loop to that place. An `--end` past the song's first pass plays the loop again to reach it.
+- **Fade-out.** `--fade-out` drops the volume evenly in dB (48 dB down by the end, then silent) over the window's last
+  seconds; the XGM2 and the WAV follow it every tick, a DMF once per row. A recording already playing on the DAC keeps
+  the volume it started at.
+- **What the window inherits** — speed, tempo, effect memory, instruments, waveform settings and notes still sounding
+  at `--start` — is written into its first rows, so DMF, XGM2 and the WAV play the same window. A note sounding at
+  `--start` starts again there, part-way into its sample; an FM voice restarts its envelope (a conversion note counts them).
+- The window is written as new patterns in play order (jumps, breaks and pattern loops played out), so a DMF of it may
+  have more orders than the MOD. A DMF can't stop: after the end it jumps back to the window's start (the existing
+  note says so).
+
+Report sections 1–2 always describe the whole MOD; after the song is played a `Window:` line says what is converted:
+
+```
+Window: 0:30.001 (order 3 row 13) to 2:05.044 (order 11 row 25), 1:35.043 long, stops, fading out over its last 0:04.000
+```
 
 ## Output naming
 

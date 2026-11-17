@@ -128,6 +128,7 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0112](0112-retry-list.md) | The retry list: kinds of fix, CLAP's screen, and the round it asks | 2026-11-14 | Accepted |
 | [0113](0113-squeeze-rounds.md) | Squeeze rounds: which ways of fitting a smaller budget keep the most sound | 2026-11-15 | Accepted |
 | [0114](0114-fm-chords.md) | A chord sample's notes as FM voices of their own | 2026-11-15 | Proposed |
+| [0116](0116-song-window.md) | Converting a window of the song: cut the song model and slice the playback | 2026-11-17 | Accepted |
 
 ## Open questions
 

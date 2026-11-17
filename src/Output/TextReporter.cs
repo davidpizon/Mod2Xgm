@@ -166,6 +166,15 @@ internal sealed class TextReporter(TextWriter output, TextWriter error) : IConve
                     Pair("pcm_bytes", row.Get("pcm_bytes")));
             case "instrument":
                 return InstrumentLine(row);
+            case "window":
+                return Join(
+                    "window",
+                    Pair("start", Position(row, "start")),
+                    Pair("end", row.Get("end_order") is null ? Invariant($"song_end@{row.Get("end_s")}") : Position(row, "end")),
+                    Pair("ending", row.Get("end")),
+                    row.Get("loop_order") is null ? null : Pair("loop", Position(row, "loop")),
+                    row.Get("fade_s") is { } fade ? Pair("fade_s", fade) : null,
+                    Pair("seconds", row.Get("seconds")));
             case "result":
                 _result = row;
                 return null;
@@ -173,6 +182,10 @@ internal sealed class TextReporter(TextWriter output, TextWriter error) : IConve
                 return null;
         }
     }
+
+    /// <summary>A window position as <c>o2r16@30.12</c>: order, row and source seconds.</summary>
+    private static string Position(StructureValue row, string prefix) =>
+        Invariant($"o{row.Get(prefix + "_order")}r{row.Get(prefix + "_row")}@{row.Get(prefix + "_s")}");
 
     /// <summary><c>output FM 01 &lt;- 01 "lead", 02 "pad" (Sine patch)</c>, or a DAC sample with its rate and size.</summary>
     private string InstrumentLine(StructureValue row)

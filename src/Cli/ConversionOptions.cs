@@ -1,6 +1,7 @@
 using Mod2Xgm.Audio;
 using Mod2Xgm.Mod;
 using Mod2Xgm.Model;
+using Mod2Xgm.Model.Window;
 using Mod2Xgm.Output;
 
 namespace Mod2Xgm.Cli;
@@ -125,6 +126,12 @@ internal sealed record ConversionOptions
 
     /// <summary>Optimizer time limit; <c>null</c> means the default for <see cref="Quality"/>.</summary>
     public TimeSpan? TimeBudget { get; init; }
+
+    /// <summary>
+    /// The part of the song to convert (<c>--start</c>, <c>--end</c>, <c>--loop-from</c>, <c>--fade-out</c>), or <c>null</c>
+    /// for the whole song (docs/adr/0116-song-window.md).
+    /// </summary>
+    public SongWindowRequest? Window { get; init; }
 
     public int Seed { get; init; }
     public bool NoCache { get; init; }

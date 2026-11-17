@@ -257,6 +257,16 @@ prompt. Needs only M5, so it can run alongside M8–M9; the optimizer (M9) repor
 | T17.9 | **TODO (David, 2026-11-08):** a table of the **input channels**: each one's name, type (FM, DAC, PSG tone, noise, …) and size (for DAC) | In every mode but `silent` ([cli-output.md](cli-output.md)); tests per mode |
 | T17.10 | **TODO (David, 2026-11-08), after the XGM2 (M10) and XGM (M11) writers:** a table of the **output channels**: each one's name, type (FM, DAC, PSG tone, noise, …) and size (for DAC); then the file size difference between input and output, in bytes and as a percentage | In every mode but `silent`, for DMF, XGM and XGM2; tests per mode |
 
+### M18 — Partial conversion
+Convert a window of the song (David, 2026-11-17; [ADR 0116](adr/0116-song-window.md)): `--start` and `--end` as times or
+tracker positions, snapped to row starts; a stop after the end, or `--loop-from`; `--fade-out`. Needs only M10 (the
+XGM2 writer), whose output it was first wanted for.
+
+| Task | Work | Acceptance |
+|---|---|---|
+| T18.1 | `PlaybackTick.DelayRepeat`; position and time parsing; `--start`, `--end`, `--loop-from`, `--fade-out` with their checks; `SongWindow` (timeline, carried state, rows in play order, loop and stop), `FadeOut` (even in dB); the `window` phase, report line and json row; the window in the candidate cache key; docs ([cli.md](cli.md#converting-part-of-a-song), [cli-output.md](cli-output.md)) | A window's XGM2 and WAV match the whole song's render tick for tick up to its end; DMF, XGM2 and WAV come from the same plan; every check a usage error naming the option; tests per rule ([testing.md](testing.md)) |
+| T18.2 | **TODO:** a DMF that stops after `--end` or a fade-out: a silent pattern that jumps to itself, instead of DefleMask's jump back to the start (own ADR) | The DMF goes and stays silent after its end in DefleMask |
+
 ## Dependencies
 
 ```mermaid
@@ -272,12 +282,14 @@ flowchart LR
     M9 --> M10 --> M11 --> M12
     M9 --> M13 --> M14 --> M15 --> M16
     M5 --> M17
+    M10 --> M18
 ```
 
 M4 can run in parallel with M3. M7 can start once M3's tick player lands; M8 needs M6 (scoring) and M7 (rendering).
 M13 starts once M9 is done ([ADR 0048](adr/0048-midi-input.md)). M14–M16 follow MIDI, each building on the one
 before ([ADR 0063](adr/0063-multichannel-mod-xm-it-input.md)); M14 needs only M9, so it could run alongside M13. M17 (console output) needs only M5 and can run alongside
-M8–M9 ([ADR 0077](adr/0077-console-output-modes.md)).
+M8–M9 ([ADR 0077](adr/0077-console-output-modes.md)). M18 (partial conversion) needs only M10's XGM2 writer
+([ADR 0116](adr/0116-song-window.md)).
 
 ## Risks
 

@@ -1,8 +1,9 @@
 using Mod2Xgm.Cli;
+using Mod2Xgm.Model.Window;
 
 namespace Mod2Xgm.Tests.Cli;
 
-/// <summary>Tests for <see cref="ValueParsers"/>: sample lists, byte sizes and durations as the command line writes them.</summary>
+/// <summary>Tests for <see cref="ValueParsers"/>: sample lists, byte sizes, durations and song positions as the command line writes them.</summary>
 public sealed class ValueParsersTests
 {
     /// <summary>Single numbers, lists, spaces, hex and ranges all parse into the set of samples.</summary>
@@ -116,5 +117,91 @@ public sealed class ValueParsersTests
 
         // Assert
         Assert.NotNull(error);
+    }
+    /// <summary>Seconds, m:ss and h:mm:ss, with or without decimals, parse to a time; 11:25 is minutes and seconds.</summary>
+    [Theory]
+    [InlineData("0", 0.0)]
+    [InlineData("125", 125.0)]
+    [InlineData("125.5s", 125.5)]
+    [InlineData("2:05", 125.0)]
+    [InlineData("2:05.250", 125.25)]
+    [InlineData("11:25", 685.0)]
+    [InlineData("1:02:05", 3725.0)]
+    [InlineData(" 90 ", 90.0)]
+    public void TryParseSongPosition_WithTime_ReturnsTimePosition(string text, double expected)
+    {
+        // Act
+        string? error = ValueParsers.TryParseSongPosition(text, out SongPosition? position);
+
+        // Assert
+        Assert.Null(error);
+        Assert.Equal(new TimePosition(expected), position);
+    }
+
+    /// <summary>o and an order, optionally r and a row, in either case, parse to a tracker position; no row means row 0.</summary>
+    [Theory]
+    [InlineData("o11r25", 11, 25)]
+    [InlineData("O3", 3, 0)]
+    [InlineData("o0R63", 0, 63)]
+    [InlineData("o127", 127, 0)]
+    public void TryParseSongPosition_WithTrackerPosition_ReturnsTrackerPosition(string text, int order, int row)
+    {
+        // Act
+        string? error = ValueParsers.TryParseSongPosition(text, out SongPosition? position);
+
+        // Assert
+        Assert.Null(error);
+        Assert.Equal(new TrackerPosition(order, row), position);
+    }
+
+    /// <summary>Malformed times and positions outside a MOD are rejected with an error saying why.</summary>
+    [Theory]
+    [InlineData("2:5", "not a time")]
+    [InlineData("2:65", "not a time")]
+    [InlineData("-1", "not a time")]
+    [InlineData("1.2.3", "not a time")]
+    [InlineData("r25", "not a time")]
+    [InlineData("soon", "not a time")]
+    [InlineData("o11r64", "outside a MOD")]
+    [InlineData("o128", "outside a MOD")]
+    public void TryParseSongPosition_WithInvalidText_ReturnsErrorSayingWhy(string text, string expectedFragment)
+    {
+        // Act
+        string? error = ValueParsers.TryParseSongPosition(text, out SongPosition? position);
+
+        // Assert
+        Assert.NotNull(error);
+        Assert.Contains(expectedFragment, error, StringComparison.Ordinal);
+        Assert.Null(position);
+    }
+
+    /// <summary>A length of time is seconds or m:ss above 0.</summary>
+    [Theory]
+    [InlineData("4", 4.0)]
+    [InlineData("2.5s", 2.5)]
+    [InlineData("0:04", 4.0)]
+    public void TryParseSongTime_WithValidText_ReturnsSeconds(string text, double expected)
+    {
+        // Act
+        string? error = ValueParsers.TryParseSongTime(text, out double seconds);
+
+        // Assert
+        Assert.Null(error);
+        Assert.Equal(expected, seconds);
+    }
+
+    /// <summary>Zero, tracker positions and other text aren't lengths of time.</summary>
+    [Theory]
+    [InlineData("0")]
+    [InlineData("o1r0")]
+    [InlineData("long")]
+    public void TryParseSongTime_WithInvalidText_ReturnsError(string text)
+    {
+        // Act
+        string? error = ValueParsers.TryParseSongTime(text, out _);
+
+        // Assert
+        Assert.NotNull(error);
+        Assert.Contains("not a length of time", error, StringComparison.Ordinal);
     }
 }
