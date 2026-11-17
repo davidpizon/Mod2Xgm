@@ -186,7 +186,7 @@ internal sealed record Recipe(IReadOnlyList<string> Arguments, IReadOnlySet<int>
     /// <summary>The rules a recipe can give, for the usage message.</summary>
     private const string KnownRules = "rule:half-speed=<samples>, rule:layers=off, rule:pre-mix=off, rule:pan=today|short|never, rule:pan-free=<seconds>,<volume>,<distance>, "
         + "rule:pan-span=song|order, rule:pan-fix=<middle+fm+unmix or none>, rule:pan-cost=<dB>, rule:dac-loser=noise|fm|noise-all-song, "
-        + "rule:quieter=<sample>:<dB>[,…], rule:song-quieter=<dB>, rule:half-speed=all, rule:shrink=off, rule:keep=importance|drums|tonal, rule:pitch-share=<cents>, rule:loudness-share=<steps>, rule:merge=<percent>, rule:chords=on";
+        + "rule:quieter=<sample>:<dB>[,…], rule:song-quieter=<dB>, rule:half-speed=all, rule:shrink=off, rule:keep=importance|drums|tonal, rule:pitch-share=<cents>, rule:loudness-share=<steps>, rule:merge=<percent>, rule:chords=on, rule:bytes=score|importance, rule:bake=together|beat|both|off";
 
     /// <summary>The most dB a level rule turns a sound down: past it a recording is all but silent on XGM2's 3 dB steps.</summary>
     private const double MaxQuieterDb = 24;
@@ -214,6 +214,9 @@ internal sealed record Recipe(IReadOnlyList<string> Arguments, IReadOnlySet<int>
 
     /// <summary>Which tracks keep a recording first with <c>rule:keep=…</c> (docs/adr/0113-squeeze-rounds.md).</summary>
     public KeepFirst Keep { get; private init; }
+
+    /// <summary>How bytes are shared out and which drum bakes are used, with <c>rule:bytes=…</c> and <c>rule:bake=…</c> (docs/adr/0115-drum-bakes.md).</summary>
+    public BakeRules Bake { get; private init; } = BakeRules.None;
 
     /// <summary>True with <c>rule:chords=on</c>: a chord sample's notes play as FM voices of their own (docs/adr/0114-fm-chords.md).</summary>
     public bool Chords { get; private init; }
@@ -255,6 +258,8 @@ internal sealed record Recipe(IReadOnlyList<string> Arguments, IReadOnlySet<int>
         LevelRules? levels = null;
         bool shrink = true;
         KeepFirst keep = KeepFirst.Importance;
+        BakeRules bake = BakeRules.None;
+
         double? pitchShare = null;
         int? loudnessShare = null;
         double? merge = null;
@@ -326,6 +331,24 @@ internal sealed record Recipe(IReadOnlyList<string> Arguments, IReadOnlySet<int>
                     case ["keep", "drums"]:
                         keep = KeepFirst.Drums;
                         continue;
+                    case ["bytes", "score"]:
+                        bake = bake with { BytesByScore = true };
+                        continue;
+                    case ["bytes", "importance"]:
+                        bake = bake with { BytesByScore = false };
+                        continue;
+                    case ["bake", "together"]:
+                        bake = bake with { Together = true, Beat = false };
+                        continue;
+                    case ["bake", "beat"]:
+                        bake = bake with { Together = false, Beat = true };
+                        continue;
+                    case ["bake", "both"]:
+                        bake = bake with { Together = true, Beat = true };
+                        continue;
+                    case ["bake", "off"]:
+                        bake = bake with { Together = false, Beat = false };
+                        continue;
                     case ["keep", "tonal"]:
                         keep = KeepFirst.Tonal;
                         continue;
@@ -361,11 +384,11 @@ internal sealed record Recipe(IReadOnlyList<string> Arguments, IReadOnlySet<int>
             }
         }
 
-        return new Recipe(arguments, halfSpeed, layers, preMix) { Pan = pan, Loser = loser, Levels = levels, Shrink = shrink, Keep = keep, PitchShareCents = pitchShare, LoudnessShareSteps = loudnessShare, MergeLikeness = merge, Chords = chords };
+        return new Recipe(arguments, halfSpeed, layers, preMix) { Pan = pan, Loser = loser, Levels = levels, Shrink = shrink, Keep = keep, PitchShareCents = pitchShare, LoudnessShareSteps = loudnessShare, MergeLikeness = merge, Chords = chords, Bake = bake };
     }
 
     /// <summary>True when the recipe has a rule only <c>--mapping optimizer</c> reads.</summary>
-    public bool HasRules => HalfSpeed.Count > 0 || !Layers || !PreMix || Pan is not null || Levels is not null || !Shrink || Keep != KeepFirst.Importance || PitchShareCents is not null || LoudnessShareSteps is not null || MergeLikeness is not null || Chords;
+    public bool HasRules => HalfSpeed.Count > 0 || !Layers || !PreMix || Pan is not null || Levels is not null || !Shrink || Keep != KeepFirst.Importance || PitchShareCents is not null || LoudnessShareSteps is not null || MergeLikeness is not null || Chords || Bake != BakeRules.None;
 
     /// <summary><c>rule:quieter=3:6,7:3</c>: samples (1-based) and how many dB quieter each plays as a recording.</summary>
     private static LevelRules Quieter(LevelRules levels, string list, string text)
@@ -708,7 +731,7 @@ internal sealed class ListeningRemake(IReadOnlyList<string> songs, string output
 
         try
         {
-            ConversionOptions ruled = options with { ShrinkRules = recipe.Rules, PreMixRules = recipe.PreMix ? null : PreMixRules.None, Layers = recipe.Layers, PanRules = recipe.Pan, DacLoser = recipe.Loser, LevelRules = recipe.Levels, KeepFirst = recipe.Keep, Chords = recipe.Chords };
+            ConversionOptions ruled = options with { ShrinkRules = recipe.Rules, PreMixRules = recipe.PreMix ? null : PreMixRules.None, Layers = recipe.Layers, PanRules = recipe.Pan, DacLoser = recipe.Loser, LevelRules = recipe.Levels, KeepFirst = recipe.Keep, Chords = recipe.Chords, BakeRules = recipe.Bake };
             return ConversionCommand.Execute(ruled, Serilog.Core.Logger.None, analyzed, NoProgress.Instance);
         }
         catch (ConversionException ex) when (ex.Code == ExitCode.UsageError && options.Format == OutputFormat.Xgm && File.Exists(wav))

@@ -277,6 +277,8 @@ give those. The rules so far:
 | `rule:loudness-share=<steps>` | Loudness shares one copy across this many 3 dB steps (the converter's own: 2, so 6 dB), 2–8 whole; `4` is 12 dB (plan T9.4t5). Needs `--mapping optimizer` |
 | `rule:merge=<percent>` | Samples at least this alike are merged into one (the converter's own: 98), 50–100 whole (plan T9.4t5). Needs `--mapping optimizer` |
 | `rule:chords=on` | A chord sample's notes play as FM voices of their own, the top notes dropped first when FM channels run out ([ADR 0114](adr/0114-fm-chords.md), plan T9.4t9). Needs `--mapping optimizer` |
+| `rule:bytes=score\|importance` | With `score`, when recording bytes run short they are held first for the samples whose other sounds (FM, PSG tone, noise, or none) fall furthest from them, per byte; other samples take what is left, and the shrinker shrinks first where the other sounds come closest ([ADR 0115](adr/0115-drum-bakes.md), plan T9.4t10). `importance` is the converter's own. Needs `--mapping optimizer` |
+| `rule:bake=together\|beat\|both\|off` | Drum bakes ([ADR 0115](adr/0115-drum-bakes.md)): `together` lets a drum hit with no bytes for its own copy be mixed with a recording that starts with it, even with a PCM voice free; `beat` plays each bar's drum hits (two or more) as one recording when the song's recordings don't fit and those recordings take fewer bytes than the hits' own copies, a bar that sounds the same stored once. `off` is the converter's own. Needs `--mapping optimizer` |
 
 `--remake answers.tsv` converts each row's song with both recipes in-process (with `--render-wav`), cuts the clip out
 of each render byte for byte (`ClipWav`), and writes `listening/<round>-<question>-a.wav`, `-b.wav` and the original's

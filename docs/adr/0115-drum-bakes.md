@@ -1,0 +1,87 @@
+# ADR 0115: Drums baked into recordings, and recording bytes given where the fallback hurts most
+
+- **Status:** Proposed (David chose both answers, 2026-11-16; blind rounds decide what becomes the default)
+- **Date:** 2026-11-16
+
+## Context
+
+In round 30 (EM2 at a quarter of today's recording space, plan T9.4t9) David heard, in both versions, that "the noise
+channel is a poor substitute for the percussion", and asked whether the drums could be baked into the drum voice. He
+added that the converter should weigh baking drums into a recording on a general basis, for every song, not for EM2
+alone.
+
+What EM2 does today, at 532,736 bytes on XGM2 (3 PCM voices):
+
+- DRU, plays all 13 of its notes on PSG noise, CLICKATIC 64 of 128, and "hello to paul penson" 60 of 79. None is cut.
+- The drums lose their recordings for want of **bytes**, not voices. "please read the text" holds about 184 KB as nine
+  copies (pitches and lengths), while DRU, (28,904 bytes in the MOD) gets none.
+- Pre-mixes exist ([ADR 0072](0072-pre-mix-candidates.md), [ADR 0094](0094-pre-mixed-voice-steals.md)), but only as a
+  rescue after the allocation, when a note that should be a recording finds no free PCM voice. A pre-mix saves voices, not
+  bytes, and a rescue that needs bytes the budget doesn't have fails, so the drum stays on noise. Nothing weighs a baked
+  drum against noise.
+
+## Decision
+
+David's answers (2026-11-16):
+
+- **Bytes go where the fallback hurts most (score decides).** When recording bytes run short, the allocator measures,
+  for each sample, how much further from the original its fallback is (PSG noise, FM, a PSG tone, or a cut) than its
+  recording, and spends bytes where that loss per byte is largest, in the price ruler of
+  [ADR 0110](0110-price-ruler.md). No fixed "drums first" rule: a drum on noise is expected to win often, but the score
+  says so, song by song. This is the open idea of [ADR 0114](0114-fm-chords.md) ("recordings first to the samples FM plays
+  worst"), widened to every fallback.
+- **Both kinds of baking are candidates, the score picks.** Each is offered to the allocator like any other sound, with
+  its bytes, its voices and its distance, and used only where it sounds closer and fits:
+  - **Hits that land together:** drum notes that start on the same tick (kick and click) mixed into one recording that
+    one voice plays. It saves voices and costs a few KB per distinct combination. Today's pre-mixes already build these;
+    they become candidates in the allocation, not only a rescue.
+  - **A whole repeating beat:** a stretch of the drum tracks (a bar, or the pattern's length) rendered once through the
+    MOD renderer and replayed each time it repeats exactly. It replaces many hits with one recording on one voice, and
+    costs the stretch's length in bytes, once per distinct stretch.
+- **Behind harness rules first** (`rule:bytes=score`, `rule:bake=together|beat|both`), compared with today's version in
+  blind rounds at round 28's budgets. A rule becomes the default only after the rounds.
+
+## Options considered
+
+- **Score decides, both kinds of baking as candidates (chosen, David).** General: it follows each song's own drums and
+  budget, and needs no list of which samples are drums.
+- **Drums always first** (a fixed rule). Simple, but it trusts the drum label ([ADR 0111](0111-neither-and-listening-models.md)'s
+  CLAP labels aren't in the converter yet) and spends bytes on a drum even where noise already sounds close (hi-hats,
+  T9.4t8).
+- **Keep today's byte order and only add baking.** Baking saves voices, but EM2's drums lack bytes, so it wouldn't help
+  there.
+- **Hits that land together only,** or **a whole beat only.** Each wins in some songs: short, sparse hits favour the
+  first; a loop repeated many times favours the second. The score chooses instead.
+
+## Consequences
+
+- Plan task T9.4t10. As built (2026-11-16), in `OptimizerMapper`:
+  - **`rule:bytes=score`** (`HoldBytes`): before any section chooses, each sample whose notes want a recording is
+    weighed: the notes' importance times how far their closest other sound is (`FallbackDb`; the ruler's 60 dB when they
+    have none), over the bytes of the copies they need. The most per byte first, the budget's bytes and slots are held for
+    them; other samples' notes take only what isn't held. Once every section has its sounds the hold ends, so the rescue
+    can use what is left. The shrinker shrinks first the samples that lose least (the same weight, not bytes).
+  - **`rule:bake=beat`** (`BakeBeats`, `StealMixer.Beat`): only when the recordings the song wants don't fit, each bar's
+    drum hits (16 rows; two or more hits, each played once) are rendered alone into one recording, from the first hit to
+    the last one's end. Bars that render the same bytes are stored once (the pre-mix fingerprint), so there is no search
+    for repeats. The beats are used only when they take fewer bytes than the copies only their hits need; each holds one
+    PCM voice and one column for its span, like a pre-mix, and its hits are then out of the allocation.
+  - **`rule:bake=together`**: the rescue may mix a drum hit with a recording that starts on the same tick even with a
+    PCM voice free, when the hit has no bytes for its own copy. A mix takes about as many bytes as the copy it replaces,
+    so this mostly saves voices, not bytes; the rounds show whether it is ever heard.
+- A beat plays what the MOD plays in that bar, volumes and effects included, so two bars differ when anything in them
+  differs.
+- **Round 31** (2026-11-16, [tests/golden/listening](../../tests/golden/listening/README.md#round-31-drums-baked-into-recordings)):
+  `rule:bytes=score rule:bake=both` against today at round 28's budgets won 3 and lost 2, with 1 can't tell and 4 rejected
+  as both lacking. On EM2 it won 2 of 3 ("The drums are more accurate"), and Burp split. The four rejected pairs
+  (Spaceman remix, Heaven remix, Wormology) lose chords and other sounds in both versions, without T9.4t9's FM chords.
+  Not yet enough to make either rule the default; the next round should separate `bytes=score` from the bakes and run
+  on top of T9.4t9.
+- **Round 32** (2026-11-17, [tests/golden/listening](../../tests/golden/listening/README.md#round-32-one-drum-rule-at-a-time)),
+  each rule alone with FM chords on: `bytes=score` won 3 (EM2, Burp, Spaceman remix), lost 1 (Heaven remix), with 1 can't
+  tell and 1 neither; the bakes won 2 of EM2's 3 and changed nothing on Burp. In EM2 both versions still drop the drums
+  to noise for part of the song (the bakes after 0:17, today's before it), and David hears noise as no substitute there.
+  Next: keep a drum sample on one sound for the whole song, so the bakes' bytes cover every bar or none.
+- Every byte-exact test is unchanged with the rules off.
+- The harness takes the two rules (docs/harness.md); squeeze rounds at round 28's budgets on the six biggest songs, with
+  EM2's drums among the pairs.
