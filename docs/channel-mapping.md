@@ -7,7 +7,8 @@
 
 **Implemented (plan T5.3, [ADR 0040](adr/0040-simple-mapper.md)):** the simple mapper decides per instrument: a sample
 that loops goes to FM (one of five built-in patches, by brightness), a sample that plays once goes to the DAC, notes
-from any MOD channel; a clash on the DAC is won by the louder note and the loser moves to the PSG noise channel (if
+from any MOD channel. A loop that isn't a tone (noise, or a short tail after a long recording with no clear pitch) counts as playing once
+([ADR 0117](adr/0117-tail-and-noise-loops.md)). Each choice, and the pitch FM notes are placed at, is a conversion note; a clash on the DAC is won by the louder note and the loser moves to the PSG noise channel (if
 noise) or FM. `--no-dac` keeps everything off the DAC. Mixing clashing drums into one sample is left to the optimizer
 as a separate candidate.
 

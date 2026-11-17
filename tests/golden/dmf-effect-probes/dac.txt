@@ -26,5 +26,6 @@ sample 3 "drum 11025Hz -18dB": rate code 2, pitch 5, amp 50, 16 bits, 10642 valu
 sample 4 "drum 11025Hz +1024": rate code 2, pitch 5, amp 50, 16 bits, 9280 values, checksum CD30B1D0
 sample 5 "drum 11025Hz +2048": rate code 2, pitch 5, amp 50, 16 bits, 7918 values, checksum 0E1DE88E
 conversion notes:
+  Sample 2 "drum": it plays once, so it is played as a recording on the DAC
   6 DAC sample copies were made from 1 samples: one per start point (9xx) and per 3 dB of loudness, because the DAC has no volume
   1 DAC notes play at their sample's most-used pitch, not their own: the simple mapper gives each DAC sample one pitch (ADR 0040)

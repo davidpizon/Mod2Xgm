@@ -1,3 +1,4 @@
+using System.Globalization;
 using Mod2Xgm.Analysis;
 using Mod2Xgm.Cli;
 using Mod2Xgm.Dmf;
@@ -150,7 +151,7 @@ public sealed class ConversionCommandTests
         Assert.Equal(ExitCode.OutputNotWritable, CodeOf(() => ConversionCommand.Execute(options)));
     }
 
-    /// <summary>The summary line says how many conversion notes there were.</summary>
+    /// <summary>The summary line says how many conversion notes there were: one per note logged.</summary>
     [Fact]
     public void Execute_WithCleanSong_SummaryReportsNoteCount()
     {
@@ -163,7 +164,8 @@ public sealed class ConversionCommandTests
         ConversionCommand.Execute(options, sink.CreateLogger());
 
         // Assert
-        Assert.Contains(sink.Messages(LogEventLevel.Information), m => m.Contains("(0 conversion notes)", StringComparison.Ordinal));
+        string expected = string.Create(CultureInfo.InvariantCulture, $"({sink.Messages(LogEventLevel.Warning).Count()} conversion notes)");
+        Assert.Contains(sink.Messages(LogEventLevel.Information), m => m.Contains(expected, StringComparison.Ordinal));
     }
 
     /// <summary>Every run says whose rules it emulates and why: the file's default, or the --player choice.</summary>

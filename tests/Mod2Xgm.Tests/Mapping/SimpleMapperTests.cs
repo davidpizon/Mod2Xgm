@@ -10,13 +10,19 @@ namespace Mod2Xgm.Tests.Mapping;
 /// </summary>
 public sealed class SimpleMapperTests
 {
-    /// <summary>Instrument numbers in <see cref="Build"/>: a looped sine, two tonal drums, a noise hit and an empty slot.</summary>
+    /// <summary>
+    /// Instrument numbers in <see cref="Build"/>: a looped sine, two tonal drums, a noise hit, an empty slot, a hit of
+    /// noise with a short looped tail, a looped hiss, and a decaying tone with a short looped tail.
+    /// </summary>
     private const int Organ = 0;
 
     private const int Kick = 1;
     private const int Tom = 2;
     private const int Hat = 3;
     private const int Empty = 4;
+    private const int Bells = 5;
+    private const int Hiss = 6;
+    private const int Pluck = 7;
 
     /// <summary>
     /// A note is placed at the pitch the tick player plays it at (ADR 0061: the instrument's finetune is in it), on every
@@ -116,7 +122,10 @@ public sealed class SimpleMapperTests
         Assert.Null(CellAt(plan, GenesisChannel.Fm1).Source);
     }
 
-    /// <summary>The note explaining why a sample is played by FM is said once, when it is first played, and not for unplayed samples.</summary>
+    /// <summary>
+    /// The notes explaining why a sample is played by FM, and at what pitch, are said once, when it is first played, and
+    /// not for unplayed samples.
+    /// </summary>
     [Fact]
     public void Map_WithRepeatedInstrument_NotesRoutingOnce()
     {
@@ -124,7 +133,67 @@ public sealed class SimpleMapperTests
         (_, List<string> notes) = Map(Build([[RowOf(Play(Organ)), RowOf(Play(Organ, 50)), RowOf(Play(Organ, 52))]]));
 
         // Assert
-        Assert.Single(notes);
+        Assert.Equal(2, notes.Count);
+        Assert.Contains("it loops, so it is a sustained tone", notes[0], StringComparison.Ordinal);
+        Assert.Contains("so its FM notes play", notes[1], StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A sample whose loop is a short tail after a long recording with no clear pitch is played like one that plays once:
+    /// on the DAC, with a note saying what the mapper took it to be before the one saying where it plays
+    /// (docs/adr/0117-tail-and-noise-loops.md).
+    /// </summary>
+    [Fact]
+    public void Map_WithTailLoop_PlaysOnDacAndSaysWhy()
+    {
+        // Act
+        (GenesisPlan plan, List<string> notes) = Map(Build([[RowOf(Play(Bells))]]));
+
+        // Assert
+        Assert.Equal(new PlanVoice(VoiceKind.Dac, 0), CellAt(plan, GenesisChannel.Fm6).Voice);
+        Assert.Empty(plan.FmPatches);
+        Assert.Equal(2, notes.Count);
+        Assert.Contains("its 600-frame loop is a short tail after 7400 frames of recording with no clear pitch", notes[0], StringComparison.Ordinal);
+        Assert.Contains("it plays once, so it is played as a recording on the DAC", notes[1], StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A short tail after a recording with a clear pitch stays a sustained tone, played by FM at the recording's pitch,
+    /// not the loop's (docs/adr/0117-tail-and-noise-loops.md).
+    /// </summary>
+    [Fact]
+    public void Map_WithTailAfterPitchedRecording_PlaysFmAtRecordingsPitch()
+    {
+        // Act
+        (GenesisPlan plan, List<string> notes) = Map(Build([[RowOf(Play(Pluck))]]));
+
+        // Assert
+        Assert.Equal(VoiceKind.Fm, CellAt(plan, GenesisChannel.Fm1).Voice?.Kind);
+        Assert.Contains("with a clear pitch, so it is a sustained tone", notes[0], StringComparison.Ordinal);
+        Assert.Contains("its tone repeats every 74.99 frames", notes[1], StringComparison.Ordinal);
+    }
+
+    /// <summary>A sample whose loop is noise is played like one that plays once: on the DAC, with a note saying so.</summary>
+    [Fact]
+    public void Map_WithNoiseLoop_PlaysOnDacAndSaysWhy()
+    {
+        // Act
+        (GenesisPlan plan, List<string> notes) = Map(Build([[RowOf(Play(Hiss))]]));
+
+        // Assert
+        Assert.Equal(new PlanVoice(VoiceKind.Dac, 0), CellAt(plan, GenesisChannel.Fm6).Voice);
+        Assert.Contains("its 2000-frame loop is noise, not a repeating tone", notes[0], StringComparison.Ordinal);
+    }
+
+    /// <summary>A sample with no tone that FM plays (--require-fm) gets a note that its notes are placed by the note's name.</summary>
+    [Fact]
+    public void Map_WithRequiredFmNoise_SaysNoPitchFound()
+    {
+        // Act
+        (_, List<string> notes) = Map(Build([[RowOf(Play(Hat))]]), Options(requireFm: [Hat]));
+
+        // Assert
+        Assert.Contains(notes, n => n.Contains("no repeating tone found in it, so its FM notes play two octaves above", StringComparison.Ordinal));
     }
 
     /// <summary>A sample that plays once is a recording: it goes to the DAC (FM6), whichever MOD channel plays it.</summary>
@@ -140,7 +209,7 @@ public sealed class SimpleMapperTests
         DacSample dac = Assert.Single(plan.DacSamples);
         Assert.Equal((Kick, 8287.0), (dac.Sample, dac.PlaybackRateHz));
         Assert.Empty(plan.FmPatches);
-        Assert.Empty(notes);
+        Assert.Contains("it plays once, so it is played as a recording on the DAC", Assert.Single(notes), StringComparison.Ordinal);
         Assert.Equal(PlanCell.Empty, CellAt(plan, GenesisChannel.Fm3));
     }
 
@@ -648,6 +717,8 @@ public sealed class SimpleMapperTests
         float[] tone = [.. Enumerable.Range(0, 1024).Select(i => (float)Math.Sin(2 * Math.PI * i / 64))];
         float[] thump = [.. Enumerable.Range(0, 2000).Select(i => (float)(Math.Sin(2 * Math.PI * i / 128) * Math.Exp(-i / 500.0)))];
         float[] white = [.. new Random(7).GetItems([-1f, 1f], 2000)];
+        float[] bells = [.. new Random(11).GetItems([-1f, 1f], 7400), .. Enumerable.Range(0, 600).Select(i => (float)Math.Sin(2 * Math.PI * i / 60))];
+        float[] pluck = [.. Enumerable.Range(0, 8000).Select(i => (float)(Math.Sin(2 * Math.PI * i / 75) * Math.Exp(-i / 3000.0)))];
         Sample[] samples =
         [
             new("organ", tone, new SampleLoop(0, 1024)),
@@ -655,6 +726,9 @@ public sealed class SimpleMapperTests
             new("tom", thump, null),
             new("hat", white, null),
             new("empty", [], null),
+            new("bells", bells, new SampleLoop(7400, 600)),
+            new("hiss", white, new SampleLoop(0, 2000)),
+            new("pluck", pluck, new SampleLoop(7400, 600)),
         ];
         Instrument[] instruments = [.. samples.Select((_, i) => new Instrument(i, 0.5, 0))];
         Pattern[] built = [.. patterns.Select(rows => new Pattern([.. rows.Select(r => r.Cells.Count == channels ? r : new Row([.. r.Cells.Take(channels), .. Enumerable.Repeat(Cell.Empty, channels - r.Cells.Count)]))]))];

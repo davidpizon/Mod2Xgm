@@ -8,7 +8,10 @@ namespace Mod2Xgm.Mapping;
 /// the voice that can play its sample best, decided <b>per instrument</b> by simple rules, until the optimizer
 /// (plan M9) decides by measured accuracy.
 /// <list type="bullet">
-/// <item>A sample that loops is a sustained tone: <b>FM</b>, with a built-in patch picked by brightness.</item>
+/// <item>A sample that loops is a sustained tone: <b>FM</b>, with a built-in patch picked by brightness. Not when its loop is
+/// noise, or a short tail after a long recording with no clear pitch (a bell hit with a hiss at its end): that is played
+/// like a sample that plays once (plan T5.3b, docs/adr/0117-tail-and-noise-loops.md). A tail after a pitched recording
+/// stays FM, at the recording's pitch.</item>
 /// <item>A sample that plays once is a recording the synthesizer can't copy: the <b>DAC</b> (unless <c>--no-dac</c>, when
 /// it is the PSG <b>noise</b> channel if it is noise and FM otherwise).</item>
 /// <item><c>--require-fm</c> and <c>--require-dac</c> override this per sample.</item>
@@ -24,6 +27,10 @@ internal sealed class SimpleMapper(DacLoser loser = DacLoser.Default) : IChannel
 {
     /// <summary>MOD channels beyond this many have no FM channel (FM1–5; FM6 is the DAC) and are left out.</summary>
     private const int MappedChannels = 5;
+
+    /// <summary>The Amiga period of ProTracker's C-2 (docs/formats/mod.md#pitch), for saying what pitch a sample sounds at.</summary>
+    private const int C2Period = 428;
+
 
     /// <inheritdoc />
     public GenesisPlan Map(Song song, Playback playback, MappingOptions options, ConversionNotes notes)
@@ -58,7 +65,13 @@ internal sealed class SimpleMapper(DacLoser loser = DacLoser.Default) : IChannel
     }
 
     /// <summary>How an instrument's notes are played, and the FM patch to use when they can't be played that way.</summary>
-    private sealed record Route(Primary Primary, FmPatch Fallback, bool NoiseLike, bool Required, Why? Reason = null);
+    /// <param name="Primary">The voice its notes go to.</param>
+    /// <param name="Fallback">The FM patch, for its notes that are played by FM.</param>
+    /// <param name="NoiseLike">True when the sample is noise.</param>
+    /// <param name="Required">True when a <c>--require-…</c> option chose the voice.</param>
+    /// <param name="Reason">The conversion note that says why.</param>
+    /// <param name="Assumption">A conversion note said before <paramref name="Reason"/>: what the mapper took the sample to be.</param>
+    private sealed record Route(Primary Primary, FmPatch Fallback, bool NoiseLike, bool Required, Why? Reason = null, Why? Assumption = null);
 
     /// <summary>The conversion note that explains a lossy routing choice, said once, when the instrument is first played.</summary>
     private sealed record Why(string Template, object[] Values);
@@ -180,7 +193,11 @@ internal sealed class SimpleMapper(DacLoser loser = DacLoser.Default) : IChannel
             }
 
             SampleTraits traits = SampleTraits.Analyze(sample);
-            FmPatch patch = sample.Loop is null ? FmPatchLibrary.ForOneShot(traits.Brightness) : FmPatchLibrary.ForSustained(traits.Brightness);
+            LoopKind loop = LoopShape.Of(sample, traits);
+            bool pitchedTail = loop == LoopKind.Tail && SamplePitch.Measure(sample).PeriodFrames is not null;
+            Why? notTone = pitchedTail ? null : NotTone(sample, loop, label);
+            bool sustained = loop == LoopKind.Tone || pitchedTail;
+            FmPatch patch = sustained ? FmPatchLibrary.ForSustained(traits.Brightness) : FmPatchLibrary.ForOneShot(traits.Brightness);
             bool requireDac = _options.RequireDac.Contains(instrument.Sample);
 
             if (_options.RequireFm.Contains(instrument.Sample))
@@ -198,22 +215,48 @@ internal sealed class SimpleMapper(DacLoser loser = DacLoser.Default) : IChannel
                 return new Route(Primary.Noise, patch, traits.NoiseLike, true, new Why("Sample {Sample}: required as PSG (--require-psg), so it is played by the PSG noise channel", [label]));
             }
 
-            if (sample.Loop is not null)
+            if (pitchedTail && sample.Loop is { } tail)
+            {
+                return new Route(Primary.Fm, patch, traits.NoiseLike, false, new Why("Sample {Sample}: its {Loop}-frame loop is a short tail after {Lead} frames of recording with a clear pitch, so it is a sustained tone, played by the {Patch} FM patch at the recording's pitch", [label, tail.Length, tail.Start, patch.Name]));
+            }
+
+            if (sustained)
             {
                 return new Route(Primary.Fm, patch, traits.NoiseLike, false, new Why("Sample {Sample}: it loops, so it is a sustained tone and is played by the {Patch} FM patch", [label, patch.Name]));
             }
 
             if (_options.UseDac)
             {
-                return new Route(Primary.Dac, patch, traits.NoiseLike, false);
+                return new Route(Primary.Dac, patch, traits.NoiseLike, false, new Why("Sample {Sample}: it plays once, so it is played as a recording on the DAC", [label]), notTone);
             }
 
             if (traits.NoiseLike)
             {
-                return new Route(Primary.Noise, patch, true, false, new Why("Sample {Sample}: it is noise and the DAC is off (--no-dac), so it is played by the PSG noise channel", [label]));
+                return new Route(Primary.Noise, patch, true, false, new Why("Sample {Sample}: it is noise and the DAC is off (--no-dac), so it is played by the PSG noise channel", [label]), notTone);
             }
 
-            return new Route(Primary.Fm, patch, false, false, new Why("Sample {Sample}: the DAC is off (--no-dac), so it is played by the {Patch} FM patch", [label, patch.Name]));
+            return new Route(Primary.Fm, patch, false, false, new Why("Sample {Sample}: the DAC is off (--no-dac), so it is played by the {Patch} FM patch", [label, patch.Name]), notTone);
+        }
+
+        /// <summary>The note that says why a looping sample isn't played as a sustained tone, or <c>null</c> when it is one or doesn't loop.</summary>
+        private static Why? NotTone(Sample sample, LoopKind kind, string label) => (kind, sample.Loop) switch
+        {
+            (LoopKind.Noise, { } loop) => new Why("Sample {Sample}: its {Loop}-frame loop is noise, not a repeating tone, so it is played like a sample that plays once", [label, loop.Length]),
+            (LoopKind.Tail, { } loop) => new Why("Sample {Sample}: its {Loop}-frame loop is a short tail after {Lead} frames of recording with no clear pitch, so it is played like a sample that plays once", [label, loop.Length, loop.Start]),
+            _ => null,
+        };
+
+        /// <summary>The note that says what pitch an FM-played sample's notes are placed at.</summary>
+        private Why PitchNote(int sample)
+        {
+            string label = Label(sample, _song.Samples[sample].Name);
+            if (SamplePitch.Measure(_song.Samples[sample]) is { PeriodFrames: { } frames } pitch)
+            {
+                double hz = pitch.FrequencyAt(AmigaPitch.PalClockHz / C2Period) ?? 0;
+                return new Why("Sample {Sample}: its tone repeats every {Frames:0.##} frames, so its FM notes play at that pitch (C-2 sounds at {Hz:0.#} Hz)", [label, frames, hz]);
+            }
+
+            return new Why("Sample {Sample}: no repeating tone found in it, so its FM notes play two octaves above the MOD note's name", [label]);
         }
 
         private PlanRow MapRow(Row row, int order, int rowIndex)
@@ -533,9 +576,21 @@ internal sealed class SimpleMapper(DacLoser loser = DacLoser.Default) : IChannel
         /// <summary>Says why an instrument is played the way it is, once, the first time a note plays it.</summary>
         private void Explain(int instrument)
         {
-            if (_routes[instrument].Reason is { } why && _explained.Add(instrument))
+            if (!_explained.Add(instrument))
+            {
+                return;
+            }
+
+            Route route = _routes[instrument];
+            foreach (Why why in new[] { route.Assumption, route.Reason }.OfType<Why>())
             {
                 _notes.Add(why.Template, why.Values);
+            }
+
+            if (route.Primary == Primary.Fm)
+            {
+                Why pitch = PitchNote(_song.Instruments[instrument].Sample);
+                _notes.Add(pitch.Template, pitch.Values);
             }
         }
 
