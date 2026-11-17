@@ -175,6 +175,39 @@ public sealed class SamplePitchTests
     }
 
     /// <summary>A sine of <paramref name="period"/> frames, <paramref name="frames"/> long.</summary>
+    /// <summary>
+    /// A loop that is a short tail after a long recording is measured from the recording, not the loop
+    /// (docs/adr/0117-tail-and-noise-loops.md).
+    /// </summary>
+    [Fact]
+    public void Measure_WithTailLoop_ReturnsRecordingsCycle()
+    {
+        // Arrange
+        float[] data = [.. Sine(7500, 75), .. Sine(500, 50)];
+        Sample sample = new("bell", data, new SampleLoop(7500, 500));
+
+        // Act
+        double? period = SamplePitch.Measure(sample).PeriodFrames;
+
+        // Assert
+        Assert.Equal(75, period ?? double.NaN, 0.1);
+    }
+
+    /// <summary>A loop of noise has no pitch, though repeating it matches itself at its own length.</summary>
+    [Fact]
+    public void Measure_WithNoiseLoop_ReturnsNull()
+    {
+        // Arrange
+        float[] hiss = [.. new Random(3).GetItems([-1f, 1f], 654)];
+        Sample sample = new("hiss", hiss, new SampleLoop(0, 654));
+
+        // Act
+        double? period = SamplePitch.Measure(sample).PeriodFrames;
+
+        // Assert
+        Assert.Null(period);
+    }
+
     private static float[] Sine(int frames, double period, double phase = 0) =>
         [.. Enumerable.Range(0, frames).Select(i => (float)Math.Sin((2 * Math.PI * i / period) + phase))];
 }

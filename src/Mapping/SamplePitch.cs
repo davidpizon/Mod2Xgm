@@ -9,7 +9,9 @@ namespace Mod2Xgm.Mapping;
 /// recording (a 32-frame loop sounds five octaves above a 1024-frame one), and an FM channel needs the pitch heard.
 /// <para>The repeating part (the loop, else the sound after its first frames) is searched for the shortest lag at which it
 /// matches itself, with the YIN difference function (de Cheveigné and Kawahara, 2002; <see cref="Yin"/>). A sample with no clear repeat
-/// (noise, a drum) has no pitch. A one-shot too short for the full window (a chip blip of a few hundred frames) is searched
+/// (noise, a drum) has no pitch. A loop that isn't a tone (<see cref="LoopShape"/>) would match itself only at its own
+/// length, a hum that isn't there: a loop of noise has no pitch, and a short tail after a long recording is measured from
+/// the recording, as a sample that plays once is (docs/adr/0117-tail-and-noise-loops.md). A one-shot too short for the full window (a chip blip of a few hundred frames) is searched
 /// with half of what it has as the window and the other half as the longest cycle.</para>
 /// </summary>
 /// <param name="PeriodFrames">Frames per cycle, with sub-frame precision, or <c>null</c> when the sample has no clear pitch.</param>
@@ -40,7 +42,13 @@ internal readonly record struct SamplePitch(double? PeriodFrames)
     public static SamplePitch Measure(Sample sample)
     {
         ArgumentNullException.ThrowIfNull(sample);
-        float[]? window = Window(sample);
+        LoopKind loop = LoopShape.Of(sample, SampleTraits.Analyze(sample));
+        if (loop == LoopKind.Noise)
+        {
+            return new SamplePitch(null);
+        }
+
+        float[]? window = Window(sample, loop);
         if (window is null)
         {
             return new SamplePitch(null);
@@ -57,11 +65,11 @@ internal readonly record struct SamplePitch(double? PeriodFrames)
     /// The frames to search: the loop repeated as often as needed (a one-cycle loop is a whole tone), else the sound after
     /// its attack; <c>null</c> when the sample is silent or has fewer than two <see cref="MinWindowFrames"/> to search.
     /// </summary>
-    private static float[]? Window(Sample sample)
+    private static float[]? Window(Sample sample, LoopKind kind)
     {
         int needed = WindowFrames + MaxLag;
         float[] window;
-        if (sample.Loop is { } loop)
+        if (kind == LoopKind.Tone && sample.Loop is { } loop)
         {
             window = new float[needed];
             for (int i = 0; i < needed; i++)
@@ -71,8 +79,9 @@ internal readonly record struct SamplePitch(double? PeriodFrames)
         }
         else
         {
-            int start = Math.Min(AttackFrames, sample.Length / 4);
-            int length = Math.Min(needed, sample.Length - start);
+            int heard = sample.Loop is { } tail ? tail.Start : sample.Length;
+            int start = Math.Min(AttackFrames, heard / 4);
+            int length = Math.Min(needed, heard - start);
             if (length < 2 * MinWindowFrames)
             {
                 return null;

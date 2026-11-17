@@ -41,4 +41,5 @@ channel 9: orders [0], effect columns 1
 channel 10: orders [0], effect columns 1
 conversion notes:
   Sample 1 "sine lead": it loops, so it is a sustained tone and is played by the Sine FM patch
+  Sample 1 "sine lead": its tone repeats every 31.98 frames, so its FM notes play at that pitch (C-2 sounds at 259.1 Hz)
   Sample 1 "sine lead": its FM notes are placed at the pitch measured from the sample
