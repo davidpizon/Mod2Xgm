@@ -148,11 +148,11 @@ internal static class PairPicker
     }
 
     /// <summary>
-    /// The samples (0-based) of <paramref name="samples"/> dull enough for a half-speed pair, the dullest first, at most
-    /// <see cref="MaxHalfSpeedSamples"/>: those whose most-played region has at most <see cref="DullShare"/> above
+    /// The samples (0-based) of <paramref name="samples"/> dull enough for a half-speed pair, the dullest first, at most <paramref name="max"/> (by default
+    /// <see cref="MaxHalfSpeedSamples"/>): those whose most-played region has at most <see cref="DullShare"/> above
     /// <see cref="HalfSpeedTopHz"/>. Silent samples and samples the song never plays are left out.
     /// </summary>
-    public static IReadOnlyList<int> DullSamples(IEnumerable<SampleAnalysis> samples)
+    public static IReadOnlyList<int> DullSamples(IEnumerable<SampleAnalysis> samples, int max = MaxHalfSpeedSamples)
     {
         ArgumentNullException.ThrowIfNull(samples);
         return [.. samples
@@ -161,7 +161,7 @@ internal static class PairPicker
             .Where(s => s.Share <= DullShare)
             .OrderBy(s => s.Share)
             .ThenBy(s => s.Sample)
-            .Take(MaxHalfSpeedSamples)
+            .Take(max)
             .Select(s => s.Sample)];
     }
 

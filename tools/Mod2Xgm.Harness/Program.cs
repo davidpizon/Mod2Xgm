@@ -148,6 +148,7 @@ internal static class Program
         Option<bool> panSwaps = new("--pan-swaps") { Description = "Instead of scoring, convert every song for XGM and XGM2 with the optimizer and the simple mapper and count where an instrument changes side while the MOD keeps it on one; writes pan-swaps/ (docs/harness.md#pan-swaps)." };
         Option<string?> squeeze = new("--squeeze") { Description = "Instead of scoring, make a squeeze round for an answers file: each song at --budget % of its PCM bytes, squeezed different ways, each against today's way (docs/harness.md#squeeze-rounds)." };
         Option<int> budget = new("--budget") { Description = "The share of each song's PCM bytes today a --squeeze round may use, 1 to 99 (default 50).", DefaultValueFactory = _ => 50 };
+        Option<string?> waysOption = new("--ways") { Description = "With --squeeze: the ways to try against today's, comma-separated (no-shrink, half-speed-all, drums-first, tonal-first, pitch-25, pitch-50, loudness-12, merge-90, half-speed-dull; default every way)." };
         Option<string?> models = new("--models") { Description = "Folder of the exported .onnx models --embeddings and --retry use (default: the user's local data folder, Mod2Xgm/models; tools/onnx-export/README.md)." };
         Option<string> progress = new(ProgressModeScan.OptionName)
         {
@@ -158,7 +159,7 @@ internal static class Program
 
         RootCommand root = new("Mod2Xgm accuracy harness: scores conversions against OpenMPT (docs/harness.md).")
         {
-            inputs, output, rate, libopenmpt, furnace, noFurnace, deflemask, noDefleMask, saveReference, clip, balance, fmFit, fmRenders, psgFit, pcmFit, preMix, ch3, dropClues, noCache, cacheDir, jobs, verbose, progress, remake, fit, pick, pairs, kinds, maxPerKind, embeddings, models, holdout, panSwaps, retry, squeeze, budget,
+            inputs, output, rate, libopenmpt, furnace, noFurnace, deflemask, noDefleMask, saveReference, clip, balance, fmFit, fmRenders, psgFit, pcmFit, preMix, ch3, dropClues, noCache, cacheDir, jobs, verbose, progress, remake, fit, pick, pairs, kinds, maxPerKind, embeddings, models, holdout, panSwaps, retry, squeeze, budget, waysOption,
         };
         root.SetAction(result =>
         {
@@ -238,6 +239,12 @@ internal static class Program
                 throw HarnessException.Usage("--budget without --squeeze; only --squeeze squeezes");
             }
 
+            string? wayList = result.GetValue(waysOption);
+            if (wayList is not null && result.GetValue(squeeze) is null)
+            {
+                throw HarnessException.Usage("--ways without --squeeze; only --squeeze tries ways");
+            }
+
             if (share is < 1 or > 99)
             {
                 throw HarnessException.Usage(string.Create(CultureInfo.InvariantCulture, $"--budget {share}: between 1 and 99 %, please"));
@@ -303,7 +310,8 @@ internal static class Program
                 result.GetValue(panSwaps),
                 result.GetValue(retry),
                 result.GetValue(squeeze),
-                share));
+                share,
+                wayList is null ? null : Squeeze.ParseWays(wayList)));
         });
 
         ParseResult parsed = root.Parse(args);
@@ -420,7 +428,7 @@ internal static class Program
                 throw new HarnessException($"Not found: {squeezeAnswers}");
             }
 
-            return new SqueezeRun(songs, options.OutputDirectory, logger).Run(squeezeAnswers, options.Budget, DateOnly.FromDateTime(DateTime.Now), options.Jobs, progress);
+            return new SqueezeRun(songs, options.OutputDirectory, logger, options.SqueezeWays).Run(squeezeAnswers, options.Budget, DateOnly.FromDateTime(DateTime.Now), options.Jobs, progress);
         }
 
         if (options.Pick is { } pickAnswers)
@@ -616,6 +624,7 @@ internal static class Program
 /// <param name="Retry">An answers file whose retry list to make (<c>--retry</c>, docs/adr/0112-retry-list.md), instead of scoring, or <c>null</c>.</param>
 /// <param name="Squeeze">An answers file to make the next squeeze round for (<c>--squeeze</c>, docs/adr/0113-squeeze-rounds.md), instead of scoring, or <c>null</c>.</param>
 /// <param name="Budget">The share of each song's PCM bytes today the squeeze round may use (<c>--budget</c>), 1 to 99.</param>
+/// <param name="SqueezeWays">The ways the squeeze round tries (<c>--ways</c>), or <c>null</c> for every way.</param>
 internal sealed record HarnessOptions(
     IReadOnlyList<string> Inputs,
     string OutputDirectory,
@@ -651,4 +660,5 @@ internal sealed record HarnessOptions(
     bool PanSwaps = false,
     string? Retry = null,
     string? Squeeze = null,
-    int Budget = 50);
+    int Budget = 50,
+    IReadOnlyList<SqueezeWay>? SqueezeWays = null);

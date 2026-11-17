@@ -64,6 +64,182 @@ public sealed class SoundMenuTests
         Assert.False(sut);
     }
 
+    /// <summary>Checks that a chord's notes are its loud harmonics that aren't harmonics of a lower note: C-F-A over a silent root is 3, 4 and 5, and 6, 8 and 10 are their own.</summary>
+    [Fact]
+    public void ChordTones_WithThreeNoteChord_ReturnsItsNotes()
+    {
+        // Arrange
+        float[][] harmonics = [[-60, -60, -13, -15, -14, -18, -50, -20, -50, -22]];
+
+        // Act
+        IReadOnlyList<int> sut = SoundMenu.ChordTones(harmonics);
+
+        // Assert
+        Assert.Equal([3, 4, 5], sut);
+    }
+
+    /// <summary>Checks that a sample that isn't a chord has no chord notes.</summary>
+    [Fact]
+    public void ChordTones_WithSingleNote_ReturnsNone()
+    {
+        // Arrange
+        float[][] harmonics = [[-13, -40, -40, -40]];
+
+        // Act
+        IReadOnlyList<int> sut = SoundMenu.ChordTones(harmonics);
+
+        // Assert
+        Assert.Empty(sut);
+    }
+
+    /// <summary>Checks that a chord with a loud second harmonic is still found, as EM2's MELLO chords are: 2, 3, 4 and 5, the 4 louder than the 2 it doubles.</summary>
+    [Fact]
+    public void ChordTones_WithLoudSecondHarmonic_ReturnsItsNotes()
+    {
+        // Arrange
+        float[][] harmonics = [[-26, -14, -21, -12, -20, -20, -53, -20, -55, -28, -58, -29, -65, -63, -33, -33]];
+
+        // Act
+        IReadOnlyList<int> sut = SoundMenu.ChordTones(harmonics);
+
+        // Assert
+        Assert.Equal([2, 3, 4, 5], sut);
+    }
+
+    /// <summary>Checks that one note whose overtones fall away isn't taken for a chord, though its overtones are within reach of its level.</summary>
+    [Fact]
+    public void ChordTones_WithFallingOvertones_ReturnsNone()
+    {
+        // Arrange
+        float[][] harmonics = [[-10, -14, -18, -22]];
+
+        // Act
+        IReadOnlyList<int> sut = SoundMenu.ChordTones(harmonics);
+
+        // Assert
+        Assert.Empty(sut);
+    }
+
+    /// <summary>Checks that a chord sounding its root keeps its third, as EM2's MELLOW MAJ7 does: the 5 isn't the 1's overtone, the 2 and 8 are.</summary>
+    [Fact]
+    public void ChordTones_WithRootAmongTheNotes_KeepsTheThird()
+    {
+        // Arrange
+        float[][] harmonics = [[0, -5, -17, 0, -6, 0, -39, -7, -29, -28, -47, -15, -48, -19, -31, -19]];
+
+        // Act
+        IReadOnlyList<int> sut = SoundMenu.ChordTones(harmonics);
+
+        // Assert
+        Assert.Equal([1, 4, 5, 6], sut);
+    }
+
+    /// <summary>Checks that a bright note with loud octave and fifth harmonics, but no third or seventh, isn't taken for a chord.</summary>
+    [Fact]
+    public void ChordTones_WithOnlyOctavesAndFifths_ReturnsNone()
+    {
+        // Arrange
+        float[][] harmonics = [[0, 0, -1, -5, -20, -12]];
+
+        // Act
+        IReadOnlyList<int> sut = SoundMenu.ChordTones(harmonics);
+
+        // Assert
+        Assert.Empty(sut);
+    }
+
+    /// <summary>Checks that when there are more notes than voices, a quieter third is kept before a louder octave of a note already kept.</summary>
+    [Fact]
+    public void ChordTones_WithMoreNotesThanVoices_KeepsTheThirdBeforeAnOctave()
+    {
+        // Arrange
+        float[][] harmonics = [[-60, -2, -3, 0, -9, -60, -60, -60, -60, -60, -60, -60, -60, -60, -60, -1]];
+
+        // Act
+        IReadOnlyList<int> sut = SoundMenu.ChordTones(harmonics);
+
+        // Assert
+        Assert.Equal([3, 4, 5, 16], sut);
+    }
+
+    /// <summary>Checks that of five chord notes only the four loudest are kept, low to high.</summary>
+    [Fact]
+    public void ChordTones_WithFiveNotes_KeepsTheLoudestFour()
+    {
+        // Arrange
+        float[][] harmonics = [[-60, -60, -13, -60, -14, -60, -20, -60, -60, -60, -16, -60, -15]];
+
+        // Act
+        IReadOnlyList<int> sut = SoundMenu.ChordTones(harmonics);
+
+        // Assert
+        Assert.Equal([3, 5, 11, 13], sut);
+    }
+
+    /// <summary>Checks that a chord note's target is the chord's harmonics that are the note's own, with the note as the fundamental.</summary>
+    [Fact]
+    public void ToneTarget_WithThirdHarmonic_TakesItsOwnHarmonics()
+    {
+        // Arrange
+        NoteTarget chord = new(100, 100, new RegionSpectrum(0.01, [[-20f]], [[-60, -60, -13, -15, -14, -18, -50]]));
+
+        // Act
+        NoteTarget sut = SoundMenu.ToneTarget(chord, 3);
+
+        // Assert
+        Assert.Equal((300.0, (double?)300.0), (sut.NoteHz, sut.FundamentalHz));
+        Assert.Equal([-13f, -18f], Assert.Single(sut.Spectrum.HarmonicsDb!)); // ToneTarget always gives harmonics.
+    }
+
+    /// <summary>Checks that a chord without a pitch can't give a note's target.</summary>
+    [Fact]
+    public void ToneTarget_WithoutPitch_Throws()
+    {
+        // Arrange
+        NoteTarget chord = new(100, null, new RegionSpectrum(0.01, [[-20f]], null));
+
+        // Act and Assert
+        Assert.Throws<ArgumentException>(() => SoundMenu.ToneTarget(chord, 3));
+    }
+
+    /// <summary>Checks that the patch is fitted to the note sharing the fewest harmonics: of C-E-G as 4, 5 and 6, the 5 shares only 20.</summary>
+    [Fact]
+    public void ReferenceTone_WithMajorChord_TakesTheOneSharingLeast()
+    {
+        // Act
+        int sut = SoundMenu.ReferenceTone([4, 5, 6], 24);
+
+        // Assert
+        Assert.Equal(5, sut);
+    }
+
+    /// <summary>Checks that a chord's render is its notes' voices added, each at its level.</summary>
+    [Fact]
+    public void RenderChord_WithTwoNotes_AddsTheirVoices()
+    {
+        // Arrange
+        float[] low = FmNoteRenderer.Render(FmPatchLibrary.Sine, null, 200, SampleAnalyzer.RegionSeconds);
+        float[] high = FmNoteRenderer.Render(FmPatchLibrary.Sine, null, 300, SampleAnalyzer.RegionSeconds);
+
+        // Act
+        float[] sut = SoundMenu.RenderChord(FmPatchLibrary.Sine, 100, [new ChordTone(2, 1), new ChordTone(3, 0.5)]);
+
+        // Assert
+        Assert.Equal(low.Length, sut.Length);
+        Assert.All(Enumerable.Range(0, sut.Length), i => Assert.Equal(low[i] + (0.5f * high[i]), sut[i], 1e-5f));
+    }
+
+    /// <summary>Checks that a chord note sits its harmonic's interval over the root: the fourth harmonic two octaves up.</summary>
+    [Fact]
+    public void Cents_WithFourthHarmonic_IsTwoOctaves()
+    {
+        // Act
+        double sut = new ChordTone(4, 1).Cents;
+
+        // Assert
+        Assert.Equal(2400, sut);
+    }
+
     /// <summary>Checks that a chord's second voice is a copy of its patch, spread by 22 cents, with the first turned down at least the 3 dB the pair sits under the sample.</summary>
     [Fact]
     public void SecondVoice_WithChord_ReturnsDetunedCopy()

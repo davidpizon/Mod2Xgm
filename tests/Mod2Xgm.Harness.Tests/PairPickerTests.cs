@@ -306,6 +306,22 @@ public sealed class PairPickerTests
         Assert.Equal([2, 5], sut);
     }
 
+    /// <summary>With a larger cap every dull sample is named, as the squeeze round's half speed for dull samples needs.</summary>
+    [Fact]
+    public void DullSamples_WithNoCap_ReturnsEveryDullOne()
+    {
+        // Arrange
+        float[] dull = [.. Enumerable.Range(0, 64).Select(b => b < 5 ? -10f : -80f)];
+        SampleAnalysis[] samples = [.. Enumerable.Range(0, 4).Select(i => Analysis(i, SampleKind.Tone, dull, notes: 5))];
+
+        // Act
+        IReadOnlyList<int> sut = PairPicker.DullSamples(samples, int.MaxValue);
+
+        // Assert
+        Assert.Equal([0, 1, 2, 3], sut.Order());
+        Assert.Equal(2, PairPicker.DullSamples(samples).Count);
+    }
+
     /// <summary>The candidates table has a header and one line per candidate, least sure first.</summary>
     [Fact]
     public void CandidatesTable_WithTwoPairs_ListsLeastSureFirst()

@@ -168,6 +168,54 @@ Spaceman remix (q1–q3, in both versions of q2); the main chords go missing in 
 versions of Heaven remix's q17. Half speed, which lost everywhere in round 11, won on three of six songs here, against a
 squeeze twice as hard on songs that store far more.
 
+## Round 28: squeezed to a quarter, by dials
+
+The second squeeze round (plan T9.4t5, [ADR 0113](../../../docs/adr/0113-squeeze-rounds.md)), David, 2026-11-15. The
+same six songs had to fit a quarter of today's PCM bytes. Each pair set today's way against one turned dial at the same
+budget: pitches sharing within 25 cents (`rule:pitch-share=25`), a copy per 12 dB (`rule:loudness-share=4`), merging at
+90 % alike (`rule:merge=90`) and half speed for the dull samples only (`rule:half-speed=` those with little above
+3.3 kHz). Sharing within 50 cents made the same files as 25 cents in all three songs where it changed anything (notes sit
+100 cents apart), so those three pairs were left out: ten pairs. Many dials changed nothing in a song; those weren't asked.
+
+**Result:** every dial but merging beat today's way more often than not.
+
+| Dial against today's | Won | Lost | Neither | Songs where it won |
+|---|---|---|---|---|
+| Half speed for dull samples | 3 | 1 | 0 | Burp, EM2, Wormology (lost The Messanger) |
+| Pitches share within 25 cents | 2 | 0 | 1 | Spaceman remix, Burp (neither: Heaven remix) |
+| A copy per 12 dB | 1 | 0 | 0 | EM2 |
+| Merging at 90 % alike | 0 | 2 | 0 | (lost EM2, Heaven remix) |
+
+David's words are the same in five of the seven notes: the losing version "is missing all the background chords", the
+winner "only missing some". In EM2's q6 the melody notes go missing too. At a quarter, notes that give up their
+recording seem to go silent rather than move to FM or the PSG (to be checked), so the dials that keep more notes recorded
+win. Heaven remix's q12 was "too many missing notes" in both.
+
+## Round 29: chord samples as FM chords
+
+Plan T9.4t9 ([ADR 0114](../../../docs/adr/0114-fm-chords.md)), David, 2026-11-15. At round 28's quarter budgets, today's
+version against `rule:chords=on`, which plays a chord sample's notes as FM voices of their own. Ten pairs were made from
+round 28's six songs, but only EM2's three differed: in Burp, the Spaceman and Heaven remixes, Wormology and The
+Messanger the chord rule made the same files, so those seven weren't asked. In EM2 the chords played MELLO MAJG (4 notes,
+25 FM notes) and MELLOW MAJ7 (3 notes, 7 FM notes), none short of FM channels.
+
+**Result:** no gain. q1 (2:00) and q2 (1:50) were neither: "There are background notes but not what sounds like a
+chord." q3 (0:20) was can't tell: "Both versions X and Y were acceptable." The extra voices are heard, but not as the chord, so the rule stays off. Why it isn't
+heard as a chord (pitches, levels or the one patch) is still to be found.
+
+## Round 30: FM chords with their thirds
+
+Plan T9.4t9 ([ADR 0114](../../../docs/adr/0114-fm-chords.md)), David, 2026-11-16. Round 29's q1 and q2 again, after the
+note rule was fixed to keep the chord's third: MELLO MAJ, MELLO MAJG and MELLOW MAJ7 now play four notes each. Round 29's
+q3 wasn't asked again (its chord clip came out the same), nor the other five songs, whose two versions were still the
+same files. In q1 the page's Version X was the chord version (the swap is undone in `pick`; the words keep the page's
+letters); in q2 it was Version Y.
+
+**Result:** the chords won both. q1 (2:00): "Version X chord is perfect." q2 (1:50): "Version X chord is just a single
+note." (David saved twice; his first words for q1 also heard melody notes missing, which his second save left out. The
+log keeps the second.) In both versions David heard "the noise channel is a poor substitute for the percussion", and
+asked whether the drums could be baked into the drum voice.
+
 ## Round 31: drums baked into recordings
 
 Plan T9.4t10 ([ADR 0115](../../../docs/adr/0115-drum-bakes.md)), David, 2026-11-16. Ten pairs from the six squeeze songs
@@ -185,7 +233,7 @@ file terms, and q1's "Y" is `b`.
 | Spaceman remix, Heaven remix, Wormology | 0 | 0 | 0 | 4 |
 
 David's words for the four rejected pairs: the chords are missing in both versions (Spaceman remix, Heaven remix), and
-"Too many missing sounds" (Heaven remix, Wormology). This branch was cut from `main` without T9.4t9's FM chords, so the
+"Too many missing sounds" (Heaven remix, Wormology). The round was made without T9.4t9's FM chords, so the
 chord samples there still play as one FM voice. In The Messanger, a long drone that changes shape in the original is
 held flat in both.
 

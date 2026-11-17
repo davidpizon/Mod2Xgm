@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Globalization;
 using System.Text;
+using Mod2Xgm.Analysis;
 using Mod2Xgm.Render;
 using Mod2Xgm.Output;
 using Mod2Xgm.Scoring;
@@ -25,6 +26,21 @@ internal enum SqueezeWay
 
     /// <summary>Tonal sounds choose first (<c>rule:keep=tonal</c>): melody, bass and chords keep their recordings.</summary>
     TonalFirst,
+
+    /// <summary>Pitches up to 25 cents apart share a copy (<c>rule:pitch-share=25</c>; today 10), plan T9.4t5.</summary>
+    PitchShare25,
+
+    /// <summary>Pitches up to 50 cents apart share a copy (<c>rule:pitch-share=50</c>), plan T9.4t5.</summary>
+    PitchShare50,
+
+    /// <summary>One copy per 12 dB of loudness when shared (<c>rule:loudness-share=4</c>; today 6 dB), plan T9.4t5.</summary>
+    LoudnessShare12,
+
+    /// <summary>Samples 90 % alike merge (<c>rule:merge=90</c>; today 98 %), plan T9.4t5.</summary>
+    Merge90,
+
+    /// <summary>Only the dull samples, with little above XGM2 half speed's top, at half speed (<c>rule:half-speed=&lt;samples&gt;</c>), plan T9.4t5.</summary>
+    HalfSpeedDull,
 }
 
 /// <summary>One pair of a squeeze round: two ways at one budget, at the clip where they differ most.</summary>
@@ -34,7 +50,8 @@ internal enum SqueezeWay
 /// <param name="Budget">The PCM bytes both ways may use.</param>
 /// <param name="StartSeconds">Where the clip starts.</param>
 /// <param name="DifferenceDb">The log-mel distance between the two clips: how far apart the ways sound there.</param>
-internal sealed record SqueezePair(string Song, SqueezeWay First, SqueezeWay Second, long Budget, double StartSeconds, double DifferenceDb);
+/// <param name="Dull">The song's dull samples (0-based), which <see cref="SqueezeWay.HalfSpeedDull"/> stores at half speed.</param>
+internal sealed record SqueezePair(string Song, SqueezeWay First, SqueezeWay Second, long Budget, double StartSeconds, double DifferenceDb, IReadOnlyList<int>? Dull = null);
 
 /// <summary>Builds squeeze rounds (plan T9.4t1, docs/adr/0113-squeeze-rounds.md): each pair is one song at one budget, squeezed two ways.</summary>
 internal static class Squeeze
@@ -58,18 +75,55 @@ internal static class Squeeze
     /// <summary>Every way, in the order the tables list them.</summary>
     public static IReadOnlyList<SqueezeWay> Ways { get; } = Enum.GetValues<SqueezeWay>();
 
-    /// <summary>The way's name, in <c>squeeze.tsv</c> and the logs.</summary>
+    /// <summary>The way's name, in <c>squeeze.tsv</c>, <c>--ways</c> and the logs.</summary>
     public static string Name(SqueezeWay way) => way switch
     {
         SqueezeWay.Today => "today",
         SqueezeWay.NoShrink => "no shrinking",
         SqueezeWay.HalfSpeedAll => "half speed for all",
         SqueezeWay.DrumsFirst => "drums keep theirs first",
-        _ => "tonal sounds keep theirs first",
+        SqueezeWay.TonalFirst => "tonal sounds keep theirs first",
+        SqueezeWay.PitchShare25 => "pitches share within 25 cents",
+        SqueezeWay.PitchShare50 => "pitches share within 50 cents",
+        SqueezeWay.LoudnessShare12 => "a copy per 12 dB",
+        SqueezeWay.Merge90 => "merge samples 90 % alike",
+        _ => "half speed for dull samples",
     };
 
-    /// <summary>The recipe of <paramref name="way"/> at <paramref name="budget"/> PCM bytes, as a recipe cell.</summary>
-    public static string RecipeOf(SqueezeWay way, long budget)
+    /// <summary>The way's short name for <c>--ways</c> (<c>pitch-25</c>, <c>merge-90</c>, …).</summary>
+    public static string Key(SqueezeWay way) => way switch
+    {
+        SqueezeWay.Today => "today",
+        SqueezeWay.NoShrink => "no-shrink",
+        SqueezeWay.HalfSpeedAll => "half-speed-all",
+        SqueezeWay.DrumsFirst => "drums-first",
+        SqueezeWay.TonalFirst => "tonal-first",
+        SqueezeWay.PitchShare25 => "pitch-25",
+        SqueezeWay.PitchShare50 => "pitch-50",
+        SqueezeWay.LoudnessShare12 => "loudness-12",
+        SqueezeWay.Merge90 => "merge-90",
+        _ => "half-speed-dull",
+    };
+
+    /// <summary>The ways a <c>--ways</c> list names, today's always among them; throws a usage <see cref="HarnessException"/> for a name it doesn't know.</summary>
+    public static IReadOnlyList<SqueezeWay> ParseWays(string list)
+    {
+        ArgumentNullException.ThrowIfNull(list);
+        HashSet<SqueezeWay> ways = [SqueezeWay.Today];
+        foreach (string name in list.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            ways.Add(Ways.Cast<SqueezeWay?>().FirstOrDefault(w => Key(w!.Value) == name)
+                ?? throw HarnessException.Usage($"--ways: {name} is no way ({string.Join(", ", Ways.Select(Key))})"));
+        }
+
+        return [.. Ways.Where(ways.Contains)];
+    }
+
+    /// <summary>
+    /// The recipe of <paramref name="way"/> at <paramref name="budget"/> PCM bytes, as a recipe cell; <paramref name="dull"/>
+    /// (0-based) are the samples <see cref="SqueezeWay.HalfSpeedDull"/> stores at half speed.
+    /// </summary>
+    public static string RecipeOf(SqueezeWay way, long budget, IReadOnlyList<int>? dull = null)
     {
         string start = string.Create(CultureInfo.InvariantCulture, $"{PairPicker.DefaultRecipe} --max-pcm-bytes {budget}");
         return way switch
@@ -78,7 +132,12 @@ internal static class Squeeze
             SqueezeWay.NoShrink => start + " rule:shrink=off",
             SqueezeWay.HalfSpeedAll => start + " rule:half-speed=all",
             SqueezeWay.DrumsFirst => start + " rule:keep=drums",
-            _ => start + " rule:keep=tonal",
+            SqueezeWay.TonalFirst => start + " rule:keep=tonal",
+            SqueezeWay.PitchShare25 => start + " rule:pitch-share=25",
+            SqueezeWay.PitchShare50 => start + " rule:pitch-share=50",
+            SqueezeWay.LoudnessShare12 => start + " rule:loudness-share=4",
+            SqueezeWay.Merge90 => start + " rule:merge=90",
+            _ => start + " rule:half-speed=" + string.Join(',', (dull ?? []).Order().Select(s => (s + 1).ToString(CultureInfo.InvariantCulture))),
         };
     }
 
@@ -108,8 +167,8 @@ internal static class Squeeze
         List<ListeningRow> rows = [];
         foreach (SqueezePair p in pairs)
         {
-            string first = RecipeOf(p.First, p.Budget);
-            string second = RecipeOf(p.Second, p.Budget);
+            string first = RecipeOf(p.First, p.Budget, p.Dull);
+            string second = RecipeOf(p.Second, p.Budget, p.Dull);
             bool swap = PairPicker.ChangedFirst(p.Song, p.StartSeconds);
             rows.Add(new ListeningRow(
                 date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
@@ -164,7 +223,8 @@ internal static class Squeeze
 /// <param name="songs">The songs to squeeze.</param>
 /// <param name="outputDirectory">Where <c>listening/squeeze.tsv</c>, <c>listening/squeeze-round.tsv</c> and the renders go.</param>
 /// <param name="logger">Where the per-song results go.</param>
-internal sealed class SqueezeRun(IReadOnlyList<string> songs, string outputDirectory, ILogger logger)
+/// <param name="ways">The ways to make, today's among them (<c>--ways</c>); every way when <c>null</c>.</param>
+internal sealed class SqueezeRun(IReadOnlyList<string> songs, string outputDirectory, ILogger logger, IReadOnlyList<SqueezeWay>? ways = null)
 {
     /// <summary>Makes a squeeze round at <paramref name="percent"/> % of each song's PCM bytes; always 0.</summary>
     public int Run(string answersPath, int percent, DateOnly date, int jobs, IConversionProgress progress)
@@ -181,13 +241,14 @@ internal sealed class SqueezeRun(IReadOnlyList<string> songs, string outputDirec
 
         // Today's version of every song first: only the biggest are squeezed (docs/adr/0113-squeeze-rounds.md).
         ConcurrentDictionary<string, long> stored = [];
+        ConcurrentDictionary<string, IReadOnlyList<int>> dull = [];
         ConcurrentDictionary<string, IPhase> phases = [];
         Parallel.ForEach(songs, parallel, song =>
         {
             phases[song] = progress.Start("song:" + Path.GetFileName(song));
             try
             {
-                stored[song] = Stored(song, folder);
+                (stored[song], dull[song]) = Stored(song, folder);
             }
             catch (Exception ex) when (ex is HarnessException or ConversionException or IOException)
             {
@@ -206,7 +267,7 @@ internal sealed class SqueezeRun(IReadOnlyList<string> songs, string outputDirec
         {
             try
             {
-                tried[song] = Song(song, stored[song], percent, folder);
+                tried[song] = Song(song, stored[song], dull[song], percent, folder);
             }
             catch (Exception ex) when (ex is HarnessException or ConversionException or IOException)
             {
@@ -236,17 +297,19 @@ internal sealed class SqueezeRun(IReadOnlyList<string> songs, string outputDirec
         return 0;
     }
 
-    /// <summary>The PCM bytes today's version of the song stores, made once without a budget.</summary>
-    private static long Stored(string songPath, string folder)
+    /// <summary>The PCM bytes today's version of the song stores, made once without a budget, and its dull samples (0-based).</summary>
+    private static (long Bytes, IReadOnlyList<int> Dull) Stored(string songPath, string folder)
     {
         string song = Path.GetFileName(songPath);
         string stem = Path.Combine(folder, Path.GetFileNameWithoutExtension(song));
-        ListeningRemake.Render(songPath, PairPicker.Format, PairPicker.DefaultRecipe, stem + "-full", null, song);
-        return PairPicker.StoredBytes(File.ReadAllBytes(stem + "-full.out"));
+        SongAnalysis? analysis = null;
+        ListeningRemake.Render(songPath, PairPicker.Format, PairPicker.DefaultRecipe, stem + "-full", a => analysis = a, song);
+        IReadOnlyList<int> dull = analysis is null ? [] : PairPicker.DullSamples(analysis.Samples, int.MaxValue);
+        return (PairPicker.StoredBytes(File.ReadAllBytes(stem + "-full.out")), dull);
     }
 
     /// <summary>One song: its budget, every way at it and each way's pair with today's.</summary>
-    private List<SqueezePair> Song(string songPath, long stored, int percent, string folder)
+    private List<SqueezePair> Song(string songPath, long stored, IReadOnlyList<int> dull, int percent, string folder)
     {
         string song = Path.GetFileName(songPath);
         string stem = Path.Combine(folder, Path.GetFileNameWithoutExtension(song));
@@ -258,11 +321,11 @@ internal sealed class SqueezeRun(IReadOnlyList<string> songs, string outputDirec
         }
 
         Dictionary<SqueezeWay, byte[]> renders = [];
-        foreach (SqueezeWay way in Squeeze.Ways)
+        foreach (SqueezeWay way in (ways ?? Squeeze.Ways).Where(w => w != SqueezeWay.HalfSpeedDull || dull.Count > 0))
         {
             try
             {
-                renders[way] = File.ReadAllBytes(ListeningRemake.Render(songPath, PairPicker.Format, Squeeze.RecipeOf(way, budget), stem + "-" + way.ToString().ToLowerInvariant(), null, song));
+                renders[way] = File.ReadAllBytes(ListeningRemake.Render(songPath, PairPicker.Format, Squeeze.RecipeOf(way, budget, dull), stem + "-" + way.ToString().ToLowerInvariant(), null, song));
             }
             catch (Exception ex) when (ex is HarnessException or ConversionException)
             {
@@ -281,7 +344,7 @@ internal sealed class SqueezeRun(IReadOnlyList<string> songs, string outputDirec
         foreach ((SqueezeWay way, byte[] render) in renders.Where(r => r.Key != SqueezeWay.Today))
         {
             (double start, double db) = Widest(today, render, PairPicker.Starts(seconds));
-            pairs.Add(new SqueezePair(song, SqueezeWay.Today, way, budget, start, db));
+            pairs.Add(new SqueezePair(song, SqueezeWay.Today, way, budget, start, db, dull));
             logger.Information("{Song:l} at {Budget} bytes: {Way:l} is {Db:0.##} dB from today's way at {Start:0.#} s", song, budget, Squeeze.Name(way), db, start);
         }
 
