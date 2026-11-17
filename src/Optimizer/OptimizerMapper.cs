@@ -25,7 +25,8 @@ namespace Mod2Xgm.Optimizer;
 /// <param name="pan">How pan swaps the MOD doesn't make are priced (plan T9.4r, docs/adr/0109-pan-swap-cost.md); <see cref="PanRules.Default"/> when not given.</param>
 /// <param name="levels">How much quieter the plan plays on XGM and XGM2, a retry's rule (plan T9.4s2, docs/adr/0112-retry-list.md); <see cref="LevelRules.None"/> when not given.</param>
 /// <param name="keep">Which tracks choose their sound first, a squeeze round's rule (plan T9.4t1, docs/adr/0113-squeeze-rounds.md); <see cref="KeepFirst.Importance"/> when not given.</param>
-internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleSounds> menu, ShrinkRules? shrink = null, VoiceSwitching? switching = null, PreMixRules? preMix = null, bool layers = true, PanRules? pan = null, LevelRules? levels = null, KeepFirst keep = KeepFirst.Importance) : IChannelMapper
+/// <param name="bake">How recording bytes are shared out and which drum bakes may be used (plan T9.4t10, docs/adr/0115-drum-bakes.md); <see cref="BakeRules.None"/> when not given.</param>
+internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleSounds> menu, ShrinkRules? shrink = null, VoiceSwitching? switching = null, PreMixRules? preMix = null, bool layers = true, PanRules? pan = null, LevelRules? levels = null, KeepFirst keep = KeepFirst.Importance, BakeRules? bake = null) : IChannelMapper
 {
     /// <summary>What a fully percussive sample's notes add to their importance, as a multiple of a note with no hit: a replaced attack is easy to hear, and David chose this over smaller values (docs/sample-capacity.md#importance).</summary>
     private const double PercussiveBoost = 8;
@@ -100,7 +101,7 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
         if (mixing is { Enabled: true, MakeRoom: true } && limits.PcmBytes is not null)
         {
             // A first, silent pass finds the bytes the pre-mixes want; the shrinker then leaves them that room.
-            Run probe = new(limits, menu, song, playback, options, new ConversionNotes(Serilog.Core.Logger.None), shrink ?? ShrinkRules.Default, switching ?? Switching, mixing, layers, 0, pan ?? PanRules.Default, levels ?? LevelRules.None, keep);
+            Run probe = new(limits, menu, song, playback, options, new ConversionNotes(Serilog.Core.Logger.None), shrink ?? ShrinkRules.Default, switching ?? Switching, mixing, layers, 0, pan ?? PanRules.Default, levels ?? LevelRules.None, keep, bake ?? BakeRules.None);
             try
             {
                 probe.Execute();
@@ -114,7 +115,7 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
             reserve = probe.MixBytes + probe.RefusedMixBytes;
         }
 
-        Run run = new(limits, menu, song, playback, options, notes, shrink ?? ShrinkRules.Default, switching ?? Switching, mixing, layers, reserve, pan ?? PanRules.Default, levels ?? LevelRules.None, keep);
+        Run run = new(limits, menu, song, playback, options, notes, shrink ?? ShrinkRules.Default, switching ?? Switching, mixing, layers, reserve, pan ?? PanRules.Default, levels ?? LevelRules.None, keep, bake ?? BakeRules.None);
         try
         {
             return run.Execute();
@@ -219,6 +220,12 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
         private readonly ShrinkRules _rules;
         private readonly VoiceSwitching _switching;
         private readonly HashSet<StoredCopy> _stored = [];
+
+        /// <summary>With <c>rule:bytes=score</c>, the copies each sample (as stored) has bytes held for until every section has its sounds (docs/adr/0115-drum-bakes.md).</summary>
+        private readonly Dictionary<int, HashSet<StoredCopy>> _held = [];
+
+        /// <summary>With <c>rule:bake=beat</c>, the drum hits that play in a baked beat (docs/adr/0115-drum-bakes.md): no section allocates them.</summary>
+        private readonly HashSet<PlannedNote> _baked = [];
         private Dictionary<StoredCopy, int> _copyBytes = [];
         private ShrinkResult? _shrunk;
         private readonly Dictionary<int, int> _storedAs = [];
@@ -237,6 +244,9 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
         // How much quieter the plan plays than its own levels: a retry's rule, XGM and XGM2 only (plan T9.4s2).
         private readonly LevelRules _levels;
         private readonly KeepFirst _keep;
+
+        /// <summary>How bytes are shared out and which drum bakes may be used (docs/adr/0115-drum-bakes.md).</summary>
+        private readonly BakeRules _bake;
         private int _mixesSkipped;
 
         // The samples held in the middle whose recordings play one step quieter: those whose quieter copies fit (plan T9.4r).
@@ -259,11 +269,12 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
         private int _silent;
         private int _slides;
 
-        public Run(TargetLimits limits, IReadOnlyList<SampleSounds> menu, Song song, Playback playback, MappingOptions options, ConversionNotes notes, ShrinkRules rules, VoiceSwitching switching, PreMixRules preMix, bool layers, long reserve, PanRules pan, LevelRules levels, KeepFirst keep)
+        public Run(TargetLimits limits, IReadOnlyList<SampleSounds> menu, Song song, Playback playback, MappingOptions options, ConversionNotes notes, ShrinkRules rules, VoiceSwitching switching, PreMixRules preMix, bool layers, long reserve, PanRules pan, LevelRules levels, KeepFirst keep, BakeRules bake)
         {
             _pans = pan;
             _levels = levels;
             _keep = keep;
+            _bake = bake;
             _preMix = preMix;
             _layers = layers;
             _reserve = reserve;
@@ -303,6 +314,8 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
             Confidence = Confidences();
             SizeCopies();
             CheckRequired();
+            BakeBeats();
+            HoldBytes();
             // Each track's place in the song's order (docs/adr/0092-stable-voices.md); the whole song as one section gives each
             // track one sound throughout, where it has room.
             _songImportance = _planned.GroupBy(n => (n.Channel, n.Sample)).ToDictionary(t => t.Key, t => t.Average(n => n.Importance));
@@ -314,6 +327,8 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
                 Allocate(section);
             }
 
+            // Bytes held for a sample that found no voice for them are free again for the rescue.
+            _held.Clear();
             Rescue();
             PlanPans();
             PlanQuieterHolds();
@@ -510,7 +525,8 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
                 copies.AddRange(CapacityCheck.Copies([play], _song, _storedAs).Select(c => (c.Key, c.Value)));
             }
 
-            Dictionary<int, double> importance = wanted.GroupBy(n => StoredAs(n.Sample)).ToDictionary(g => g.Key, g => g.Sum(n => n.Importance));
+            // With rule:bytes=score, the samples shrunk first are those whose other sounds come closest to them (docs/adr/0115-drum-bakes.md).
+            Dictionary<int, double> importance = wanted.GroupBy(n => StoredAs(n.Sample)).ToDictionary(g => g.Key, g => g.Sum(n => n.Importance * (_bake.BytesByScore ? FallbackDb(n) : 1)));
             // With MakeRoom, the shrinker leaves the pre-mixes the room a first pass found they want (PreMixRules.MakeRoom).
             TargetLimits shrinkTo = _reserve > 0 && _limits.PcmBytes is { } budget ? _limits with { PcmBytes = Math.Max(1, budget - _reserve) } : _limits;
             // A forced half speed names a sample as the recipe gives it; a twin with the same sound is stored as one copy,
@@ -586,7 +602,7 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
         {
             bool keep = _switching == VoiceSwitching.KeepPlaying;
             bool songRank = _switching == VoiceSwitching.SongRank;
-            foreach (IGrouping<(int Channel, int Sample), PlannedNote> track in section.GroupBy(n => (n.Channel, n.Sample))
+            foreach (IGrouping<(int Channel, int Sample), PlannedNote> track in section.Where(n => !_baked.Contains(n)).GroupBy(n => (n.Channel, n.Sample))
 
                 // A track that already has a sound chooses before a newcomer, so it keeps it (plan T9.4c).
                 .OrderBy(t => keep && _lastKind.GetValueOrDefault(t.Key) is not null ? 0 : 1)
@@ -689,7 +705,163 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
 
             List<StoredCopy> fresh = [.. notes.SelectMany(n => n.Plays).SelectMany(CopiesOf).Distinct().Where(c => !_stored.Contains(c))];
             long bytes = fresh.Sum(c => (long)_copyBytes[c]);
-            return _stored.Count + _mixes.Count + fresh.Count <= _limits.PcmSlots && (_limits.PcmBytes is not { } budget || _bytes + bytes <= budget);
+            (long heldBytes, int heldSlots) = HeldFor(StoredAs(notes[0].Sample));
+            return _stored.Count + _mixes.Count + fresh.Count + heldSlots <= _limits.PcmSlots && (_limits.PcmBytes is not { } budget || _bytes + bytes + heldBytes <= budget);
+        }
+
+        /// <summary>
+        /// How far <paramref name="note"/>'s closest sound other than a recording is from it, in dB: what it loses without one.
+        /// A note with no other sound loses as much as the ruler measures.
+        /// </summary>
+        private double FallbackDb(PlannedNote note) =>
+            AllKinds.Where(k => k != VoiceKind.Dac && Allowed(k, note)).Select(k => Distance(k, note)).DefaultIfEmpty(UnknownDb).Min();
+
+        /// <summary>
+        /// With <c>rule:bytes=score</c> (plan T9.4t10, docs/adr/0115-drum-bakes.md), holds the budget's bytes for the samples
+        /// that lose most per byte without their recordings: each sample's notes that want one, their importance times
+        /// <see cref="FallbackDb"/>, over the bytes of the copies they need, the most first while the bytes and slots last.
+        /// Other samples' notes then take only what is left, until every section has its sounds.
+        /// </summary>
+        private void HoldBytes()
+        {
+            if (!_bake.BytesByScore || _limits.PcmBytes is not { } budget)
+            {
+                return;
+            }
+
+            long left = budget - _bytes;
+            int slots = _limits.PcmSlots - _stored.Count;
+            List<string> held = [];
+            foreach (IGrouping<int, PlannedNote> sample in _planned
+                .Where(n => FirstChoice(n) == VoiceKind.Dac && !_baked.Contains(n))
+                .GroupBy(n => StoredAs(n.Sample))
+                .OrderByDescending(g => Loss(g) / Math.Max(1, Copies(g).Sum(c => (long)_copyBytes[c])))
+                .ThenBy(g => g.Key))
+            {
+                HashSet<StoredCopy> copies = Copies(sample);
+                long bytes = copies.Sum(c => (long)_copyBytes[c]);
+                if (bytes > 0 && bytes <= left && copies.Count <= slots)
+                {
+                    _held[sample.Key] = copies;
+                    left -= bytes;
+                    slots -= copies.Count;
+                    held.Add(Label(sample.Key, _song.Samples[sample.Key].Name));
+                }
+            }
+
+            if (held.Count > 0)
+            {
+                _notes.Add("Recording space is held first for the samples whose other sounds fall furthest from them, per byte: {Samples}", string.Join(", ", held));
+            }
+
+            double Loss(IEnumerable<PlannedNote> notes) => notes.Sum(n => n.Importance * FallbackDb(n));
+
+            HashSet<StoredCopy> Copies(IEnumerable<PlannedNote> notes) => [.. notes.SelectMany(n => n.Plays).SelectMany(CopiesOf).Where(c => !_stored.Contains(c))];
+        }
+
+        /// <summary>
+        /// With <c>rule:bake=beat</c> (plan T9.4t10, docs/adr/0115-drum-bakes.md), when the recordings the song wants don't fit:
+        /// each bar's drum hits (two or more, each played once) rendered as one recording, a pre-mix that holds one PCM voice
+        /// for the bar, a bar that sounds the same as another stored once. Used only when those recordings take fewer bytes
+        /// than the copies only their hits need; a bar with no PCM voice free throughout, or no bytes or slot left, keeps its
+        /// hits. Its notes then play as recordings before any section chooses.
+        /// </summary>
+        private void BakeBeats()
+        {
+            if (!_bake.Beat || !_preMix.Enabled || _limits.PcmBytes is not { } budget || _limits.PcmVoices < 1)
+            {
+                return;
+            }
+
+            List<PlannedNote> wanted = [.. _planned.Where(n => FirstChoice(n) == VoiceKind.Dac)];
+            long wantedBytes = _bytes + wanted.SelectMany(n => n.Plays).SelectMany(CopiesOf).Distinct().Where(c => !_stored.Contains(c)).Sum(c => (long)_copyBytes[c]);
+            if (wantedBytes <= budget)
+            {
+                return;
+            }
+
+            List<(List<PlannedNote> Notes, StealMix Mix)> beats = [];
+            foreach (IGrouping<(int Order, int Bar), PlannedNote> bar in wanted
+                .Where(n => _menu[n.Sample].Percussive >= DrumPercussive && n.Plays.Count == 1)
+                .GroupBy(n => (n.Order, Bar: n.Row / RowsPerBar))
+                .Where(g => g.Count() >= 2)
+                .OrderBy(g => g.Min(n => n.FirstTick)))
+            {
+                List<PlannedNote> notes = [.. bar.OrderBy(n => n.FirstTick).ThenBy(n => n.Channel)];
+                if (StealMixer.Beat(_song, _playback, [.. notes.Select(n => n.Plays[0])], _limits.Target, _preMix) is { } mix)
+                {
+                    beats.Add((notes, mix));
+                }
+            }
+
+            HashSet<PlannedNote> covered = [.. beats.SelectMany(b => b.Notes)];
+            HashSet<StoredCopy> stillNeeded = [.. wanted.Where(n => !covered.Contains(n)).SelectMany(n => n.Plays).SelectMany(CopiesOf)];
+            long saved = covered.SelectMany(n => n.Plays).SelectMany(CopiesOf).Distinct().Where(c => !stillNeeded.Contains(c) && !_stored.Contains(c)).Sum(c => (long)_copyBytes[c]);
+            long beatBytes = beats.DistinctBy(b => b.Mix.HeadKey).Sum(b => (long)StealMixer.Bytes(b.Mix.Head, _limits.Target));
+            if (beats.Count == 0 || beatBytes >= saved)
+            {
+                if (beats.Count > 0)
+                {
+                    _notes.Add("Drums are not baked into beats: {Beats} bars take {BeatBytes} bytes, more than the {Bytes} their hits' own copies take", beats.Count, beatBytes, saved);
+                }
+
+                return;
+            }
+
+            int baked = 0;
+            foreach ((List<PlannedNote> notes, StealMix mix) in beats)
+            {
+                int start = notes.Min(n => n.FirstTick);
+                int end = notes.Max(n => n.FirstTick + n.Plays[0].Ticks);
+                MixedNotes beat = new(notes[0]) { Start = start, End = end };
+                if (!Enumerable.Range(start, end - start).All(t => HasRoom(VoiceKind.Dac, t)) || !StoreMix(beat, mix))
+                {
+                    continue;
+                }
+
+                beat.Notes.AddRange(notes.Skip(1));
+                for (int t = start; t < end; t++)
+                {
+                    _dacAt[t]++;
+                }
+
+                foreach (PlannedNote note in notes)
+                {
+                    _mixOf[note] = beat;
+                    _baked.Add(note);
+                    note.Kind = VoiceKind.Dac;
+                    note.Closest = VoiceKind.Dac;
+                }
+
+                baked++;
+            }
+
+            if (baked > 0)
+            {
+                _notes.Add("{Bars} bars of drums play as {Beats} baked beats ({Bytes} bytes) in place of their hits' own copies", baked, _mixOf.Values.Distinct().Count(), beatBytes);
+            }
+        }
+
+        /// <summary>The bytes and slots held for samples other than <paramref name="storedAs"/> and not stored yet (<see cref="HoldBytes"/>).</summary>
+        private (long Bytes, int Slots) HeldFor(int storedAs)
+        {
+            long bytes = 0;
+            int slots = 0;
+            foreach ((int sample, HashSet<StoredCopy> copies) in _held)
+            {
+                if (sample == storedAs)
+                {
+                    continue;
+                }
+
+                foreach (StoredCopy copy in copies.Where(c => !_stored.Contains(c)))
+                {
+                    bytes += _copyBytes[copy];
+                    slots++;
+                }
+            }
+
+            return (bytes, slots);
         }
 
         /// <summary>
@@ -872,7 +1044,8 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
         {
             Dictionary<StoredCopy, int> used = [];
             HashSet<StoredCopy> vacated = [];
-            foreach (PlannedNote note in _planned.Where(n => n.Kind == VoiceKind.Dac))
+            // A baked beat's hits play its pre-mix, not copies of their own (docs/adr/0115-drum-bakes.md).
+            foreach (PlannedNote note in _planned.Where(n => n.Kind == VoiceKind.Dac && !_baked.Contains(n)))
             {
                 bool quieter = _quieter.Contains(note.Sample) && Held(note);
                 foreach (((int Sample, double RateHz, int StartFrame, int VolumeSteps) key, _) in note.Plays.SelectMany(p => CapacityCheck.Copies([p], _song, _storedAs)))
@@ -1319,7 +1492,18 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
             List<int> busy = [.. Enumerable.Range(from, play.Ticks).Where(t => !HasRoom(VoiceKind.Dac, t))];
             if (busy.Count == 0)
             {
-                return [];
+                // With rule:bake=together, a drum hit with a voice free but no bytes for its own copy may still be mixed
+                // with a recording that starts with it (docs/adr/0115-drum-bakes.md).
+                return _bake.Together && _menu[note.Sample].Percussive >= DrumPercussive
+                    ? [.. _onDac
+                        .Where(n => n.Kind == VoiceKind.Dac && n.FirstTick == from && n.Plays.Count == 1)
+                        .Select(n => _mixOf.GetValueOrDefault(n) ?? new MixedNotes(n))
+                        .DistinctBy(m => m.Lead)
+                        .Where(m => m.Notes.Count < StealMixer.MaxNotes && Enumerable.Range(from, play.Ticks).Where(t => t < m.Start || t >= m.End).All(t => HasRoom(VoiceKind.Dac, t)))
+                        .OrderBy(m => m.Notes.Count)
+                        .ThenBy(m => m.Start)
+                        .Take(MaxMixTries)]
+                    : [];
             }
 
             return [.. _onDac
@@ -1414,7 +1598,8 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
         {
             List<StoredCopy> fresh = [.. note.Plays.SelectMany(CopiesOf).Distinct().Where(c => !_stored.Contains(c))];
             long bytes = fresh.Sum(c => (long)_copyBytes[c]);
-            if (_stored.Count + _mixes.Count + fresh.Count > _limits.PcmSlots || (_limits.PcmBytes is { } budget && _bytes + bytes > budget))
+            (long heldBytes, int heldSlots) = HeldFor(StoredAs(note.Sample));
+            if (_stored.Count + _mixes.Count + fresh.Count + heldSlots > _limits.PcmSlots || (_limits.PcmBytes is { } budget && _bytes + bytes + heldBytes > budget))
             {
                 return false;
             }

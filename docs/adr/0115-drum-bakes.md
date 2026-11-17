@@ -55,11 +55,22 @@ David's answers (2026-11-16):
 
 ## Consequences
 
-- Plan task T9.4t10. `OptimizerMapper`'s allocation weighs bytes by fallback loss; `PreMixer`/`StealMixer` candidates
-  join the allocation; a new beat candidate (find exact repeats of the drum tracks' stretches, render them, store each
-  once).
-- A beat recording plays from its start, so a stretch is only replaced where it repeats from the same row with the same
-  notes, volumes and effects; any difference starts a new stretch or keeps the hits.
+- Plan task T9.4t10. As built (2026-11-16), in `OptimizerMapper`:
+  - **`rule:bytes=score`** (`HoldBytes`): before any section chooses, each sample whose notes want a recording is
+    weighed: the notes' importance times how far their closest other sound is (`FallbackDb`; the ruler's 60 dB when they
+    have none), over the bytes of the copies they need. The most per byte first, the budget's bytes and slots are held for
+    them; other samples' notes take only what isn't held. Once every section has its sounds the hold ends, so the rescue
+    can use what is left. The shrinker shrinks first the samples that lose least (the same weight, not bytes).
+  - **`rule:bake=beat`** (`BakeBeats`, `StealMixer.Beat`): only when the recordings the song wants don't fit, each bar's
+    drum hits (16 rows; two or more hits, each played once) are rendered alone into one recording, from the first hit to
+    the last one's end. Bars that render the same bytes are stored once (the pre-mix fingerprint), so there is no search
+    for repeats. The beats are used only when they take fewer bytes than the copies only their hits need; each holds one
+    PCM voice and one column for its span, like a pre-mix, and its hits are then out of the allocation.
+  - **`rule:bake=together`**: the rescue may mix a drum hit with a recording that starts on the same tick even with a
+    PCM voice free, when the hit has no bytes for its own copy. A mix takes about as many bytes as the copy it replaces,
+    so this mostly saves voices, not bytes; the rounds show whether it is ever heard.
+- A beat plays what the MOD plays in that bar, volumes and effects included, so two bars differ when anything in them
+  differs.
 - Every byte-exact test is unchanged with the rules off.
 - The harness takes the two rules (docs/harness.md); squeeze rounds at round 28's budgets on the six biggest songs, with
   EM2's drums among the pairs.

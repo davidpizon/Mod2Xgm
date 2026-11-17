@@ -506,6 +506,70 @@ public sealed class OptimizerMapperTests
         Assert.Equal(dacSample, plan.Patterns[0][0].Cells[(int)GenesisChannel.Fm6].Sample);
     }
 
+    /// <summary>
+    /// With bytes for one recording, the louder note keeps it by importance, but with <c>rule:bytes=score</c> the quieter one
+    /// does, as FM plays it far worse than the louder one (plan T9.4t10, docs/adr/0115-drum-bakes.md).
+    /// </summary>
+    [Theory]
+    [InlineData(false, 0)]
+    [InlineData(true, 1)]
+    public void Map_WithBytesForOneRecording_GivesThemToTheSampleTheRuleSays(bool byScore, int dacSample)
+    {
+        // Arrange
+        Song song = SongOf(2, [(0, 0, 1.0), (1, 1, 0.5)]);
+        SampleSounds closeOnFm = Sounds(0, fmDb: 2);
+        SampleSounds farOnFm = Sounds(1, fmDb: 40) with { Regions = [new RegionSounds(0, 1e6, FmPatchLibrary.Sine, 40, null, 45)] };
+        TargetLimits oneCopy = TargetLimits.For(PcmTarget.Xgm2, OneCopyBytes, 0);
+        OptimizerMapper sut = new(oneCopy, [closeOnFm, farOnFm], null, null, PreMixRules.None, layers: false, bake: BakeRules.None with { BytesByScore = byScore });
+
+        // Act
+        GenesisPlan plan = sut.Map(song, PlaybackOf(song), MappingOptions.Default, Notes());
+
+        // Assert
+        Assert.Equal([dacSample], plan.Patterns[0][0].Cells.Where(c => c.Voice is { Kind: VoiceKind.Dac }).Select(c => c.Sample!.Value));
+    }
+
+    /// <summary>
+    /// Two drum hits with bytes for one copy: with <c>rule:bake=beat</c> they play as one baked beat on one PCM voice, without
+    /// it one of them gives its recording up (plan T9.4t10, docs/adr/0115-drum-bakes.md).
+    /// </summary>
+    [Theory]
+    [InlineData(false, 1, null)]
+    [InlineData(true, 1, "beat 01+02")]
+    public void Map_WithTwoHitsAndBytesForOneCopy_BakesThemAsTheRuleSays(bool beat, int dacCells, string? recording)
+    {
+        // Arrange
+        Song song = WithSamples(SongOf(2, [(0, 0, 1.0), (1, 1, 1.0)]), new Sample("kick", Sound(4000, 0.3f), null), new Sample("click", Square(4000, 0.2f), null));
+        TargetLimits oneCopy = TargetLimits.For(PcmTarget.Xgm2, OneCopyBytes, 0);
+        OptimizerMapper sut = new(oneCopy, [Sounds(0), Sounds(1)], null, null, null, layers: false, bake: BakeRules.None with { Beat = beat });
+
+        // Act
+        GenesisPlan plan = sut.Map(song, PlaybackOf(song), MappingOptions.Default, Notes());
+
+        // Assert
+        PlanCell[] dac = [.. plan.Patterns[0][0].Cells.Where(c => c.Voice is { Kind: VoiceKind.Dac })];
+        Assert.Equal(dacCells, dac.Length);
+        Assert.Equal(recording, plan.DacSamples[dac[0].Voice!.Value.Index].Mix?.Name);
+    }
+
+    /// <summary>With <c>rule:bytes=score</c>, a conversion note names the samples the bytes are held for.</summary>
+    [Fact]
+    public void Map_WithBytesByScore_NotesTheSamplesHeldFor()
+    {
+        // Arrange
+        Song song = SongOf(2, [(0, 0, 1.0), (1, 1, 0.5)]);
+        SampleSounds farOnFm = Sounds(1, fmDb: 40) with { Regions = [new RegionSounds(0, 1e6, FmPatchLibrary.Sine, 40, null, 45)] };
+        CollectingSink sink = new();
+        ConversionNotes notes = new(sink.CreateLogger());
+        OptimizerMapper sut = new(TargetLimits.For(PcmTarget.Xgm2, OneCopyBytes, 0), [Sounds(0, fmDb: 2), farOnFm], null, null, PreMixRules.None, layers: false, bake: BakeRules.None with { BytesByScore = true });
+
+        // Act
+        sut.Map(song, PlaybackOf(song), MappingOptions.Default, notes);
+
+        // Assert
+        Assert.Contains(sink.Messages(Serilog.Events.LogEventLevel.Warning), m => m.Contains("held first", StringComparison.Ordinal) && m.Contains("s1", StringComparison.Ordinal) && !m.Contains("s0", StringComparison.Ordinal));
+    }
+
     /// <summary>The optimizer's plan asks for the levels and pans David chose by ear.</summary>
     [Fact]
     public void Map_Always_MarksPlanTunedByEar()
@@ -1334,6 +1398,9 @@ public sealed class OptimizerMapperTests
 
     private static TargetLimits Limits(PcmTarget target) => TargetLimits.For(target, 128 * 1024, 0);
 
+    /// <summary>A budget with room for one recording of the test samples, not two.</summary>
+    private const long OneCopyBytes = 10_000;
+
     private static MappingOptions Required(string list, params int[] samples)
     {
         HashSet<int> set = [.. samples];
@@ -1410,6 +1477,10 @@ public sealed class OptimizerMapperTests
     private static Song WithSamples(Song song, params Sample[] samples) =>
         new(song.Title, song.Channels, song.Orders, song.LoopOrder, song.Patterns, [.. Enumerable.Range(0, samples.Length).Select(i => new Instrument(i, 1, 0))], samples, song.Timing);
 
+    /// <summary>A square wave of 16 frames a cycle at <paramref name="level"/>: a sound unlike <see cref="Sound"/>'s.</summary>
+    private static float[] Square(int frames, float level) => [.. Enumerable.Range(0, frames).Select(i => i / 8 % 2 == 0 ? level : -level)];
+
+    /// <summary>A constant level: a sound with no shape, as long as <paramref name="frames"/>.</summary>
     private static float[] Sound(int frames, float level)
     {
         float[] data = new float[frames];
