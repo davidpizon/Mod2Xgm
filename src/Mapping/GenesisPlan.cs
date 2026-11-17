@@ -138,7 +138,7 @@ internal sealed record FmPatch(string Name, int Algorithm, int Feedback, IReadOn
         && Feedback == other.Feedback
         && Fms == other.Fms
         && Ams == other.Ams
-        && HeardRms == other.HeardRms
+        && EqualityComparer<double?>.Default.Equals(HeardRms, other.HeardRms)
         && Operators.SequenceEqual(other.Operators);
 
     /// <summary>A hash of the settings that <see cref="Equals(FmPatch?)"/> compares.</summary>

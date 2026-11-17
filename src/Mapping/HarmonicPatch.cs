@@ -14,7 +14,7 @@ namespace Mod2Xgm.Mapping;
 internal sealed record HarmonicPatch(IReadOnlyList<int> Harmonics, double Capture, FmPatch? Patch)
 {
     /// <summary>The share of the loop's power the harmonics must hold for the patch to stand for it.</summary>
-    public const double MinCapture = 0.9;
+    private const double MinCapture = 0.9;
 
     /// <summary>Carriers in the patch: all four operators of algorithm 7.</summary>
     private const int Carriers = 4;
