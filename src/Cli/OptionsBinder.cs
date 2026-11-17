@@ -1,6 +1,7 @@
 using System.CommandLine;
 using Mod2Xgm.Audio;
 using Mod2Xgm.Mod;
+using Mod2Xgm.Model.Window;
 using Mod2Xgm.Optimizer;
 using Mod2Xgm.Output;
 
@@ -83,6 +84,8 @@ internal static class OptionsBinder
             }
         }
 
+        SongWindowRequest? window = Window(definition, parseResult, errors);
+
         int reserveSfx = parseResult.GetValue(definition.ReserveSfxChannels);
         if (ReserveSfxError(format, reserveSfx) is { } reserveError)
         {
@@ -113,6 +116,7 @@ internal static class OptionsBinder
             MaxPcmBytes = maxPcmBytes,
             Quality = quality,
             TimeBudget = timeBudget,
+            Window = window,
             Seed = parseResult.GetValue(definition.Seed),
             NoCache = noCache,
             CacheDirectory = cacheDirectory,
@@ -126,6 +130,84 @@ internal static class OptionsBinder
         };
 
         return new Result(options, errors);
+    }
+
+    /// <summary>
+    /// <c>--start</c>, <c>--end</c>, <c>--loop-from</c> and <c>--fade-out</c> (docs/cli.md#converting-part-of-a-song):
+    /// <c>null</c> when none is given. Checks what can be checked without the song; times are compared here, tracker
+    /// positions once the song is played.
+    /// </summary>
+    private static SongWindowRequest? Window(CommandLineDefinition definition, ParseResult parseResult, List<string> errors)
+    {
+        SongPosition? start = Position(parseResult.GetValue(definition.Start), "--start", errors);
+        SongPosition? end = Position(parseResult.GetValue(definition.End), "--end", errors);
+        SongPosition? loopFrom = Position(parseResult.GetValue(definition.LoopFrom), "--loop-from", errors);
+        double? fade = null;
+        if (parseResult.GetValue(definition.FadeOut) is { } fadeText)
+        {
+            if (ValueParsers.TryParseSongTime(fadeText, out double seconds) is { } fadeError)
+            {
+                errors.Add($"--fade-out: {fadeError}");
+            }
+            else
+            {
+                fade = seconds;
+            }
+        }
+
+        if (fade is not null && loopFrom is not null)
+        {
+            errors.Add("--fade-out and --loop-from both given; a fade-out ends the song, so it can't loop.");
+        }
+
+        double startSeconds = start is TimePosition { Seconds: var s } ? s : 0;
+        bool startKnown = start is null or TimePosition;
+        if (startKnown && end is TimePosition { Seconds: var endSeconds })
+        {
+            if (endSeconds <= startSeconds)
+            {
+                errors.Add($"--end {end.Display} isn't after --start {start?.Display ?? "0:00.000"}.");
+            }
+            else if (fade is { } length && length >= endSeconds - startSeconds)
+            {
+                errors.Add($"--fade-out {SongTime.Format(length)} is as long as the part converted or longer.");
+            }
+        }
+
+        if (start is TrackerPosition && start == end)
+        {
+            errors.Add($"--start and --end are both {start.Display}, so nothing would be converted.");
+        }
+
+        if (loopFrom is TimePosition { Seconds: var loopSeconds })
+        {
+            if (startKnown && loopSeconds < startSeconds)
+            {
+                errors.Add($"--loop-from {loopFrom.Display} is before --start {start?.Display}.");
+            }
+            else if (end is TimePosition { Seconds: var stop } && loopSeconds >= stop)
+            {
+                errors.Add($"--loop-from {loopFrom.Display} isn't before --end {end.Display}.");
+            }
+        }
+
+        return start is null && end is null && loopFrom is null && fade is null ? null : new SongWindowRequest(start, end, loopFrom, fade);
+    }
+
+    private static SongPosition? Position(string? text, string option, List<string> errors)
+    {
+        if (text is null)
+        {
+            return null;
+        }
+
+        if (ValueParsers.TryParseSongPosition(text, out SongPosition? position) is { } error)
+        {
+            errors.Add($"{option}: {error}");
+            return null;
+        }
+
+        return position;
     }
 
     private static HashSet<int> SampleList(string[]? lists, string optionName, List<string> errors)

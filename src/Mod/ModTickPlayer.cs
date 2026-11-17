@@ -138,6 +138,9 @@ internal static class ModTickPlayer
         private bool _pBreakFlag;
         private bool _doStopSong;
         private bool _modRenderDone;
+
+        /// <summary>True while the tick being played is the first of a row's repeat under <c>EEx</c> (<see cref="PlaybackTick.DelayRepeat"/>).</summary>
+        private bool _delayRepeat;
         private sbyte _pBreakPosition;
         private byte _pattDelTime;
         private byte _pattDelTime2;
@@ -287,7 +290,7 @@ internal static class ModTickPlayer
             {
                 bool more = TickReplayer(ticks.Count);
                 double duration = 1.0 / TickHz();
-                ticks.Add(new PlaybackTick(time, duration, _playOrder, _playRow, _tick, _ledFilter, Snapshot()));
+                ticks.Add(new PlaybackTick(time, duration, _playOrder, _playRow, _tick, _ledFilter, Snapshot()) { DelayRepeat = _delayRepeat });
                 time += duration;
 
                 if (_doStopSong)
@@ -397,6 +400,7 @@ internal static class ModTickPlayer
                 readNewNote = true;
             }
 
+            _delayRepeat = readNewNote && _pattDelTime2 != 0;
             if (readNewNote)
             {
                 _playOrder = _modPos;

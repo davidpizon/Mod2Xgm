@@ -1,6 +1,7 @@
 using Mod2Xgm.Audio;
 using Mod2Xgm.Cli;
 using Mod2Xgm.Mod;
+using Mod2Xgm.Model.Window;
 using Mod2Xgm.Output;
 
 namespace Mod2Xgm.Tests.Cli;
@@ -586,6 +587,79 @@ public sealed class CommandLineTests
         Assert.True(options.RenderWav);
         Assert.Equal("out.wav", options.RenderWavPath);
         Assert.Equal("song.mod", options.InputPath);
+    }
+
+    /// <summary>Without --start, --end, --loop-from or --fade-out the whole song is converted: no window.</summary>
+    [Fact]
+    public void Invoke_WithoutWindowOptions_HasNoWindow()
+    {
+        // Act
+        Outcome result = Run("song.mod");
+
+        // Assert
+        Assert.Null(Assert.IsType<ConversionOptions>(result.Options).Window);
+    }
+
+    /// <summary>The window options bind to a request holding each position and the fade.</summary>
+    [Fact]
+    public void Invoke_WithWindowOptions_BindsWindow()
+    {
+        // Act
+        Outcome result = Run("song.mod", "--start", "0:30", "--end", "o11r25", "--fade-out", "4");
+
+        // Assert
+        SongWindowRequest? window = Assert.IsType<ConversionOptions>(result.Options).Window;
+        Assert.Equal(new SongWindowRequest(new TimePosition(30), new TrackerPosition(11, 25), null, 4), window);
+    }
+
+    /// <summary>--loop-from alone keeps the song's own end and loops back to it.</summary>
+    [Fact]
+    public void Invoke_WithLoopFromOnly_BindsLoop()
+    {
+        // Act
+        Outcome result = Run("song.mod", "--loop-from", "o2");
+
+        // Assert
+        Assert.Equal(new SongWindowRequest(null, null, new TrackerPosition(2, 0), null), Assert.IsType<ConversionOptions>(result.Options).Window);
+    }
+
+    /// <summary>Window options that can't make a window are usage errors saying why.</summary>
+    [Theory]
+    [InlineData("--start=soon", "--start: 'soon' is not a time")]
+    [InlineData("--end=o1r64", "--end: 'o1r64' is outside a MOD")]
+    [InlineData("--loop-from=x", "--loop-from: 'x' is not a time")]
+    [InlineData("--fade-out=0", "--fade-out: '0' is not a length of time")]
+    [InlineData("--start=1:00 --end=0:30", "--end 0:30.000 isn't after --start 1:00.000")]
+    [InlineData("--end=0:30 --fade-out=30", "--fade-out 0:30.000 is as long as the part converted")]
+    [InlineData("--start=0:10 --end=0:40 --fade-out=40", "--fade-out 0:40.000 is as long as the part converted")]
+    [InlineData("--fade-out=2 --loop-from=0:10", "--fade-out and --loop-from both given")]
+    [InlineData("--start=0:20 --loop-from=0:10", "--loop-from 0:10.000 is before --start 0:20.000")]
+    [InlineData("--end=0:20 --loop-from=0:20", "--loop-from 0:20.000 isn't before --end 0:20.000")]
+    [InlineData("--start=o2r3 --end=o2r3", "--start and --end are both o2r3")]
+    public void Invoke_WithUnusableWindow_ReturnsUsageErrorSayingWhy(string options, string expectedFragment)
+    {
+        // Act
+        Outcome result = Run(["song.mod", .. options.Split(' ')]);
+
+        // Assert
+        Assert.Equal(ExitCode.UsageError, result.Code);
+        Assert.Null(result.Options);
+        Assert.Contains(expectedFragment, result.Error, StringComparison.Ordinal);
+    }
+
+    /// <summary>Every window problem is reported at once, with the other options' problems.</summary>
+    [Fact]
+    public void Invoke_WithSeveralWindowProblems_ReportsEveryOne()
+    {
+        // Act
+        Outcome result = Run("song.mod", "--start", "x", "--end", "y", "--fade-out", "2", "--loop-from", "0:10", "--time-budget", "0s");
+
+        // Assert
+        Assert.Equal(ExitCode.UsageError, result.Code);
+        Assert.Contains("--start:", result.Error, StringComparison.Ordinal);
+        Assert.Contains("--end:", result.Error, StringComparison.Ordinal);
+        Assert.Contains("--fade-out and --loop-from", result.Error, StringComparison.Ordinal);
+        Assert.Contains("--time-budget", result.Error, StringComparison.Ordinal);
     }
 
     /// <summary>Parses <paramref name="args"/>; a usage error's problems become the outcome's error text.</summary>

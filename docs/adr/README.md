@@ -129,6 +129,7 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0113](0113-squeeze-rounds.md) | Squeeze rounds: which ways of fitting a smaller budget keep the most sound | 2026-11-15 | Accepted |
 | [0114](0114-fm-chords.md) | A chord sample's notes as FM voices of their own | 2026-11-15 | Proposed |
 | [0115](0115-drum-bakes.md) | Drums baked into recordings, and recording bytes given where the fallback hurts most | 2026-11-16 | Proposed |
+| [0116](0116-song-window.md) | Converting a window of the song: cut the song model and slice the playback | 2026-11-17 | Accepted |
 | [0117](0117-tail-and-noise-loops.md) | Loops that aren't tones: a tail after a recording, or noise | 2026-11-17 | Accepted |
 
 ## Open questions

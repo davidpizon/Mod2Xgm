@@ -101,6 +101,26 @@ internal sealed class CommandLineDefinition
         Description = "Optimizer time limit, e.g. 90s or 5m (default depends on --quality).",
     };
 
+    public Option<string?> Start { get; } = new("--start")
+    {
+        Description = "Convert from here: a time (90, 1:30, 1:30.5) or an order and row (o4r16). Snaps to the nearest row.",
+    };
+
+    public Option<string?> End { get; } = new("--end")
+    {
+        Description = "Stop here (this row isn't played): a time (2:05) or an order and row (o11r25). Snaps to the nearest row.",
+    };
+
+    public Option<string?> LoopFrom { get; } = new("--loop-from")
+    {
+        Description = "Loop back here after the end instead of stopping: a time or an order and row inside the converted part.",
+    };
+
+    public Option<string?> FadeOut { get; } = new("--fade-out")
+    {
+        Description = "Fade to silence over this long before the end, e.g. 4 or 4.5s (the song then stops).",
+    };
+
     public Option<int> Seed { get; } = new("--seed")
     {
         Description = "Optimizer seed; the same input, options and seed give the same output.",
@@ -174,6 +194,10 @@ internal sealed class CommandLineDefinition
             MaxPcmBytes,
             Quality,
             TimeBudget,
+            Start,
+            End,
+            LoopFrom,
+            FadeOut,
             Seed,
             NoCache,
             CacheDir,

@@ -7,6 +7,7 @@ flowchart TD
     bytes[".mod bytes"]
     module["ModModule<br/>faithful image of the file"]
     song["Song (IR)<br/>format-neutral: orders, rows, notes, instruments, samples"]
+    window["Song + Playback of the window<br/>(only with --start / --end / --loop-from / --fade-out)"]
     plan["GenesisPlan<br/>per-channel events for FM1–6 / DAC / PSG1–4"]
     fits["GenesisPlan (fits target)"]
     processed["GenesisPlan + processed samples"]
@@ -17,6 +18,8 @@ flowchart TD
 
     bytes -- "ModReader (src/Mod): big-endian parse + validation" --> module
     module -- "ModToSong (src/Mod): notes, instruments, samples, effects decoded (T3.3)" --> song
+    song -. "SongWindow (src/Model/Window): slice the playback, rewrite the rows in play order (ADR 0116)" .-> window
+    window -. "same stages as the whole song" .-> plan
     song -- "IChannelMapper (src/Mapping): SimpleMapper, OptimizerMapper (greedy, ADR 0087), then the multi-pass optimizer, see multi-pass.md" --> plan
     song -. "IChannelMapper renders and scores candidates with" .-> tools
     plan -- "SampleBudgeter (src/Mapping): capacity check + consolidation, see sample-capacity.md" --> fits
@@ -53,7 +56,16 @@ OpenMPT does ([ADR 0055](adr/0055-notes-beyond-protracker-range.md)), and every 
 arpeggio, vibrato, in quarter periods) and the first pass of a loop follow OpenMPT, measured with libopenmpt
 ([ADR 0060](adr/0060-openmpt-pitch-and-loops.md)). The `Playback` also keeps each written note's tuned pitch
 (`NotePitches`), which the mapper plans the note at, so the DMF is tuned the same way
-([ADR 0061](adr/0061-dmf-pitch-from-tick-player.md)).
+([ADR 0061](adr/0061-dmf-pitch-from-tick-player.md)). A tick that repeats a row held by `EEx` is marked
+(`PlaybackTick.DelayRepeat`), so a row start is a tick with `Tick` 0 that isn't one.
+
+**SongWindow** (`src/Model/Window`, plan T18.1, [ADR 0116](adr/0116-song-window.md)) — With `--start`, `--end`,
+`--loop-from` or `--fade-out`, cuts a window out of the `Song` and its `Playback` right after the tick player, so every
+later stage reads an ordinary song. `PlaybackTimeline` reads the playback as an endless timeline (the first pass, then
+the loop again and again) and resolves positions to row starts; the window's ticks are sliced from it, not played again;
+its rows are written as new patterns in play order, with what the start inherits (`CarriedState`: speed, tempo, effect
+memory, instruments, waveforms, notes still sounding and how far into their samples) written into the first rows;
+`FadeOut` scales the ticks' volumes and sets each faded row's volume. Report sections 1–2 still describe the whole MOD.
 
 **ModRenderer** (`src/Render`, plan T7.1, [ADR 0054](adr/0054-mod-renderer.md)) — pure C#: mixes a `Playback` to
 stereo (`StereoAudio`) the way libopenmpt does by default: an 8-tap Kaiser sinc (`SincTable`, with OpenMPT's two

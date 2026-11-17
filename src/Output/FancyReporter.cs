@@ -57,7 +57,8 @@ internal sealed class FancyReporter : IConversionReporter
         ArgumentNullException.ThrowIfNull(logEvent);
         lock (_lock)
         {
-            if (logEvent.Level == LogEventLevel.Information && ReportRow.Find(logEvent) is { } row)
+            // The window line prints as it is; the other report rows make tables.
+            if (logEvent.Level == LogEventLevel.Information && ReportRow.Find(logEvent) is { TypeTag: not "window" } row)
             {
                 Collect(row);
                 return;
