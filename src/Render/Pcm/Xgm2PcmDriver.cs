@@ -50,10 +50,47 @@ internal sealed class Xgm2PcmDriver : SoftwarePcmDriver
 
     /// <summary>Creates the driver with every channel silent and the DAC off.</summary>
     /// <param name="buffered">True (the default) to start plays and stops when SGDK's driver is heard doing them; false to start them on the next beat.</param>
-    public Xgm2PcmDriver(bool buffered = true)
+    /// <param name="leadBeats">
+    /// Beats ahead of its frame the file sends each PCM command (<see cref="LeadBeats"/>, docs/adr/0119-xgm2-pcm-lead.md):
+    /// the model gets it on its frame and plays it as if it had come that much earlier; 0 for commands sent on their frame.
+    /// </param>
+    public Xgm2PcmDriver(bool buffered = true, int leadBeats = 0)
         : base(ChannelCount, BlockBeats, buffered)
     {
+        ArgumentOutOfRangeException.ThrowIfNegative(leadBeats);
+        Lead = leadBeats;
     }
+
+    /// <summary>Beats ahead of its frame the file sends each PCM command; 0 when on its frame.</summary>
+    public int Lead { get; }
+
+    /// <summary>
+    /// Silent bytes the XGM2 writer puts before every recording (docs/adr/0119-xgm2-pcm-lead.md): the driver plays its
+    /// first <see cref="RepeatedBeats"/> beats twice, so the part it repeats is silence and the sound starts once.
+    /// </summary>
+    public static int HeadPadBytes(bool halfSpeed) => halfSpeed ? RepeatedBeats / 2 : RepeatedBeats;
+
+    /// <summary><paramref name="data"/> after <see cref="HeadPadBytes"/> silent bytes: a recording as the XGM2 writer stores it.</summary>
+    public static sbyte[] Padded(sbyte[] data, bool halfSpeed)
+    {
+        ArgumentNullException.ThrowIfNull(data);
+        sbyte[] padded = new sbyte[HeadPadBytes(halfSpeed) + data.Length];
+        data.CopyTo(padded, HeadPadBytes(halfSpeed));
+        return padded;
+    }
+
+    /// <summary>
+    /// Whole frames the XGM2 writer sends each PCM command ahead of its frame on a Genesis whose YM3438 runs at
+    /// <paramref name="ymClockHz"/>, <paramref name="frameRate"/> frames a second (docs/adr/0119-xgm2-pcm-lead.md): as
+    /// many as fit in the start delay and the padded, repeated head together, so a sound is never heard before its frame
+    /// (2 on PAL and on NTSC).
+    /// </summary>
+    public static int LeadFrames(double ymClockHz, int frameRate) =>
+        (int)Math.Floor((StartDelayBeats + (2.0 * RepeatedBeats)) / (BeatRateHz(ymClockHz) / frameRate));
+
+    /// <summary>The <see cref="LeadFrames"/> in beats, rounded to the nearest.</summary>
+    public static int LeadBeats(double ymClockHz, int frameRate) =>
+        (int)Math.Round(LeadFrames(ymClockHz, frameRate) * BeatRateHz(ymClockHz) / frameRate);
 
     /// <summary>Full-speed beats per second for a YM3438 at <paramref name="ymClockHz"/>; half speed is half that.</summary>
     public static double BeatRateHz(double ymClockHz) => Ym3438.SampleRateHz(ymClockHz) / SamplesPerBeat;
@@ -73,7 +110,7 @@ internal sealed class Xgm2PcmDriver : SoftwarePcmDriver
     {
         sbyte[] data = CheckPlay(channel, sample, priority);
         int repeat = Buffered ? (halfSpeed ? RepeatedBeats / 2 : RepeatedBeats) : 0;
-        return Send(() => Start(channel, data, priority, halfSpeed, repeat), isPlay: true);
+        return Send(late => Start(channel, data, priority, halfSpeed, repeat, late), isPlay: true);
     }
 
     /// <summary>The music's <c>$1x 00</c>: stops <paramref name="channel"/>, whatever its priority.</summary>
@@ -81,7 +118,7 @@ internal sealed class Xgm2PcmDriver : SoftwarePcmDriver
     {
         CheckChannel(channel);
         Send(
-            () =>
+            _ =>
             {
                 Silence(channel);
                 return true;
@@ -102,7 +139,8 @@ internal sealed class Xgm2PcmDriver : SoftwarePcmDriver
     protected override void OnPlay() => _hold = HoldCount;
 
     /// <inheritdoc/>
-    protected override long StartBeat(long now, int blockBeats) => now + StartDelayBeats;
+    /// <remarks>A command sent ahead is sent no earlier than the song's first frame.</remarks>
+    protected override long StartBeat(long now, int blockBeats) => Math.Max(now - Lead, 0) + StartDelayBeats;
 
     /// <inheritdoc/>
     protected override long DacOnBeat(long now, long start) => start - DacLeadBeats;

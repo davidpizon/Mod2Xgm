@@ -66,7 +66,7 @@ internal sealed class XgmPcmDriver : SoftwarePcmDriver
     public bool Play(int channel, sbyte[] sample, int priority)
     {
         sbyte[] data = CheckPlay(channel, sample, priority);
-        return Send(() => Start(channel, data, priority, halfSpeed: false), isPlay: true);
+        return Send(_ => Start(channel, data, priority, halfSpeed: false), isPlay: true);
     }
 
     /// <summary>The music's <c>$5X 00</c>: stops <paramref name="channel"/> if <paramref name="priority"/> is at least the playing sound's. True if it did.</summary>
@@ -76,7 +76,7 @@ internal sealed class XgmPcmDriver : SoftwarePcmDriver
         CheckPriority(priority);
         CheckChannel(channel);
         return Send(
-            () =>
+            _ =>
             {
                 if (priority < PriorityOf(channel))
                 {

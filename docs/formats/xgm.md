@@ -204,6 +204,9 @@ has to know:
   add: 3.8 % slow with four loud channels).
 - **XGM2:** no such shift; a PCM play is heard 1.89–2.10 frames after its frame, and its first 64 beats (one buffer
   fill; 32 bytes at half speed) play twice, because of how `updatePCM` handles a play's "parameters changed" flag.
+  Mod2Xgm's XGM2 writer makes up for both ([ADR 0119](../adr/0119-xgm2-pcm-lead.md)): it sends every PCM play and
+  stop 2 frames ahead, and stores every recording after 64 silent bytes (32 at half speed). **Re-measure and revisit
+  ADR 0119 whenever SGDK's XGM2 driver changes.**
 - The compiled streams are not the file's: `.xgc` frames start with a length byte and double each command byte (XGM);
   XGM2's FM and PSG streams are packed (literal / match blocks, chunks ending in `$00`).
 

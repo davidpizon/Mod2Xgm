@@ -375,7 +375,7 @@ internal static class PcmFitter
                 : LoopFrames(rateHz, holdSeconds, shortLoops, longestSeconds);
             double playRate = PcmTargets.PlayRateHz(target, rateHz, half);
             int points = (int)Math.Ceiling(frames * playRate / rateHz);
-            return new PcmCopy(rateHz, playRate, half, frames, trim && sample.Loop is null, points, PcmTargets.Bytes(target, points));
+            return new PcmCopy(rateHz, playRate, half, frames, trim && sample.Loop is null, points, PcmTargets.Bytes(target, points, half));
         }
 
         /// <summary>

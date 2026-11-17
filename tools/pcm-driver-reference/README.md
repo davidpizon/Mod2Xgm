@@ -5,7 +5,10 @@ Makes the reference captures for the PCM driver probes in [`tests/golden/pcm-dri
 XGM or XGM2 Z80 driver** on an emulated Z80 and writes every `$2A` / `$2B` write it makes to `<probe>.sgdk.gz` next to
 the script.
 
-It runs by hand, once after a probe changes. CI and the tests only read the checked-in files.
+It runs by hand, once after a probe changes, and again whenever SGDK's drivers change (bump the pinned commit in
+`run.sh`). CI and the tests only read the checked-in files. A new XGM2 driver also means revisiting
+[ADR 0119](../../docs/adr/0119-xgm2-pcm-lead.md): the XGM2 writer's 2-frame PCM lead and 64-byte silent head are
+sized from this driver's start delay and repeated first fill.
 
 ```bash
 bash tools/pcm-driver-reference/run.sh

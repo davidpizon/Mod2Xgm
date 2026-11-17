@@ -106,18 +106,33 @@ internal abstract class SoftwarePcmDriver : IDacSource
 
     /// <summary>
     /// Sends a play or a stop: does <paramref name="command"/> at once when unbuffered, or holds it until its
-    /// <see cref="StartBeat"/>, turning the DAC on at its <see cref="DacOnBeat"/> if it is a play.
+    /// <see cref="StartBeat"/>, turning the DAC on at its <see cref="DacOnBeat"/> if it is a play. A command whose start is
+    /// already past (the file sent it ahead, docs/adr/0119-xgm2-pcm-lead.md) runs on the next beat and is told how many
+    /// beats late it is, so a play can pick up where it would be.
     /// </summary>
+    /// <param name="command">The play or stop, given the beats it starts after its <see cref="StartBeat"/> (0 when on time).</param>
+    /// <param name="isPlay">True for a play.</param>
     /// <returns>Unbuffered, what <paramref name="command"/> returns; buffered, true (the driver decides when it gets there).</returns>
-    protected bool Send(Func<bool> command, bool isPlay)
+    protected bool Send(Func<int, bool> command, bool isPlay)
     {
         ArgumentNullException.ThrowIfNull(command);
         if (!Buffered)
         {
-            return command();
+            return command(0);
         }
 
         long start = StartBeat(_beat, _blockBeats);
+        if (start < _beat)
+        {
+            int late = (int)(_beat - start);
+            if (isPlay)
+            {
+                TurnDacOn();
+            }
+
+            _pending.Add((_beat, () => command(late)));
+            return true;
+        }
         if (isPlay)
         {
             long dacOn = DacOnBeat(_beat, start);
@@ -131,7 +146,7 @@ internal abstract class SoftwarePcmDriver : IDacSource
             }
         }
 
-        _pending.Add((start, () => command()));
+        _pending.Add((start, () => command(0)));
         return true;
     }
 
@@ -168,7 +183,8 @@ internal abstract class SoftwarePcmDriver : IDacSource
     /// <param name="halfSpeed">True to play every byte on two beats (XGM2).</param>
     /// <exception cref="ArgumentException"><paramref name="sample"/> is empty.</exception>
     /// <param name="repeatHead">Source bytes the sound plays from its start a second time once it has played them (XGM2's driver: <see cref="Xgm2PcmDriver"/>); 0 for none.</param>
-    protected bool Start(int channel, sbyte[] sample, int priority, bool halfSpeed, int repeatHead = 0)
+    /// <param name="skipBeats">Beats of the sound already gone by: a play the file sent ahead starts this far in.</param>
+    protected bool Start(int channel, sbyte[] sample, int priority, bool halfSpeed, int repeatHead = 0, int skipBeats = 0)
     {
         sample = CheckPlay(channel, sample, priority);
         Voice voice = VoiceAt(channel);
@@ -184,6 +200,11 @@ internal abstract class SoftwarePcmDriver : IDacSource
         voice.SecondHalf = false;
         voice.RepeatHead = Math.Min(repeatHead, voice.Length);
         voice.Priority = priority;
+        for (int i = 0; i < skipBeats && voice.Data is not null; i++)
+        {
+            _ = voice.Next();
+        }
+
         TurnDacOn();
         return true;
     }

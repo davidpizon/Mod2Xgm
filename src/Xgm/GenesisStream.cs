@@ -137,8 +137,59 @@ internal sealed record GenesisStream(IReadOnlyList<IReadOnlyList<ChipEvent>> Fra
         }
 
         int? loop = playback.LoopTick is { } loopTick && loopTick < ticks.Count ? frameOf[loopTick] : null;
-        return new GenesisStream(recorder.Frames, loop, pal, Xgm2PcmDriver.BeatRateHz(pal ? Ym3438.PalClockHz : Ym3438.NtscClockHz));
+        double ymClock = pal ? Ym3438.PalClockHz : Ym3438.NtscClockHz;
+        IReadOnlyList<IReadOnlyList<ChipEvent>> frames = PcmAhead(recorder.Frames, Xgm2PcmDriver.LeadFrames(ymClock, rate), loop, rate, notes);
+        return new GenesisStream(frames, loop, pal, Xgm2PcmDriver.BeatRateHz(ymClock));
     }
+
+    /// <summary>
+    /// <paramref name="frames"/> with every PCM play and stop sent <paramref name="lead"/> frames ahead of its own, so that
+    /// SGDK's XGM2 driver, which hears a command about 2 frames after it gets it, plays it on its frame
+    /// (docs/adr/0119-xgm2-pcm-lead.md). On a song that loops back to <paramref name="loop"/>, a command in the loop's
+    /// first frames is sent both before the loop starts (the first time through) and at the end of the song (the times
+    /// after). A command in the song's first frames can go no earlier than frame 0, and is heard late, with a note.
+    /// </summary>
+    internal static IReadOnlyList<IReadOnlyList<ChipEvent>> PcmAhead(IReadOnlyList<IReadOnlyList<ChipEvent>> frames, int lead, int? loop, int frameRate, ConversionNotes notes)
+    {
+        ArgumentNullException.ThrowIfNull(frames);
+        ArgumentNullException.ThrowIfNull(notes);
+        List<ChipEvent>[] moved = [.. frames.Select(f => f.Where(e => !IsPcm(e)).ToList())];
+        int count = frames.Count;
+        int late = 0;
+        for (int f = 0; f < count; f++)
+        {
+            foreach (ChipEvent e in frames[f].Where(IsPcm))
+            {
+                int to = f - lead;
+                if (loop is { } l && f >= l && to < l && count - l >= lead)
+                {
+                    // The times after the first: at the end, lead frames before the loop comes round to this frame.
+                    moved[count - lead + (f - l)].Add(e);
+                }
+
+                if (to < 0)
+                {
+                    to = 0;
+                    if (e.Kind == ChipEventKind.PcmPlay)
+                    {
+                        late++;
+                    }
+                }
+
+                moved[to].Add(e);
+            }
+        }
+
+        if (late > 0)
+        {
+            notes.Add("{Count} recordings start in the first {Lead} frames of the song, before SGDK's XGM2 driver can be told about them in time, so they are heard up to {Ms:0} ms late", late, lead, 1000.0 * lead / frameRate);
+        }
+
+        return moved;
+    }
+
+    /// <summary>True for a PCM play or stop.</summary>
+    private static bool IsPcm(ChipEvent e) => e.Kind is ChipEventKind.PcmPlay or ChipEventKind.PcmStop;
 
     /// <summary>The frame a moment <paramref name="seconds"/> into the song falls in: the nearest frame start.</summary>
     internal static int FrameAt(double seconds, int frameRate) => (int)Math.Round(seconds * frameRate, MidpointRounding.AwayFromZero);

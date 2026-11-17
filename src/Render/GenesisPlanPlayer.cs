@@ -714,7 +714,7 @@ internal sealed class GenesisPlanPlayer
     private double DriverLagSeconds() => _chips.Dac switch
     {
         XgmPcmDriver { Buffered: true } => XgmPcmDriver.StartLeadBeats / XgmPcmDriver.BeatRateHz(_chips.YmClockHz),
-        Xgm2PcmDriver { Buffered: true } => (Xgm2PcmDriver.StartDelayBeats + Xgm2PcmDriver.RepeatedBeats) / Xgm2PcmDriver.BeatRateHz(_chips.YmClockHz),
+        Xgm2PcmDriver { Buffered: true } xgm2 => (Xgm2PcmDriver.StartDelayBeats + Xgm2PcmDriver.RepeatedBeats - xgm2.Lead) / Xgm2PcmDriver.BeatRateHz(_chips.YmClockHz),
         _ => 0,
     };
 
@@ -800,7 +800,7 @@ internal sealed class GenesisPlanPlayer
         {
             double rate = _chips.Driver == PcmDriver.Xgm ? XgmPcmDriver.BeatRateHz(_chips.YmClockHz) : Xgm2PcmDriver.BeatRateHz(_chips.YmClockHz) / (dac.HalfSpeed ? 2 : 1);
             sbyte[] pcm8 = SampleProcessor.ToSigned8(SampleProcessor.ApplyGain(SampleProcessor.Resample(data, dac.PlaybackRateHz, rate, _resampler), volume), name, _notes);
-            pcm = pcm8.Length == 0 ? null : new Pcm(null, pcm8, (int)Math.Round(rate), name);
+            pcm = pcm8.Length == 0 ? null : new Pcm(null, Stored(pcm8, dac.HalfSpeed), (int)Math.Round(rate), name);
         }
 
         _pcm[(index, offset, key)] = pcm;
@@ -829,12 +829,18 @@ internal sealed class GenesisPlanPlayer
             double rate = _chips.Driver == PcmDriver.Xgm ? XgmPcmDriver.BeatRateHz(_chips.YmClockHz) : Xgm2PcmDriver.BeatRateHz(_chips.YmClockHz);
             float[] points = SampleProcessor.Resample(mix.Points, dac.PlaybackRateHz, rate, _resampler);
             sbyte[] pcm8 = SampleProcessor.ToSigned8(_plan.SongGainDb == 0 ? points : SampleProcessor.ApplyGain(points, SongGain), mix.Name, _notes);
-            pcm = pcm8.Length == 0 ? null : new Pcm(null, pcm8, (int)Math.Round(rate), mix.Name);
+            pcm = pcm8.Length == 0 ? null : new Pcm(null, Stored(pcm8, halfSpeed: false), (int)Math.Round(rate), mix.Name);
         }
 
         _pcm[(index, 0, 1)] = pcm;
         return pcm;
     }
+
+    /// <summary>
+    /// A recording as the driver gets it: on XGM2, after the silent head that the driver's repeated first fill plays twice
+    /// (docs/adr/0119-xgm2-pcm-lead.md); on XGM, as it is.
+    /// </summary>
+    private sbyte[] Stored(sbyte[] pcm8, bool halfSpeed) => _chips.Driver == PcmDriver.Xgm2 ? Xgm2PcmDriver.Padded(pcm8, halfSpeed) : pcm8;
 
     private void Tally(string template) => _tallies[template] = _tallies.GetValueOrDefault(template) + 1;
 
