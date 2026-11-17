@@ -191,6 +191,31 @@ winner "only missing some". In EM2's q6 the melody notes go missing too. At a qu
 recording seem to go silent rather than move to FM or the PSG (to be checked), so the dials that keep more notes recorded
 win. Heaven remix's q12 was "too many missing notes" in both.
 
+## Round 29: chord samples as FM chords
+
+Plan T9.4t9 ([ADR 0114](../../../docs/adr/0114-fm-chords.md)), David, 2026-11-15. At round 28's quarter budgets, today's
+version against `rule:chords=on`, which plays a chord sample's notes as FM voices of their own. Ten pairs were made from
+round 28's six songs, but only EM2's three differed: in Burp, the Spaceman and Heaven remixes, Wormology and The
+Messanger the chord rule made the same files, so those seven weren't asked. In EM2 the chords played MELLO MAJG (4 notes,
+25 FM notes) and MELLOW MAJ7 (3 notes, 7 FM notes), none short of FM channels.
+
+**Result:** no gain. q1 (2:00) and q2 (1:50) were neither: "There are background notes but not what sounds like a
+chord." q3 (0:20) was can't tell: "Both versions X and Y were acceptable." The extra voices are heard, but not as the chord, so the rule stays off. Why it isn't
+heard as a chord (pitches, levels or the one patch) is still to be found.
+
+## Round 30: FM chords with their thirds
+
+Plan T9.4t9 ([ADR 0114](../../../docs/adr/0114-fm-chords.md)), David, 2026-11-16. Round 29's q1 and q2 again, after the
+note rule was fixed to keep the chord's third: MELLO MAJ, MELLO MAJG and MELLOW MAJ7 now play four notes each. Round 29's
+q3 wasn't asked again (its chord clip came out the same), nor the other five songs, whose two versions were still the
+same files. In q1 the page's Version X was the chord version (the swap is undone in `pick`; the words keep the page's
+letters); in q2 it was Version Y.
+
+**Result:** the chords won both. q1 (2:00): "Version X chord is perfect." q2 (1:50): "Version X chord is just a single
+note." (David saved twice; his first words for q1 also heard melody notes missing, which his second save left out. The
+log keeps the second.) In both versions David heard "the noise channel is a poor substitute for the percussion", and
+asked whether the drums could be baked into the drum voice.
+
 ## Hold-out rows
 
 Rows whose song is in `tests/data/holdout/` are the hold-out ([ADR 0105](../../../docs/adr/0105-hold-out-songs.md)):

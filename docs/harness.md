@@ -276,6 +276,7 @@ give those. The rules so far:
 | `rule:pitch-share=<cents>` | Pitches within this many cents share one stored copy (the converter's own: 10), 1–100; a squeeze dial (plan T9.4t5, ADR 0113). Needs `--mapping optimizer` |
 | `rule:loudness-share=<steps>` | Loudness shares one copy across this many 3 dB steps (the converter's own: 2, so 6 dB), 2–8 whole; `4` is 12 dB (plan T9.4t5). Needs `--mapping optimizer` |
 | `rule:merge=<percent>` | Samples at least this alike are merged into one (the converter's own: 98), 50–100 whole (plan T9.4t5). Needs `--mapping optimizer` |
+| `rule:chords=on` | A chord sample's notes play as FM voices of their own, the top notes dropped first when FM channels run out ([ADR 0114](adr/0114-fm-chords.md), plan T9.4t9). Needs `--mapping optimizer` |
 
 `--remake answers.tsv` converts each row's song with both recipes in-process (with `--render-wav`), cuts the clip out
 of each render byte for byte (`ClipWav`), and writes `listening/<round>-<question>-a.wav`, `-b.wav` and the original's
