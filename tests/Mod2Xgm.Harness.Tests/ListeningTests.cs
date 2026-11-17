@@ -366,6 +366,34 @@ public sealed class ListeningTests
         Assert.False(sut.HasRules);
     }
 
+    /// <summary>The drum-bake rules: bytes by score and which bakes are used (docs/adr/0115-drum-bakes.md).</summary>
+    [Theory]
+    [InlineData("rule:bytes=score", true, false, false)]
+    [InlineData("rule:bake=together", false, true, false)]
+    [InlineData("rule:bake=beat", false, false, true)]
+    [InlineData("rule:bytes=score rule:bake=both", true, true, true)]
+    public void Parse_WithBakeRules_SetsThem(string rules, bool byScore, bool together, bool beat)
+    {
+        // Act
+        Recipe sut = Recipe.Parse("--mapping optimizer " + rules);
+
+        // Assert
+        Assert.Equal(new BakeRules(byScore, together, beat), sut.Bake);
+        Assert.True(sut.HasRules);
+    }
+
+    /// <summary>The converter's own byte order and no bakes are no rules at all.</summary>
+    [Fact]
+    public void Parse_WithBakeRulesAtTheirDefaults_HasNoRules()
+    {
+        // Act
+        Recipe sut = Recipe.Parse("--mapping optimizer rule:bytes=importance rule:bake=off");
+
+        // Assert
+        Assert.Equal(BakeRules.None, sut.Bake);
+        Assert.False(sut.HasRules);
+    }
+
     /// <summary>The dial rules set how far pitches and loudness share a copy and how alike merged samples must be (plan T9.4t5).</summary>
     [Fact]
     public void Parse_WithDialRules_SetsTheShrinkDials()
@@ -417,6 +445,8 @@ public sealed class ListeningTests
     [Theory]
     [InlineData("rule:keep=bass")]
     [InlineData("rule:shrink=on")]
+    [InlineData("rule:bytes=size")]
+    [InlineData("rule:bake=all")]
     public void Parse_WithBadSqueezeRule_Throws(string rule)
     {
         // Act
