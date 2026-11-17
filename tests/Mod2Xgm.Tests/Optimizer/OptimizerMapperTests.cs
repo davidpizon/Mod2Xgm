@@ -541,7 +541,7 @@ public sealed class OptimizerMapperTests
         // Arrange
         Song song = WithSamples(SongOf(2, [(0, 0, 1.0), (1, 1, 1.0)]), new Sample("kick", Sound(4000, 0.3f), null), new Sample("click", Square(4000, 0.2f), null));
         TargetLimits oneCopy = TargetLimits.For(PcmTarget.Xgm2, OneCopyBytes, 0);
-        OptimizerMapper sut = new(oneCopy, [Sounds(0), Sounds(1)], null, null, layers: false, bake: BakeRules.None with { Beat = beat });
+        OptimizerMapper sut = new(oneCopy, [Sounds(0), Sounds(1)], layers: false, bake: BakeRules.None with { Beat = beat });
 
         // Act
         GenesisPlan plan = sut.Map(song, PlaybackOf(song), MappingOptions.Default, Notes());
