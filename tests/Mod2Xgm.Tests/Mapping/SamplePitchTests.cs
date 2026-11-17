@@ -174,7 +174,6 @@ public sealed class SamplePitchTests
         Assert.Null(hz);
     }
 
-    /// <summary>A sine of <paramref name="period"/> frames, <paramref name="frames"/> long.</summary>
     /// <summary>
     /// A loop that is a short tail after a long recording is measured from the recording, not the loop
     /// (docs/adr/0117-tail-and-noise-loops.md).
@@ -208,6 +207,7 @@ public sealed class SamplePitchTests
         Assert.Null(period);
     }
 
+    /// <summary>A sine of <paramref name="period"/> frames, <paramref name="frames"/> long.</summary>
     private static float[] Sine(int frames, double period, double phase = 0) =>
         [.. Enumerable.Range(0, frames).Select(i => (float)Math.Sin((2 * Math.PI * i / period) + phase))];
 }

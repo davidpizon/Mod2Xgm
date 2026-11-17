@@ -26,10 +26,10 @@ internal enum LoopKind
 internal static class LoopShape
 {
     /// <summary>A loop is a tail when the recording before it is at least this many times longer than the loop…</summary>
-    public const int TailRatio = 4;
+    private const int TailRatio = 4;
 
     /// <summary>…and at least this many frames long.</summary>
-    public const int TailLeadFrames = 2048;
+    private const int TailLeadFrames = 2048;
 
     /// <summary>What <paramref name="sample"/>'s loop is, from its <paramref name="traits"/> and where the loop lies.</summary>
     public static LoopKind Of(Sample sample, SampleTraits traits)
