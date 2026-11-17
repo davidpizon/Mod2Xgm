@@ -53,7 +53,7 @@ internal sealed class PlaybackTimeline
     public int CycleTicks => LoopTick is { } loop ? TickCount - loop : 0;
 
     /// <summary>Length of the repeated part, in seconds (0 when the song stops).</summary>
-    public double CycleSeconds => LoopTick is { } loop ? PassSeconds - _ticks[loop].TimeSeconds : 0;
+    private double CycleSeconds => LoopTick is { } loop ? PassSeconds - _ticks[loop].TimeSeconds : 0;
 
     /// <summary>The playback tick timeline tick <paramref name="v"/> plays.</summary>
     public int RealTick(int v) => v < TickCount || LoopTick is not { } loop ? Math.Min(v, TickCount - 1) : loop + ((v - TickCount) % CycleTicks);

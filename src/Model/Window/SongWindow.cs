@@ -43,6 +43,9 @@ internal static class SongWindow
     /// <summary>Rows in each new pattern, as in a MOD.</summary>
     private const int PatternRows = 64;
 
+    /// <summary>Tempos closer than this, in BPM, count as the same when deciding whether the loop row must set it again.</summary>
+    private const double BpmTolerance = 1e-6;
+
     /// <summary>Cuts <paramref name="request"/>'s window from <paramref name="song"/> and its <paramref name="playback"/>.</summary>
     /// <exception cref="WindowException">The window can't be cut from this song; the message says why.</exception>
     public static WindowedSong Cut(Song song, Playback playback, SongWindowRequest request, ConversionNotes notes)
@@ -351,7 +354,7 @@ internal static class SongWindow
             ChannelTick[] channels = [.. ticks[0].Channels];
             channels[c] = channels[c] with { Started = block };
             ticks[0] = ticks[0] with { Channels = channels };
-            return cell with { Note = pitch, Instrument = instrument, Volume = cell.Volume ?? before.Channels[c].Volume, Effects = effects };
+            return new Cell(pitch, instrument, cell.Volume ?? before.Channels[c].Volume, effects);
         }
 
         /// <summary>
@@ -422,10 +425,11 @@ internal static class SongWindow
         {
             for (int c = 0; c < _channels; c++)
             {
-                Effect[] settings = [.. state.Settings(c).Where(s => !cells[c].Effects.Any(e => e.GetType() == s.GetType()))];
+                Cell cell = cells[c];
+                Effect[] settings = [.. state.Settings(c).Where(s => cell.Effects.All(e => e.GetType() != s.GetType()))];
                 if (settings.Length > 0)
                 {
-                    cells[c] = cells[c] with { Effects = [.. settings, .. cells[c].Effects] };
+                    cells[c] = cell with { Effects = [.. settings, .. cell.Effects] };
                 }
             }
 
@@ -473,7 +477,7 @@ internal static class SongWindow
                 loopRow = WithEffect(loopRow, new SetSpeed(atLoop.Speed));
             }
 
-            if (atLoop.Bpm != state.Bpm && !loopRow.Cells.Any(c => c.Effects.OfType<SetTempo>().Any()))
+            if (Math.Abs(atLoop.Bpm - state.Bpm) > BpmTolerance && !loopRow.Cells.Any(c => c.Effects.OfType<SetTempo>().Any()))
             {
                 loopRow = WithEffect(loopRow, new SetTempo((int)Math.Round(atLoop.Bpm)));
             }

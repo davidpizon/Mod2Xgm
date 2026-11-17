@@ -106,8 +106,8 @@ internal sealed class CarriedState
     {
         TonePortamento { Speed: null } porta when _portaSpeed[c] is { } speed => porta with { Speed = speed },
         Vibrato vibrato => vibrato with { CyclesPerTick = vibrato.CyclesPerTick ?? _vibratoSpeed[c], Depth = vibrato.Depth ?? _vibratoDepth[c] },
-        Tremolo tremolo => tremolo with { CyclesPerTick = tremolo.CyclesPerTick ?? _tremoloSpeed[c], Depth = tremolo.Depth ?? _tremoloDepth[c] },
-        SampleOffset { Frame: null } offset when _offset[c] is { } frame => offset with { Frame = frame },
+        Tremolo tremolo => new Tremolo(tremolo.CyclesPerTick ?? _tremoloSpeed[c], tremolo.Depth ?? _tremoloDepth[c]),
+        SampleOffset { Frame: null } when _offset[c] is { } frame => new SampleOffset(frame),
         _ => effect,
     };
 
@@ -138,7 +138,7 @@ internal sealed class CarriedState
             case SetTremoloWaveform waveform:
                 _tremoloWaveform[c] = waveform;
                 break;
-            case SetSpeed speed when speed.TicksPerRow > 0:
+            case SetSpeed { TicksPerRow: > 0 } speed:
                 Speed = speed.TicksPerRow;
                 break;
             case SetTempo tempo:

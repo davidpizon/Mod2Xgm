@@ -9,7 +9,7 @@ namespace Mod2Xgm.Model.Window;
 internal static class FadeOut
 {
     /// <summary>How far the fade goes down before the last tick silences it, in dB.</summary>
-    public const double FadeDb = 48;
+    private const double FadeDb = 48;
 
     /// <summary>Volume steps a cell's volume is rounded to, as a MOD's <c>Cxx</c> has.</summary>
     private const double VolumeSteps = 64;

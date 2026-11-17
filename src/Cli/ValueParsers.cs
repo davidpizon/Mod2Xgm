@@ -193,7 +193,7 @@ internal static partial class ValueParsers
     }
 
     /// <summary>A tracker position: <c>o</c> and an order, then optionally <c>r</c> and a row.</summary>
-    [GeneratedRegex(@"^[oO]([0-9]{1,3})(?:[rR]([0-9]{1,2}))?$", RegexOptions.CultureInvariant)]
+    [GeneratedRegex("^[oO]([0-9]{1,3})(?:[rR]([0-9]{1,2}))?$", RegexOptions.CultureInvariant)]
     private static partial Regex TrackerPattern();
 
     /// <summary>Seconds with an optional <c>s</c>, <c>m:ss</c> or <c>h:mm:ss</c>, each with optional decimals.</summary>
