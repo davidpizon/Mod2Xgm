@@ -216,6 +216,46 @@ note." (David saved twice; his first words for q1 also heard melody notes missin
 log keeps the second.) In both versions David heard "the noise channel is a poor substitute for the percussion", and
 asked whether the drums could be baked into the drum voice.
 
+## Round 31: drums baked into recordings
+
+Plan T9.4t10 ([ADR 0115](../../../docs/adr/0115-drum-bakes.md)), David, 2026-11-16. Ten pairs from the six squeeze songs
+at round 28's budgets set today's way (`a`) against recording bytes by score with both kinds of drum baking
+(`rule:bytes=score rule:bake=both`, `b`). The page was blind, with X and Y swapped on q2, q3, q5, q8 and q10; picks are in
+file terms, and q1's "Y" is `b`.
+
+**Result:** the new rules won 3 and lost 2, with 1 can't tell and 4 where neither was acceptable.
+
+| Song | New rules won | Lost | Can't tell | Neither |
+|---|---|---|---|---|
+| EM2 | 2 (q1: "The drums are more accurate") | 1 | 0 | 0 |
+| Burp | 1 | 1 | 0 | 0 |
+| The Messanger | 0 | 0 | 1 | 0 |
+| Spaceman remix, Heaven remix, Wormology | 0 | 0 | 0 | 4 |
+
+David's words for the four rejected pairs: the chords are missing in both versions (Spaceman remix, Heaven remix), and
+"Too many missing sounds" (Heaven remix, Wormology). The round was made without T9.4t9's FM chords, so the
+chord samples there still play as one FM voice. In The Messanger, a long drone that changes shape in the original is
+held flat in both.
+
+## Round 32: one drum rule at a time
+
+Plan T9.4t10 ([ADR 0115](../../../docs/adr/0115-drum-bakes.md)), David, 2026-11-17. The same budgets as round 31, with
+`rule:chords=on` in both versions, so each pair tests one rule alone against today (`a`): `rule:bytes=score` on one clip
+of each song (q1–q6), and `rule:bake=both` on EM2's three clips (q7–q9). Burp's two bake pairs made the same clips and
+were dropped. The page was blind, with X and Y swapped on q1, q4, q5 and q7; picks are in file terms, and in q7's words
+"Version X" is `b` (the bakes).
+
+**Result:**
+
+| Rule against today's | Won | Lost | Can't tell | Neither | Songs where it won |
+|---|---|---|---|---|---|
+| Bytes by score | 3 | 1 | 1 | 1 | EM2, Burp, Spaceman remix |
+| Drum bakes | 2 | 1 | 0 | 0 | EM2 (q7, q8) |
+
+In q7 neither version keeps EM2's drums recorded all through: the bakes hold them until the drums' second verse at
+0:17 and then fall back to noise, today's version the other way round. David: "The noise is not an adequate substitution
+for the drums in this song." In Wormology (q5, neither) a low, slow melody is dropped in both.
+
 ## Hold-out rows
 
 Rows whose song is in `tests/data/holdout/` are the hold-out ([ADR 0105](../../../docs/adr/0105-hold-out-songs.md)):

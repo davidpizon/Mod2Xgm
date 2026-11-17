@@ -112,6 +112,46 @@ internal static class StealMixer
     }
 
     /// <summary>
+    /// A beat (plan T9.4t10, docs/adr/0115-drum-bakes.md): <paramref name="notes"/>, a stretch's drum hits, rendered alone
+    /// into one recording from the first hit to the last one's end, trimmed, at the target's rate. Bars that render the same
+    /// get the same <see cref="StealMix.HeadKey"/>, so a beat that repeats is stored once. <c>null</c> when the mix would be
+    /// turned down more than <paramref name="rules"/> allow, or is silent.
+    /// </summary>
+    /// <param name="song">The song.</param>
+    /// <param name="playback">The song played tick by tick.</param>
+    /// <param name="notes">The hits, each played once.</param>
+    /// <param name="target">The output.</param>
+    /// <param name="rules">The pre-mix rules (<see cref="PreMixRules.MaxClipDb"/>).</param>
+    public static StealMix? Beat(Song song, Playback playback, IReadOnlyList<SongNote> notes, PcmTarget target, PreMixRules rules)
+    {
+        ArgumentNullException.ThrowIfNull(song);
+        ArgumentNullException.ThrowIfNull(playback);
+        ArgumentNullException.ThrowIfNull(notes);
+        ArgumentNullException.ThrowIfNull(rules);
+        List<SongNote> sorted = [.. notes.OrderBy(n => n.FirstTick).ThenBy(n => n.Channel)];
+        float[] mix = Trim(NoteMix.Render(song, playback, sorted, sorted[0].FirstTick, sorted.Max(EndOf), 0));
+        if (mix.Length == 0)
+        {
+            return null;
+        }
+
+        double rate = target == PcmTarget.Dmf ? DmfSongBuilder.DacRateHz(sorted.Max(n => n.RateHz)) : PcmTargets.PlayRateHz(target, 0, false);
+        float[] head = SampleProcessor.Resample(mix, SampleAnalyzer.AnalysisRateHz, rate, ResamplingMode.Smooth);
+        float peak = head.Length == 0 ? 0 : head.Max(Math.Abs);
+        double clipDb = peak > Ceiling ? 20 * Math.Log10(peak / Ceiling) : 0;
+        if (peak == 0 || clipDb > rules.MaxClipDb)
+        {
+            return null;
+        }
+
+        head = SampleProcessor.ApplyGain(head, peak > Ceiling ? Ceiling / peak : 1);
+        bool centred = sorted.Select(n => PlanVoicing.Side(playback.Ticks[n.FirstTick].Channels[n.Channel].Pan)).Distinct().Count() > 1;
+        string name = "beat " + string.Join('+', sorted.Select(n => n.Sample + 1).Distinct().Order().Select(s => s.ToString("00", CultureInfo.InvariantCulture)));
+        DacSample headSample = new(sorted[0].Sample, rate) { Mix = new DacMix(head, name, centred) };
+        return new StealMix(headSample, null, -1, null, clipDb, Key(head, rate, target, centred), default);
+    }
+
+    /// <summary>
     /// The loudest point a mix may reach: 127/128, the top of 8-bit PCM (<c>SampleProcessor</c> clips a positive point
     /// past it). DMF's 16-bit DAC holds a little more, but one ceiling keeps the targets' mixes alike.
     /// </summary>

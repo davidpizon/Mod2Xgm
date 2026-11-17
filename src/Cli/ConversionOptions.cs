@@ -89,6 +89,13 @@ internal sealed record ConversionOptions
     public Optimizer.KeepFirst KeepFirst { get; init; }
 
     /// <summary>
+    /// How recording bytes are shared out and which drum bakes the optimizer may use (plan T9.4t10,
+    /// docs/adr/0115-drum-bakes.md), or <c>null</c> for the converter's own. No option sets it: the harness does
+    /// (<c>rule:bytes=…</c>, <c>rule:bake=…</c>).
+    /// </summary>
+    public Optimizer.BakeRules? BakeRules { get; init; }
+
+    /// <summary>
     /// How the simple mapper plays a recording that loses the DAC to another, or <c>null</c> for its default. No option sets
     /// it: the harness does (<c>rule:dac-loser=…</c>, docs/adr/0109-pan-swap-cost.md).
     /// </summary>
