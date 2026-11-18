@@ -75,6 +75,19 @@ public sealed class GenesisRendererTests
             null,
             PlaybackEnd.Stops);
 
+    /// <summary>
+    /// <paramref name="rows"/> rows of two song channels' playback: <paramref name="first"/> gives channel 0's state on each
+    /// (row, tick), <paramref name="second"/> channel 1's.
+    /// </summary>
+    private static Playback PlaybackOf(int rows, Func<int, int, ChannelTick> first, Func<int, int, ChannelTick> second) =>
+        new(
+            [.. Enumerable.Range(0, rows * TicksPerRow).Select(i => new PlaybackTick(i * TickSeconds, TickSeconds, 0, i / TicksPerRow, i % TicksPerRow, false, [first(i / TicksPerRow, i % TicksPerRow), second(i / TicksPerRow, i % TicksPerRow)]))],
+            null,
+            PlaybackEnd.Stops);
+
+    /// <summary>A sine carrier that starts at once and decays fast, so a restart is heard as a jump in level.</summary>
+    private static FmPatch Decaying { get; } = new("decay", 7, 0, [new FmOperator(1, 0, 0, 0, 31, false, 20, 0, 15, 15), Muted(), Muted(), Muted()]);
+
     /// <summary>A channel playing sample 0 at <paramref name="rateHz"/>; <paramref name="start"/> starts it from frame 0 on this tick.</summary>
     private static ChannelTick Playing(bool start, double volume = 1, double pan = 0, double rateHz = SineRateHz, int frames = 64) =>
         new(true, new NotePitch(48, 0, rateHz), volume, pan, start ? new SampleBlock(0, 0, frames) : null, new SampleBlock(0, 0, frames));
@@ -123,6 +136,36 @@ public sealed class GenesisRendererTests
         Assert.Equal(FurnaceFmDb, Db(audio.Left, audio.SampleRate, 0.2, 1.1), 0.15);
         Assert.Equal(FurnaceFmDb, Db(audio.Right, audio.SampleRate, 0.2, 1.1), 0.15);
         Assert.Equal(440, Hz(audio.Left, audio.SampleRate, 0.2, 1.2), 2.0);
+    }
+
+    /// <summary>
+    /// A 12 dB volume drop on a sounding FM note is spread over two ticks, 6 dB each, as the one-sample step clicks
+    /// (ADR 0123); a new note starts at its own level at once, and the DMF render, like DefleMask, drops at once.
+    /// </summary>
+    [Fact]
+    public void Render_WithBigVolumeDropOnXgm2_RampsSoundingNoteOnly()
+    {
+        // Arrange
+        PlanRow[] held = [Row((GenesisChannel.Fm1, Note(VoiceKind.Fm))), .. Enumerable.Repeat(Row(), 19)];
+        PlanRow[] restarted = [.. held];
+        restarted[10] = Row((GenesisChannel.Fm1, Note(VoiceKind.Fm)));
+        Song song = SongOf(1, LoopedSine());
+
+        GenesisRenderOptions xgm2 = ChipRate with { Driver = PcmDriver.Xgm2 };
+        Playback dropped = PlaybackOf(20, (r, t) => Playing(r == 0 && t == 0, volume: r < 10 ? 1 : 0.25));
+
+        // Act
+        StereoAudio ramped = Render(PlanOf([FmPatchLibrary.Sine], [], held), song, dropped, xgm2);
+        StereoAudio sut = Render(PlanOf([FmPatchLibrary.Sine], [], restarted), song, PlaybackOf(20, (r, t) => Playing((r == 0 || r == 10) && t == 0, volume: r < 10 ? 1 : 0.25)), xgm2);
+        StereoAudio dmf = Render(PlanOf([FmPatchLibrary.Sine], [], held), song, dropped);
+
+        // Assert
+        double full = Db(ramped.Left, ramped.SampleRate, 0.2, 1.1);
+        double rowStart = 10 * TicksPerRow * TickSeconds;
+        Assert.Equal(-6.0, Db(ramped.Left, ramped.SampleRate, rowStart + 0.002, rowStart + TickSeconds) - full, 0.4);
+        Assert.Equal(-12.0, Db(ramped.Left, ramped.SampleRate, rowStart + TickSeconds + 0.002, rowStart + (3 * TickSeconds)) - full, 0.4);
+        Assert.Equal(-12.0, Db(sut.Left, sut.SampleRate, rowStart + 0.004, rowStart + TickSeconds) - full, 0.6);
+        Assert.Equal(-12.0, Db(dmf.Left, dmf.SampleRate, rowStart + 0.002, rowStart + TickSeconds) - full, 0.4);
     }
 
     /// <summary>Volume and pan follow the song channel tick by tick: half volume is 6 dB down, in TL steps; a pan to the left silences the right.</summary>
@@ -257,6 +300,44 @@ public sealed class GenesisRendererTests
         double after = Db(restarted.Left, restarted.SampleRate, 0.185, 0.195);
         Assert.True(after > before + 10, $"{before} dB before the restart, {after} dB after");
         Assert.True(Db(slid.Left, slid.SampleRate, 0.185, 0.195) < Db(slid.Left, slid.SampleRate, 0.11, 0.12));
+    }
+
+    /// <summary>E9x restarts the first note a channel plays: the restart doesn't need an earlier note of the same song channel.</summary>
+    [Fact]
+    public void Render_WithRetriggerOnChannelsFirstNote_RestartsIt()
+    {
+        // Arrange
+        GenesisPlan plan = PlanOf([Decaying], [], Row((GenesisChannel.Fm1, Note(VoiceKind.Fm, effects: new Retrigger(3)))));
+        Playback playback = PlaybackOf(2, (r, t) => Playing(r == 0 && (t == 0 || t == 3)));
+
+        // Act
+        StereoAudio sut = Render(plan, SongOf(1, LoopedSine()), playback);
+
+        // Assert: the restart is on tick 3, at 0.06 s.
+        double before = Db(sut.Left, sut.SampleRate, 0.05, 0.06);
+        double after = Db(sut.Left, sut.SampleRate, 0.065, 0.075);
+        Assert.True(after > before + 10, $"{before} dB before the restart, {after} dB after");
+    }
+
+    /// <summary>E9x restarts a note that takes its Genesis channel over from another song channel's note.</summary>
+    [Fact]
+    public void Render_WithRetriggerOnNoteTakingChannelOver_RestartsIt()
+    {
+        // Arrange
+        GenesisPlan plan = PlanOf(
+            [Decaying],
+            [],
+            Row((GenesisChannel.Fm1, Note(VoiceKind.Fm) with { Source = 1 })),
+            Row((GenesisChannel.Fm1, Note(VoiceKind.Fm, effects: new Retrigger(3)))));
+        Playback playback = PlaybackOf(3, (r, t) => Playing(r == 1 && (t == 0 || t == 3)), (r, t) => Playing(r == 0 && t == 0));
+
+        // Act
+        StereoAudio sut = Render(plan, SongOf(2, LoopedSine()), playback);
+
+        // Assert: row 1 starts at 0.12 s and restarts on its tick 3, at 0.18 s.
+        double before = Db(sut.Left, sut.SampleRate, 0.17, 0.18);
+        double after = Db(sut.Left, sut.SampleRate, 0.185, 0.195);
+        Assert.True(after > before + 10, $"{before} dB before the restart, {after} dB after");
     }
 
     /// <summary>A patch's SSG-EG plays in the song: a repeating shape keeps a decaying carrier sounding where it would have faded out.</summary>
