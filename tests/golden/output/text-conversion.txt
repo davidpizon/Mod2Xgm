@@ -50,6 +50,7 @@ step 6/7 map start | eta ?
 note: Sample 1 "bassdrum": it plays once, so it is played as a recording on the DAC
 note: Sample 2 "snare [2]": it plays once, so it is played as a recording on the DAC
 note: Sample 4 "strings": it loops, so it is a sustained tone and is played by the Organ FM patch
+note: Sample 4 "strings": its four loudest harmonics (1, 2, 3, 4) hold only 81.4 % of its tone, so its FM patch is chosen by how bright it is
 note: Sample 4 "strings": its tone repeats every 63.99 frames, so its FM notes play at that pitch (C-2 sounds at 129.5 Hz)
 note: Sample 7 "vocal": it plays once, so it is played as a recording on the DAC
 note: 3 drum notes started on the same row as a louder one and could not use the DAC; played by FM instead
@@ -68,4 +69,4 @@ output FM 02 <- 02 "snare [2]", 07 "vocal" (Pluck patch)
 output DAC 01 <- 01 "bassdrum" rate=11025 bytes=6029
 step 7/7 write done | #s
 time check=#s read=#s scan=#s model=#s play=#s map=#s write=#s total=#s
-result ok exit=0 out=TEMP/song.dmf notes=16 time=#s
+result ok exit=0 out=TEMP/song.dmf notes=17 time=#s

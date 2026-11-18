@@ -281,6 +281,18 @@ internal sealed class SimpleMapper(DacLoser loser = DacLoser.Default) : IChannel
             if (SamplePitch.Measure(_song.Samples[sample]) is { PeriodFrames: { } frames } pitch)
             {
                 double hz = pitch.FrequencyAt(AmigaPitch.PalClockHz / C2Period) ?? 0;
+                HarmonicPatch? harmonic = _harmonics.GetValueOrDefault(sample);
+                double lift = SamplePitch.LibraryLiftCents(harmonic);
+                if (pitch.Chord)
+                {
+                    return new Why("Sample {Sample}: no one cycle repeats in its loop (a chord, or a chorused tone), so its FM notes play its lowest strong note (C-2 sounds at {Hz:0.#} Hz)", [label, hz]);
+                }
+
+                if (harmonic is not null && lift > 0)
+                {
+                    return new Why("Sample {Sample}: its tone repeats every {Frames:0.##} frames, a cycle below every note in it (a chord), so its FM notes play its lowest strong harmonic, {Harmonic} (C-2 sounds at {Hz:0.#} Hz)", [label, frames, harmonic.Lowest, hz * Math.Pow(2, lift / 1200)]);
+                }
+
                 return new Why("Sample {Sample}: its tone repeats every {Frames:0.##} frames, so its FM notes play at that pitch (C-2 sounds at {Hz:0.#} Hz)", [label, frames, hz]);
             }
 
@@ -526,8 +538,15 @@ internal sealed class SimpleMapper(DacLoser loser = DacLoser.Default) : IChannel
                 _noiseSource = c;
             }
 
-            planned[(int)column] = new PlanCell(candidate.Note, voice, candidate.Volume, false, [], c, _song.Instruments[candidate.Instrument].Sample);
+            int sample = _song.Instruments[candidate.Instrument].Sample;
+            planned[(int)column] = new PlanCell(candidate.Note, voice, candidate.Volume, false, [], c, sample)
+            {
+                Cents = kind == Sounding.Fm ? LiftCents(sample) : 0,
+            };
         }
+
+        /// <summary>How far above its measured pitch <paramref name="sample"/>'s library FM patch plays (<see cref="SamplePitch.LibraryLiftCents"/>); 0 when it has no tone loop.</summary>
+        private double LiftCents(int sample) => _harmonics.TryGetValue(sample, out HarmonicPatch? harmonic) ? SamplePitch.LibraryLiftCents(harmonic) : 0;
 
         /// <summary>
         /// Stops what MOD channel <paramref name="c"/> is sounding, for a note of an ignored sample: the track is silent
