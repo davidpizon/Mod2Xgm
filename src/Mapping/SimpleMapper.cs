@@ -509,13 +509,8 @@ internal sealed class SimpleMapper(DacLoser loser = DacLoser.Default) : IChannel
             int c = candidate.Channel;
             if (_sounding[c] != kind)
             {
-                GenesisChannel? previous = _sounding[c] switch
-                {
-                    Sounding.Fm => (GenesisChannel)c,
-                    Sounding.Noise => GenesisChannel.Psg4,
-                    _ => null,
-                };
-                if (previous is { } stop && planned[(int)stop].Note is null)
+                // A recording the track left plays on to its end, a looped one for seconds, where the MOD's next note cuts it.
+                if (Playing(c) is { } stop && planned[(int)stop].Note is null)
                 {
                     planned[(int)stop] = planned[(int)stop] with { NoteOff = true, Source = c };
                 }
@@ -540,20 +535,25 @@ internal sealed class SimpleMapper(DacLoser loser = DacLoser.Default) : IChannel
         /// </summary>
         private void Silence(int c, PlanCell[] planned)
         {
-            GenesisChannel? column = _sounding[c] switch
-            {
-                Sounding.Fm => (GenesisChannel)c,
-                Sounding.Dac when _dacSource == c => GenesisChannel.Fm6,
-                Sounding.Noise when _noiseSource == c => GenesisChannel.Psg4,
-                _ => null,
-            };
-            if (column is { } stop && planned[(int)stop].Note is null)
+            if (Playing(c) is { } stop && planned[(int)stop].Note is null)
             {
                 planned[(int)stop] = planned[(int)stop] with { NoteOff = true, Source = c };
             }
 
             _sounding[c] = Sounding.Nothing;
         }
+
+        /// <summary>
+        /// The column still sounding MOD channel <paramref name="c"/>'s last note, or <c>null</c>. The DAC and the noise
+        /// channel count only while this track started their sound: another track's drum since then is not its to stop.
+        /// </summary>
+        private GenesisChannel? Playing(int c) => _sounding[c] switch
+        {
+            Sounding.Fm => (GenesisChannel)c,
+            Sounding.Dac when _dacSource == c => GenesisChannel.Fm6,
+            Sounding.Noise when _noiseSource == c => GenesisChannel.Psg4,
+            _ => null,
+        };
 
         /// <summary>The rate of the pitch the song plays <paramref name="sample"/> at most often (the lowest pitch on a tie).</summary>
         private double DacRate(int sample)
