@@ -139,6 +139,7 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0123](0123-smooth-fm-volume.md) | A big volume jump on a sounding FM note is spread over ticks (XGM and XGM2) | 2026-11-17 | Proposed |
 | [0124](0124-release-before-key-on.md) | An FM note is let go a tick before the next key-on on its channel (XGM and XGM2) | 2026-11-18 | Proposed |
 | [0125](0125-chord-samples.md) | A chord or chorused sample plays its bottom note on FM | 2026-11-18 | Proposed |
+| [0126](0126-tail-loop-level.md) | An FM voice for a sample with a tail loop is as loud as the recording | 2026-11-18 | Proposed |
 
 ## Open questions
 

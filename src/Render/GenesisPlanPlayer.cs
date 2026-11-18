@@ -481,6 +481,10 @@ internal sealed class GenesisPlanPlayer
         track.Sample = sample;
         track.Voice = voice;
         track.StartedAt = t;
+
+        // From here the track follows the row's song channel, so the row's E9x restarts this note: also the first note the
+        // channel plays, or one that takes it over from another song channel, which ReadRow couldn't count as following it.
+        track.RestartRow = cell.Effects.OfType<Retrigger>().Any();
         ChannelTick ch = _ticks[t].Channels[source];
         switch (voice.Kind)
         {
@@ -1029,7 +1033,10 @@ internal sealed class GenesisPlanPlayer
         /// <summary>The tick the note is cut on (a <see cref="NoteCut"/> that <see cref="NoteCut.Ends"/> the note, in this row's cell), or −1.</summary>
         public int CutTick { get; set; } = -1;
 
-        /// <summary>True on a row whose cell restarts the note (E9x) from the same song channel.</summary>
+        /// <summary>
+        /// True on a row whose cell restarts the note (E9x) from the song channel the track follows: set when the row is read
+        /// for a note the track already follows, and when the row's note starts.
+        /// </summary>
         public bool RestartRow { get; set; }
 
         /// <summary>The block and F-number last written, or −1.</summary>
