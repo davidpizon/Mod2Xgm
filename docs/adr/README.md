@@ -133,6 +133,7 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0117](0117-tail-and-noise-loops.md) | Loops that aren't tones: a tail after a recording, or noise | 2026-11-17 | Accepted |
 | [0118](0118-harmonic-patches.md) | FM patches built from a looped tone's harmonics | 2026-11-17 | Accepted |
 | [0119](0119-xgm2-pcm-lead.md) | XGM2 sends PCM commands 2 frames ahead, after a silent head | 2026-11-17 | Accepted |
+| [0120](0120-faded-recordings.md) | A recording whose note fades has the fade baked in (XGM and XGM2) | 2026-11-17 | Accepted |
 
 ## Open questions
 

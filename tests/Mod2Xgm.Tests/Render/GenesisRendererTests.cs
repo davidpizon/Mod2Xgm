@@ -320,21 +320,57 @@ public sealed class GenesisRendererTests
         Assert.True(Db(audio.Right, audio.SampleRate, 0.9, 1.4) < -60);
     }
 
-    /// <summary>The DAC has no volume: a note at half volume plays a copy 6 dB down (the DMF in 3 dB steps, the XGM drivers exactly), and stays there.</summary>
-    [Theory]
-    [InlineData(nameof(PcmDriver.Dmf))]
-    [InlineData(nameof(PcmDriver.Xgm2))]
-    public void Render_WithDacNote_PlaysAtStartingVolume(string driver)
+    /// <summary>The DMF's DAC has no volume: a note at half volume plays a copy 6 dB down, in 3 dB steps, and stays there.</summary>
+    [Fact]
+    public void Render_WithDacNoteOnDmf_PlaysAtStartingVolume()
     {
         // Arrange
         GenesisPlan plan = PlanOf([], [new DacSample(0, 16_000)], Row((GenesisChannel.Fm6, Note(VoiceKind.Dac, rateHz: 16_000))));
         Playback playback = PlaybackOf(12, (r, t) => Playing(r == 0 && t == 0, volume: r == 0 ? 0.5 : 1, rateHz: 16_000, frames: 32_000));
 
         // Act
-        StereoAudio audio = Render(plan, SongOf(1, OneShotSine(16_000, 2)), playback, ChipRate with { Driver = Enum.Parse<PcmDriver>(driver) });
+        StereoAudio audio = Render(plan, SongOf(1, OneShotSine(16_000, 2)), playback, ChipRate with { Driver = PcmDriver.Dmf });
 
         // Assert
         Assert.Equal(FurnaceFmDb - 6.0, Db(audio.Left, audio.SampleRate, 0.2, 1.2), 0.3);
+    }
+
+    /// <summary>
+    /// On XGM and XGM2 a DAC note whose volume moves plays a copy with its fade baked in: 6 dB down while the MOD's volume
+    /// is half, full once it is back up (docs/adr/0120-faded-recordings.md).
+    /// </summary>
+    [Theory]
+    [InlineData(nameof(PcmDriver.Xgm))]
+    [InlineData(nameof(PcmDriver.Xgm2))]
+    public void Render_WithDacNoteOnXgm_FollowsItsVolume(string driver)
+    {
+        // Arrange
+        GenesisPlan plan = PlanOf([], [new DacSample(0, 16_000)], Row((GenesisChannel.Fm6, Note(VoiceKind.Dac, rateHz: 16_000))));
+        Playback playback = PlaybackOf(12, (r, t) => Playing(r == 0 && t == 0, volume: r < 3 ? 0.5 : 1, rateHz: 16_000, frames: 32_000));
+
+        // Act
+        StereoAudio audio = Render(plan, SongOf(1, OneShotSine(16_000, 2)), playback, ChipRate with { Driver = Enum.Parse<PcmDriver>(driver) });
+
+        // Assert
+        Assert.Equal(FurnaceFmDb - 6.0, Db(audio.Left, audio.SampleRate, 0.1, 0.3), 0.5);
+        Assert.Equal(FurnaceFmDb, Db(audio.Left, audio.SampleRate, 0.5, 1.2), 0.5);
+    }
+
+    /// <summary>On XGM2 a looped DAC note that slides down to silence fades out and stops, where the copy at its starting volume would ring on.</summary>
+    [Fact]
+    public void Render_WithLoopedDacNoteSlidingToSilenceOnXgm2_FadesOut()
+    {
+        // Arrange
+        GenesisPlan plan = PlanOf([], [new DacSample(0, SineRateHz)], Row((GenesisChannel.Fm6, Note(VoiceKind.Dac))));
+        Playback playback = PlaybackOf(12, (r, t) => Playing(r == 0 && t == 0, volume: Math.Max(0, 1 - ((r * TicksPerRow) + t) / 24.0)));
+
+        // Act
+        StereoAudio audio = Render(plan, SongOf(1, LoopedSine()), playback, ChipRate with { Driver = PcmDriver.Xgm2 });
+
+        // Assert
+        double start = Db(audio.Left, audio.SampleRate, 0.05, 0.15);
+        Assert.True(Db(audio.Left, audio.SampleRate, 0.3, 0.4) < start - 6);
+        Assert.True(Db(audio.Left, audio.SampleRate, 0.6, 1.4) < -60);
     }
 
     /// <summary>White noise at full volume plays at Furnace's PSG level; it follows its sample's loudness, 12 dB down where the sample is.</summary>

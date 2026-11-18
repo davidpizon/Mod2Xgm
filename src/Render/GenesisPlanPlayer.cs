@@ -1,4 +1,5 @@
 using System.Globalization;
+using Mod2Xgm.Analysis;
 using Mod2Xgm.Audio;
 using Mod2Xgm.Dmf;
 using Mod2Xgm.Mapping;
@@ -15,7 +16,7 @@ namespace Mod2Xgm.Render;
 /// the tick player starts its sample (so <c>EDx</c> delays it and <c>E9x</c> restarts it), and until the next note or
 /// note-off or note cut (docs/adr/0095-voices-stop-with-the-mod-note.md) the channel takes that song channel's pitch, volume
 /// and pan from every tick. What the hardware can't change stays as the note started: a DAC note's pitch (its sample's one
-/// rate, ADR 0040) and volume, a noise note's rate, a PSG tone's pitch (as its DMF notes, which can't slide; docs/adr/0087-greedy-allocator.md).
+/// rate, ADR 0040) and, on the DMF, its volume (XGM and XGM2 bake a fade into its copy, docs/adr/0120-faded-recordings.md), a noise note's rate, a PSG tone's pitch (as its DMF notes, which can't slide; docs/adr/0087-greedy-allocator.md).
 /// </summary>
 internal sealed class GenesisPlanPlayer
 {
@@ -64,7 +65,8 @@ internal sealed class GenesisPlanPlayer
     private readonly ConversionNotes _notes;
     private readonly PlanVoicing _voicing;
     private readonly Track[] _tracks;
-    private readonly Dictionary<(int Dac, int Offset, double Volume), Pcm?> _pcm = [];
+    private readonly Dictionary<(int Dac, int Offset, double Volume, NoteFade? Fade), Pcm?> _pcm = [];
+    private readonly Dictionary<(int Channel, int Tick), NoteFade> _fades = [];
     private readonly Dictionary<(int Sample, int Frames), double> _noisePeaks = [];
     private readonly Dictionary<string, int> _tallies = [];
     private readonly PanLog? _pans;
@@ -89,6 +91,11 @@ internal sealed class GenesisPlanPlayer
         _resampler = resampler;
         _notes = notes;
         _voicing = new PlanVoicing(plan, song);
+        if (chips.Driver != PcmDriver.Dmf)
+        {
+            FindFades(song, playback);
+        }
+
         _tracks = [.. Enumerable.Range(0, GenesisPlan.ColumnCount).Select(_ => new Track())];
         _tickStarts = new double[durations.Count + 1];
         for (int t = 0; t < durations.Count; t++)
@@ -107,6 +114,25 @@ internal sealed class GenesisPlanPlayer
         {
             WriteFm(c, RegPanLfo, PanLeft | PanRight);
             _tracks[c].Pan = PanLeft | PanRight;
+        }
+    }
+
+    /// <summary>
+    /// Every note whose volume moves while it sounds, by where it starts, with its fade over the render's tick lengths: XGM
+    /// and XGM2 bake it into the note's copy (docs/adr/0120-faded-recordings.md). The DMF writer keeps its copies 3 dB apart
+    /// and plays every note at the volume it starts with, so the render of a DMF does too.
+    /// </summary>
+    private void FindFades(Song song, Playback playback)
+    {
+        foreach (SongNote note in SongNote.Find(song, playback).Where(n => n.Fade is not null))
+        {
+            int ticks = Math.Min(note.Ticks, _ticks.Count - note.FirstTick);
+            double[] volumes = [.. Enumerable.Range(note.FirstTick, ticks).Select(t => _ticks[t].Channels[note.Channel].Volume)];
+            double[] seconds = [.. Enumerable.Range(note.FirstTick, ticks).Select(t => _durations[t])];
+            if (NoteFade.Of(volumes, seconds) is { } fade)
+            {
+                _fades[(note.Channel, note.FirstTick)] = fade;
+            }
         }
     }
 
@@ -517,7 +543,7 @@ internal sealed class GenesisPlanPlayer
             }
         }
 
-        // The DAC has no pitch or volume of its own: both were set when the note started.
+        // The DAC has no pitch or volume of its own: both were set when the note started, a fade baked into its copy.
         switch (track.Kind)
         {
             case VoiceKind.Fm:
@@ -673,11 +699,12 @@ internal sealed class GenesisPlanPlayer
         return frames > 0 ? Math.Sqrt(sum / frames) : 0;
     }
 
-    /// <summary>Plays a DAC note: its sample from the frame the tick player starts at, at the volume it starts with. False when it stays silent.</summary>
+    /// <summary>Plays a DAC note: its sample from the frame the tick player starts at, at the volume it starts with and, on XGM and XGM2, with its fade. False when it stays silent.</summary>
     private bool PlayDac(int c, DacSample dac, int index, ChannelTick ch, int t)
     {
         int offset = ch.Started?.StartFrame ?? 0;
-        if (Prepare(dac, index, offset, ch.Volume, _tracks[c].SteadyMiddle) is not { } pcm)
+        NoteFade? fade = dac.Mix is null ? _fades.GetValueOrDefault((_tracks[c].Source, t)) : null;
+        if (Prepare(dac, index, offset, ch.Volume, _tracks[c].SteadyMiddle, fade) is not { } pcm)
         {
             StopDac(c);
             return false;
@@ -745,8 +772,9 @@ internal sealed class GenesisPlanPlayer
     /// its copies 3 dB apart, as the DMF writer does; XGM and XGM2 keep 3 dB steps too, at their driver's exact rate. A
     /// recording <paramref name="held"/> in the middle plays <see cref="DacSample.HeldSteps"/> steps quieter, so from both
     /// speakers it is as loud as from one (<see cref="PlanVoicing.CentredGain"/>, docs/adr/0109-pan-swap-cost.md).
+    /// On XGM and XGM2, a note whose volume moves has <paramref name="fade"/> baked in (docs/adr/0120-faded-recordings.md).
     /// </summary>
-    private Pcm? Prepare(DacSample dac, int index, int offset, double volume, bool held = false)
+    private Pcm? Prepare(DacSample dac, int index, int offset, double volume, bool held = false, NoteFade? fade = null)
     {
         bool dmf = _chips.Driver == PcmDriver.Dmf;
         if (dac.Mix is { } mix)
@@ -769,7 +797,7 @@ internal sealed class GenesisPlanPlayer
 
         int steps = volume <= 0 ? int.MaxValue : Math.Max(0, (int)Math.Round(-20 * Math.Log10(volume) / DmfPatternTranslator.DacVolumeStepDb, MidpointRounding.AwayFromZero));
         double key = dmf ? steps : volume;
-        if (_pcm.TryGetValue((index, offset, key), out Pcm? pcm))
+        if (_pcm.TryGetValue((index, offset, key, fade), out Pcm? pcm))
         {
             return pcm;
         }
@@ -782,6 +810,11 @@ internal sealed class GenesisPlanPlayer
         }
 
         data = data[Math.Min(offset, data.Length)..];
+        if (fade is not null)
+        {
+            data = fade.Apply(data, dac.PlaybackRateHz);
+        }
+
         string name = string.Create(CultureInfo.InvariantCulture, $"{dac.Sample + 1} \"{sample.Name}\"");
         if (volume <= 0 || data.Length == 0 || (dmf && steps > DmfPatternTranslator.MaxDacVolumeSteps))
         {
@@ -803,7 +836,7 @@ internal sealed class GenesisPlanPlayer
             pcm = pcm8.Length == 0 ? null : new Pcm(null, Stored(pcm8, dac.HalfSpeed), (int)Math.Round(rate), name);
         }
 
-        _pcm[(index, offset, key)] = pcm;
+        _pcm[(index, offset, key, fade)] = pcm;
         return pcm;
     }
 
@@ -813,7 +846,7 @@ internal sealed class GenesisPlanPlayer
     /// </summary>
     private Pcm? PrepareMix(DacSample dac, DacMix mix, int index)
     {
-        if (_pcm.TryGetValue((index, 0, 1), out Pcm? pcm))
+        if (_pcm.TryGetValue((index, 0, 1, null), out Pcm? pcm))
         {
             return pcm;
         }
@@ -832,7 +865,7 @@ internal sealed class GenesisPlanPlayer
             pcm = pcm8.Length == 0 ? null : new Pcm(null, Stored(pcm8, halfSpeed: false), (int)Math.Round(rate), mix.Name);
         }
 
-        _pcm[(index, 0, 1)] = pcm;
+        _pcm[(index, 0, 1, null)] = pcm;
         return pcm;
     }
 

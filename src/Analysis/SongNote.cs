@@ -20,6 +20,12 @@ namespace Mod2Xgm.Analysis;
 /// arpeggio, volume slide or tremolo).</param>
 internal sealed record SongNote(int Channel, int Sample, int FirstTick, int Ticks, double RateHz, int StartFrame, double Volume, double Seconds, bool Bent)
 {
+    /// <summary>
+    /// How its volume moves while it sounds, against the volume it starts at; <c>null</c> when it doesn't move
+    /// (docs/adr/0120-faded-recordings.md).
+    /// </summary>
+    public NoteFade? Fade { get; init; }
+
     /// <summary>Every note of <paramref name="playback"/>, in the order they start (by tick, then channel).</summary>
     public static IReadOnlyList<SongNote> Find(Song song, Playback playback)
     {
@@ -105,6 +111,8 @@ internal sealed record SongNote(int Channel, int Sample, int FirstTick, int Tick
         /// <summary>A rate (as a share) or a volume that moves less than this hasn't changed: rounding, not an effect.</summary>
         private const double Same = 1e-9;
 
+        private readonly List<double> _volumes = [];
+        private readonly List<double> _tickSeconds = [];
         private int _ticks;
         private double _seconds;
         private bool _bent = startFrame > 0;
@@ -116,9 +124,11 @@ internal sealed record SongNote(int Channel, int Sample, int FirstTick, int Tick
         {
             _ticks++;
             _seconds += seconds;
+            _volumes.Add(tick.Volume);
+            _tickSeconds.Add(seconds);
             _bent |= Math.Abs(tick.Pitch.PlaybackRateHz - rateHz) > rateHz * Same || Math.Abs(tick.Volume - volume) > Same;
         }
 
-        public SongNote Note() => new(channel, sample, firstTick, _ticks, rateHz, startFrame, volume, _seconds, _bent);
+        public SongNote Note() => new(channel, sample, firstTick, _ticks, rateHz, startFrame, volume, _seconds, _bent) { Fade = NoteFade.Of(_volumes, _tickSeconds) };
     }
 }

@@ -76,7 +76,7 @@ WRN Consolidating samples to fit (use --no-consolidate to fail instead)
 Only **recordings** count: samples the mapper plays as PCM, even if a clash moved their notes elsewhere. FM and PSG notes
 store nothing. After the free steps 0–3 below:
 
-- **Slots:** one copy per sample, starting pitch, 3 dB of loudness and start point. Held length sets a copy's size, not
+- **Slots:** one copy per sample, starting pitch, 3 dB of loudness and start point, and on XGM and XGM2 per distinct fade (a note whose volume moves while it sounds, [ADR 0120](adr/0120-faded-recordings.md); a fade to silence also shortens its copy). Held length sets a copy's size, not
   how many there are, because a shorter note can stop a copy early.
 - **Voices:** the most recordings sounding at once, tick by tick. A kick still ringing when a snare starts counts as two.
 - **Bytes:** every copy on the target, at full rate, as long as its longest note (at most 10 s of a loop).

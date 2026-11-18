@@ -3,7 +3,7 @@ using Mod2Xgm.Dmf;
 using Mod2Xgm.Model;
 
 // A copy a note asks for, as the capacity check counts them (docs/adr/0086-capacity-check.md).
-using CopyKey = (int Sample, double RateHz, int StartFrame, int VolumeSteps);
+using CopyKey = (int Sample, double RateHz, int StartFrame, int VolumeSteps, Mod2Xgm.Analysis.NoteFade? Fade);
 
 namespace Mod2Xgm.Optimizer;
 
@@ -16,7 +16,8 @@ namespace Mod2Xgm.Optimizer;
 /// <param name="StartFrame">Where its notes start (MOD <c>9xx</c>).</param>
 /// <param name="VolumeSteps">Its loudness in <see cref="DmfPatternTranslator.DacVolumeStepDb"/> steps below full.</param>
 /// <param name="HalfSpeed">True when XGM2 stores and plays it at half speed.</param>
-internal readonly record struct StoredCopy(int Sample, double RateHz, int StartFrame, int VolumeSteps, bool HalfSpeed);
+/// <param name="Fade">How its volume moves while it plays, baked in (docs/adr/0120-faded-recordings.md); <c>null</c> when it doesn't.</param>
+internal readonly record struct StoredCopy(int Sample, double RateHz, int StartFrame, int VolumeSteps, bool HalfSpeed, Mod2Xgm.Analysis.NoteFade? Fade = null);
 
 /// <summary>A way to make a sample's recordings smaller, each giving up a little sound (docs/sample-capacity.md#consolidation-default).</summary>
 internal enum ShrinkMove
@@ -326,7 +327,7 @@ internal static class RecordingShrinker
         private bool Covers(int sample, int other) => wanted
             .Where(w => w.Key.Sample == sample)
             .All(w => CapacityCheck.CopyBytes(w.Key, w.Seconds, song, limits.Target) == 0
-                || CapacityCheck.CopyBytes((other, w.Key.RateHz, w.Key.StartFrame, w.Key.VolumeSteps), w.Seconds, song, limits.Target) > 0);
+                || CapacityCheck.CopyBytes((other, w.Key.RateHz, w.Key.StartFrame, w.Key.VolumeSteps, w.Key.Fade), w.Seconds, song, limits.Target) > 0);
 
         public void Apply(ShrinkMove move, int sample, int into)
         {
@@ -384,14 +385,14 @@ internal static class RecordingShrinker
             foreach ((CopyKey key, double seconds) in wanted)
             {
                 CopyKey k = step1[key];
-                StoredCopy copy = new(k.Sample, rate.GetValueOrDefault(k, k.RateHz), k.StartFrame, k.VolumeSteps, _halfSpeed.Contains(k.Sample));
+                StoredCopy copy = new(k.Sample, rate.GetValueOrDefault(k, k.RateHz), k.StartFrame, k.VolumeSteps, _halfSpeed.Contains(k.Sample), k.Fade);
                 stored[key] = copy;
                 longest[copy] = Math.Max(longest.GetValueOrDefault(copy), seconds);
             }
 
             Dictionary<StoredCopy, int> bytes = longest.ToDictionary(
                 c => c.Key,
-                c => CapacityCheck.CopyBytes((c.Key.Sample, c.Key.RateHz, c.Key.StartFrame, c.Key.VolumeSteps), c.Value, song, limits.Target, c.Key.HalfSpeed));
+                c => CapacityCheck.CopyBytes((c.Key.Sample, c.Key.RateHz, c.Key.StartFrame, c.Key.VolumeSteps, c.Key.Fade), c.Value, song, limits.Target, c.Key.HalfSpeed));
             return (stored, bytes);
         }
 
@@ -407,7 +408,7 @@ internal static class RecordingShrinker
             }
 
             int steps = StoredSteps(key.VolumeSteps, gainDb, _shareLoudness.Contains(sample) ? rules.LoudnessShareSteps : 1);
-            return (sample, key.RateHz, key.StartFrame, steps);
+            return (sample, key.RateHz, key.StartFrame, steps, key.Fade);
         }
 
         /// <summary>
@@ -424,9 +425,9 @@ internal static class RecordingShrinker
                 plays[k] = plays.GetValueOrDefault(k) + 1;
             }
 
-            foreach (IGrouping<(int Sample, int StartFrame, int VolumeSteps), CopyKey> group in plays.Keys
+            foreach (IGrouping<(int Sample, int StartFrame, int VolumeSteps, Mod2Xgm.Analysis.NoteFade? Fade), CopyKey> group in plays.Keys
                 .Where(k => _sharePitch.Contains(k.Sample))
-                .GroupBy(k => (k.Sample, k.StartFrame, k.VolumeSteps)))
+                .GroupBy(k => (k.Sample, k.StartFrame, k.VolumeSteps, k.Fade)))
             {
                 List<CopyKey> left = [.. group.OrderByDescending(k => plays[k]).ThenBy(k => k.RateHz)];
                 while (left.Count > 0)

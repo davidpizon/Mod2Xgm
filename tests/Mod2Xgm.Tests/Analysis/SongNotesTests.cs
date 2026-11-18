@@ -58,6 +58,20 @@ public sealed class SongNotesTests
         Assert.True(note.Bent);
     }
 
+    /// <summary>A volume slide gives the note a fade that follows it; a plain note has none (docs/adr/0120-faded-recordings.md).</summary>
+    [Fact]
+    public void Find_WithVolumeSlide_HasFade()
+    {
+        // Act
+        IReadOnlyList<SongNote> notes = EffectNotes();
+
+        // Assert
+        Assert.Null(notes[0].Fade);
+        NoteFade fade = Assert.IsType<NoteFade>(notes[2].Fade);
+        Assert.Equal(1, fade.Gains[0]);
+        Assert.True(fade.Gains[^1] < 1);
+    }
+
     /// <summary>A start offset moves where the note starts in its sample.</summary>
     [Fact]
     public void Find_WithSampleOffset_KeepsStartFrame()

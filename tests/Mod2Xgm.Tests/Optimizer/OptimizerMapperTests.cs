@@ -193,7 +193,7 @@ public sealed class OptimizerMapperTests
     {
         // Arrange
         Song song = SongOf(1, [(0, 0)]);
-        int full = CapacityCheck.CopyBytes((0, Rate, 0, 0), 1, song, PcmTarget.Xgm2);
+        int full = CapacityCheck.CopyBytes((0, Rate, 0, 0, null), 1, song, PcmTarget.Xgm2);
         ShrinkRules rules = ShrinkRules.Default with { Order = [ShrinkMove.HalfSpeed] };
         OptimizerMapper sut = new(TargetLimits.For(PcmTarget.Xgm2, full - 1, 0), [Sounds(0)], rules);
         ConversionNotes notes = Notes();
@@ -234,7 +234,7 @@ public sealed class OptimizerMapperTests
     {
         // Arrange
         Song song = SongOf(1, [(0, 0)]);
-        int full = CapacityCheck.CopyBytes((0, Rate, 0, 0), 1, song, PcmTarget.Xgm2);
+        int full = CapacityCheck.CopyBytes((0, Rate, 0, 0, null), 1, song, PcmTarget.Xgm2);
         OptimizerMapper sut = new(TargetLimits.For(PcmTarget.Xgm2, full - 1, 0), [Sounds(0)]);
 
         // Act
@@ -268,7 +268,7 @@ public sealed class OptimizerMapperTests
     {
         // Arrange
         Song song = SongOf(1, [(0, 0)]);
-        int full = CapacityCheck.CopyBytes((0, Rate, 0, 0), 1, song, PcmTarget.Xgm2);
+        int full = CapacityCheck.CopyBytes((0, Rate, 0, 0, null), 1, song, PcmTarget.Xgm2);
         OptimizerMapper sut = new(TargetLimits.For(PcmTarget.Xgm2, full - 1, 0), [Sounds(0)], ShrinkRules.None);
 
         // Act
