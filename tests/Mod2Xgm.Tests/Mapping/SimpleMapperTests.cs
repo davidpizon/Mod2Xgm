@@ -730,6 +730,44 @@ public sealed class SimpleMapperTests
         Assert.True(CellAt(plan, GenesisChannel.Psg4, row: 1).NoteOff);
     }
 
+    /// <summary>
+    /// A track that moves from a recording to an FM note stops the recording, as the MOD's next note cuts it: a looped
+    /// recording would otherwise ring on for seconds (brun_jul's sleigh bells at the song's end).
+    /// </summary>
+    [Fact]
+    public void Map_WithTrackMovingFromDacToFm_StopsRecording()
+    {
+        // Arrange
+        Song song = Build([[RowOf(Play(Kick)), RowOf(Play(Organ))]]);
+
+        // Act
+        (GenesisPlan plan, _) = Map(song, MappingOptions.Default);
+
+        // Assert
+        Assert.Equal(VoiceKind.Dac, CellAt(plan, GenesisChannel.Fm6).Voice?.Kind);
+        Assert.True(CellAt(plan, GenesisChannel.Fm6, row: 1).NoteOff);
+        Assert.Equal(0, CellAt(plan, GenesisChannel.Fm6, row: 1).Source);
+        Assert.Equal(VoiceKind.Fm, CellAt(plan, GenesisChannel.Fm1, row: 1).Voice?.Kind);
+    }
+
+    /// <summary>A track that moves to FM after another track's drum took the DAC leaves that drum playing.</summary>
+    [Fact]
+    public void Map_WithTrackMovingToFmAfterDacTakenOver_LeavesOtherDrum()
+    {
+        // Arrange
+        Song song = Build([[
+            RowOf(Play(Kick), Cell.Empty),
+            RowOf(Cell.Empty, Play(Tom)),
+            RowOf(Play(Organ), Cell.Empty),
+        ]]);
+
+        // Act
+        (GenesisPlan plan, _) = Map(song, MappingOptions.Default);
+
+        // Assert
+        Assert.False(CellAt(plan, GenesisChannel.Fm6, row: 2).NoteOff);
+    }
+
     /// <summary>A pitch at <paramref name="semitone"/>, played at <paramref name="rate"/>.</summary>
     private static NotePitch Note(int semitone = 48, double rate = 8287) => new(semitone, 0, rate);
 
