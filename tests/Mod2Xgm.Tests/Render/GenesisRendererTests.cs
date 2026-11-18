@@ -75,6 +75,19 @@ public sealed class GenesisRendererTests
             null,
             PlaybackEnd.Stops);
 
+    /// <summary>
+    /// <paramref name="rows"/> rows of two song channels' playback: <paramref name="first"/> gives channel 0's state on each
+    /// (row, tick), <paramref name="second"/> channel 1's.
+    /// </summary>
+    private static Playback PlaybackOf(int rows, Func<int, int, ChannelTick> first, Func<int, int, ChannelTick> second) =>
+        new(
+            [.. Enumerable.Range(0, rows * TicksPerRow).Select(i => new PlaybackTick(i * TickSeconds, TickSeconds, 0, i / TicksPerRow, i % TicksPerRow, false, [first(i / TicksPerRow, i % TicksPerRow), second(i / TicksPerRow, i % TicksPerRow)]))],
+            null,
+            PlaybackEnd.Stops);
+
+    /// <summary>A sine carrier that starts at once and decays fast, so a restart is heard as a jump in level.</summary>
+    private static FmPatch Decaying { get; } = new("decay", 7, 0, [new FmOperator(1, 0, 0, 0, 31, false, 20, 0, 15, 15), Muted(), Muted(), Muted()]);
+
     /// <summary>A channel playing sample 0 at <paramref name="rateHz"/>; <paramref name="start"/> starts it from frame 0 on this tick.</summary>
     private static ChannelTick Playing(bool start, double volume = 1, double pan = 0, double rateHz = SineRateHz, int frames = 64) =>
         new(true, new NotePitch(48, 0, rateHz), volume, pan, start ? new SampleBlock(0, 0, frames) : null, new SampleBlock(0, 0, frames));
@@ -287,6 +300,44 @@ public sealed class GenesisRendererTests
         double after = Db(restarted.Left, restarted.SampleRate, 0.185, 0.195);
         Assert.True(after > before + 10, $"{before} dB before the restart, {after} dB after");
         Assert.True(Db(slid.Left, slid.SampleRate, 0.185, 0.195) < Db(slid.Left, slid.SampleRate, 0.11, 0.12));
+    }
+
+    /// <summary>E9x restarts the first note a channel plays: the restart doesn't need an earlier note of the same song channel.</summary>
+    [Fact]
+    public void Render_WithRetriggerOnChannelsFirstNote_RestartsIt()
+    {
+        // Arrange
+        GenesisPlan plan = PlanOf([Decaying], [], Row((GenesisChannel.Fm1, Note(VoiceKind.Fm, effects: new Retrigger(3)))));
+        Playback playback = PlaybackOf(2, (r, t) => Playing(r == 0 && (t == 0 || t == 3)));
+
+        // Act
+        StereoAudio sut = Render(plan, SongOf(1, LoopedSine()), playback);
+
+        // Assert: the restart is on tick 3, at 0.06 s.
+        double before = Db(sut.Left, sut.SampleRate, 0.05, 0.06);
+        double after = Db(sut.Left, sut.SampleRate, 0.065, 0.075);
+        Assert.True(after > before + 10, $"{before} dB before the restart, {after} dB after");
+    }
+
+    /// <summary>E9x restarts a note that takes its Genesis channel over from another song channel's note.</summary>
+    [Fact]
+    public void Render_WithRetriggerOnNoteTakingChannelOver_RestartsIt()
+    {
+        // Arrange
+        GenesisPlan plan = PlanOf(
+            [Decaying],
+            [],
+            Row((GenesisChannel.Fm1, Note(VoiceKind.Fm) with { Source = 1 })),
+            Row((GenesisChannel.Fm1, Note(VoiceKind.Fm, effects: new Retrigger(3)))));
+        Playback playback = PlaybackOf(3, (r, t) => Playing(r == 1 && (t == 0 || t == 3)), (r, t) => Playing(r == 0 && t == 0));
+
+        // Act
+        StereoAudio sut = Render(plan, SongOf(2, LoopedSine()), playback);
+
+        // Assert: row 1 starts at 0.12 s and restarts on its tick 3, at 0.18 s.
+        double before = Db(sut.Left, sut.SampleRate, 0.17, 0.18);
+        double after = Db(sut.Left, sut.SampleRate, 0.185, 0.195);
+        Assert.True(after > before + 10, $"{before} dB before the restart, {after} dB after");
     }
 
     /// <summary>A patch's SSG-EG plays in the song: a repeating shape keeps a decaying carrier sounding where it would have faded out.</summary>
