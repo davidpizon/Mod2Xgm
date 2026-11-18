@@ -125,6 +125,36 @@ public sealed class GenesisRendererTests
         Assert.Equal(440, Hz(audio.Left, audio.SampleRate, 0.2, 1.2), 2.0);
     }
 
+    /// <summary>
+    /// A 12 dB volume drop on a sounding FM note is spread over two ticks, 6 dB each, as the one-sample step clicks
+    /// (ADR 0123); a new note starts at its own level at once, and the DMF render, like DefleMask, drops at once.
+    /// </summary>
+    [Fact]
+    public void Render_WithBigVolumeDropOnXgm2_RampsSoundingNoteOnly()
+    {
+        // Arrange
+        PlanRow[] held = [Row((GenesisChannel.Fm1, Note(VoiceKind.Fm))), .. Enumerable.Repeat(Row(), 19)];
+        PlanRow[] restarted = [.. held];
+        restarted[10] = Row((GenesisChannel.Fm1, Note(VoiceKind.Fm)));
+        Song song = SongOf(1, LoopedSine());
+
+        GenesisRenderOptions xgm2 = ChipRate with { Driver = PcmDriver.Xgm2 };
+        Playback dropped = PlaybackOf(20, (r, t) => Playing(r == 0 && t == 0, volume: r < 10 ? 1 : 0.25));
+
+        // Act
+        StereoAudio ramped = Render(PlanOf([FmPatchLibrary.Sine], [], held), song, dropped, xgm2);
+        StereoAudio sut = Render(PlanOf([FmPatchLibrary.Sine], [], restarted), song, PlaybackOf(20, (r, t) => Playing((r == 0 || r == 10) && t == 0, volume: r < 10 ? 1 : 0.25)), xgm2);
+        StereoAudio dmf = Render(PlanOf([FmPatchLibrary.Sine], [], held), song, dropped);
+
+        // Assert
+        double full = Db(ramped.Left, ramped.SampleRate, 0.2, 1.1);
+        double rowStart = 10 * TicksPerRow * TickSeconds;
+        Assert.Equal(-6.0, Db(ramped.Left, ramped.SampleRate, rowStart + 0.002, rowStart + TickSeconds) - full, 0.4);
+        Assert.Equal(-12.0, Db(ramped.Left, ramped.SampleRate, rowStart + TickSeconds + 0.002, rowStart + (3 * TickSeconds)) - full, 0.4);
+        Assert.Equal(-12.0, Db(sut.Left, sut.SampleRate, rowStart + 0.004, rowStart + TickSeconds) - full, 0.6);
+        Assert.Equal(-12.0, Db(dmf.Left, dmf.SampleRate, rowStart + 0.002, rowStart + TickSeconds) - full, 0.4);
+    }
+
     /// <summary>Volume and pan follow the song channel tick by tick: half volume is 6 dB down, in TL steps; a pan to the left silences the right.</summary>
     [Fact]
     public void Render_WithPlaybackVolumeAndPan_FollowsThem()
