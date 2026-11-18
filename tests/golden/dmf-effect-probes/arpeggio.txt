@@ -3,10 +3,10 @@ name "arpeggio", author "", highlights 4/16
 time base 0, tick times 6/6, PAL, custom Hz off
 1 matrix rows of 64 rows
 instrument 0 "Sine" FM: ALG 7 FB 0 FMS 0 AMS 0
-  DmfOperator { Am = 0, Ar = 31, Dr = 0, Mult = 1, Rr = 8, Sl = 0, Tl = 0, Dt2 = 0, Rs = 0, Dt = 3, D2R = 0, SsgMode = 0 }
-  DmfOperator { Am = 0, Ar = 31, Dr = 0, Mult = 1, Rr = 8, Sl = 0, Tl = 127, Dt2 = 0, Rs = 0, Dt = 3, D2R = 0, SsgMode = 0 }
-  DmfOperator { Am = 0, Ar = 31, Dr = 0, Mult = 1, Rr = 8, Sl = 0, Tl = 127, Dt2 = 0, Rs = 0, Dt = 3, D2R = 0, SsgMode = 0 }
-  DmfOperator { Am = 0, Ar = 31, Dr = 0, Mult = 1, Rr = 8, Sl = 0, Tl = 127, Dt2 = 0, Rs = 0, Dt = 3, D2R = 0, SsgMode = 0 }
+  DmfOperator { Am = 0, Ar = 27, Dr = 0, Mult = 1, Rr = 8, Sl = 0, Tl = 0, Dt2 = 0, Rs = 0, Dt = 3, D2R = 0, SsgMode = 0 }
+  DmfOperator { Am = 0, Ar = 27, Dr = 0, Mult = 1, Rr = 8, Sl = 0, Tl = 127, Dt2 = 0, Rs = 0, Dt = 3, D2R = 0, SsgMode = 0 }
+  DmfOperator { Am = 0, Ar = 27, Dr = 0, Mult = 1, Rr = 8, Sl = 0, Tl = 127, Dt2 = 0, Rs = 0, Dt = 3, D2R = 0, SsgMode = 0 }
+  DmfOperator { Am = 0, Ar = 27, Dr = 0, Mult = 1, Rr = 8, Sl = 0, Tl = 127, Dt2 = 0, Rs = 0, Dt = 3, D2R = 0, SsgMode = 0 }
 channel 1: orders [0], effect columns 3
   0:00 note 12 octave 3 volume 124 instrument 0 effects [E56A 0810 0047]
   0:16 note 12 octave 3 volume 124 instrument 0 effects [0037]

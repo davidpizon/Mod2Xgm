@@ -132,6 +132,6 @@ internal sealed record HarmonicPatch(IReadOnlyList<int> Harmonics, double Captur
         return new FmPatch("Harmonic " + string.Join('+', harmonics), AllCarriers, 0, operators);
     }
 
-    /// <summary>A held sine carrier at <paramref name="multiple"/> times the pitch, like the library's (instant attack, release 8).</summary>
-    private static FmOperator Carrier(int multiple, int tl) => new(multiple, 0, tl, 0, 31, false, 0, 0, 0, 8);
+    /// <summary>A held sine carrier at <paramref name="multiple"/> times the pitch, like the library's (a soft-start attack, release 8).</summary>
+    private static FmOperator Carrier(int multiple, int tl) => new(multiple, 0, tl, 0, FmPatchLibrary.SoftAttackRate, false, 0, 0, 0, 8);
 }
