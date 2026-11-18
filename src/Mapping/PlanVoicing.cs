@@ -92,6 +92,8 @@ internal sealed class PlanVoicing(GenesisPlan plan, Song song)
     /// MOD does (ADR 0050): the sample's level over the patch's. It is at most the patch's ceiling, full volume or lower
     /// where the carriers would add up past full scale; <c>Limited</c> says the sample is louder than that. A patch that
     /// was rendered and measured (<see cref="FmPatch.HeardRms"/>) uses that level instead of the one worked out from its registers.
+    /// A sample whose loop is a short tail after a long recording (<see cref="LoopKind.Tail"/>) is matched by its recording's
+    /// loudest moment, as a sample that plays once is, not by its tail (docs/adr/0126-tail-loop-level.md).
     /// </summary>
     public (double Gain, bool Limited) FmLevel(int sample, int patch)
     {
@@ -99,9 +101,14 @@ internal sealed class PlanVoicing(GenesisPlan plan, Song song)
         {
             Sample played = song.Samples[sample];
             FmPatch fm = plan.FmPatches[patch];
-            double rms = fm.HeardRms ?? VoiceLevel.Fm(fm, sustained: played.Loop is not null).Rms;
+
+            // A held note sounds like its loop; a short tail after a long recording is not what the MOD's notes play, so
+            // that sample is matched by its recording, as one that plays once is (docs/adr/0126-tail-loop-level.md).
+            bool held = played.Loop is not null && LoopShape.Of(played, SampleTraits.Analyze(played)) != LoopKind.Tail;
+            double rms = fm.HeardRms ?? VoiceLevel.Fm(fm, sustained: held).Rms;
             double peak = VoiceLevel.Fm(fm, sustained: false).Peak;
-            level = Limit(rms > 0 ? VoiceLevel.Sample(played) / rms : 1, peak > 1 ? 1 / peak : 1);
+            double heard = held ? VoiceLevel.Sample(played) : VoiceLevel.Loudest(played);
+            level = Limit(rms > 0 ? heard / rms : 1, peak > 1 ? 1 / peak : 1);
             _fmLevels[(sample, patch)] = level;
         }
 
