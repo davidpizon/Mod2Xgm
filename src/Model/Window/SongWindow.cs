@@ -112,6 +112,15 @@ internal static class SongWindow
             throw new WindowException($"The window is longer than this converter plays a song ({PlaybackTimeline.MaxTicks} ticks).");
         }
 
+        if (request.Trim != TrimSilence.None)
+        {
+            bool loops = (loop is not null || request.LoopFrom is not null) && request.FadeOutSeconds is null;
+
+            // A window that plays the song's own loop goes back to it, so its start can't move past it.
+            int latestStart = loop is { } turn ? turn : end - 1;
+            (start, end) = Trim(timeline, request.Trim, start, end, latestStart, loops, notes);
+        }
+
         if (request.LoopFrom is { } loopPosition)
         {
             int at = timeline.Resolve(loopPosition, start, isEnd: false, "--loop-from").Tick;
@@ -146,6 +155,74 @@ internal static class SongWindow
         }
 
         return new Bounds(start, end, loop);
+    }
+
+    /// <summary>
+    /// Moves the window's ends in past its silence (<c>--trim-silence</c>, docs/adr/0122-trim-silence.md): the start back to the
+    /// row start at or before the first tick that sounds, no later than <paramref name="latestStart"/>; the end to the first row
+    /// start after the last tick that sounds. A window that loops keeps its end, as its silence is part of the turn.
+    /// </summary>
+    /// <exception cref="WindowException">Nothing sounds in the window.</exception>
+    private static (int Start, int End) Trim(PlaybackTimeline timeline, TrimSilence trim, int start, int end, int latestStart, bool loops, ConversionNotes notes)
+    {
+        bool[] sounding = SilenceScan.Sounding(timeline.Playback);
+        bool Sounds(int v) => sounding[timeline.RealTick(v)];
+        int first = start;
+        while (first < end && !Sounds(first))
+        {
+            first++;
+        }
+
+        if (first == end)
+        {
+            throw new WindowException("--trim-silence: nothing sounds in the part of the song converted.");
+        }
+
+        if (trim.HasFlag(TrimSilence.Start))
+        {
+            int row = timeline.RowStarts(start).TakeWhile(v => v <= Math.Min(first, latestStart)).DefaultIfEmpty(start).Last();
+            if (row > start)
+            {
+                PlaybackTick at = timeline.TickAt(row);
+                notes.Add(
+                    "--trim-silence: {Seconds:l} of silence left out at the start; the song now starts at order {Order} row {Row}, {Time:l} into it",
+                    SongTime.Format(timeline.TimeOf(row) - timeline.TimeOf(start)),
+                    at.Order,
+                    at.Row,
+                    SongTime.Format(timeline.TimeOf(row)));
+                start = row;
+            }
+        }
+
+        if (trim.HasFlag(TrimSilence.End))
+        {
+            if (loops)
+            {
+                notes.Add("--trim-silence: the song loops, so its end keeps its silence: it is part of the loop's timing");
+            }
+            else
+            {
+                int last = end - 1;
+                while (last > start && !Sounds(last))
+                {
+                    last--;
+                }
+
+                int row = timeline.RowStarts(last + 1).TakeWhile(v => v < end).DefaultIfEmpty(end).First();
+                if (row < end)
+                {
+                    notes.Add(
+                        "--trim-silence: {Seconds:l} of silence left out at the end; the song now ends at {Time:l} into it, before order {Order} row {Row}",
+                        SongTime.Format(timeline.TimeOf(end) - timeline.TimeOf(row)),
+                        SongTime.Format(timeline.TimeOf(row)),
+                        timeline.TickAt(row).Order,
+                        timeline.TickAt(row).Row);
+                    end = row;
+                }
+            }
+        }
+
+        return (start, end);
     }
 
     /// <summary>Notes where a position landed: the row, and the time it plays at.</summary>

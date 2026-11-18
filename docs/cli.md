@@ -20,6 +20,7 @@ mod2xgm <input.mod> [options]
 | `--end <pos>` | song end | Stop before this place (that row isn't played); same syntax. Past the end of a song that stops, it is cut to the song's end with a note. |
 | `--loop-from <pos>` | none | After the end, loop back to this place (inside the part converted) instead of stopping. |
 | `--fade-out <time>` | none | Fade to silence over this long before the end (`4`, `4.5s`, `0:04`); the song then stops. Can't be combined with `--loop-from`. |
+| `--trim-silence <start\|end\|both>` | none | Leave out the silence at the song's start, its end, or both; never cuts a sound. Works on the part `--start`/`--end` choose. A song that loops keeps its end. See [Converting part of a song](#converting-part-of-a-song). |
 | `--mapping <name>` | TBD | Channel-mapping strategy (see [channel-mapping.md](channel-mapping.md)). |
 | `--ignore-samples <list>` | none | MOD sample numbers to leave out, 1-based, comma-separated, ranges allowed: `3,7,12-14`. Hex accepted with `0x` (trackers show hex: `0x1F` = 31). Repeatable. Unknown/empty numbers → exit 1. A note of an ignored sample silences its track until the next note (a conversion note says how many were left out). |
 | `--require-fm <list>` | none | MOD samples that **must** be played by FM (never the DAC or PSG). Same list syntax as `--ignore-samples`. See [sample-capacity.md](sample-capacity.md#required-fm-dac-and-psg-samples). |
@@ -66,6 +67,7 @@ Parsed by System.CommandLine; values are converted and checked by `src/Cli/Optio
   0–127 and row 0–63. `11:25` is a time (11 min 25 s), never an order and row. An order the song doesn't have is
   rejected after report sections 1–2 (exit 1: `--end o14r0: this song has orders 0-12 only.`).
 - `--fade-out`: a length above 0, as seconds or `m:ss`; not a tracker position.
+- `--trim-silence`: `start`, `end` or `both` (anything else: exit 1).
 - **Window conflicts (exit 1, every problem reported):** `--fade-out` with `--loop-from`; `--end` not after `--start`
   (both times, or the same tracker position); a time `--loop-from` outside `--start`…`--end`; a fade as long as the
   part converted or longer. Positions the song never reaches (a row it skips, a start past the end of a song that
@@ -75,7 +77,7 @@ Parsed by System.CommandLine; values are converted and checked by `src/Cli/Optio
 
 ## Converting part of a song
 
-`--start`, `--end`, `--loop-from` and `--fade-out` convert a window of the song ([ADR 0116](adr/0116-song-window.md)).
+`--start`, `--end`, `--loop-from`, `--fade-out` and `--trim-silence` convert a window of the song ([ADR 0116](adr/0116-song-window.md)).
 Times are on the MOD's own timeline (its tick rate under `--input-region`), as the conversion notes and the `Window:`
 line print them.
 
@@ -90,6 +92,15 @@ line print them.
 - **Fade-out.** `--fade-out` drops the volume evenly in dB (48 dB down by the end, then silent) over the window's last
   seconds; the XGM2 and the WAV follow it every tick, a DMF once per row. A recording already playing on the DAC keeps
   the volume it started at.
+- **Trimming silence** ([ADR 0122](adr/0122-trim-silence.md)). `--trim-silence start` moves the window's start to the row
+  where the first sound is (the row start at or before it); `end` moves its end to the first row start after the last
+  sound; `both` does both. Silence is read from the MOD's playback: no channel playing a sample part at a volume above 0
+  (a one-shot that has played out, a note at volume 0, an empty slot). It is applied after `--start` and `--end`, before
+  `--loop-from` and `--fade-out` are checked against the window, and a conversion note says how much was left out and
+  where the song now starts or ends: `--trim-silence: 0:03.600 of silence left out at the end; the song now ends at
+  2:01.444 into it, before order 11 row 10`. A window that loops (its own loop, or `--loop-from`) keeps its end, as the
+  silence is part of the loop's timing, and its start never moves past the song's loop point. Nothing sounding in the
+  window is a usage error (exit 1).
 - **What the window inherits** — speed, tempo, effect memory, instruments, waveform settings and notes still sounding
   at `--start` — is written into its first rows, so DMF, XGM2 and the WAV play the same window. A note sounding at
   `--start` starts again there, part-way into its sample; an FM voice restarts its envelope (a conversion note counts them).

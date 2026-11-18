@@ -272,6 +272,7 @@ XGM2 writer), whose output it was first wanted for.
 |---|---|---|
 | T18.1 | `PlaybackTick.DelayRepeat`; position and time parsing; `--start`, `--end`, `--loop-from`, `--fade-out` with their checks; `SongWindow` (timeline, carried state, rows in play order, loop and stop), `FadeOut` (even in dB); the `window` phase, report line and json row; the window in the candidate cache key; docs ([cli.md](cli.md#converting-part-of-a-song), [cli-output.md](cli-output.md)) | A window's XGM2 and WAV match the whole song's render tick for tick up to its end; DMF, XGM2 and WAV come from the same plan; every check a usage error naming the option; tests per rule ([testing.md](testing.md)) |
 | T18.2 | **TODO:** a DMF that stops after `--end` or a fade-out: a silent pattern that jumps to itself, instead of DefleMask's jump back to the start (own ADR) | The DMF goes and stays silent after its end in DefleMask |
+| T18.3 | `--trim-silence start\|end\|both`: the window's start moves back to the row start at or before the first sound, its end to the first row start after the last sound, read from the MOD's playback (a channel sounds while it plays a sample part at a volume above 0); a window that loops keeps its end; each move is a conversion note (David; [ADR 0122](adr/0122-trim-silence.md)) | Tests; brun_jul `--end 2:05 --trim-silence both` ends at 2:01.444 |
 
 ## Dependencies
 

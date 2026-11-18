@@ -474,11 +474,12 @@ internal static class ConversionCommand
         if (options.Window is { } window)
         {
             logger.Debug(
-                "Window: start {Start:l}, end {End:l}, loop from {LoopFrom:l}, fade-out {FadeOut:l}",
+                "Window: start {Start:l}, end {End:l}, loop from {LoopFrom:l}, fade-out {FadeOut:l}, trim silence {Trim:l}",
                 window.Start?.Display ?? "song start",
                 window.End?.Display ?? "song end",
                 window.LoopFrom?.Display ?? "none",
-                window.FadeOutSeconds is { } fade ? SongTime.Format(fade) : "none");
+                window.FadeOutSeconds is { } fade ? SongTime.Format(fade) : "none",
+                window.Trim switch { TrimSilence.Start => "start", TrimSilence.End => "end", TrimSilence.Both => "both", _ => "none" });
         }
     }
 

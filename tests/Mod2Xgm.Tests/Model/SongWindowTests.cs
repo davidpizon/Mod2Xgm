@@ -334,6 +334,73 @@ public sealed class SongWindowTests
         Assert.Contains(_notes.Messages, m => m.Contains("--fade-out: 1 notes start during the fade", StringComparison.Ordinal));
     }
 
+    /// <summary>
+    /// Trimming both ends of a window that stops starts it on the row of its first note and ends it on the row after its
+    /// last sound: the 16 000-frame one-shot from row 8 plays 1.93 s, to the first tick of row 24, so the window ends before
+    /// row 25. Both moves are conversion notes.
+    /// </summary>
+    [Fact]
+    public void Cut_WithTrimBoth_StartsAtFirstSoundAndEndsAfterLast()
+    {
+        // Arrange
+        (Song song, Playback playback) = Load(new ModBuilder().WithSample(1, "lead", 16_000).WithCell(0, row: 8, channel: 0, sample: 1, period: C2));
+
+        // Act
+        WindowedSong sut = SongWindow.Cut(song, playback, new SongWindowRequest(null, new TrackerPosition(0, 40), null, null, TrimSilence.Both), _notes);
+
+        // Assert
+        Assert.Equal((8 * TicksPerRow, 25 * TicksPerRow, -1), sut.Summary.Ticks);
+        Assert.Equal(PlaybackEnd.Stops, sut.Playback.End);
+        Assert.Contains(_notes.Messages, m => m.StartsWith("--trim-silence: 0:00.960 of silence left out at the start", StringComparison.Ordinal));
+        Assert.Contains(_notes.Messages, m => m.StartsWith("--trim-silence: 0:01.800 of silence left out at the end", StringComparison.Ordinal));
+    }
+
+    /// <summary>A note at volume 0 is silence: the window starts where the volume comes up, on a row start.</summary>
+    [Fact]
+    public void Cut_WithTrimStartAndSilentNote_StartsWhereVolumeRises()
+    {
+        // Arrange
+        (Song song, Playback playback) = Load(new ModBuilder()
+            .WithSample(1, "lead", 16_000)
+            .WithCell(0, row: 0, channel: 0, sample: 1, period: C2, effect: 0xC, parameter: 0)
+            .WithCell(0, row: 4, channel: 0, sample: 0, period: 0, effect: 0xC, parameter: 64));
+
+        // Act
+        WindowedSong sut = SongWindow.Cut(song, playback, new SongWindowRequest(null, new TrackerPosition(0, 10), null, null, TrimSilence.Start), _notes);
+
+        // Assert
+        Assert.Equal(4 * TicksPerRow, sut.Summary.Ticks.Start);
+    }
+
+    /// <summary>A window that loops keeps the silence at its end, with a note: the silence is part of the loop's timing.</summary>
+    [Fact]
+    public void Cut_WithTrimEndOnLoopingSong_KeepsEnd()
+    {
+        // Arrange
+        (Song song, Playback playback) = Load(Note());
+
+        // Act
+        WindowedSong sut = SongWindow.Cut(song, playback, new SongWindowRequest(null, null, null, null, TrimSilence.End), _notes);
+
+        // Assert
+        Assert.Equal(playback.Ticks.Count, sut.Playback.Ticks.Count);
+        Assert.Contains("--trim-silence: the song loops, so its end keeps its silence: it is part of the loop's timing", _notes.Messages);
+    }
+
+    /// <summary>Trimming a window where nothing sounds fails, saying so.</summary>
+    [Fact]
+    public void Cut_WithTrimAndNothingSounding_Throws()
+    {
+        // Arrange
+        (Song song, Playback playback) = Load(new ModBuilder().WithSample(1, "lead", 16_000).WithCell(0, row: 30, channel: 0, sample: 1, period: C2));
+
+        // Act
+        WindowException error = Assert.Throws<WindowException>(() => SongWindow.Cut(song, playback, new SongWindowRequest(null, new TrackerPosition(0, 20), null, null, TrimSilence.Start), _notes));
+
+        // Assert
+        Assert.Contains("nothing sounds", error.Message, StringComparison.Ordinal);
+    }
+
     /// <summary>The fade drops evenly in dB: halfway through it is 24 dB down.</summary>
     [Theory]
     [InlineData(0.5, 1.0)]
