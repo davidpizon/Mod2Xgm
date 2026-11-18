@@ -48,6 +48,13 @@ internal static class Xgm2Writer
     /// <summary>Blocks, samples and their sizes are counted in 256 bytes.</summary>
     private const int Alignment = 256;
 
+    /// <summary>
+    /// Silence in the file's sample block. The sample bytes are unsigned: SGDK's xgm2tool (which rescomp runs) reads them
+    /// as they are and adds <c>$80</c> to each when it compiles the song (<c>XGM.getPCMDataArray</c>, "sign the sample"),
+    /// which gives the driver its signed bytes. xgm2.txt calls the samples signed (docs/adr/0127-xgm2-unsigned-samples.md).
+    /// </summary>
+    private const byte UnsignedSilence = 0x80;
+
     /// <summary>A SID entry with no sample.</summary>
     private const ushort EmptyEntry = 0xffff;
 
@@ -356,24 +363,30 @@ internal static class Xgm2Writer
             return starts;
         }
 
-        /// <summary>The sample block: every recording, as much of it as is heard, padded with silence to 256 bytes.</summary>
+        /// <summary>
+        /// The sample block: every recording, as much of it as is heard, padded with silence to 256 bytes, stored
+        /// unsigned (silence is <see cref="UnsignedSilence"/>) because xgm2tool adds <c>$80</c> to every byte it compiles
+        /// (docs/adr/0127-xgm2-unsigned-samples.md).
+        /// </summary>
         public byte[] SampleData()
         {
             IReadOnlyList<int> starts = SampleStarts();
             byte[] data = new byte[_heard.Sum(Padded)];
+            data.AsSpan().Fill(UnsignedSilence);
             for (int i = 0; i < _samples.Count; i++)
             {
-                CopySigned(_samples[i].Data.AsSpan(0, _heard[i]), data.AsSpan(starts[i]));
+                CopyUnsigned(_samples[i].Data.AsSpan(0, _heard[i]), data.AsSpan(starts[i]));
             }
 
             return data;
         }
 
-        private static void CopySigned(ReadOnlySpan<sbyte> from, Span<byte> to)
+        /// <summary>Copies signed 8-bit PCM as unsigned: the sign bit flipped, so 0 becomes <see cref="UnsignedSilence"/>.</summary>
+        private static void CopyUnsigned(ReadOnlySpan<sbyte> from, Span<byte> to)
         {
             for (int i = 0; i < from.Length; i++)
             {
-                to[i] = unchecked((byte)from[i]);
+                to[i] = (byte)(unchecked((byte)from[i]) ^ UnsignedSilence);
             }
         }
 

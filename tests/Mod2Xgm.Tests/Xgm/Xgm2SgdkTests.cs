@@ -35,6 +35,35 @@ public sealed class Xgm2SgdkTests
         Assert.True(new FileInfo(temp.Combine("song.xgc")).Length > 0, output);
     }
 
+    /// <summary>
+    /// The driver gets signed samples: xgm2tool adds <c>$80</c> to each stored byte, so the compiled sample block is the
+    /// file's with the sign bit flipped and every recording starts with its silent head as <c>$00</c>
+    /// (docs/adr/0127-xgm2-unsigned-samples.md).
+    /// </summary>
+    [Fact]
+    public void Xgm2Tool_WithConvertedSong_CompilesSignedSamples()
+    {
+        // Arrange
+        string sgdk = SgdkBin();
+        using TempDirectory temp = new();
+        string xgm = Convert(temp, "fx-poly1.mod", out int samples);
+        byte[] file = File.ReadAllBytes(temp.Combine(xgm));
+        int fileSlen = (file[6] | (file[7] << 8)) * 256;
+
+        // Act
+        (int exit, string output) = Run(temp.Path, "java", "-jar", Path.Combine(sgdk, "xgm2tool.jar"), xgm, "song.xgc");
+
+        // Assert: the .xgc has no "XGM2" ident, so its header is 8 bytes and its sample block starts at $100 (xgm2.txt).
+        Assert.True(exit == 0, output);
+        Assert.True(samples > 0, "the song should store recordings");
+        byte[] xgc = File.ReadAllBytes(temp.Combine("song.xgc"));
+        int xgcSlen = (xgc[2] | (xgc[3] << 8)) * 256;
+        Assert.Equal(fileSlen, xgcSlen);
+        byte[] expected = [.. file.AsSpan(0x104, fileSlen).ToArray().Select(b => (byte)(b ^ 0x80))];
+        Assert.Equal(expected, xgc.AsSpan(0x100, xgcSlen).ToArray());
+        Assert.Equal(0x00, xgc[0x100]);
+    }
+
     /// <summary>rescomp accepts the converted song as an <c>XGM2</c> resource, as an SGDK game's build would.</summary>
     [Fact]
     public void Rescomp_WithConvertedSong_BuildsXgm2Resource()

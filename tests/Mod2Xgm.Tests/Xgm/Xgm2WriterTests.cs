@@ -77,7 +77,7 @@ public sealed class Xgm2WriterTests
         expected.AsSpan(0x0c, 248).Fill(0xff);
         BinaryPrimitives.WriteUInt16LittleEndian(expected.AsSpan(0x0c), 0);
         BinaryPrimitives.WriteUInt16LittleEndian(expected.AsSpan(0x0e), 1);
-        byte[] sdat = [0x01, 0xff, 0x7f];
+        byte[] sdat = [0x81, 0x7f, 0xff];
         byte[] fm =
         [
             0xe0, 0xb4, 0xc0, 0xf8, 0xf0, 0x10, 0x01, 0x00,
@@ -86,6 +86,7 @@ public sealed class Xgm2WriterTests
             0xff, 0x08, 0x00, 0x00,
         ];
         byte[] psg = [0x20, 0x15, 0x82, 0x00, 0x20, 0x15, 0x82, 0x9f, 0xaf, 0xbf, 0x00, 0x0f, 0x04, 0x00, 0x00];
+        expected.AsSpan(DataOffset, Block).Fill(0x80);
         sdat.CopyTo(expected, DataOffset);
         fm.CopyTo(expected, DataOffset + Block);
         psg.CopyTo(expected, DataOffset + (2 * Block));
@@ -396,6 +397,24 @@ public sealed class Xgm2WriterTests
         // Assert: ceil(3 / 60 × 13,317) = 666 bytes, padded to 768.
         Assert.Equal(768, sut.Samples[0].Bytes);
         Assert.Equal(3, BinaryPrimitives.ReadUInt16LittleEndian(sut.Bytes.AsSpan(6)));
+    }
+
+    /// <summary>
+    /// Sample bytes are stored unsigned, silence as <c>$80</c> padding included, because xgm2tool adds <c>$80</c> to every
+    /// byte it compiles (docs/adr/0127-xgm2-unsigned-samples.md).
+    /// </summary>
+    [Fact]
+    public void Write_WithRecording_StoresItUnsignedWithSilentPadding()
+    {
+        // Arrange
+        GenesisStream stream = new([[ChipEvent.Play(0, [0, 1, -1, 127, -128], false, 0, "1")]], null, false, NtscRate);
+
+        // Act
+        byte[] sut = Xgm2Writer.Write(stream, Notes()).Bytes;
+
+        // Assert
+        Assert.Equal([0x80, 0x81, 0x7f, 0xff, 0x00], sut.AsSpan(DataOffset, 5).ToArray());
+        Assert.All(sut.AsSpan(DataOffset + 5, Block - 5).ToArray(), b => Assert.Equal(0x80, b));
     }
 
     /// <summary>Copies made apart with the same bytes are stored once, with one sample id, as the capacity check counts them.</summary>
