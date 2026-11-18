@@ -41,7 +41,9 @@ played each of them on one FM voice at a pitch it had measured wrong, in one of 
   harmonic measurement. Now each harmonic's power is the power within ±25 cents of it in the loop's spectrum. It gets no
   measurement only when its loudest band holds less than 1 % of it, because then the cycle doesn't describe it.
 - **One voice plays the chord's bottom note.** Playing the whole chord, on several FM voices or on PCM, is a
-  channel-mapping decision. It is left open for David's A/B rounds.
+  channel-mapping decision. Playing a chord or swell sample as a recording stays a choice made on the command line
+  (`--require-dac`), not a default (David, 2026-11-18, after FunkyChristmas's opening swell sounded right as a recording).
+  Playing it on several FM voices is left for A/B rounds.
 - **Only the simple mapper changes.** The optimizer (`--mapping optimizer`) is unchanged. On FunkyChristmas it still
   leaves out sample 2 and plays pads 14 and 15 on PSG noise.
 
