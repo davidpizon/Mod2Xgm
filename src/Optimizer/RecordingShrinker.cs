@@ -1,4 +1,5 @@
 using System.Globalization;
+using Mod2Xgm.Analysis;
 using Mod2Xgm.Dmf;
 using Mod2Xgm.Model;
 
@@ -17,7 +18,7 @@ namespace Mod2Xgm.Optimizer;
 /// <param name="VolumeSteps">Its loudness in <see cref="DmfPatternTranslator.DacVolumeStepDb"/> steps below full.</param>
 /// <param name="HalfSpeed">True when XGM2 stores and plays it at half speed.</param>
 /// <param name="Fade">How its volume moves while it plays, baked in (docs/adr/0120-faded-recordings.md); <c>null</c> when it doesn't.</param>
-internal readonly record struct StoredCopy(int Sample, double RateHz, int StartFrame, int VolumeSteps, bool HalfSpeed, Mod2Xgm.Analysis.NoteFade? Fade = null);
+internal readonly record struct StoredCopy(int Sample, double RateHz, int StartFrame, int VolumeSteps, bool HalfSpeed, NoteFade? Fade = null);
 
 /// <summary>A way to make a sample's recordings smaller, each giving up a little sound (docs/sample-capacity.md#consolidation-default).</summary>
 internal enum ShrinkMove
@@ -425,7 +426,7 @@ internal static class RecordingShrinker
                 plays[k] = plays.GetValueOrDefault(k) + 1;
             }
 
-            foreach (IGrouping<(int Sample, int StartFrame, int VolumeSteps, Mod2Xgm.Analysis.NoteFade? Fade), CopyKey> group in plays.Keys
+            foreach (IGrouping<(int Sample, int StartFrame, int VolumeSteps, NoteFade? Fade), CopyKey> group in plays.Keys
                 .Where(k => _sharePitch.Contains(k.Sample))
                 .GroupBy(k => (k.Sample, k.StartFrame, k.VolumeSteps, k.Fade)))
             {

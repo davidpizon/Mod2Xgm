@@ -123,7 +123,7 @@ internal sealed record CapacityCheck(TargetLimits Limits, int Slots, int Voices,
     }
 
     /// <summary>The fade a copy of <paramref name="note"/> bakes in on <paramref name="target"/>, or <c>null</c>.</summary>
-    internal static NoteFade? Faded(SongNote note, PcmTarget target) => target == PcmTarget.Dmf ? null : note.Fade;
+    private static NoteFade? Faded(SongNote note, PcmTarget target) => target == PcmTarget.Dmf ? null : note.Fade;
 
     /// <summary>The first sample with the same sound as <paramref name="sample"/>: byte-identical samples share their copies (consolidation step 2).</summary>
     private static int StoredAs(int sample, Song song, Dictionary<int, int> stored)

@@ -28,9 +28,6 @@ internal sealed class NoteFade : IEquatable<NoteFade>
     /// <summary>Each tick's volume against the first tick's, the first tick's included (1).</summary>
     public IReadOnlyList<double> Gains => _gains;
 
-    /// <summary>Each tick's length in seconds.</summary>
-    public IReadOnlyList<double> Seconds => _seconds;
-
     /// <summary>True when the note's volume reaches 0 and stays there until it ends: the copy stops there.</summary>
     public bool EndsSilent { get; }
 

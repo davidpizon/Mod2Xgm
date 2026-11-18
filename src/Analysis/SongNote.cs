@@ -24,7 +24,7 @@ internal sealed record SongNote(int Channel, int Sample, int FirstTick, int Tick
     /// How its volume moves while it sounds, against the volume it starts at; <c>null</c> when it doesn't move
     /// (docs/adr/0120-faded-recordings.md).
     /// </summary>
-    public NoteFade? Fade { get; init; }
+    public NoteFade? Fade { get; private init; }
 
     /// <summary>Every note of <paramref name="playback"/>, in the order they start (by tick, then channel).</summary>
     public static IReadOnlyList<SongNote> Find(Song song, Playback playback)
