@@ -162,6 +162,44 @@ public sealed class CapacityCheckTests
         Assert.Equal(PcmTargets.Bytes(PcmTarget.Xgm, (int)Math.Ceiling(3 * TickSeconds * rate) + 1), sut.Bytes);
     }
 
+    /// <summary>
+    /// On XGM2 a looped note that fades to silence stores a copy of its own, only as long as the fade: shorter than a steady
+    /// note held as long (docs/adr/0120-faded-recordings.md).
+    /// </summary>
+    [Fact]
+    public void Measure_WithLoopFadingToSilenceOnXgm2_StoresOnlyTheFade()
+    {
+        // Arrange
+        double rate = PcmTargets.PlayRateHz(PcmTarget.Xgm2, 0, halfSpeed: false);
+        Song song = SongOf(new Sample("loop", Sound(100, 0.5f), new SampleLoop(0, 100)));
+        Playback steady = PlaybackOf([[Start(0, rate: rate)], .. Holds(30, rate, 1)]);
+        Playback fading = PlaybackOf([[Start(0, rate: rate)], [Hold(rate, 0.5)], .. Holds(29, rate, 0)]);
+
+        // Act
+        CapacityCheck sut = CapacityCheck.Measure(PlanOf(0), song, fading, Limits(PcmTarget.Xgm2));
+
+        // Assert
+        Assert.Equal(1, sut.Slots);
+        Assert.True(sut.Bytes < CapacityCheck.Measure(PlanOf(0), song, steady, Limits(PcmTarget.Xgm2)).Bytes);
+    }
+
+    /// <summary>A note that fades and one that doesn't, at the same start, take two copies on XGM2 but one on the DMF, which can't bake a fade.</summary>
+    [Theory]
+    [InlineData(nameof(PcmTarget.Xgm2), 2)]
+    [InlineData(nameof(PcmTarget.Dmf), 1)]
+    public void Measure_WithFadingAndSteadyNote_CountsTheFadeAsACopyOnlyWhereItIsBaked(string target, int slots)
+    {
+        // Arrange
+        Song song = SongOf(OneShot(1000));
+        Playback playback = PlaybackOf([Start(0)], [Start(0)], [Hold(volume: 0.5)]);
+
+        // Act
+        CapacityCheck sut = CapacityCheck.Measure(PlanOf(0), song, playback, Limits(Enum.Parse<PcmTarget>(target)));
+
+        // Assert
+        Assert.Equal(slots, sut.Slots);
+    }
+
     /// <summary>Exactly the limit fits; one more doesn't. Each target has its own slot limit (docs/sample-capacity.md#limits-per-target).</summary>
     [Theory]
     [InlineData(nameof(PcmTarget.Dmf), 144, true)]
@@ -343,7 +381,10 @@ public sealed class CapacityCheckTests
         new(true, new NotePitch(36, 0, rate), volume, 0, new SampleBlock(sample, frame, frames), new SampleBlock(sample, 0, 2));
 
     /// <summary>A channel holding its note.</summary>
-    private static ChannelTick Hold(double rate = Rate) => new(true, new NotePitch(36, 0, rate), 1, 0, null, new SampleBlock(0, 0, 100));
+    private static ChannelTick Hold(double rate = Rate, double volume = 1) => new(true, new NotePitch(36, 0, rate), volume, 0, null, new SampleBlock(0, 0, 100));
+
+    /// <summary><paramref name="count"/> ticks of a channel holding its note at <paramref name="volume"/>.</summary>
+    private static ChannelTick[][] Holds(int count, double rate, double volume) => [.. Enumerable.Range(0, count).Select(_ => new[] { Hold(rate, volume) })];
 
     /// <summary>A channel that hasn't started.</summary>
     private static ChannelTick Idle() => new(false, new NotePitch(36, 0, Rate), 0, 0, null, new SampleBlock(null, 0, 0));

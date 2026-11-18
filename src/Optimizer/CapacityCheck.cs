@@ -5,8 +5,9 @@ using Mod2Xgm.Mapping;
 using Mod2Xgm.Model;
 
 // What makes one stored copy different from another: the sample (or the first with the same sound), and what the targets
-// can't change while playing: the rate its notes start at, where they start (MOD 9xx) and their loudness in 3 dB steps.
-using CopyKey = (int Sample, double RateHz, int StartFrame, int VolumeSteps);
+// can't change while playing: the rate its notes start at, where they start (MOD 9xx), their loudness in 3 dB steps, and
+// on XGM and XGM2 how their volume moves while they play (docs/adr/0120-faded-recordings.md).
+using CopyKey = (int Sample, double RateHz, int StartFrame, int VolumeSteps, Mod2Xgm.Analysis.NoteFade? Fade);
 
 namespace Mod2Xgm.Optimizer;
 
@@ -40,7 +41,7 @@ internal sealed record CapacityCheck(TargetLimits Limits, int Slots, int Voices,
         ArgumentNullException.ThrowIfNull(playback);
         ArgumentNullException.ThrowIfNull(limits);
 
-        Dictionary<CopyKey, double> longest = Copies(SongNote.Find(song, playback).Where(n => plan.PcmSamples.Contains(n.Sample)), song, []);
+        Dictionary<CopyKey, double> longest = Copies(SongNote.Find(song, playback).Where(n => plan.PcmSamples.Contains(n.Sample)), song, [], limits.Target);
         long bytes = longest.Sum(copy => (long)CopyBytes(copy.Key, copy.Value, song, limits.Target));
         int voices = SongVoices.Count(song, playback, plan.PcmSamples).MostAtOnce;
         return new CapacityCheck(limits, longest.Count, voices, bytes);
@@ -53,7 +54,8 @@ internal sealed record CapacityCheck(TargetLimits Limits, int Slots, int Voices,
     /// <param name="notes">The notes played as recordings.</param>
     /// <param name="song">Their song.</param>
     /// <param name="stored">Which sample each byte-identical sample shares its copies with; filled in as samples are met.</param>
-    internal static Dictionary<CopyKey, double> Copies(IEnumerable<SongNote> notes, Song song, Dictionary<int, int> stored)
+    /// <param name="target">The output the copies are for: XGM and XGM2 bake a note's fade into a copy of its own; the DMF doesn't.</param>
+    internal static Dictionary<CopyKey, double> Copies(IEnumerable<SongNote> notes, Song song, Dictionary<int, int> stored, PcmTarget target)
     {
         Dictionary<CopyKey, double> longest = [];
         foreach (SongNote note in notes)
@@ -62,7 +64,7 @@ internal sealed record CapacityCheck(TargetLimits Limits, int Slots, int Voices,
             int steps = DmfPatternTranslator.DacVolumeSteps(note.Volume);
             if (note.StartFrame < sample.Length && steps <= DmfPatternTranslator.MaxDacVolumeSteps)
             {
-                CopyKey key = (StoredAs(note.Sample, song, stored), note.RateHz, note.StartFrame, steps);
+                CopyKey key = (StoredAs(note.Sample, song, stored), note.RateHz, note.StartFrame, steps, Faded(note, target));
                 longest[key] = Math.Max(longest.GetValueOrDefault(key), note.Seconds);
             }
         }
@@ -120,6 +122,9 @@ internal sealed record CapacityCheck(TargetLimits Limits, int Slots, int Voices,
         return problems;
     }
 
+    /// <summary>The fade a copy of <paramref name="note"/> bakes in on <paramref name="target"/>, or <c>null</c>.</summary>
+    private static NoteFade? Faded(SongNote note, PcmTarget target) => target == PcmTarget.Dmf ? null : note.Fade;
+
     /// <summary>The first sample with the same sound as <paramref name="sample"/>: byte-identical samples share their copies (consolidation step 2).</summary>
     private static int StoredAs(int sample, Song song, Dictionary<int, int> stored)
     {
@@ -144,7 +149,7 @@ internal sealed record CapacityCheck(TargetLimits Limits, int Slots, int Voices,
 
     /// <summary>
     /// The bytes one copy takes, with the free tidying done (consolidation step 3): a one-shot's silent tail is left out,
-    /// and a loop is played out only as long as the copy's longest note.
+    /// and a loop is played out only as long as the copy's longest note. A copy whose fade ends silent stops there.
     /// </summary>
     /// <param name="key">The copy.</param>
     /// <param name="seconds">How long its longest note holds.</param>
@@ -157,6 +162,11 @@ internal sealed record CapacityCheck(TargetLimits Limits, int Slots, int Voices,
         int frames = sample.Loop is null
             ? Math.Max(0, PcmFitter.TrimmedLength(sample) - key.StartFrame)
             : (int)Math.Ceiling(Math.Min(seconds, PcmFitter.MaxLoopSeconds) * key.RateHz) + 1;
+        if (key.Fade is { EndsSilent: true } fade)
+        {
+            frames = Math.Min(frames, (int)Math.Ceiling(fade.StoredSeconds * key.RateHz));
+        }
+
         int points = (int)Math.Ceiling(frames * PcmTargets.PlayRateHz(target, key.RateHz, halfSpeed) / key.RateHz);
         return PcmTargets.Bytes(target, points, halfSpeed);
     }

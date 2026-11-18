@@ -1,6 +1,6 @@
 # ADR 0095: A voice stops when the MOD's note falls silent
 
-- **Status:** Proposed
+- **Status:** Proposed; its "partial fades are not followed" is superseded on XGM and XGM2 by [ADR 0120](0120-faded-recordings.md)
 - **Date:** 2026-11-09
 
 ## Context

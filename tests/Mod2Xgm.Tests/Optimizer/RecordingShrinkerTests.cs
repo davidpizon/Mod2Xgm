@@ -1,3 +1,4 @@
+using Mod2Xgm.Analysis;
 using Mod2Xgm.Model;
 using Mod2Xgm.Optimizer;
 using Serilog.Events;
@@ -45,8 +46,8 @@ public sealed class RecordingShrinkerTests
         ShrinkResult result = RecordingShrinker.Shrink(Wanted(keys), Importance(0), song, Limits(PcmTarget.Xgm, 2 * CopyBytes(song, Rate)), rules, Required());
 
         // Assert
-        Assert.Equal(Rate, result.Stored[(0, FiveCentsUp, 0, 0)].RateHz);
-        Assert.Equal(FiftyCentsUp, result.Stored[(0, FiftyCentsUp, 0, 0)].RateHz);
+        Assert.Equal(Rate, result.Stored[(0, FiveCentsUp, 0, 0, null)].RateHz);
+        Assert.Equal(FiftyCentsUp, result.Stored[(0, FiftyCentsUp, 0, 0, null)].RateHz);
         Assert.Equal([new ShrinkStep(ShrinkMove.SharePitch, 0, 0, 1, result.Steps[0].BytesSaved)], result.Steps);
     }
 
@@ -64,7 +65,7 @@ public sealed class RecordingShrinkerTests
 
         // Assert
         Assert.Equal(2, result.Slots);
-        Assert.Equal(2, result.Stored[(0, Rate, 0, 1)].VolumeSteps);
+        Assert.Equal(2, result.Stored[(0, Rate, 0, 1, null)].VolumeSteps);
     }
 
     /// <summary>A DMF's writer makes its own loudness copies 3 dB apart, so loudness is never shared there.</summary>
@@ -89,14 +90,14 @@ public sealed class RecordingShrinkerTests
     {
         // Arrange
         Song song = SongOf(Tone(20000, 50));
-        int full = CapacityCheck.CopyBytes((0, Rate, 0, 0), 1, song, PcmTarget.Xgm2);
+        int full = CapacityCheck.CopyBytes((0, Rate, 0, 0, null), 1, song, PcmTarget.Xgm2);
         ShrinkRules rules = ShrinkRules.Default with { Order = [ShrinkMove.HalfSpeed] };
 
         // Act
         ShrinkResult result = RecordingShrinker.Shrink(Wanted((0, Rate, 0, 0)), Importance(0), song, Limits(PcmTarget.Xgm2, full - 1), rules, Required());
 
         // Assert
-        Assert.True(result.Stored[(0, Rate, 0, 0)].HalfSpeed);
+        Assert.True(result.Stored[(0, Rate, 0, 0, null)].HalfSpeed);
         Assert.InRange(result.TotalBytes, (full / 2) - 256, (full / 2) + 256);
     }
 
@@ -112,8 +113,8 @@ public sealed class RecordingShrinkerTests
         ShrinkResult result = RecordingShrinker.Shrink(Wanted((0, Rate, 0, 0), (1, Rate, 0, 0)), Importance(0, 1), song, Limits(PcmTarget.Xgm2, 1 << 24), rules, Required());
 
         // Assert
-        Assert.False(result.Stored[(0, Rate, 0, 0)].HalfSpeed);
-        Assert.True(result.Stored[(1, Rate, 0, 0)].HalfSpeed);
+        Assert.False(result.Stored[(0, Rate, 0, 0, null)].HalfSpeed);
+        Assert.True(result.Stored[(1, Rate, 0, 0, null)].HalfSpeed);
         Assert.Equal(ShrinkMove.HalfSpeed, Assert.Single(result.Steps).Move);
     }
 
@@ -130,8 +131,8 @@ public sealed class RecordingShrinkerTests
 
         // Assert
         Assert.DoesNotContain(result.Steps, s => s.Move == ShrinkMove.Merge);
-        Assert.False(result.Stored[(0, Rate, 0, 0)].HalfSpeed);
-        Assert.True(result.Stored[(1, Rate, 0, 0)].HalfSpeed);
+        Assert.False(result.Stored[(0, Rate, 0, 0, null)].HalfSpeed);
+        Assert.True(result.Stored[(1, Rate, 0, 0, null)].HalfSpeed);
     }
 
     /// <summary>XGM has no half speed, so a forced one is left out there rather than storing a copy the driver can't play.</summary>
@@ -147,7 +148,7 @@ public sealed class RecordingShrinkerTests
 
         // Assert
         Assert.Empty(result.Steps);
-        Assert.False(result.Stored[(0, Rate, 0, 0)].HalfSpeed);
+        Assert.False(result.Stored[(0, Rate, 0, 0, null)].HalfSpeed);
     }
 
     /// <summary>XGM has no half speed: the move isn't made, and the copy stays over budget for the allocator to deal with.</summary>
@@ -163,7 +164,7 @@ public sealed class RecordingShrinkerTests
 
         // Assert
         Assert.Empty(result.Steps);
-        Assert.False(result.Stored[(0, Rate, 0, 0)].HalfSpeed);
+        Assert.False(result.Stored[(0, Rate, 0, 0, null)].HalfSpeed);
     }
 
     /// <summary>A sample 6 dB quieter than a look-alike plays the look-alike's copy two loudness steps down, which the song already stores.</summary>
@@ -180,7 +181,7 @@ public sealed class RecordingShrinkerTests
         ShrinkResult result = RecordingShrinker.Shrink(Wanted(keys), importance, song, Limits(PcmTarget.Xgm, CopyBytes(song, Rate)), rules, Required());
 
         // Assert
-        Assert.Equal(new StoredCopy(0, Rate, 0, 2, false), result.Stored[(1, Rate, 0, 0)]);
+        Assert.Equal(new StoredCopy(0, Rate, 0, 2, false), result.Stored[(1, Rate, 0, 0, null)]);
         Assert.Equal(-6.0, result.MergeGainDb[1], 1);
         Assert.Equal(1, result.Slots);
     }
@@ -218,7 +219,7 @@ public sealed class RecordingShrinkerTests
 
         // Assert
         Assert.DoesNotContain(result.Steps, s => s is { Sample: 1, Into: 0 });
-        Assert.Equal(1, result.Stored[(1, Rate, 960, 0)].Sample);
+        Assert.Equal(1, result.Stored[(1, Rate, 960, 0, null)].Sample);
     }
 
     /// <summary>A <c>--require-dac</c> sample keeps its own sound: it is never merged into another's.</summary>
@@ -237,8 +238,8 @@ public sealed class RecordingShrinkerTests
         // Assert
         Assert.Equal([ShrinkMove.Merge], result.Steps.Select(s => s.Move));
         Assert.Equal((0, 1), (result.Steps[0].Sample, result.Steps[0].Into));
-        Assert.Equal(1, result.Stored[(0, Rate, 0, 0)].Sample);
-        Assert.Equal(1, result.Stored[(1, Rate, 0, 0)].Sample);
+        Assert.Equal(1, result.Stored[(0, Rate, 0, 0, null)].Sample);
+        Assert.Equal(1, result.Stored[(1, Rate, 0, 0, null)].Sample);
     }
 
     /// <summary>The least important sample shrinks first, and the shrinking stops as soon as the copies fit.</summary>
@@ -284,7 +285,7 @@ public sealed class RecordingShrinkerTests
         ConversionNotes notes = new(sink.CreateLogger());
         Song song = SongOf(Tone(1000, 50), Tone(1000, 50));
         ShrinkResult result = new(
-            new Dictionary<(int, double, int, int), StoredCopy>(),
+            new Dictionary<(int, double, int, int, NoteFade?), StoredCopy>(),
             new Dictionary<StoredCopy, int>(),
             [
                 new(ShrinkMove.Merge, 1, 0, 1, 1024),
@@ -383,11 +384,11 @@ public sealed class RecordingShrinkerTests
     }
 
     /// <summary>The bytes one copy of the song's first sample takes on XGM at <paramref name="rate"/>.</summary>
-    private static int CopyBytes(Song song, double rate) => CapacityCheck.CopyBytes((0, rate, 0, 0), 1, song, PcmTarget.Xgm);
+    private static int CopyBytes(Song song, double rate) => CapacityCheck.CopyBytes((0, rate, 0, 0, null), 1, song, PcmTarget.Xgm);
 
     /// <summary>One wanted play per key, each held a second.</summary>
-    private static List<((int Sample, double RateHz, int StartFrame, int VolumeSteps) Key, double Seconds)> Wanted(params (int, double, int, int)[] keys) =>
-        [.. keys.Select(k => (k, 1.0))];
+    private static List<((int Sample, double RateHz, int StartFrame, int VolumeSteps, NoteFade? Fade) Key, double Seconds)> Wanted(params (int, double, int, int)[] keys) =>
+        [.. keys.Select(k => ((k.Item1, k.Item2, k.Item3, k.Item4, (NoteFade?)null), 1.0))];
 
     /// <summary>Equal importance for <paramref name="samples"/>.</summary>
     private static Dictionary<int, double> Importance(params int[] samples) => samples.ToDictionary(s => s, _ => 1.0);

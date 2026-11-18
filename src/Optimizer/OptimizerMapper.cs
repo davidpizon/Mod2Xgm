@@ -522,10 +522,10 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
         {
             // As the capacity check counts them: notes whose closest sound is a recording, not those that may only fall back to one.
             List<PlannedNote> wanted = [.. _planned.Where(n => FirstChoice(n) == VoiceKind.Dac)];
-            List<((int Sample, double RateHz, int StartFrame, int VolumeSteps) Key, double Seconds)> copies = [];
+            List<((int Sample, double RateHz, int StartFrame, int VolumeSteps, NoteFade? Fade) Key, double Seconds)> copies = [];
             foreach (SongNote play in wanted.SelectMany(n => n.Plays))
             {
-                copies.AddRange(CapacityCheck.Copies([play], _song, _storedAs).Select(c => (c.Key, c.Value)));
+                copies.AddRange(CapacityCheck.Copies([play], _song, _storedAs, _limits.Target).Select(c => (c.Key, c.Value)));
             }
 
             // With rule:bytes=score, the samples shrunk first are those whose other sounds come closest to them (docs/adr/0115-drum-bakes.md).
@@ -542,10 +542,10 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
             // A note that may only fall back to a recording stores its copy as the song asks for it.
             // So does a --require-dac note with no PCM voice left, so CheckRequired can say why it can't play.
             IEnumerable<SongNote> fallback = _planned.Where(n => FirstChoice(n) != VoiceKind.Dac && (Allowed(VoiceKind.Dac, n) || _options.RequireDac.Contains(n.Sample))).SelectMany(n => n.Plays);
-            foreach (((int Sample, double RateHz, int StartFrame, int VolumeSteps) key, double seconds) in CapacityCheck.Copies(fallback, _song, _storedAs))
+            foreach (((int Sample, double RateHz, int StartFrame, int VolumeSteps, NoteFade? Fade) key, double seconds) in CapacityCheck.Copies(fallback, _song, _storedAs, _limits.Target))
             {
-                StoredCopy copy = _shrunk.Stored.TryGetValue(key, out StoredCopy shrunk) ? shrunk : new StoredCopy(key.Sample, key.RateHz, key.StartFrame, key.VolumeSteps, false);
-                _copyBytes[copy] = Math.Max(_copyBytes.GetValueOrDefault(copy), CapacityCheck.CopyBytes((copy.Sample, copy.RateHz, copy.StartFrame, copy.VolumeSteps), seconds, _song, _limits.Target, copy.HalfSpeed));
+                StoredCopy copy = _shrunk.Stored.TryGetValue(key, out StoredCopy shrunk) ? shrunk : new StoredCopy(key.Sample, key.RateHz, key.StartFrame, key.VolumeSteps, false, key.Fade);
+                _copyBytes[copy] = Math.Max(_copyBytes.GetValueOrDefault(copy), CapacityCheck.CopyBytes((copy.Sample, copy.RateHz, copy.StartFrame, copy.VolumeSteps, copy.Fade), seconds, _song, _limits.Target, copy.HalfSpeed));
             }
         }
 
@@ -591,8 +591,8 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
 
         /// <summary>The copy a play is stored as, if it needs one: a note too quiet or past the sample's end stores nothing.</summary>
         private IEnumerable<StoredCopy> CopiesOf(SongNote play) =>
-            CapacityCheck.Copies([play], _song, _storedAs).Keys
-                .Select(k => _shrunk is not null && _shrunk.Stored.TryGetValue(k, out StoredCopy copy) ? copy : new StoredCopy(k.Sample, k.RateHz, k.StartFrame, k.VolumeSteps, false));
+            CapacityCheck.Copies([play], _song, _storedAs, _limits.Target).Keys
+                .Select(k => _shrunk is not null && _shrunk.Stored.TryGetValue(k, out StoredCopy copy) ? copy : new StoredCopy(k.Sample, k.RateHz, k.StartFrame, k.VolumeSteps, false, k.Fade));
 
         /// <summary>
         /// One section: the track whose notes matter most first (with <see cref="VoiceSwitching.SongRank"/>, most over the
@@ -1051,9 +1051,9 @@ internal sealed class OptimizerMapper(TargetLimits limits, IReadOnlyList<SampleS
             foreach (PlannedNote note in _planned.Where(n => n.Kind == VoiceKind.Dac && !_baked.Contains(n)))
             {
                 bool quieter = _quieter.Contains(note.Sample) && Held(note);
-                foreach (((int Sample, double RateHz, int StartFrame, int VolumeSteps) key, _) in note.Plays.SelectMany(p => CapacityCheck.Copies([p], _song, _storedAs)))
+                foreach (((int Sample, double RateHz, int StartFrame, int VolumeSteps, NoteFade? Fade) key, _) in note.Plays.SelectMany(p => CapacityCheck.Copies([p], _song, _storedAs, _limits.Target)))
                 {
-                    StoredCopy copy = _shrunk is not null && _shrunk.Stored.TryGetValue(key, out StoredCopy shrunk) ? shrunk : new StoredCopy(key.Sample, key.RateHz, key.StartFrame, key.VolumeSteps, false);
+                    StoredCopy copy = _shrunk is not null && _shrunk.Stored.TryGetValue(key, out StoredCopy shrunk) ? shrunk : new StoredCopy(key.Sample, key.RateHz, key.StartFrame, key.VolumeSteps, false, key.Fade);
                     int bytes = _copyBytes.GetValueOrDefault(copy);
                     if (quieter)
                     {
