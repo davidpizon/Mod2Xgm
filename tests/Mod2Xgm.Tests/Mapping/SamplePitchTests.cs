@@ -207,6 +207,75 @@ public sealed class SamplePitchTests
         Assert.Null(period);
     }
 
+    /// <summary>
+    /// A chorused major chord (16384 frames of 55, 69 and 82 cycles, each doubled one cycle higher, 20–31 cents up) never
+    /// repeats within the longest cycle searched, so it is measured at its bottom note, the middle of the doubled root, and
+    /// marked as a chord (docs/adr/0125-chord-samples.md).
+    /// </summary>
+    [Fact]
+    public void Measure_WithChorusedChordLoop_ReturnsBottomNoteAsChord()
+    {
+        // Arrange
+        Sample sample = new("pad", Partials(16384, 55, 56, 69, 70, 82, 83), new SampleLoop(0, 16384));
+
+        // Act
+        SamplePitch sut = SamplePitch.Measure(sample);
+
+        // Assert
+        Assert.True(sut.Chord);
+        Assert.InRange(sut.PeriodFrames ?? double.NaN, 16384 / 56.0, 16384 / 55.0);
+    }
+
+    /// <summary>A tone whose cycle is found is not a chord.</summary>
+    [Fact]
+    public void Measure_WithTone_IsNotChord()
+    {
+        // Arrange
+        Sample sample = new("wave", Sine(256, 64), new SampleLoop(0, 256));
+
+        // Act
+        SamplePitch sut = SamplePitch.Measure(sample);
+
+        // Assert
+        Assert.False(sut.Chord);
+    }
+
+    /// <summary>
+    /// A library patch is lifted to a loop's bottom note when its cycle is a chord's common cycle and no harmonic patch
+    /// stands for it: by two octaves for harmonic 4; not at all for a tone, or when the harmonic patch plays the chord itself.
+    /// </summary>
+    [Theory]
+    [InlineData(4, false, 2400)]
+    [InlineData(3, false, 1901.955)]
+    [InlineData(1, false, 0)]
+    [InlineData(4, true, 0)]
+    public void LibraryLiftCents_WithBottomHarmonic_LiftsByItsInterval(int lowest, bool patched, double expected)
+    {
+        // Arrange
+        HarmonicPatch harmonic = new([lowest], 0.5, patched ? FmPatchLibrary.Sine : null) { Lowest = lowest };
+
+        // Act
+        double sut = SamplePitch.LibraryLiftCents(harmonic);
+
+        // Assert
+        Assert.Equal(expected, sut, 3);
+    }
+
+    /// <summary>Without a measured harmonic patch nothing is lifted.</summary>
+    [Fact]
+    public void LibraryLiftCents_WithoutHarmonicPatch_IsZero()
+    {
+        // Act
+        double sut = SamplePitch.LibraryLiftCents(null);
+
+        // Assert
+        Assert.Equal(0, sut);
+    }
+
+    /// <summary><paramref name="frames"/> frames of equal sines of the given whole numbers of <paramref name="cycles"/> over them.</summary>
+    private static float[] Partials(int frames, params int[] cycles) =>
+        [.. Enumerable.Range(0, frames).Select(i => (float)cycles.Sum(c => 0.15 * Math.Sin(2 * Math.PI * c * i / frames)))];
+
     /// <summary>A sine of <paramref name="period"/> frames, <paramref name="frames"/> long.</summary>
     private static float[] Sine(int frames, double period, double phase = 0) =>
         [.. Enumerable.Range(0, frames).Select(i => (float)Math.Sin((2 * Math.PI * i / period) + phase))];

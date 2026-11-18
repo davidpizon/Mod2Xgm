@@ -35,6 +35,16 @@ internal readonly record struct SamplePitch(double? PeriodFrames)
     /// <summary>Frames skipped at the start of a sample without a loop, where an attack is least like the tone that follows.</summary>
     private const int AttackFrames = 256;
 
+    /// <summary>
+    /// How far either side of a partial its power is counted, in cents: chorus spreads a partial over a few cents, and a
+    /// chord's equal-tempered notes sit up to 16 cents from the harmonics of a just chord (a major third is 14 cents above
+    /// 5:4). Partials a semitone apart stay apart.
+    /// </summary>
+    public const double ChordCents = 25;
+
+    /// <summary>A partial within this of the loudest, in dB, is a note heard in its own right.</summary>
+    public const double StrongDb = 20;
+
     /// <summary>The frequency the sample sounds at when played at <paramref name="playbackRateHz"/>, or <c>null</c> without a pitch.</summary>
     public double? FrequencyAt(double playbackRateHz) => PeriodFrames is { } period ? playbackRateHz / period : null;
 
@@ -58,8 +68,38 @@ internal readonly record struct SamplePitch(double? PeriodFrames)
         int windowFrames = window.Length >= WindowFrames + (2 * MinLag) ? WindowFrames : window.Length / 2;
         int maxLag = Math.Min(MaxLag, window.Length - windowFrames);
         double[] normalized = Yin.Normalized(window, windowFrames, maxLag);
-        return new SamplePitch(Yin.FirstDip(normalized, MinLag, Threshold));
+        if (Yin.FirstDip(normalized, MinLag, Threshold) is { } period)
+        {
+            return new SamplePitch(period);
+        }
+
+        return loop == LoopKind.Tone && BottomNote(sample) is { } bottom ? new SamplePitch(bottom) { Chord = true } : new SamplePitch(null);
     }
+
+    /// <summary>
+    /// True when no cycle repeats in the sample's tone loop, so <see cref="PeriodFrames"/> is the cycle of its bottom note
+    /// (docs/adr/0125-chord-samples.md): a chord, or a chorused tone.
+    /// </summary>
+    public bool Chord { get; private init; }
+
+    /// <summary>
+    /// The pitch of a tone loop that never repeats exactly (docs/adr/0125-chord-samples.md): a chord, or a chorused tone,
+    /// has no one cycle, and the MOD's notes were tuned by ear to what it sounds like. Its bottom note, the lowest partial
+    /// within <see cref="StrongDb"/> of the loudest, is what one voice standing for it plays: the chord's lowest note, or the
+    /// tone itself. <c>null</c> when the loop has no partial.
+    /// </summary>
+    private static double? BottomNote(Sample sample) =>
+        LoopSpectrum.Of(sample)?.BottomNote(ChordCents, StrongDb, 1.0 / MaxLag) is { } cyclesPerFrame ? 1 / cyclesPerFrame : null;
+
+    /// <summary>
+    /// How far, in cents, a library FM patch standing for the sample <paramref name="harmonic"/> measures plays above its measured pitch
+    /// (docs/adr/0125-chord-samples.md): a loop whose cycle is a chord's common cycle (a just major triad is harmonics 4, 5
+    /// and 6 of the cycle two octaves below its root) is heard at its lowest strong harmonic, which a patch that sounds its own
+    /// fundamental must be moved up to. 0 for a tone, whose fundamental is heard, or when <paramref name="harmonic"/> is the
+    /// patch itself and sounds the harmonics at the cycle.
+    /// </summary>
+    public static double LibraryLiftCents(HarmonicPatch? harmonic) =>
+        harmonic is { Patch: null, Lowest: > 1 } ? 1200 * Math.Log2(harmonic.Lowest) : 0;
 
     /// <summary>
     /// The frames to search: the loop repeated as often as needed (a one-cycle loop is a whole tone), else the sound after

@@ -50,6 +50,21 @@ internal static class FmVoice
     }
 
     /// <summary>
+    /// Writes the sustain level and release rate of every operator of <paramref name="patch"/> to FM channel
+    /// <paramref name="channel"/> (0–5): the patch's own release, or <paramref name="releaseRate"/> (0–15) in its place.
+    /// </summary>
+    public static void WriteRelease(IFmRegisters chip, int channel, FmPatch patch, int? releaseRate = null)
+    {
+        ArgumentNullException.ThrowIfNull(chip);
+        ArgumentNullException.ThrowIfNull(patch);
+        for (int op = 0; op < 4; op++)
+        {
+            FmOperator o = patch.Operators[op];
+            Write(chip, channel, (byte)(RegSlRr + SlotOffsets[op]), (byte)((o.Sl << 4) | (releaseRate ?? o.Rr)));
+        }
+    }
+
+    /// <summary>
     /// The block (bits 13–11) and F-number (bits 10–0) closest to <paramref name="hz"/> on a chip making
     /// <paramref name="chipRateHz"/> samples a second: the lowest block that holds it, for the finest steps.
     /// </summary>

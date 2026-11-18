@@ -168,6 +168,54 @@ public sealed class GenesisRendererTests
         Assert.Equal(-12.0, Db(dmf.Left, dmf.SampleRate, rowStart + 0.002, rowStart + TickSeconds) - full, 0.4);
     }
 
+    /// <summary>
+    /// On XGM2 a sounding FM note is let go a tick before the next note on its channel, with a fast release, so the new
+    /// note keys on over silence instead of clicking (ADR 0124); the DMF render, like DefleMask, holds it to the end.
+    /// </summary>
+    [Fact]
+    public void Render_WithNextNoteOnXgm2_ReleasesTheSoundingNoteATickEarly()
+    {
+        // Arrange
+        GenesisPlan plan = PlanOf([FmPatchLibrary.Sine], [], Row((GenesisChannel.Fm1, Note(VoiceKind.Fm))), Row((GenesisChannel.Fm1, Note(VoiceKind.Fm))));
+        Song song = SongOf(1, LoopedSine());
+        Playback playback = PlaybackOf(10, (r, t) => Playing(r <= 1 && t == 0));
+
+        // Act
+        StereoAudio sut = Render(plan, song, playback, ChipRate with { Driver = PcmDriver.Xgm2 });
+        StereoAudio dmf = Render(plan, song, playback);
+
+        // Assert: row 1 starts at 0.12 s, so row 0's last tick is 0.10–0.12 s.
+        double full = Db(sut.Left, sut.SampleRate, 0.02, 0.09);
+        Assert.True(Db(sut.Left, sut.SampleRate, 0.115, 0.12) < full - 40, "the note is let go on the tick before the next one");
+        Assert.Equal(full, Db(sut.Left, sut.SampleRate, 0.13, 0.2), 0.5);
+        Assert.Equal(full, Db(dmf.Left, dmf.SampleRate, 0.115, 0.12), 0.5);
+    }
+
+    /// <summary>
+    /// An E9x restart is let go a tick early too, and the restart puts the patch's own release back: a note-off after it
+    /// releases as slowly as one after a plain note (ADR 0124).
+    /// </summary>
+    [Fact]
+    public void Render_WithRetriggerOnXgm2_RestoresThePatchReleaseAfterTheEarlyOne()
+    {
+        // Arrange
+        PlanRow first = Row((GenesisChannel.Fm1, Note(VoiceKind.Fm)));
+        PlanRow off = Row((GenesisChannel.Fm1, NoteOff));
+        GenesisPlan retriggered = PlanOf([FmPatchLibrary.Sine], [], first, Row((GenesisChannel.Fm1, Note(VoiceKind.Fm, effects: new Retrigger(3)))), off);
+        GenesisPlan plain = PlanOf([FmPatchLibrary.Sine], [], first, first, off);
+        Song song = SongOf(1, LoopedSine());
+        GenesisRenderOptions xgm2 = ChipRate with { Driver = PcmDriver.Xgm2 };
+
+        // Act
+        StereoAudio sut = Render(retriggered, song, PlaybackOf(10, (r, t) => Playing(r <= 1 && (t == 0 || (r == 1 && t == 3)))), xgm2);
+        StereoAudio reference = Render(plain, song, PlaybackOf(10, (r, t) => Playing(r <= 1 && t == 0)), xgm2);
+
+        // Assert: row 1 starts at 0.12 s and restarts on its tick 3 (0.18 s); the note-off is on row 2 (0.24 s).
+        double full = Db(sut.Left, sut.SampleRate, 0.13, 0.155);
+        Assert.True(Db(sut.Left, sut.SampleRate, 0.175, 0.18) < full - 40, "the note is let go on the tick before the restart");
+        Assert.Equal(Db(reference.Left, reference.SampleRate, 0.25, 0.27), Db(sut.Left, sut.SampleRate, 0.25, 0.27), 1.0);
+    }
+
     /// <summary>Volume and pan follow the song channel tick by tick: half volume is 6 dB down, in TL steps; a pan to the left silences the right.</summary>
     [Fact]
     public void Render_WithPlaybackVolumeAndPan_FollowsThem()
