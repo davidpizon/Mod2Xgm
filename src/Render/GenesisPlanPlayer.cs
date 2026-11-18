@@ -25,6 +25,15 @@ internal sealed class GenesisPlanPlayer
 
     private const int MaxTl = 127;
 
+    /// <summary>
+    /// The most a sounding FM note's level moves in one tick, in TL steps (0.75 dB each): a bigger jump of the MOD's volume
+    /// is spread over the ticks after it, as TL changes in one sample and the step clicks (docs/adr/0123-smooth-fm-volume.md).
+    /// </summary>
+    private const int MaxStepPerTick = 8;
+
+    /// <summary>Below this attenuation, in TL steps (48 dB), a level goes straight to where it is going: the step is too quiet to hear.</summary>
+    private const int QuietSteps = 64;
+
     private const int PsgOff = PsgLevels.Off;
 
     /// <summary>A looped DAC sample is played out this long at most, as the DMF's copies are; a longer note goes quiet.</summary>
@@ -547,7 +556,7 @@ internal sealed class GenesisPlanPlayer
         switch (track.Kind)
         {
             case VoiceKind.Fm:
-                UpdateFm(c, track, ch);
+                UpdateFm(c, track, ch, starting: track.StartedAt == t);
                 break;
             case VoiceKind.PsgNoise:
             case VoiceKind.PsgTone:
@@ -556,7 +565,7 @@ internal sealed class GenesisPlanPlayer
         }
     }
 
-    private void UpdateFm(int c, Track track, ChannelTick ch)
+    private void UpdateFm(int c, Track track, ChannelTick ch, bool starting)
     {
         if (ch.Pitch.PlaybackRateHz > 0)
         {
@@ -571,7 +580,10 @@ internal sealed class GenesisPlanPlayer
         }
 
         double level = ch.Volume * track.Gain * SongGain;
-        int steps = level <= 0 ? MaxTl : (int)Math.Round(-20 * Math.Log10(level) / TlStepDb, MidpointRounding.AwayFromZero);
+        int target = level <= 0 ? MaxTl : (int)Math.Round(-20 * Math.Log10(level) / TlStepDb, MidpointRounding.AwayFromZero);
+        // DefleMask sets a channel's volume at once, so the DMF render does too.
+        int steps = starting || track.LevelSteps < 0 || _chips.Driver == PcmDriver.Dmf ? target : Ramp(track.LevelSteps, target);
+        track.LevelSteps = steps;
         FmPatch patch = _plan.FmPatches[track.Voice.Index];
         foreach (int op in VoiceLevel.Carriers(patch.Algorithm))
         {
@@ -582,6 +594,20 @@ internal sealed class GenesisPlanPlayer
                 track.CarrierTl[op] = tl;
             }
         }
+    }
+
+    /// <summary>
+    /// The level a sounding note plays this tick, in TL steps, on its way from <paramref name="heard"/> to <paramref name="target"/>:
+    /// at most <see cref="MaxStepPerTick"/> closer, or all the way once both are below <see cref="QuietSteps"/>.
+    /// </summary>
+    private static int Ramp(int heard, int target)
+    {
+        if (Math.Min(heard, target) >= QuietSteps || Math.Abs(target - heard) <= MaxStepPerTick)
+        {
+            return target;
+        }
+
+        return target > heard ? heard + MaxStepPerTick : heard - MaxStepPerTick;
     }
 
     /// <summary>The block (bits 13–11) and F-number (bits 10–0) closest to <paramref name="hz"/>: the lowest block that holds it, for the finest steps.</summary>
@@ -936,6 +962,9 @@ internal sealed class GenesisPlanPlayer
 
         /// <summary>The TL last written to each operator as a carrier, or −1.</summary>
         public int[] CarrierTl { get; } = [-1, -1, -1, -1];
+
+        /// <summary>The attenuation the note plays at, in TL steps on top of its patch, or −1 before its first tick.</summary>
+        public int LevelSteps { get; set; } = -1;
 
         /// <summary>The pan bits last written.</summary>
         public byte Pan { get; set; }
