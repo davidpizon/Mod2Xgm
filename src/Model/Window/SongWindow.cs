@@ -117,7 +117,7 @@ internal static class SongWindow
             bool loops = (loop is not null || request.LoopFrom is not null) && request.FadeOutSeconds is null;
 
             // A window that plays the song's own loop goes back to it, so its start can't move past it.
-            int latestStart = loop is { } turn ? turn : end - 1;
+            int latestStart = loop ?? end - 1;
             (start, end) = Trim(timeline, request.Trim, start, end, latestStart, loops, notes);
         }
 
