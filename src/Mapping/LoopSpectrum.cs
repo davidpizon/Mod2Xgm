@@ -13,7 +13,7 @@ namespace Mod2Xgm.Mapping;
 internal sealed class LoopSpectrum
 {
     /// <summary>Frames transformed: the loop repeated as often as it takes. At ProTracker's C-2 rate a bin is 0.13 Hz.</summary>
-    public const int Size = 1 << 16;
+    private const int Size = 1 << 16;
 
     /// <summary>Half the width of a Hann window's main lobe, in bins: a band is never narrower, so a partial's whole lobe counts.</summary>
     private const int LobeBins = 2;
@@ -33,7 +33,7 @@ internal sealed class LoopSpectrum
     }
 
     /// <summary>The loop's power, DC left out.</summary>
-    public double Total { get; }
+    private double Total { get; }
 
     /// <summary>The spectrum of <paramref name="sample"/>'s loop, or <c>null</c> when it doesn't loop or its loop is silent.</summary>
     public static LoopSpectrum? Of(Sample sample)

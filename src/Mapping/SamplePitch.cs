@@ -80,7 +80,7 @@ internal readonly record struct SamplePitch(double? PeriodFrames)
     /// True when no cycle repeats in the sample's tone loop, so <see cref="PeriodFrames"/> is the cycle of its bottom note
     /// (docs/adr/0125-chord-samples.md): a chord, or a chorused tone.
     /// </summary>
-    public bool Chord { get; init; }
+    public bool Chord { get; private init; }
 
     /// <summary>
     /// The pitch of a tone loop that never repeats exactly (docs/adr/0125-chord-samples.md): a chord, or a chorused tone,
@@ -92,7 +92,7 @@ internal readonly record struct SamplePitch(double? PeriodFrames)
         LoopSpectrum.Of(sample)?.BottomNote(ChordCents, StrongDb, 1.0 / MaxLag) is { } cyclesPerFrame ? 1 / cyclesPerFrame : null;
 
     /// <summary>
-    /// How far, in cents, a library FM patch standing for <paramref name="sample"/> plays above its measured pitch
+    /// How far, in cents, a library FM patch standing for the sample <paramref name="harmonic"/> measures plays above its measured pitch
     /// (docs/adr/0125-chord-samples.md): a loop whose cycle is a chord's common cycle (a just major triad is harmonics 4, 5
     /// and 6 of the cycle two octaves below its root) is heard at its lowest strong harmonic, which a patch that sounds its own
     /// fundamental must be moved up to. 0 for a tone, whose fundamental is heard, or when <paramref name="harmonic"/> is the
