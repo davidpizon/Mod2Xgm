@@ -32,6 +32,7 @@ channel 10: orders [0], effect columns 1
 sample 0 "drum 11025Hz": rate code 2, pitch 5, amp 50, 16 bits, 10642 values, checksum C47BC78A
 conversion notes:
   Sample 1 "sine lead": it loops, so it is a sustained tone and is played by the Sine FM patch
+  Sample 1 "sine lead": its fundamental holds 100 % of its tone, so it is played as a plain sine
   Sample 1 "sine lead": its tone repeats every 31.98 frames, so its FM notes play at that pitch (C-2 sounds at 259.1 Hz)
   Sample 2 "drum": it plays once, so it is played as a recording on the DAC
   Sample 1 "sine lead": its FM notes are placed at the pitch measured from the sample
