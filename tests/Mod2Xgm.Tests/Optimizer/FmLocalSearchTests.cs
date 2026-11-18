@@ -6,10 +6,16 @@ namespace Mod2Xgm.Tests.Optimizer;
 /// <summary>Tests for <see cref="FmLocalSearch"/>: the level and envelope fit.</summary>
 public sealed class FmLocalSearchTests
 {
-    /// <summary><see cref="FmPatchLibrary.Lead"/> with its levels and envelope pushed off: the fit should find its way back.</summary>
-    private static FmPatch OffLead { get; } = FmPatchLibrary.Lead with
+    /// <summary>
+    /// <see cref="FmPatchLibrary.Lead"/> with the instant attack (rate 31) it had when these searches were tuned: the tests
+    /// measure the search, so its target stays put when the library's attack changes (docs/adr/0121-soft-fm-attack.md).
+    /// </summary>
+    private static FmPatch Lead { get; } = FmPatchLibrary.Lead with { Operators = [.. FmPatchLibrary.Lead.Operators.Select(o => o with { Ar = 31 })] };
+
+    /// <summary><see cref="Lead"/> with its levels and envelope pushed off: the fit should find its way back.</summary>
+    private static FmPatch OffLead { get; } = Lead with
     {
-        Operators = [.. FmPatchLibrary.Lead.Operators.Select((o, i) => o with { Tl = Math.Min(127, o.Tl + (i % 2 == 0 ? 12 : 3)), Dr = o.Dr + 6 })],
+        Operators = [.. Lead.Operators.Select((o, i) => o with { Tl = Math.Min(127, o.Tl + (i % 2 == 0 ? 12 : 3)), Dr = o.Dr + 6 })],
     };
 
     /// <summary>From a patch knocked off its target, the fit gets much closer, and never further.</summary>
@@ -18,7 +24,7 @@ public sealed class FmLocalSearchTests
     public void Refine_WithSeed_GetsCloser()
     {
         // Arrange
-        FmEvaluator evaluator = new(FmTargets.Of(FmPatchLibrary.Lead));
+        FmEvaluator evaluator = new(FmTargets.Of(Lead));
         double before = evaluator.Search(OffLead, null);
 
         // Act
@@ -36,7 +42,7 @@ public sealed class FmLocalSearchTests
     public void Refine_WithBudget_KeepsIt()
     {
         // Arrange
-        FmEvaluator evaluator = new(FmTargets.Of(FmPatchLibrary.Lead));
+        FmEvaluator evaluator = new(FmTargets.Of(Lead));
         FmLocalSearch.Refine(evaluator, new FmVoiceSetting(OffLead, null), false, true, 25);
 
         // Act
@@ -91,7 +97,7 @@ public sealed class FmLocalSearchTests
     {
         // Arrange
         FmPatch start = OffLead with { Feedback = 3 };
-        FmEvaluator evaluator = new(FmTargets.Of(FmPatchLibrary.Lead));
+        FmEvaluator evaluator = new(FmTargets.Of(Lead));
 
         // Act
         FmVoiceSetting fitted = FmLocalSearch.Refine(evaluator, new FmVoiceSetting(start, null), false, true, 200, [2, 3]);
