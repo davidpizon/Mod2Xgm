@@ -158,6 +158,6 @@ internal sealed record CapacityCheck(TargetLimits Limits, int Slots, int Voices,
             ? Math.Max(0, PcmFitter.TrimmedLength(sample) - key.StartFrame)
             : (int)Math.Ceiling(Math.Min(seconds, PcmFitter.MaxLoopSeconds) * key.RateHz) + 1;
         int points = (int)Math.Ceiling(frames * PcmTargets.PlayRateHz(target, key.RateHz, halfSpeed) / key.RateHz);
-        return PcmTargets.Bytes(target, points);
+        return PcmTargets.Bytes(target, points, halfSpeed);
     }
 }

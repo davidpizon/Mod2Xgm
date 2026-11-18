@@ -41,6 +41,12 @@ internal sealed class GenesisChips
     /// <summary>The PSG's DC is taken off by a first-order high-pass at this frequency, like the coupling capacitors of a real console.</summary>
     private const double DcBlockHz = 5;
 
+    /// <summary>Frames a second on an NTSC Genesis.</summary>
+    private const int NtscFrameRate = 60;
+
+    /// <summary>Frames a second on a PAL Genesis.</summary>
+    private const int PalFrameRate = 50;
+
     /// <summary>The DAC data register: offset binary, <c>$80</c> = 0.</summary>
     private const byte RegDacData = 0x2a;
 
@@ -80,7 +86,8 @@ internal sealed class GenesisChips
         Dac = driver switch
         {
             PcmDriver.Xgm => new XgmPcmDriver(),
-            PcmDriver.Xgm2 => new Xgm2PcmDriver(),
+            // The XGM2 writer sends PCM commands ahead of their frame (docs/adr/0119-xgm2-pcm-lead.md).
+            PcmDriver.Xgm2 => new Xgm2PcmDriver(leadBeats: Xgm2PcmDriver.LeadBeats(ymClock, region == Region.Ntsc ? NtscFrameRate : PalFrameRate)),
             _ => new DmfDac(ymClock),
         };
 

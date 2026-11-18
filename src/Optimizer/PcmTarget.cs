@@ -85,10 +85,19 @@ internal static class PcmTargets
         _ => Xgm2PcmDriver.BeatRateHz(Ym3438.NtscClockHz) / (halfSpeed ? 2 : 1),
     };
 
-    /// <summary>The bytes a copy of <paramref name="points"/> points takes: 16-bit for DMF, 8-bit in 256-byte blocks for XGM and XGM2.</summary>
-    public static int Bytes(PcmTarget target, int points) => target == PcmTarget.Dmf
-        ? 2 * points
-        : (points + XgmAlignment - 1) / XgmAlignment * XgmAlignment;
+    /// <summary>
+    /// The bytes a copy of <paramref name="points"/> points takes: 16-bit for DMF, 8-bit in 256-byte blocks for XGM and
+    /// XGM2; XGM2's copies start with <see cref="Xgm2PcmDriver.HeadPadBytes"/> silent bytes (docs/adr/0119-xgm2-pcm-lead.md).
+    /// </summary>
+    public static int Bytes(PcmTarget target, int points, bool halfSpeed = false) => target switch
+    {
+        PcmTarget.Dmf => 2 * points,
+        PcmTarget.Xgm => Aligned(points),
+        _ => Aligned(points + Xgm2PcmDriver.HeadPadBytes(halfSpeed)),
+    };
+
+    /// <summary><paramref name="points"/> rounded up to XGM's and XGM2's 256-byte blocks.</summary>
+    public static int Aligned(int points) => (points + XgmAlignment - 1) / XgmAlignment * XgmAlignment;
 
     /// <summary>The target's name, for logs and the harness's CSV.</summary>
     public static string Name(PcmTarget target) => target switch

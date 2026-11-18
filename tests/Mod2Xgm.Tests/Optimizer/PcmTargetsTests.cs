@@ -73,11 +73,16 @@ public sealed class PcmTargetsTests
         Assert.Equal(PcmTargets.PlayRateHz(PcmTarget.Xgm2, 8287, false) / 2, rate, 9);
     }
 
-    /// <summary>DMF stores 2 bytes a point; XGM and XGM2 one, in 256-byte blocks.</summary>
+    /// <summary>
+    /// DMF stores 2 bytes a point; XGM and XGM2 one, in 256-byte blocks; XGM2 after 64 silent bytes
+    /// (docs/adr/0119-xgm2-pcm-lead.md).
+    /// </summary>
     [Theory]
     [InlineData(nameof(PcmTarget.Dmf), 100, 200)]
     [InlineData(nameof(PcmTarget.Xgm), 1, 256)]
-    [InlineData(nameof(PcmTarget.Xgm2), 257, 512)]
+    [InlineData(nameof(PcmTarget.Xgm), 200, 256)]
+    [InlineData(nameof(PcmTarget.Xgm2), 192, 256)]
+    [InlineData(nameof(PcmTarget.Xgm2), 193, 512)]
     [InlineData(nameof(PcmTarget.Xgm), 0, 0)]
     public void Bytes_ForTarget_FollowsStorage(string target, int points, int expected)
     {
@@ -86,6 +91,17 @@ public sealed class PcmTargetsTests
 
         // Assert
         Assert.Equal(expected, bytes);
+    }
+
+    /// <summary>An XGM2 copy at half speed starts with 32 silent bytes, which the driver plays over 64 beats.</summary>
+    [Fact]
+    public void Bytes_ForXgm2AtHalfSpeed_PadsHalfAsMuch()
+    {
+        // Act
+        int bytes = PcmTargets.Bytes(PcmTarget.Xgm2, 224, halfSpeed: true);
+
+        // Assert
+        Assert.Equal(256, bytes);
     }
 
     /// <summary>Targets have short names for logs and CSVs.</summary>

@@ -511,7 +511,7 @@ internal static class PreMixer
             if (end == PreMixEnd.Tail)
             {
                 int points = (int)Math.Ceiling(switchSeconds * playRate);
-                stored = stored[..Math.Min(stored.Length, target == PcmTarget.Dmf ? points : PcmTargets.Bytes(target, points))];
+                stored = stored[..Math.Min(stored.Length, target == PcmTarget.Dmf ? points : PcmTargets.Aligned(points))];
             }
 
             PreMixTail? tail = null;

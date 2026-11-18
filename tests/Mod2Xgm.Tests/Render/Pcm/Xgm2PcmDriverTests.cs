@@ -307,4 +307,104 @@ public sealed class Xgm2PcmDriverTests
         int on = Array.IndexOf(capture.Enable, (byte)0x80);
         Assert.Equal((Xgm2PcmDriver.StartDelayBeats - Xgm2PcmDriver.DacLeadBeats) * 4, on);
     }
+
+    /// <summary>
+    /// A play the file sent <c>lead</c> beats ahead of its frame is heard that much sooner after the model gets it on its
+    /// frame (docs/adr/0119-xgm2-pcm-lead.md).
+    /// </summary>
+    [Fact]
+    public void Play_WithLead_IsHeardLeadBeatsSooner()
+    {
+        // Arrange
+        Xgm2PcmDriver sut = new(leadBeats: 200);
+        _ = DacCapture.Of(sut, 4 * 600);
+
+        // Act
+        sut.Play(0, DacCapture.Ramp(300), Xgm2PcmDriver.HighPriority, halfSpeed: false);
+
+        // Assert
+        DacCapture capture = DacCapture.Of(sut, 4 * 1000);
+        int start = (Xgm2PcmDriver.StartDelayBeats - 200) * 4;
+        Assert.All(capture.Data[..start], b => Assert.Equal(0x80, b));
+        Assert.Equal(DacCapture.Ramp(1)[0], capture.Value(start));
+    }
+
+    /// <summary>A play in the song's first frames can't be sent before frame 0, so it is heard the full delay after the start.</summary>
+    [Fact]
+    public void Play_WithLeadAtSongStart_IsHeardDelayAfterStart()
+    {
+        // Arrange
+        Xgm2PcmDriver sut = new(leadBeats: 200);
+
+        // Act
+        sut.Play(0, DacCapture.Ramp(300), Xgm2PcmDriver.HighPriority, halfSpeed: false);
+
+        // Assert
+        DacCapture capture = DacCapture.Of(sut, 4 * 1000);
+        int start = Xgm2PcmDriver.StartDelayBeats * 4;
+        Assert.All(capture.Data[..start], b => Assert.Equal(0x80, b));
+        Assert.Equal(DacCapture.Ramp(1)[0], capture.Value(start));
+    }
+
+    /// <summary>A play sent so far ahead that it would already be heard starts at once, as far in as it would be by now.</summary>
+    [Fact]
+    public void Play_WithLeadPastTheDelay_PicksUpPartWay()
+    {
+        // Arrange
+        Xgm2PcmDriver sut = new(leadBeats: Xgm2PcmDriver.StartDelayBeats + 10);
+        _ = DacCapture.Of(sut, 4 * 600);
+
+        // Act
+        sut.Play(0, DacCapture.Ramp(300), Xgm2PcmDriver.HighPriority, halfSpeed: false);
+
+        // Assert
+        DacCapture capture = DacCapture.Of(sut, 4 * 100);
+        Assert.Equal(DacCapture.Ramp(11)[10], capture.Value(0));
+    }
+
+    /// <summary>The writer sends PCM commands 2 frames ahead on both PAL and NTSC: as many as fit in the delay and the padded head.</summary>
+    [Theory]
+    [InlineData(Ym3438.PalClockHz, 50)]
+    [InlineData(Ym3438.NtscClockHz, 60)]
+    public void LeadFrames_ForRegion_IsTwo(double ymClockHz, int frameRate)
+    {
+        // Act
+        int frames = Xgm2PcmDriver.LeadFrames(ymClockHz, frameRate);
+
+        // Assert
+        Assert.Equal(2, frames);
+    }
+
+    /// <summary>A stored recording starts with the silent bytes the driver's repeated first fill plays twice: 64, or 32 at half speed.</summary>
+    [Theory]
+    [InlineData(false, 64)]
+    [InlineData(true, 32)]
+    public void Padded_WithRecording_PutsSilenceFirst(bool halfSpeed, int pad)
+    {
+        // Act
+        sbyte[] padded = Xgm2PcmDriver.Padded([5, 6], halfSpeed);
+
+        // Assert
+        Assert.Equal(pad + 2, padded.Length);
+        Assert.All(padded[..pad], b => Assert.Equal(0, b));
+        Assert.Equal([5, 6], padded[pad..]);
+    }
+
+    /// <summary>A recording padded and sent ahead is heard from its first real byte once, with nothing repeated.</summary>
+    [Fact]
+    public void Play_WithPaddedRecording_PlaysItsStartOnce()
+    {
+        // Arrange
+        Xgm2PcmDriver sut = new();
+
+        // Act
+        sut.Play(0, Xgm2PcmDriver.Padded(DacCapture.Ramp(300), halfSpeed: false), Xgm2PcmDriver.HighPriority, halfSpeed: false);
+
+        // Assert
+        DacCapture capture = DacCapture.Of(sut, 4 * 1000);
+        int sound = (Xgm2PcmDriver.StartDelayBeats + (2 * Xgm2PcmDriver.RepeatedBeats)) * 4;
+        Assert.All(capture.Data[..sound], b => Assert.Equal(0x80, b));
+        int[] heard = [.. Enumerable.Range(0, 100).Select(i => capture.Value(sound + (i * 4)))];
+        Assert.Equal([.. DacCapture.Ramp(100).Select(v => (int)v)], heard);
+    }
 }
