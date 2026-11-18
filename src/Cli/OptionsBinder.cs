@@ -133,7 +133,7 @@ internal static class OptionsBinder
     }
 
     /// <summary>
-    /// <c>--start</c>, <c>--end</c>, <c>--loop-from</c> and <c>--fade-out</c> (docs/cli.md#converting-part-of-a-song):
+    /// <c>--start</c>, <c>--end</c>, <c>--loop-from</c>, <c>--fade-out</c> and <c>--trim-silence</c> (docs/cli.md#converting-part-of-a-song):
     /// <c>null</c> when none is given. Checks what can be checked without the song; times are compared here, tracker
     /// positions once the song is played.
     /// </summary>
@@ -191,7 +191,16 @@ internal static class OptionsBinder
             }
         }
 
-        return start is null && end is null && loopFrom is null && fade is null ? null : new SongWindowRequest(start, end, loopFrom, fade);
+        TrimSilence trim = parseResult.GetValue(definition.TrimSilence) switch
+        {
+            "start" => TrimSilence.Start,
+            "end" => TrimSilence.End,
+            "both" => TrimSilence.Both,
+            _ => TrimSilence.None,
+        };
+        return start is null && end is null && loopFrom is null && fade is null && trim == TrimSilence.None
+            ? null
+            : new SongWindowRequest(start, end, loopFrom, fade, trim);
     }
 
     private static SongPosition? Position(string? text, string option, List<string> errors)

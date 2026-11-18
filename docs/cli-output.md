@@ -118,7 +118,7 @@ depends on its options:
 | 3 | Scan sample use (`scan`) | always | `rows` played (at the end) |
 | 4 | Build song model (`model`) | always | — |
 | 5 | Play ticks (`play`) | always | — |
-| 5a | Cut window (`window`) | `--start`, `--end`, `--loop-from` or `--fade-out` ([ADR 0116](adr/0116-song-window.md)) | — |
+| 5a | Cut window (`window`) | `--start`, `--end`, `--loop-from`, `--fade-out` or `--trim-silence` ([ADR 0116](adr/0116-song-window.md), [ADR 0122](adr/0122-trim-silence.md)) | — |
 | 6 | Analyze samples (`analyze`) | `--verbose`, the harness, and (M9) the optimizer | `samples`, one by one |
 | 7 | Fit sounds (`fit`) | `--mapping optimizer` | `samples`, one by one |
 | 8 | Map channels (`map`) | always | — |

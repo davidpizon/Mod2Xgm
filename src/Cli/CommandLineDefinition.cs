@@ -121,6 +121,11 @@ internal sealed class CommandLineDefinition
         Description = "Fade to silence over this long before the end, e.g. 4 or 4.5s (the song then stops).",
     };
 
+    public Option<string?> TrimSilence { get; } = new Option<string?>("--trim-silence")
+    {
+        Description = "Leave out the silence at the song's start, its end, or both (never cutting a sound).",
+    }.AcceptOnlyFromAmong("start", "end", "both");
+
     public Option<int> Seed { get; } = new("--seed")
     {
         Description = "Optimizer seed; the same input, options and seed give the same output.",
@@ -198,6 +203,7 @@ internal sealed class CommandLineDefinition
             End,
             LoopFrom,
             FadeOut,
+            TrimSilence,
             Seed,
             NoCache,
             CacheDir,

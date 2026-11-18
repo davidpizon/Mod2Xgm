@@ -35,7 +35,8 @@ internal sealed record TrackerPosition(int Order, int Row) : SongPosition
 /// <param name="End">Where the window ends (that row isn't played), or <c>null</c> for where the song ends or would repeat.</param>
 /// <param name="LoopFrom">Where the window loops back to after its end, or <c>null</c>: then it stops at <paramref name="End"/>, or keeps the song's own ending without one.</param>
 /// <param name="FadeOutSeconds">How long the fade to silence before the end lasts, or <c>null</c> for none.</param>
-internal sealed record SongWindowRequest(SongPosition? Start, SongPosition? End, SongPosition? LoopFrom, double? FadeOutSeconds);
+/// <param name="Trim">Which ends of the window to move in past silence (docs/adr/0122-trim-silence.md).</param>
+internal sealed record SongWindowRequest(SongPosition? Start, SongPosition? End, SongPosition? LoopFrom, double? FadeOutSeconds, TrimSilence Trim = TrimSilence.None);
 
 /// <summary>Formats song times for notes and the report.</summary>
 internal static class SongTime

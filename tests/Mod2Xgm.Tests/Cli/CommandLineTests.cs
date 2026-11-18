@@ -623,6 +623,32 @@ public sealed class CommandLineTests
         Assert.Equal(new SongWindowRequest(null, null, new TrackerPosition(2, 0), null), Assert.IsType<ConversionOptions>(result.Options).Window);
     }
 
+    /// <summary>--trim-silence alone makes a window of the whole song with that end or ends trimmed (<paramref name="expected"/>: the <see cref="TrimSilence"/> flags).</summary>
+    [Theory]
+    [InlineData("start", 1)]
+    [InlineData("end", 2)]
+    [InlineData("both", 3)]
+    public void Invoke_WithTrimSilence_BindsTrim(string value, int expected)
+    {
+        // Act
+        Outcome result = Run("song.mod", "--trim-silence", value);
+
+        // Assert
+        Assert.Equal(new SongWindowRequest(null, null, null, null, (TrimSilence)expected), Assert.IsType<ConversionOptions>(result.Options).Window);
+    }
+
+    /// <summary>--trim-silence takes only start, end or both.</summary>
+    [Fact]
+    public void Invoke_WithUnknownTrimSilence_ReturnsUsageError()
+    {
+        // Act
+        Outcome result = Run("song.mod", "--trim-silence", "middle");
+
+        // Assert
+        Assert.Equal(ExitCode.UsageError, result.Code);
+        Assert.Contains("middle", result.Error, StringComparison.Ordinal);
+    }
+
     /// <summary>Window options that can't make a window are usage errors saying why.</summary>
     [Theory]
     [InlineData("--start=soon", "--start: 'soon' is not a time")]
