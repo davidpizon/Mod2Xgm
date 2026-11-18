@@ -137,6 +137,7 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0121](0121-soft-fm-attack.md) | FM notes start with a 1 ms attack (rate 27), not a one-sample step | 2026-11-17 | Proposed |
 | [0122](0122-trim-silence.md) | `--trim-silence` leaves out the silence at a song's start or end, on row starts, from the MOD's playback | 2026-11-17 | Accepted |
 | [0123](0123-smooth-fm-volume.md) | A big volume jump on a sounding FM note is spread over ticks (XGM and XGM2) | 2026-11-17 | Proposed |
+| [0124](0124-release-before-key-on.md) | An FM note is let go a tick before the next key-on on its channel (XGM and XGM2) | 2026-11-18 | Proposed |
 
 ## Open questions
 

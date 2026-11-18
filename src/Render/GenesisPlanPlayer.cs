@@ -42,6 +42,14 @@ internal sealed class GenesisPlanPlayer
     /// <summary>The priority XGM's music PCM plays at, the highest, so a new note always takes over (the XGM writer, M11, sets the real one).</summary>
     private const int PcmPriority = 15;
 
+    /// <summary>
+    /// The release rate an FM note is let go with on the tick before its channel's next key-on, on XGM and XGM2 (96 dB in
+    /// about 12 ms, inside a 20 ms tick; docs/adr/0124-release-before-key-on.md). A key-on resets the operators' phase but
+    /// starts the attack from the level the envelope is at, so keying on over a note that still sounds steps its wave in
+    /// one sample: a click.
+    /// </summary>
+    private const int EarlyReleaseRate = 14;
+
     // YM3438 registers (docs/genesis-audio.md).
     private const byte RegKeyOn = 0x28;
     private const byte RegLfo = 0x22;
@@ -169,7 +177,63 @@ internal sealed class GenesisPlanPlayer
             }
         }
 
+        if (_chips.Driver != PcmDriver.Dmf && t + 1 < _ticks.Count)
+        {
+            for (int c = 0; c <= (int)GenesisChannel.Fm6; c++)
+            {
+                Track track = _tracks[c];
+                if (track is { Kind: VoiceKind.Fm, Sounding: true, ReleasedEarly: false } && track.StartedAt != t && track.StartTick != t && KeysOnAt(c, t + 1))
+                {
+                    ReleaseEarly(c);
+                }
+            }
+        }
+
         return released;
+    }
+
+    /// <summary>
+    /// True when FM channel <paramref name="c"/> keys a note on at tick <paramref name="t"/>, the tick after the one being
+    /// played: a note of the plan's row that starts then (the same choice <see cref="ReadRow"/> makes on the row's first
+    /// tick), a note of this row delayed to then (<c>EDx</c>), or this row's note restarted then (<c>E9x</c>).
+    /// </summary>
+    private bool KeysOnAt(int c, int t)
+    {
+        Track track = _tracks[c];
+        PlaybackTick tick = _ticks[t];
+        if (tick.Tick != 0)
+        {
+            return (track.StartTick == t && track.Pending is { Voice.Kind: VoiceKind.Fm }) || Restarts(track, t);
+        }
+
+        IReadOnlyList<PlanRow> rows = _plan.Patterns[tick.Order];
+        if (tick.Row >= rows.Count || c >= rows[tick.Row].Cells.Count
+            || rows[tick.Row].Cells[c] is not { Note: not null, Voice.Kind: VoiceKind.Fm, Source: { } source, Sample: not null } cell)
+        {
+            return false;
+        }
+
+        if (StartTickIn(t, source) is { } at)
+        {
+            return at == t;
+        }
+
+        // A tone portamento slides the sounding note, and a note delayed past its row's end never plays.
+        bool glides = track.Sounding && track.Source == source && cell.Effects.OfType<TonePortamento>().Any();
+        return !glides && !cell.Effects.OfType<NoteDelay>().Any();
+    }
+
+    /// <summary>
+    /// Lets go of FM channel <paramref name="c"/>'s note at <see cref="EarlyReleaseRate"/>, a tick before the channel's next
+    /// key-on (docs/adr/0124-release-before-key-on.md), so the note is silent when the next one keys on.
+    /// </summary>
+    private void ReleaseEarly(int c)
+    {
+        Track track = _tracks[c];
+        FmVoice.WriteRelease(_chips.Ports, c, _plan.FmPatches[track.Voice.Index], EarlyReleaseRate);
+        KeyOff(c);
+        track.ReleasedEarly = true;
+        Tally("{Count} FM notes let go a tick early, so the next note on their channel keys on over silence instead of clicking");
     }
 
     /// <summary>The rest of tick <paramref name="t"/>: starts notes, then sets every sounding channel's pitch, volume and pan.</summary>
@@ -429,6 +493,7 @@ internal sealed class GenesisPlanPlayer
                 }
 
                 LoadPatch(c, voice.Index);
+                track.ReleasedEarly = false;
                 track.Centred = _voicing.CentredBass(ch.Pitch, sample, ch.Pan);
                 track.Gain = FmGain(track, sample, voice.Index) * cell.Level;
                 track.Cents = cell.Cents;
@@ -466,6 +531,13 @@ internal sealed class GenesisPlanPlayer
         switch (track.Kind)
         {
             case VoiceKind.Fm:
+                if (track.ReleasedEarly)
+                {
+                    // The patch's own release again, for when this note ends.
+                    FmVoice.WriteRelease(_chips.Ports, c, _plan.FmPatches[track.Voice.Index]);
+                    track.ReleasedEarly = false;
+                }
+
                 KeyOn(c);
                 break;
             case VoiceKind.Dac:
@@ -920,6 +992,9 @@ internal sealed class GenesisPlanPlayer
 
         /// <summary>How far an FM note plays from its pitch (<see cref="PlanCell.Cents"/>).</summary>
         public double Cents { get; set; }
+
+        /// <summary>True when the FM note was let go a tick before the channel's next key-on, at the fast release (<see cref="EarlyReleaseRate"/>).</summary>
+        public bool ReleasedEarly { get; set; }
 
         /// <summary>The voice the note plays with.</summary>
         public PlanVoice Voice { get; set; }
