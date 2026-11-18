@@ -90,6 +90,27 @@ public sealed class PlanVoicingTests
         Assert.Equal(0.5 / Math.Sqrt(2), gain, 3);
     }
 
+    /// <summary>
+    /// A sample whose loop is a short quiet tail after a long recording is played on FM as loud as its recording, as a
+    /// sample that plays once is, not as its tail: the MOD's notes play the recording (FunkyChristmas's melody sample 23,
+    /// 15 dB quieter in its tail, played 15 dB too quiet; docs/adr/0126-tail-loop-level.md).
+    /// </summary>
+    [Fact]
+    public void FmLevel_WithQuietTailLoop_FollowsTheRecording()
+    {
+        // Arrange: 8192 frames of a loud tone, then a 1536-frame loop 20 dB quieter.
+        float[] data = [.. Sine(8192, 0.5, period: 64), .. Sine(1536, 0.05, period: 64)];
+        GenesisPlan plan = PlanOf(false) with { FmPatches = [FmPatchLibrary.Sine] };
+        PlanVoicing sut = new(plan, SongOf(new Sample("tail", data, new SampleLoop(8192, 1536))));
+        PlanVoicing oneShot = new(plan, SongOf(new Sample("once", data, null)));
+
+        // Act
+        double gain = sut.FmLevel(0, 0).Gain;
+
+        // Assert
+        Assert.Equal(oneShot.FmLevel(0, 0).Gain, gain, 6);
+    }
+
     /// <summary>Semitones from C-0 turn into hertz around A-4 at 440 Hz.</summary>
     [Theory]
     [InlineData(PlanVoicing.A4, 440.0)]

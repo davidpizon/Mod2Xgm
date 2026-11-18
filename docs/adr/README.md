@@ -136,6 +136,7 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0120](0120-faded-recordings.md) | A recording whose note fades has the fade baked in (XGM and XGM2) | 2026-11-17 | Accepted |
 | [0121](0121-soft-fm-attack.md) | FM notes start with a 1 ms attack (rate 27), not a one-sample step | 2026-11-17 | Proposed |
 | [0122](0122-trim-silence.md) | `--trim-silence` leaves out the silence at a song's start or end, on row starts, from the MOD's playback | 2026-11-17 | Accepted |
+| [0126](0126-tail-loop-level.md) | An FM voice for a sample with a tail loop is as loud as the recording | 2026-11-18 | Proposed |
 
 ## Open questions
 
