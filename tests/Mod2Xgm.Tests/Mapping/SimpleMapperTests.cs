@@ -12,7 +12,8 @@ public sealed class SimpleMapperTests
 {
     /// <summary>
     /// Instrument numbers in <see cref="Build"/>: a looped sine, two tonal drums, a noise hit, an empty slot, a hit of
-    /// noise with a short looped tail, a looped hiss, and a decaying tone with a short looped tail.
+    /// noise with a short looped tail, a looped hiss, a decaying tone with a short looped tail, a looped tone whose
+    /// second harmonic is louder than its fundamental, and a looped sawtooth.
     /// </summary>
     private const int Organ = 0;
 
@@ -23,6 +24,8 @@ public sealed class SimpleMapperTests
     private const int Bells = 5;
     private const int Hiss = 6;
     private const int Pluck = 7;
+    private const int Octave = 8;
+    private const int Saw = 9;
 
     /// <summary>
     /// A note is placed at the pitch the tick player plays it at (ADR 0061: the instrument's finetune is in it), on every
@@ -133,9 +136,38 @@ public sealed class SimpleMapperTests
         (_, List<string> notes) = Map(Build([[RowOf(Play(Organ)), RowOf(Play(Organ, 50)), RowOf(Play(Organ, 52))]]));
 
         // Assert
-        Assert.Equal(2, notes.Count);
+        Assert.Equal(3, notes.Count);
         Assert.Contains("it loops, so it is a sustained tone", notes[0], StringComparison.Ordinal);
-        Assert.Contains("so its FM notes play", notes[1], StringComparison.Ordinal);
+        Assert.Contains("so it is played as a plain sine", notes[1], StringComparison.Ordinal);
+        Assert.Contains("so its FM notes play", notes[2], StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A looped tone whose second harmonic is louder than its fundamental is played by a patch of its own harmonics, so it
+    /// keeps sounding at the octave heard, with a note saying so (docs/adr/0118-harmonic-patches.md).
+    /// </summary>
+    [Fact]
+    public void Map_WithLoudSecondHarmonic_PlaysHarmonicPatch()
+    {
+        // Act
+        (GenesisPlan plan, List<string> notes) = Map(Build([[RowOf(Play(Octave))]]));
+
+        // Assert
+        Assert.Equal("Harmonic 1+2", Assert.Single(plan.FmPatches).Name);
+        Assert.Contains("played by the Harmonic 1+2 FM patch", notes[0], StringComparison.Ordinal);
+        Assert.Contains("harmonics 1, 2 hold 100 % of its tone", notes[1], StringComparison.Ordinal);
+    }
+
+    /// <summary>A looped tone that four harmonics don't hold well keeps the patch chosen by brightness, with a note saying why.</summary>
+    [Fact]
+    public void Map_WithSawtooth_ChoosesPatchByBrightness()
+    {
+        // Act
+        (GenesisPlan plan, List<string> notes) = Map(Build([[RowOf(Play(Saw))]]));
+
+        // Assert
+        Assert.Contains(Assert.Single(plan.FmPatches), FmPatchLibrary.All);
+        Assert.Contains("its four loudest harmonics (1, 2, 3, 4) hold only", notes[1], StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -719,6 +751,8 @@ public sealed class SimpleMapperTests
         float[] white = [.. new Random(7).GetItems([-1f, 1f], 2000)];
         float[] bells = [.. new Random(11).GetItems([-1f, 1f], 7400), .. Enumerable.Range(0, 600).Select(i => (float)Math.Sin(2 * Math.PI * i / 60))];
         float[] pluck = [.. Enumerable.Range(0, 8000).Select(i => (float)(Math.Sin(2 * Math.PI * i / 75) * Math.Exp(-i / 3000.0)))];
+        float[] octave = [.. Enumerable.Range(0, 128).Select(i => (float)((0.3 * Math.Sin(2 * Math.PI * i / 128)) + Math.Sin(2 * Math.PI * i / 64)))];
+        float[] saw = [.. Enumerable.Range(0, 64).Select(i => (float)((i / 32.0) - 1))];
         Sample[] samples =
         [
             new("organ", tone, new SampleLoop(0, 1024)),
@@ -729,6 +763,8 @@ public sealed class SimpleMapperTests
             new("bells", bells, new SampleLoop(7400, 600)),
             new("hiss", white, new SampleLoop(0, 2000)),
             new("pluck", pluck, new SampleLoop(7400, 600)),
+            new("octave", octave, new SampleLoop(0, 128)),
+            new("saw", saw, new SampleLoop(0, 64)),
         ];
         Instrument[] instruments = [.. samples.Select((_, i) => new Instrument(i, 0.5, 0))];
         Pattern[] built = [.. patterns.Select(rows => new Pattern([.. rows.Select(r => r.Cells.Count == channels ? r : new Row([.. r.Cells.Take(channels), .. Enumerable.Repeat(Cell.Empty, channels - r.Cells.Count)]))]))];

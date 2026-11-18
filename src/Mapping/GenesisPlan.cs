@@ -126,6 +126,38 @@ internal sealed record FmPatch(string Name, int Algorithm, int Feedback, IReadOn
 {
     /// <summary>True when the patch needs the chip's LFO: some vibrato, or some tremolo on an operator that takes it.</summary>
     public bool UsesLfo => Fms > 0 || (Ams > 0 && Operators.Any(o => o.Am));
+
+    /// <summary>
+    /// True when <paramref name="other"/> has the same settings, operator by operator: two patches built alike (one per
+    /// sample, docs/adr/0118-harmonic-patches.md) are the same patch, whichever list holds their operators.
+    /// </summary>
+    public bool Equals(FmPatch? other) =>
+        other is not null
+        && Name == other.Name
+        && Algorithm == other.Algorithm
+        && Feedback == other.Feedback
+        && Fms == other.Fms
+        && Ams == other.Ams
+        && EqualityComparer<double?>.Default.Equals(HeardRms, other.HeardRms)
+        && Operators.SequenceEqual(other.Operators);
+
+    /// <summary>A hash of the settings that <see cref="Equals(FmPatch?)"/> compares.</summary>
+    public override int GetHashCode()
+    {
+        HashCode hash = new();
+        hash.Add(Name);
+        hash.Add(Algorithm);
+        hash.Add(Feedback);
+        hash.Add(Fms);
+        hash.Add(Ams);
+        hash.Add(HeardRms);
+        foreach (FmOperator op in Operators)
+        {
+            hash.Add(op);
+        }
+
+        return hash.ToHashCode();
+    }
 }
 
 /// <summary>
