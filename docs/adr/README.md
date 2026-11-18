@@ -140,6 +140,7 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0124](0124-release-before-key-on.md) | An FM note is let go a tick before the next key-on on its channel (XGM and XGM2) | 2026-11-18 | Proposed |
 | [0125](0125-chord-samples.md) | A chord or chorused sample plays its bottom note on FM | 2026-11-18 | Proposed |
 | [0126](0126-tail-loop-level.md) | An FM voice for a sample with a tail loop is as loud as the recording | 2026-11-18 | Proposed |
+| [0127](0127-xgm2-unsigned-samples.md) | XGM2 files store samples unsigned, as xgm2tool reads them | 2026-11-18 | Proposed |
 | [0128](0128-xgm2-real-frame-rate.md) | XGM2 frames are the Genesis's real VBlanks | 2026-11-18 | Proposed |
 
 ## Open questions

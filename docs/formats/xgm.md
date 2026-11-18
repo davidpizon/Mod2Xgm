@@ -74,7 +74,7 @@ nothing else (`drv_xgm2_ym_fct.i80`, `FM_playPCM`). But rescomp always runs the 
 read each slot as a sample of its own (`XGM.java`, sample table parse) and write every sample's bytes back to back
 (`XGM.java`, `getPCMDataArray`; xgmtool's `xgc.c`). Checked against SGDK's sources, 2026-11-01.
 
-Blocks follow in order: **SDAT** (SLEN×256, 8-bit signed PCM) → **FMDAT** (FMLEN×256) →
+Blocks follow in order: **SDAT** (SLEN×256, 8-bit PCM stored **unsigned**, silence `$80`: xgm2tool adds `$80` to every byte when it compiles, so the driver gets signed bytes; xgm2.txt says signed, [ADR 0127](../adr/0127-xgm2-unsigned-samples.md)) → **FMDAT** (FMLEN×256) →
 **PSGDAT** (PSGLEN×256) → optional GD3. Pad each block to a 256-byte multiple.
 
 v1 of the writer: single-track, unpacked, no GD3 (flags b1–b3 = 0).
