@@ -14,7 +14,7 @@ public sealed class GenesisStreamTests
     {
         // Arrange
         IReadOnlyList<ChipEvent>[] frames = [[], [], [], [ChipEvent.Fm(0, 0x28, 0), Play()], [], [ChipEvent.Stop(0)]];
-        (ConversionNotes notes, MessageList messages) = Notes();
+        (ConversionNotes notes, CollectingSink sink) = Notes();
 
         // Act
         IReadOnlyList<IReadOnlyList<ChipEvent>> moved = GenesisStream.PcmAhead(frames, 2, null, 50, notes);
@@ -24,7 +24,7 @@ public sealed class GenesisStreamTests
         Assert.Equal(ChipEventKind.PcmPlay, Assert.Single(moved[1]).Kind);
         Assert.Equal([ChipEventKind.FmWrite, ChipEventKind.PcmStop], moved[3].Select(e => e.Kind));
         Assert.Empty(moved[5]);
-        Assert.Empty(messages);
+        Assert.Empty(sink.Messages(LogEventLevel.Warning));
     }
 
     /// <summary>A play in the first frames goes to frame 0, in order, with a note that it is heard late.</summary>
@@ -33,14 +33,14 @@ public sealed class GenesisStreamTests
     {
         // Arrange
         IReadOnlyList<ChipEvent>[] frames = [[ChipEvent.Stop(1)], [Play()], [], []];
-        (ConversionNotes notes, MessageList messages) = Notes();
+        (ConversionNotes notes, CollectingSink sink) = Notes();
 
         // Act
         IReadOnlyList<IReadOnlyList<ChipEvent>> moved = GenesisStream.PcmAhead(frames, 2, null, 50, notes);
 
         // Assert
         Assert.Equal([ChipEventKind.PcmStop, ChipEventKind.PcmPlay], moved[0].Select(e => e.Kind));
-        Assert.Contains("1 recordings start in the first 2 frames of the song", Assert.Single(messages), StringComparison.Ordinal);
+        Assert.Contains("1 recordings start in the first 2 frames of the song", Assert.Single(sink.Messages(LogEventLevel.Warning)), StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -65,21 +65,10 @@ public sealed class GenesisStreamTests
     /// <summary>A PCM play of <see cref="Sound"/> on channel 0.</summary>
     private static ChipEvent Play() => ChipEvent.Play(0, Sound, false, 0, "1 \"x\"");
 
-    /// <summary>A notes collector and the conversion notes it logs.</summary>
-    private static (ConversionNotes Notes, MessageList Messages) Notes()
+    /// <summary>A notes collector and the sink that sees the conversion notes it logs.</summary>
+    private static (ConversionNotes Notes, CollectingSink Sink) Notes()
     {
         CollectingSink sink = new();
-        ConversionNotes notes = new(sink.CreateLogger());
-        return (notes, new MessageList(sink));
-    }
-
-    /// <summary>The conversion notes (Warning messages) a <see cref="CollectingSink"/> has seen so far.</summary>
-    private sealed class MessageList(CollectingSink sink) : IEnumerable<string>
-    {
-        /// <inheritdoc/>
-        public IEnumerator<string> GetEnumerator() => sink.Messages(LogEventLevel.Warning).GetEnumerator();
-
-        /// <inheritdoc/>
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+        return (new ConversionNotes(sink.CreateLogger()), sink);
     }
 }
