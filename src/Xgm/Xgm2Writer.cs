@@ -333,7 +333,7 @@ internal static class Xgm2Writer
             if (_pcm[channel] is { } playing)
             {
                 int id = playing.Id - 1;
-                double seconds = (frame - playing.Frame + HeardMarginFrames) / (double)stream.FrameRate;
+                double seconds = (frame - playing.Frame + HeardMarginFrames) / stream.FrameRate;
                 int bytes = (int)Math.Min(_samples[id].Data.Length, Math.Ceiling(seconds * playing.RateHz));
                 _heard[id] = Math.Max(_heard[id], bytes);
                 _pcm[channel] = null;

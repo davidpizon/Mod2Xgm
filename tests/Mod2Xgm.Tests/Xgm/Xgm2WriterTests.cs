@@ -466,7 +466,8 @@ public sealed class Xgm2WriterTests
     [InlineData(0.01, 50, 1)]
     [InlineData(0.0099, 50, 0)]
     [InlineData(1.0, 60, 60)]
-    public void FrameAt_WithMoment_ReturnsNearestFrame(double seconds, int rate, int expected)
+    [InlineData(60.0, 49.7015, 2982)]
+    public void FrameAt_WithMoment_ReturnsNearestFrame(double seconds, double rate, int expected)
     {
         // Act
         int sut = GenesisStream.FrameAt(seconds, rate);

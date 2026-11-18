@@ -43,7 +43,7 @@ every XGM2 file, its own too, so it can't check them. Playing in an SGDK ROM is 
 
 ## Common to both
 
-Both are **register-level streams per frame** (1/60 s NTSC, 1/50 s PAL), not pattern data. The converter
+Both are **register-level streams per frame** (one VBlank: 1/59.92 s NTSC, 1/49.70 s PAL, [ADR 0128](../adr/0128-xgm2-real-frame-rate.md)), not pattern data. The converter
 records them from `GenesisPlanPlayer`, the player the Genesis render uses (`GenesisStream`, `src/Xgm`): each tick's
 YM2612 writes, PSG bytes and PCM plays go to the frame the tick starts in; the XGM and XGM2 writers then encode the
 same frames differently ([ADR 0099](../adr/0099-xgm2-writer-records-the-player.md)).

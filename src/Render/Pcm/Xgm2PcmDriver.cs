@@ -85,11 +85,11 @@ internal sealed class Xgm2PcmDriver : SoftwarePcmDriver
     /// many as fit in the start delay and the padded, repeated head together, so a sound is never heard before its frame
     /// (2 on PAL and on NTSC).
     /// </summary>
-    public static int LeadFrames(double ymClockHz, int frameRate) =>
+    public static int LeadFrames(double ymClockHz, double frameRate) =>
         (int)Math.Floor((StartDelayBeats + (2.0 * RepeatedBeats)) / (BeatRateHz(ymClockHz) / frameRate));
 
     /// <summary>The <see cref="LeadFrames"/> in beats, rounded to the nearest.</summary>
-    public static int LeadBeats(double ymClockHz, int frameRate) =>
+    public static int LeadBeats(double ymClockHz, double frameRate) =>
         (int)Math.Round(LeadFrames(ymClockHz, frameRate) * BeatRateHz(ymClockHz) / frameRate);
 
     /// <summary>Full-speed beats per second for a YM3438 at <paramref name="ymClockHz"/>; half speed is half that.</summary>

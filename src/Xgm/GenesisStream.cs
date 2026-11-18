@@ -63,28 +63,24 @@ internal readonly record struct ChipEvent(
 }
 
 /// <summary>
-/// A song as the XGM writers store it: what the sound hardware is told on each frame (1/50 s PAL, 1/60 s NTSC), in order
+/// A song as the XGM writers store it: what the sound hardware is told on each frame (one VBlank: 1/49.70 s PAL,
+/// 1/59.92 s NTSC, <see cref="GenesisChips.FrameRateHz"/>), in order
 /// (docs/formats/xgm.md#common-to-both, docs/adr/0099-xgm2-writer-records-the-player.md).
 /// </summary>
 /// <param name="Frames">Every frame of one pass through the song, each with its events in order.</param>
 /// <param name="LoopFrame">The frame the song goes back to after the last one, or <c>null</c> when it ends.</param>
-/// <param name="Pal">True for a PAL Genesis (50 frames a second), false for NTSC (60).</param>
+/// <param name="Pal">True for a PAL Genesis (49.70 frames a second), false for NTSC (59.92).</param>
 /// <param name="PcmRateHz">The PCM driver's full-speed rate on that Genesis, in hertz.</param>
 internal sealed record GenesisStream(IReadOnlyList<IReadOnlyList<ChipEvent>> Frames, int? LoopFrame, bool Pal, double PcmRateHz)
 {
-    /// <summary>Frames a second on a PAL Genesis.</summary>
-    private const int PalFrameRate = 50;
-
-    /// <summary>Frames a second on an NTSC Genesis.</summary>
-    private const int NtscFrameRate = 60;
-
-    /// <summary>Frames a second.</summary>
-    public int FrameRate => Pal ? PalFrameRate : NtscFrameRate;
+    /// <summary>Frames a second: the Genesis's real VBlank rate (docs/adr/0128-xgm2-real-frame-rate.md).</summary>
+    public double FrameRate => GenesisChips.FrameRateHz(Pal ? Region.Pal : Region.Ntsc);
 
     /// <summary>
     /// Plays <paramref name="plan"/> with the same player the Genesis render uses, on XGM2's PCM driver, and records what it
     /// tells the hardware, frame by frame: each tick goes to the frame it starts in. Says in a note how many ticks share a
-    /// frame with the tick before, whose changes then play together.
+    /// frame with the tick before, whose changes then play together. Frames are the console's real VBlanks, so the song
+    /// keeps the MOD's tempo on hardware (docs/adr/0128-xgm2-real-frame-rate.md).
     /// </summary>
     /// <param name="plan">Which channel plays each note, with which voice.</param>
     /// <param name="song">The plan's song.</param>
@@ -99,7 +95,7 @@ internal sealed record GenesisStream(IReadOnlyList<IReadOnlyList<ChipEvent>> Fra
         ArgumentNullException.ThrowIfNull(playback);
         ArgumentNullException.ThrowIfNull(notes);
         bool pal = region == Region.Pal;
-        int rate = pal ? PalFrameRate : NtscFrameRate;
+        double rate = GenesisChips.FrameRateHz(region);
         Recorder recorder = new();
         GenesisChips chips = new(region, PcmDriver.Xgm2) { Recorder = recorder };
         IReadOnlyList<PlaybackTick> ticks = playback.Ticks;
@@ -127,7 +123,7 @@ internal sealed record GenesisStream(IReadOnlyList<IReadOnlyList<ChipEvent>> Fra
         player.Report();
         if (shared > 0)
         {
-            notes.Add("{Count} ticks start in the same 1/{Rate} s frame as the tick before, so XGM2 plays their changes together", shared, rate);
+            notes.Add("{Count} ticks start in the same 1/{Rate} s frame as the tick before, so XGM2 plays their changes together", shared, Math.Round(rate, 2));
         }
 
         int length = Math.Max(FrameAt(seconds, rate), recorder.Frames.Count);
@@ -149,7 +145,7 @@ internal sealed record GenesisStream(IReadOnlyList<IReadOnlyList<ChipEvent>> Fra
     /// first frames is sent both before the loop starts (the first time through) and at the end of the song (the times
     /// after). A command in the song's first frames can go no earlier than frame 0, and is heard late, with a note.
     /// </summary>
-    internal static IReadOnlyList<IReadOnlyList<ChipEvent>> PcmAhead(IReadOnlyList<IReadOnlyList<ChipEvent>> frames, int lead, int? loop, int frameRate, ConversionNotes notes)
+    internal static IReadOnlyList<IReadOnlyList<ChipEvent>> PcmAhead(IReadOnlyList<IReadOnlyList<ChipEvent>> frames, int lead, int? loop, double frameRate, ConversionNotes notes)
     {
         ArgumentNullException.ThrowIfNull(frames);
         ArgumentNullException.ThrowIfNull(notes);
@@ -192,7 +188,7 @@ internal sealed record GenesisStream(IReadOnlyList<IReadOnlyList<ChipEvent>> Fra
     private static bool IsPcm(ChipEvent e) => e.Kind is ChipEventKind.PcmPlay or ChipEventKind.PcmStop;
 
     /// <summary>The frame a moment <paramref name="seconds"/> into the song falls in: the nearest frame start.</summary>
-    internal static int FrameAt(double seconds, int frameRate) => (int)Math.Round(seconds * frameRate, MidpointRounding.AwayFromZero);
+    internal static int FrameAt(double seconds, double frameRate) => (int)Math.Round(seconds * frameRate, MidpointRounding.AwayFromZero);
 
     /// <summary>Collects the player's events into the frame it is on.</summary>
     private sealed class Recorder : IChipRecorder

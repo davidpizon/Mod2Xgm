@@ -41,11 +41,17 @@ internal sealed class GenesisChips
     /// <summary>The PSG's DC is taken off by a first-order high-pass at this frequency, like the coupling capacitors of a real console.</summary>
     private const double DcBlockHz = 5;
 
-    /// <summary>Frames a second on an NTSC Genesis.</summary>
-    private const int NtscFrameRate = 60;
+    /// <summary>Master clocks per YM3438 clock: the YM3438 runs at the master clock divided by 7 (docs/genesis-audio.md#timing).</summary>
+    private const int MasterClocksPerYmClock = 7;
 
-    /// <summary>Frames a second on a PAL Genesis.</summary>
-    private const int PalFrameRate = 50;
+    /// <summary>Master clocks per scanline, on both regions (docs/genesis-audio.md#timing).</summary>
+    private const int MasterClocksPerLine = 3420;
+
+    /// <summary>Scanlines per frame on an NTSC Genesis (docs/genesis-audio.md#timing).</summary>
+    private const int NtscLinesPerFrame = 262;
+
+    /// <summary>Scanlines per frame on a PAL Genesis (docs/genesis-audio.md#timing).</summary>
+    private const int PalLinesPerFrame = 313;
 
     /// <summary>The DAC data register: offset binary, <c>$80</c> = 0.</summary>
     private const byte RegDacData = 0x2a;
@@ -73,6 +79,15 @@ internal sealed class GenesisChips
     private double _dcIn;
     private double _dcOut;
 
+    /// <summary>
+    /// Frames (VBlanks) a second on a Genesis of <paramref name="region"/>: the master clock over the master clocks in a
+    /// frame, 59.92 Hz on NTSC and 49.70 Hz on PAL, not 60 and 50 (docs/adr/0128-xgm2-real-frame-rate.md). SGDK's XGM2
+    /// driver plays one frame of the song each VBlank.
+    /// </summary>
+    public static double FrameRateHz(Region region) => region == Region.Ntsc
+        ? Ym3438.NtscClockHz * MasterClocksPerYmClock / (MasterClocksPerLine * NtscLinesPerFrame)
+        : Ym3438.PalClockHz * MasterClocksPerYmClock / (MasterClocksPerLine * PalLinesPerFrame);
+
     /// <summary>Creates the chips in their reset state for a Genesis of <paramref name="region"/>, with PCM played by <paramref name="driver"/>.</summary>
     public GenesisChips(Region region, PcmDriver driver)
     {
@@ -87,7 +102,7 @@ internal sealed class GenesisChips
         {
             PcmDriver.Xgm => new XgmPcmDriver(),
             // The XGM2 writer sends PCM commands ahead of their frame (docs/adr/0119-xgm2-pcm-lead.md).
-            PcmDriver.Xgm2 => new Xgm2PcmDriver(leadBeats: Xgm2PcmDriver.LeadBeats(ymClock, region == Region.Ntsc ? NtscFrameRate : PalFrameRate)),
+            PcmDriver.Xgm2 => new Xgm2PcmDriver(leadBeats: Xgm2PcmDriver.LeadBeats(ymClock, FrameRateHz(region))),
             _ => new DmfDac(ymClock),
         };
 
