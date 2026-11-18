@@ -9,6 +9,12 @@ namespace Mod2Xgm.Mapping;
 /// </summary>
 internal static class FmPatchLibrary
 {
+    /// <summary>
+    /// The attack rate of a note that starts at once: about 1 ms to full level, not the single sample of rate 31, whose
+    /// step clicks where OpenMPT ramps a note in and the Amiga's output filter rounds it (docs/adr/0121-soft-fm-attack.md).
+    /// </summary>
+    public const int SoftAttackRate = 27;
+
     /// <summary>A plain sine: only OP1 sounds (all four operators are carriers under algorithm 7).</summary>
     public static FmPatch Sine { get; } = new(
         "Sine",
@@ -101,8 +107,8 @@ internal static class FmPatchLibrary
     /// <summary>The patch for a sample that plays once, played by FM because the DAC isn't used: a struck note.</summary>
     public static FmPatch ForOneShot(double brightness) => brightness < 0.45 ? Pluck : Brass;
 
-    /// <summary>A sounding operator: instant-ish attack, held at full sustain unless a decay is given.</summary>
-    private static FmOperator Op(int mult, int tl, int detune = 0, int ar = 31, int dr = 0, int d2R = 0, int sl = 0, int rr = 8) =>
+    /// <summary>A sounding operator: a soft-start attack (<see cref="SoftAttackRate"/>), held at full sustain unless a decay is given.</summary>
+    private static FmOperator Op(int mult, int tl, int detune = 0, int ar = SoftAttackRate, int dr = 0, int d2R = 0, int sl = 0, int rr = 8) =>
         new(mult, detune, tl, 0, ar, false, dr, d2R, sl, rr);
 
     /// <summary>An operator turned all the way down (TL 127).</summary>

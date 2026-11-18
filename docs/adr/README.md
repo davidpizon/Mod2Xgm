@@ -134,6 +134,7 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0118](0118-harmonic-patches.md) | FM patches built from a looped tone's harmonics | 2026-11-17 | Accepted |
 | [0119](0119-xgm2-pcm-lead.md) | XGM2 sends PCM commands 2 frames ahead, after a silent head | 2026-11-17 | Accepted |
 | [0120](0120-faded-recordings.md) | A recording whose note fades has the fade baked in (XGM and XGM2) | 2026-11-17 | Accepted |
+| [0121](0121-soft-fm-attack.md) | FM notes start with a 1 ms attack (rate 27), not a one-sample step | 2026-11-17 | Proposed |
 
 ## Open questions
 
