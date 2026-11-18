@@ -13,7 +13,8 @@ public sealed class SimpleMapperTests
     /// <summary>
     /// Instrument numbers in <see cref="Build"/>: a looped sine, two tonal drums, a noise hit, an empty slot, a hit of
     /// noise with a short looped tail, a looped hiss, a decaying tone with a short looped tail, a looped tone whose
-    /// second harmonic is louder than its fundamental, and a looped sawtooth.
+    /// second harmonic is louder than its fundamental, a looped sawtooth, a looped six-note chord (harmonics 4, 5, 6, 8, 10
+    /// and 12 of its cycle) and a looped chorused chord with no cycle at all.
     /// </summary>
     private const int Organ = 0;
 
@@ -26,6 +27,8 @@ public sealed class SimpleMapperTests
     private const int Pluck = 7;
     private const int Octave = 8;
     private const int Saw = 9;
+    private const int Chord = 10;
+    private const int Pad = 11;
 
     /// <summary>
     /// A note is placed at the pitch the tick player plays it at (ADR 0061: the instrument's finetune is in it), on every
@@ -168,6 +171,37 @@ public sealed class SimpleMapperTests
         // Assert
         Assert.Contains(Assert.Single(plan.FmPatches), FmPatchLibrary.All);
         Assert.Contains("its four loudest harmonics (1, 2, 3, 4) hold only", notes[1], StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A chord whose loop repeats at its common cycle, two octaves below its bottom note, and that four carriers can't hold
+    /// plays a library patch lifted two octaves to that bottom note, with a note saying so (docs/adr/0125-chord-samples.md).
+    /// </summary>
+    [Fact]
+    public void Map_WithChordLoop_LiftsLibraryPatchToBottomNote()
+    {
+        // Act
+        (GenesisPlan plan, List<string> notes) = Map(Build([[RowOf(Play(Chord))]]));
+
+        // Assert
+        Assert.Contains(Assert.Single(plan.FmPatches), FmPatchLibrary.All);
+        Assert.Equal(2400, CellAt(plan, GenesisChannel.Fm1).Cents, 3);
+        Assert.Contains(notes, n => n.Contains("a cycle below every note in it (a chord), so its FM notes play its lowest strong harmonic, 4", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// A chorused chord with no cycle at all plays its bottom note, unlifted, with a note saying so
+    /// (docs/adr/0125-chord-samples.md).
+    /// </summary>
+    [Fact]
+    public void Map_WithChorusedChordLoop_PlaysBottomNote()
+    {
+        // Act
+        (GenesisPlan plan, List<string> notes) = Map(Build([[RowOf(Play(Pad))]]));
+
+        // Assert
+        Assert.Equal(0, CellAt(plan, GenesisChannel.Fm1).Cents);
+        Assert.Contains(notes, n => n.Contains("no one cycle repeats in its loop (a chord, or a chorused tone), so its FM notes play its lowest strong note", StringComparison.Ordinal));
     }
 
     /// <summary>
@@ -791,6 +825,8 @@ public sealed class SimpleMapperTests
         float[] pluck = [.. Enumerable.Range(0, 8000).Select(i => (float)(Math.Sin(2 * Math.PI * i / 75) * Math.Exp(-i / 3000.0)))];
         float[] octave = [.. Enumerable.Range(0, 128).Select(i => (float)((0.3 * Math.Sin(2 * Math.PI * i / 128)) + Math.Sin(2 * Math.PI * i / 64)))];
         float[] saw = [.. Enumerable.Range(0, 64).Select(i => (float)((i / 32.0) - 1))];
+        float[] chord = [.. Enumerable.Range(0, 128).Select(i => (float)new[] { 4, 5, 6, 8, 10, 12 }.Sum(k => 0.15 * Math.Sin(2 * Math.PI * k * i / 128)))];
+        float[] pad = [.. Enumerable.Range(0, 16384).Select(i => (float)new[] { 55, 56, 69, 70, 82, 83 }.Sum(k => 0.15 * Math.Sin(2 * Math.PI * k * i / 16384)))];
         Sample[] samples =
         [
             new("organ", tone, new SampleLoop(0, 1024)),
@@ -803,6 +839,8 @@ public sealed class SimpleMapperTests
             new("pluck", pluck, new SampleLoop(7400, 600)),
             new("octave", octave, new SampleLoop(0, 128)),
             new("saw", saw, new SampleLoop(0, 64)),
+            new("chord", chord, new SampleLoop(0, 128)),
+            new("pad", pad, new SampleLoop(0, 16384)),
         ];
         Instrument[] instruments = [.. samples.Select((_, i) => new Instrument(i, 0.5, 0))];
         Pattern[] built = [.. patterns.Select(rows => new Pattern([.. rows.Select(r => r.Cells.Count == channels ? r : new Row([.. r.Cells.Take(channels), .. Enumerable.Repeat(Cell.Empty, channels - r.Cells.Count)]))]))];

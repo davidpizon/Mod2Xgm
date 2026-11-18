@@ -75,7 +75,7 @@ public sealed class HarmonicPatchTests
         Assert.InRange(sut.Capture, 0.8, 0.9);
     }
 
-    /// <summary>A sample can't be measured without a loop, with a loop that isn't a whole number of cycles, or when silent.</summary>
+    /// <summary>A sample can't be measured without a loop, with a loop whose power lies off the cycle's harmonics, or when silent.</summary>
     [Theory]
     [InlineData(false, 64, 1.0)]
     [InlineData(true, 40, 1.0)]
@@ -90,6 +90,67 @@ public sealed class HarmonicPatchTests
 
         // Assert
         Assert.Null(sut);
+    }
+
+    /// <summary>
+    /// A major chord whose loop isn't a whole number of its common cycle (8000 frames of 159, 199 and 239 cycles: 4:5:6
+    /// within 4 cents) is measured by the power near each harmonic: its notes are harmonics 4, 5 and 6, the bottom one is 4,
+    /// and they hold the whole loop (docs/adr/0125-chord-samples.md).
+    /// </summary>
+    [Fact]
+    public void Of_WithChordLoopOffItsCycle_FindsItsNotesNearTheHarmonics()
+    {
+        // Arrange
+        Sample sample = new("chord", Wave(8000, 8000, (159, 0.3), (199, 0.3), (239, 0.3)), new SampleLoop(0, 8000));
+
+        // Act
+        HarmonicPatch? sut = HarmonicPatch.Of(sample, 4 * 8000 / 159.0);
+
+        // Assert
+        Assert.NotNull(sut?.Patch);
+        Assert.Equal([4, 5, 6], sut.Harmonics);
+        Assert.Equal(4, sut.Lowest);
+        Assert.InRange(sut.Capture, 0.95, 1.01);
+        Assert.Equal("Harmonic 4+5+6", sut.Patch.Name);
+    }
+
+    /// <summary>
+    /// A chord of six equal notes (harmonics 4, 5, 6, 8, 10 and 12 of its cycle) is more than four carriers can hold, so it
+    /// has no patch, and its bottom note is harmonic 4.
+    /// </summary>
+    [Fact]
+    public void Of_WithSixNoteChord_HasNoPatchAndBottomNoteFour()
+    {
+        // Arrange
+        Sample sample = new("chord", Wave(128, 128, (4, 0.2), (5, 0.2), (6, 0.2), (8, 0.2), (10, 0.2), (12, 0.2)), new SampleLoop(0, 128));
+
+        // Act
+        HarmonicPatch? sut = HarmonicPatch.Of(sample, 128);
+
+        // Assert
+        Assert.NotNull(sut);
+        Assert.Null(sut.Patch);
+        Assert.Equal(4, sut.Lowest);
+        Assert.Equal(4.0 / 6, sut.Capture, 2);
+    }
+
+    /// <summary>
+    /// The bottom note is the lowest harmonic within 20 dB of the loudest: a fundamental 26 dB below the octave isn't heard
+    /// as a note, one 14 dB below is.
+    /// </summary>
+    [Theory]
+    [InlineData(0.05, 2)]
+    [InlineData(0.2, 1)]
+    public void Of_WithQuietFundamental_CountsItOnlyWithin20Db(double fundamental, int expected)
+    {
+        // Arrange
+        Sample sample = new("tone", Wave(64, 64, (1, fundamental), (2, 1.0)), new SampleLoop(0, 64));
+
+        // Act
+        HarmonicPatch? sut = HarmonicPatch.Of(sample, 64);
+
+        // Assert
+        Assert.Equal(expected, sut?.Lowest);
     }
 
     /// <summary><paramref name="frames"/> frames of sines at multiples of a <paramref name="period"/>-frame cycle, with the given amplitudes.</summary>
