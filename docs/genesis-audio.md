@@ -45,11 +45,13 @@
   - Kept MAME's: the register the latch points at after power-on.
 
 ## Timing
-- Frame rate: NTSC 60 Hz, PAL 50 Hz. XGM/XGM2 advance per frame.
+- Frame rate: one VBlank, the master clock over 3420 clocks a line × 262 lines (NTSC, 59.9227 Hz) or 313 (PAL,
+  49.7015 Hz), not 60 / 50 Hz. XGM/XGM2 advance one frame per VBlank, so ticks are placed on these real rates
+  ([ADR 0128](adr/0128-xgm2-real-frame-rate.md)). The YM2612 runs at the master clock / 7.
 - MOD base tick = BPM×2/5 Hz → 50 Hz at BPM 125 for a PAL-made song, ×6/5 (60 Hz) with `--input-region ntsc`
-  ([cli.md](cli.md#regions)). When the source and output regions match at BPM 125, one MOD tick = one frame
-  exactly. Otherwise, or at any other BPM, ticks are spread onto frames so the source speed is kept (DMF: custom Hz /
-  tick times; XGM: fractional accumulator in the tick player).
+  ([cli.md](cli.md#regions)). When the source and output regions match at BPM 125, one MOD tick = one DMF frame
+  exactly and about one XGM/XGM2 frame. Otherwise, or at any other BPM, ticks are spread onto frames so the source
+  speed is kept (DMF: custom Hz / tick times; XGM: fractional accumulator in the tick player).
 
 ## Pitch conversion
 MOD period → Hz (see [formats/mod.md](formats/mod.md)) → FM block/F-number, PSG period, or PCM rate:

@@ -143,20 +143,20 @@ see [ADR 0030](adr/0030-amiga-pitch-regions-finetune.md)):
   (Paula clock PAL 3 546 895 Hz / NTSC 3 579 545 Hz, see [formats/mod.md](formats/mod.md#pitch); `ntsc` is about
   **15.9 cents higher**) and its speed (the tick rate follows the Amiga's screen: **50 ticks/s on PAL, 60 on NTSC**
   at BPM 125). Most MODs come from PAL Amigas, and openmpt123 (the accuracy reference) assumes PAL.
-- **`--output-region`** — the **Genesis** that plays the result: its YM2612/PSG clocks and 50 or 60 Hz frame rate
+- **`--output-region`** — the **Genesis** that plays the result: its YM2612/PSG clocks and its frame rate (49.70 Hz PAL, 59.92 Hz NTSC: [ADR 0128](adr/0128-xgm2-real-frame-rate.md))
   ([genesis-audio.md](genesis-audio.md)).
 
 The output always sounds like the song did on its original Amiga, at that Amiga's pitch and speed (David,
 [ADR 0030](adr/0030-amiga-pitch-regions-finetune.md)). The tick player (T3.4) times every tick at the source rate; the writers fit the ticks
-onto the target's frames. When the regions match, one MOD tick is one Genesis frame; when they don't, the
-converter spreads the ticks onto the frames so the speed stays the same:
+onto the target's frames. When the regions match, one MOD tick is about one Genesis frame (a VBlank is a little
+longer than 1/50 or 1/60 s); when they don't, the converter spreads the ticks onto the frames so the speed stays the same:
 
 | `--input-region` | `--output-region` | Ticks/s at BPM 125 | Frames/s | Ticks per frame |
 |---|---|---|---|---|
-| `pal` | `pal` | 50 | 50 | 1 |
-| `ntsc` | `ntsc` | 60 | 60 | 1 |
-| `pal` | `ntsc` | 50 | 60 | 5 ticks over 6 frames |
-| `ntsc` | `pal` | 60 | 50 | 6 ticks over 5 frames |
+| `pal` | `pal` | 50 | 49.70 | about 1 (a tick shares a frame about every 170 ticks) |
+| `ntsc` | `ntsc` | 60 | 59.92 | about 1 (a tick shares a frame about every 780 ticks) |
+| `pal` | `ntsc` | 50 | 59.92 | about 5 ticks over 6 frames |
+| `ntsc` | `pal` | 60 | 49.70 | about 6 ticks over 5 frames |
 
 Pitch never depends on `--output-region`: the converter picks the Genesis notes that reproduce the source pitch with
 the target console's clocks.

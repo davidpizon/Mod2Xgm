@@ -364,9 +364,9 @@ public sealed class Xgm2PcmDriverTests
 
     /// <summary>The writer sends PCM commands 2 frames ahead on both PAL and NTSC: as many as fit in the delay and the padded head.</summary>
     [Theory]
-    [InlineData(Ym3438.PalClockHz, 50)]
-    [InlineData(Ym3438.NtscClockHz, 60)]
-    public void LeadFrames_ForRegion_IsTwo(double ymClockHz, int frameRate)
+    [InlineData(Ym3438.PalClockHz, 49.7015)]
+    [InlineData(Ym3438.NtscClockHz, 59.9227)]
+    public void LeadFrames_ForRegion_IsTwo(double ymClockHz, double frameRate)
     {
         // Act
         int frames = Xgm2PcmDriver.LeadFrames(ymClockHz, frameRate);

@@ -625,7 +625,7 @@ public sealed class ConversionCommandTests
         ConversionCommand.Execute(options, sink.CreateLogger());
 
         // Assert
-        Assert.Contains(sink.Messages(LogEventLevel.Warning), m => m.Contains("ticks start in the same 1/50 s frame as the tick before", StringComparison.Ordinal));
+        Assert.Contains(sink.Messages(LogEventLevel.Warning), m => m.Contains("ticks start in the same 1/49.7 s frame as the tick before", StringComparison.Ordinal));
     }
 
     /// <summary><c>--format xgm</c> doesn't print the XGM2 extension note.</summary>
