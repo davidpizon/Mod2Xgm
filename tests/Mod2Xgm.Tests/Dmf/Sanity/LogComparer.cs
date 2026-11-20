@@ -89,12 +89,12 @@ internal static class LogComparer
         ArgumentNullException.ThrowIfNull(candidate);
         ChipState a = new();
         ChipState b = new();
-        HashSet<string> differing = new(StringComparer.Ordinal);
+        HashSet<string> differing = [with(StringComparer.Ordinal)];
         List<ChipChange> changes = [];
         Tally tally = new();
         for (int f = 0; f < reference.Frames.Count; f++)
         {
-            HashSet<string> touched = new(StringComparer.Ordinal);
+            HashSet<string> touched = [with(StringComparer.Ordinal)];
             foreach (ChipWrite w in reference.Frames[f])
             {
                 changes.Clear();

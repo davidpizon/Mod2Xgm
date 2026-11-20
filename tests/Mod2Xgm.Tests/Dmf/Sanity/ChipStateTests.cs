@@ -78,7 +78,7 @@ public sealed class ChipStateTests
         sut.Apply(ChipWrite.Psg(0xE4), changes);
 
         // Assert
-        Assert.Equal(2, changes.Count(c => c.Key == "PSG noise" && c.IsEvent));
+        Assert.Equal(2, changes.Count(c => c is { Key: "PSG noise", IsEvent: true }));
     }
 
     /// <summary>Report categories follow the register ranges.</summary>

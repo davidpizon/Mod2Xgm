@@ -15,7 +15,7 @@ namespace Mod2Xgm.Tests.Dmf.Sanity;
 internal sealed class DmfPlayer
 {
     /// <summary>A song that hasn't looped or ended after this many ticks (30 minutes at 60 Hz) is cut there.</summary>
-    public const int MaxTicks = 60 * 60 * 30;
+    private const int MaxTicks = 60 * 60 * 30;
 
     /// <summary>Note value for "note off" (docs/formats/dmf.md#8-patterns).</summary>
     private const int NoteOff = 100;
@@ -82,7 +82,8 @@ internal sealed class DmfPlayer
             }
 
             visited[(order, row)] = _frame;
-            DmfCell[] cells = [.. _file.Channels.Select(c => c.Patterns[order][row])];
+            (int Order, int Row) at = (order, row);
+            DmfCell[] cells = [.. _file.Channels.Select(c => c.Patterns[at.Order][at.Row])];
 
             // Speeds set on the row count for the row itself.
             int? jumpOrder = null;
@@ -204,7 +205,7 @@ internal sealed class DmfPlayer
 
         DmfSample s = _file.Samples[index];
         IEnumerable<short> raw = s.Data;
-        if (s.CutStart is { } start && s.CutEnd is { } end && end > start)
+        if (s is { CutStart: { } start, CutEnd: { } end } && end > start)
         {
             raw = raw.Skip(start).Take(end - start);
         }
@@ -291,23 +292,23 @@ internal sealed class DmfPlayer
         protected DmfPlayer Player { get; } = player;
 
         /// <summary>The note playing (note + 12 × octave), or −1.</summary>
-        protected int Pitch { get; set; } = -1;
+        protected int Pitch { get; private set; } = -1;
 
         /// <summary>True between a note and its note-off.</summary>
         protected bool On { get; set; }
 
         /// <summary>The instrument number, or −1.</summary>
-        protected int Instrument { get; set; } = -1;
+        protected int Instrument { get; private set; } = -1;
 
         /// <summary>The channel volume (FM 0–7F, PSG 0–F).</summary>
-        protected int Volume { get; set; }
+        private int Volume { get; set; }
 
         /// <summary>The pitch slides move (hertz), before arpeggio, vibrato and fine pitch.</summary>
-        protected double BaseHz { get; set; }
+        protected double BaseHz { get; private set; }
 
-        protected int ArpX { get; private set; }
+        private int ArpX { get; set; }
 
-        protected int ArpY { get; private set; }
+        private int ArpY { get; set; }
 
         private int ArpTicks { get; set; }
 
@@ -343,7 +344,7 @@ internal sealed class DmfPlayer
         {
             _retrigger = 0;
             _cutTick = -1;
-            DmfEffect delay = cell.Effects.FirstOrDefault(e => e.Code == 0xED && e.Value > 0);
+            DmfEffect delay = cell.Effects.FirstOrDefault(e => e is { Code: 0xED, Value: > 0 });
             _pending = cell;
             _pendingTick = delay.Code == 0xED ? delay.Value : 0;
             if (_pendingTick >= ticks)
@@ -441,7 +442,7 @@ internal sealed class DmfPlayer
                         SlideSpeed = 0;
                         portamento = v > 0;
                         MarkSlideSet();
-                        if (cell.Note == NoteOff || (cell.Note == 0 && cell.Octave == 0))
+                        if (cell.Note == NoteOff || cell is { Note: 0, Octave: 0 })
                         {
                             // On a row without a note DefleMask freezes the glide (docs/formats/dmf.md#effect-units).
                             PortaTargetHz = null;
@@ -578,7 +579,7 @@ internal sealed class DmfPlayer
         protected abstract void Release();
 
         /// <summary>A note cut (<c>ECxx</c>).</summary>
-        protected virtual void Cut() => Release();
+        protected void Cut() => Release();
 
         /// <summary>Writes whatever the tick changed: frequency, volume, macros.</summary>
         protected abstract void Update();
@@ -613,23 +614,22 @@ internal sealed class DmfPlayer
         /// <summary>The patch as effects have left it, operators in file order; <c>null</c> before an FM instrument.</summary>
         protected int[][]? Operators { get; private set; }
 
-        protected int Algorithm { get; set; }
+        protected int Algorithm { get; private set; }
 
-        protected int Feedback { get; set; }
+        protected int Feedback { get; private set; }
 
-        protected int Fms { get; private set; }
+        private int Fms { get; set; }
 
-        protected int Ams { get; private set; }
+        private int Ams { get; set; }
 
         /// <summary>The pan bits of <c>$B4</c>+ch (L = 0x80, R = 0x40).</summary>
         protected virtual int Pan { get; set; } = 0xC0;
 
         protected override int MaxVolume => 0x7F;
 
-        protected FmBase Init()
+        protected void Init()
         {
             ResetVolume(MaxVolume);
-            return this;
         }
 
         protected override double NoteHz(int pitch) => FmNoteHz(pitch);
@@ -707,8 +707,6 @@ internal sealed class DmfPlayer
             _dirty = false;
             return dirty;
         }
-
-        protected void MarkDirty() => _dirty = true;
 
         /// <summary>The frequency registers to write now, or <c>null</c> when they haven't changed.</summary>
         protected (int Block, int Fnum)? FrequencyChange(bool force)
@@ -1059,7 +1057,7 @@ internal sealed class DmfPlayer
 
         protected override double Slide(double hz, int steps) => PsgClockHz / 32 / Math.Clamp((PsgClockHz / 32 / hz) - steps, 1, 0x3FF);
 
-        protected DmfStdInstrument? Std => Instrument >= 0 ? Player._file.Instruments[Instrument].Std : null;
+        private DmfStdInstrument? Std => Instrument >= 0 ? Player._file.Instruments[Instrument].Std : null;
 
         protected override void InstrumentChanged()
         {
@@ -1091,7 +1089,7 @@ internal sealed class DmfPlayer
         }
 
         /// <summary>The value macro <paramref name="macro"/> has on the current tick, or <c>null</c> when it is empty.</summary>
-        protected int? MacroValue(DmfMacro? macro)
+        private int? MacroValue(DmfMacro? macro)
         {
             if (macro is null || macro.Values.Count == 0)
             {
@@ -1134,10 +1132,9 @@ internal sealed class DmfPlayer
 
         protected void AdvanceMacros() => _macroTick++;
 
-        protected PsgBase Init()
+        protected void Init()
         {
             ResetVolume(MaxVolume);
-            return this;
         }
     }
 

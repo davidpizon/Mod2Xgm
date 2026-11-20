@@ -138,25 +138,6 @@ internal sealed record ChipLog(IReadOnlyList<IReadOnlyList<ChipWrite>> Frames, i
         return new ChipLog(frames, loop, VgmLog.SampleRate / unit);
     }
 
-    /// <summary>The XGM2 writer's input as frames, with each play's song sample, rate and data.</summary>
-    public static ChipLog FromStream(GenesisStream stream, double frameRateHz)
-    {
-        ArgumentNullException.ThrowIfNull(stream);
-        List<IReadOnlyList<ChipWrite>> frames = [];
-        foreach (IReadOnlyList<ChipEvent> events in stream.Frames)
-        {
-            frames.Add([.. events.Select(e => e.Kind switch
-            {
-                ChipEventKind.FmWrite => ChipWrite.Fm(e.Part, e.Register, e.Value),
-                ChipEventKind.PsgWrite => ChipWrite.Psg(e.Value),
-                ChipEventKind.PcmPlay => new ChipWrite(ChipTarget.PcmPlay, Channel: e.Channel, Sample: e.Sample, RateHz: e.HalfSpeed ? stream.PcmRateHz / 2 : stream.PcmRateHz, Data: e.Data, HalfSpeed: e.HalfSpeed),
-                _ => new ChipWrite(ChipTarget.PcmStop, Channel: e.Channel),
-            })]);
-        }
-
-        return new ChipLog(frames, stream.LoopFrame, frameRateHz);
-    }
-
     /// <summary>
     /// What the project's XGM2 path would hand the writer for these frames (the control path of the sanity check): every
     /// write but the DAC registers, which SGDK's driver owns, and each play's data brought to the driver's rate and padded as
@@ -210,7 +191,7 @@ internal sealed record ChipLog(IReadOnlyList<IReadOnlyList<ChipWrite>> Frames, i
     /// 8-bit signed data at <paramref name="fromHz"/> as the XGM2 driver plays it: resampled to <paramref name="toHz"/> the
     /// way the converter resamples, then given the silent head the plan player gives every XGM2 copy.
     /// </summary>
-    public static sbyte[] DriverCopy(sbyte[] data, double fromHz, double toHz, bool halfSpeed)
+    private static sbyte[] DriverCopy(sbyte[] data, double fromHz, double toHz, bool halfSpeed)
     {
         ArgumentNullException.ThrowIfNull(data);
         float[] points = [.. data.Select(b => b / 128f)];

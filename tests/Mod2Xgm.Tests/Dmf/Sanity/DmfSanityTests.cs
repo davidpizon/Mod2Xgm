@@ -11,7 +11,7 @@ namespace Mod2Xgm.Tests.Dmf.Sanity;
 /// </summary>
 [Trait("Category", "Integration")]
 [Trait("Speed", "Slow")]
-public sealed class DmfSanityTests(DmfSanityReport report) : IClassFixture<DmfSanityReport>
+public sealed class DmfSanityTests
 {
     /// <summary>
     /// Every DMF in the local folder with a VGM next to it, by file name; none where the folder is missing. Set
@@ -51,30 +51,32 @@ public sealed class DmfSanityTests(DmfSanityReport report) : IClassFixture<DmfSa
 
         // Act
         SongResult result = SanityRun.Check(Path.Combine(DmfSanityReport.Folder, song), sound);
-        report.Add(result);
+        DmfSanityReport.Add(result);
 
         // Assert
         Assert.True(result.Error is not null || result.Paths.Count == 2, $"{song}: {result.Paths.Count} paths");
     }
 }
 
-/// <summary>Collects <see cref="DmfSanityTests"/>' results and writes the report once every song has run.</summary>
-public sealed class DmfSanityReport : IDisposable
+/// <summary>
+/// Collects <see cref="DmfSanityTests"/>' results and rewrites <c>sanity-report.md</c> after each, with every song that has
+/// run so far in name order, so the report is whole once the last song is in.
+/// </summary>
+internal static class DmfSanityReport
 {
-    private readonly ConcurrentBag<SongResult> _results = [];
+    private static readonly ConcurrentDictionary<string, SongResult> Results = new(StringComparer.Ordinal);
+    private static readonly Lock Writing = new();
 
     /// <summary>The local songs' folder.</summary>
     internal static string Folder => Path.Combine(RepoPaths.Root, "tests", "data", "dmf");
 
-    /// <summary>Adds one song's result.</summary>
-    internal void Add(SongResult result) => _results.Add(result);
-
-    /// <summary>Writes <c>sanity-report.md</c> with the songs that ran, in name order; nothing when none did.</summary>
-    public void Dispose()
+    /// <summary>Adds one song's result and rewrites the report.</summary>
+    internal static void Add(SongResult result)
     {
-        if (!_results.IsEmpty)
+        Results[result.Song] = result;
+        lock (Writing)
         {
-            SongResult[] songs = [.. _results.OrderBy(r => r.Song, StringComparer.Ordinal)];
+            SongResult[] songs = [.. Results.Values.OrderBy(r => r.Song, StringComparer.Ordinal)];
             File.WriteAllText(Path.Combine(Folder, "sanity-report.md"), SanityReport.Write(songs, DateTimeOffset.Now));
         }
     }
