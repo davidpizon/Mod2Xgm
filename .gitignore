@@ -432,3 +432,6 @@ TestResults/
 
 # Local copies of copyrighted papers (see docs/references/fm-matching.md)
 docs/references/papers/
+
+# DefleMask songs and their VGM exports for the DMF sanity check: kept local, not freely licensed (docs/testing.md#dmf-sanity-check)
+tests/data/dmf/

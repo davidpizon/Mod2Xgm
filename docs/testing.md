@@ -134,6 +134,44 @@ target allows and assert the capacity warning, the consolidation steps taken, an
 External applications (openmpt123, DefleMask, SGDK, BlastEm, Genesis Plus GX) are allowed **here and in
 `tools/` only** — the converter itself never launches another program.
 
+## DMF sanity check
+
+[ADR 0129](adr/0129-dmf-sanity-check.md). Songs made in DefleMask that already fit the Genesis's channels, each with
+DefleMask's VGM export next to it, go to XGM2 and are compared with that export. The songs aren't freely licensed, so
+they stay local in `tests/data/dmf/` (git-ignored) and `DmfSanityTests` is skipped where the folder is missing, as in
+CI. Put `song.dmf` and `song.vgm` side by side; DMF versions 24–27 are read (re-save older files in DefleMask).
+
+```mermaid
+flowchart LR
+    DMF[song.dmf] --> Player[DmfPlayer<br/>test-only DefleMask model]
+    VGM[song.vgm] --> Log[ChipLog]
+    Player --> W1[Xgm2Writer]
+    Log --> W2[Xgm2Writer<br/>control path]
+    W1 --> D1[Xgm2Decoder]
+    W2 --> D2[Xgm2Decoder]
+    D1 --> C{checks against<br/>the VGM}
+    D2 --> C
+    Player --> C
+    C --> R[sanity-report.md]
+```
+
+Each XGM2 file is decoded back into chip writes, PCM moved to the frame it is heard on (ADR 0119), and checked against
+the VGM three ways: **writes** (what each frame changes), **state** (the chips' state after each frame) and **sound**
+(both rendered with the project's chip models, scored with `SongScorer`; log-mel distance per 4 s window). The control
+path feeds the VGM's own writes to the writer, so a difference there is the writer's or SGDK's driver's; a difference
+only in the DMF path is the test's DefleMask model (`DmfPlayer`), which is also compared with the VGM on its own.
+**Every difference is a potential defect**; the test fails only when a song can't be put through at all.
+
+```bash
+dotnet test tests/Mod2Xgm.Tests --filter-class "*DmfSanityTests*"
+```
+
+It runs one test per song, so each stays under the 10-minute hang limit, and writes `tests/data/dmf/sanity-report.md`
+when they are done. The sound check is the slow part (the songs run one after another); `M2X_DMF_SANITY_SOUND=0`
+leaves it out, and `M2X_DMF_SANITY_SONGS` (comma-separated names without `.dmf`) checks only those songs.
+Run it in a terminal you can watch. The probes in `tests/golden/dmf-probes/` check the same pieces in CI
+(`SanityPathTests`).
+
 ## Manual / oracle checks (not CI)
 - Open `.dmf` in DefleMask; play it. Export VGM from DefleMask and compare register activity when useful.
 - Build an SGDK test ROM that plays the `.xgm` / `.xgm2`; run in BlastEm / Genesis Plus GX.
