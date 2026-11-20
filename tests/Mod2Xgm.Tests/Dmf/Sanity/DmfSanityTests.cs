@@ -1,5 +1,3 @@
-using System.Collections.Concurrent;
-
 namespace Mod2Xgm.Tests.Dmf.Sanity;
 
 /// <summary>
@@ -64,7 +62,7 @@ public sealed class DmfSanityTests
 /// </summary>
 internal static class DmfSanityReport
 {
-    private static readonly ConcurrentDictionary<string, SongResult> Results = new(StringComparer.Ordinal);
+    private static readonly Dictionary<string, SongResult> Results = new(StringComparer.Ordinal);
     private static readonly Lock Writing = new();
 
     /// <summary>The local songs' folder.</summary>
@@ -73,9 +71,9 @@ internal static class DmfSanityReport
     /// <summary>Adds one song's result and rewrites the report.</summary>
     internal static void Add(SongResult result)
     {
-        Results[result.Song] = result;
         lock (Writing)
         {
+            Results[result.Song] = result;
             SongResult[] songs = [.. Results.Values.OrderBy(r => r.Song, StringComparer.Ordinal)];
             File.WriteAllText(Path.Combine(Folder, "sanity-report.md"), SanityReport.Write(songs, DateTimeOffset.Now));
         }

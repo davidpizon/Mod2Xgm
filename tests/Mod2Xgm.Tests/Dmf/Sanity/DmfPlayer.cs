@@ -579,7 +579,7 @@ internal sealed class DmfPlayer
         protected abstract void Release();
 
         /// <summary>A note cut (<c>ECxx</c>).</summary>
-        protected void Cut() => Release();
+        private void Cut() => Release();
 
         /// <summary>Writes whatever the tick changed: frequency, volume, macros.</summary>
         protected abstract void Update();
@@ -627,10 +627,8 @@ internal sealed class DmfPlayer
 
         protected override int MaxVolume => 0x7F;
 
-        protected void Init()
-        {
-            ResetVolume(MaxVolume);
-        }
+        /// <summary>Starts the channel at full volume, as DefleMask does.</summary>
+        protected void Init() => ResetVolume(MaxVolume);
 
         protected override double NoteHz(int pitch) => FmNoteHz(pitch);
 
@@ -1132,10 +1130,8 @@ internal sealed class DmfPlayer
 
         protected void AdvanceMacros() => _macroTick++;
 
-        protected void Init()
-        {
-            ResetVolume(MaxVolume);
-        }
+        /// <summary>Starts the channel at full volume, as DefleMask does.</summary>
+        protected void Init() => ResetVolume(MaxVolume);
     }
 
     /// <summary>One of PSG1–PSG3.</summary>
