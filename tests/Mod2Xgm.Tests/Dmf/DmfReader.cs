@@ -35,10 +35,16 @@ internal static class DmfReader
     private const int NoteOff = 100;
 
     /// <summary>Reads a DMF file: zlib-compressed bytes as stored on disk.</summary>
-    public static DmfFile Read(byte[] file)
+    /// <param name="file">The file as stored.</param>
+    /// <param name="lenient">
+    /// Accept two quirks DefleMask itself saves and plays, for songs made in DefleMask (the DMF sanity check,
+    /// docs/testing.md#dmf-sanity-check): an empty note with an octave (kept as stored; the note is still empty) and a
+    /// macro loop past the macro's end (read as no loop). Off by default, so writer bugs still fail.
+    /// </param>
+    public static DmfFile Read(byte[] file, bool lenient = false)
     {
         ArgumentNullException.ThrowIfNull(file);
-        return ReadDecompressed(Decompress(file));
+        return ReadDecompressed(Decompress(file), lenient);
     }
 
     /// <summary>Undoes the zlib compression around a DMF file.</summary>
@@ -58,8 +64,8 @@ internal static class DmfReader
         }
     }
 
-    /// <summary>Reads the decompressed contents of a DMF file.</summary>
-    public static DmfFile ReadDecompressed(byte[] data)
+    /// <summary>Reads the decompressed contents of a DMF file; <paramref name="lenient"/> as for <see cref="Read"/>.</summary>
+    public static DmfFile ReadDecompressed(byte[] data, bool lenient = false)
     {
         ArgumentNullException.ThrowIfNull(data);
         Cursor cursor = new(data);
@@ -107,7 +113,7 @@ internal static class DmfReader
         DmfInstrument[] instruments = new DmfInstrument[cursor.Byte("instrument count")];
         for (int i = 0; i < instruments.Length; i++)
         {
-            instruments[i] = ReadInstrument(cursor, i);
+            instruments[i] = ReadInstrument(cursor, i, lenient);
         }
 
         IReadOnlyList<int>[] wavetables = new IReadOnlyList<int>[cursor.Byte("wavetable count")];
@@ -130,7 +136,7 @@ internal static class DmfReader
                 DmfCell[] rows = new DmfCell[rowsPerPattern];
                 for (int row = 0; row < rowsPerPattern; row++)
                 {
-                    rows[row] = ReadCell(cursor, system, channel, effectColumns, instruments.Length, $"channel {channel + 1} matrix row {matrixRow} row {row}");
+                    rows[row] = ReadCell(cursor, system, channel, effectColumns, instruments.Length, lenient, $"channel {channel + 1} matrix row {matrixRow} row {row}");
                 }
 
                 patterns[matrixRow] = rows;
@@ -183,7 +189,7 @@ internal static class DmfReader
         return valid ? int.Parse(Encoding.ASCII.GetString(bytes, 0, digits), NumberStyles.None, CultureInfo.InvariantCulture) : null;
     }
 
-    private static DmfInstrument ReadInstrument(Cursor cursor, int index)
+    private static DmfInstrument ReadInstrument(Cursor cursor, int index, bool lenient)
     {
         string name = cursor.String("instrument name");
         int mode = cursor.Byte("instrument mode");
@@ -204,17 +210,17 @@ internal static class DmfReader
             return new DmfInstrument(name, new DmfFmInstrument(algorithm, feedback, fms, ams, operators), null);
         }
 
-        DmfMacro volume = ReadMacro(cursor, "volume macro");
-        DmfMacro arpeggio = ReadMacro(cursor, "arpeggio macro");
+        DmfMacro volume = ReadMacro(cursor, "volume macro", lenient);
+        DmfMacro arpeggio = ReadMacro(cursor, "arpeggio macro", lenient);
         int arpeggioMode = cursor.Byte("arpeggio mode");
         Require(arpeggioMode is 0 or 1, cursor, cursor.Offset - 1, $"instrument {index} arpeggio mode is {arpeggioMode}, not 0 or 1");
-        DmfMacro dutyNoise = ReadMacro(cursor, "duty/noise macro");
-        DmfMacro wavetable = ReadMacro(cursor, "wavetable macro");
+        DmfMacro dutyNoise = ReadMacro(cursor, "duty/noise macro", lenient);
+        DmfMacro wavetable = ReadMacro(cursor, "wavetable macro", lenient);
         return new DmfInstrument(name, null, new DmfStdInstrument(volume, arpeggio, arpeggioMode, dutyNoise, wavetable));
     }
 
     /// <summary>Size byte (0–127), the 4-byte values, and a loop byte only when the size isn't 0.</summary>
-    private static DmfMacro ReadMacro(Cursor cursor, string field)
+    private static DmfMacro ReadMacro(Cursor cursor, string field, bool lenient)
     {
         int size = cursor.Byte(field + " size");
         Require(size <= 127, cursor, cursor.Offset - 1, $"{field} size is {size}, above 127");
@@ -225,17 +231,22 @@ internal static class DmfReader
         }
 
         int loop = (sbyte)cursor.Byte(field + " loop");
+        if (lenient && loop >= size)
+        {
+            loop = -1;
+        }
+
         Require(loop >= -1 && loop < size, cursor, cursor.Offset - 1, $"{field} loops at {loop}, outside its {size} values");
         return new DmfMacro(values, loop);
     }
 
-    private static DmfCell ReadCell(Cursor cursor, DmfSystem system, int channel, int effectColumns, int instrumentCount, string where)
+    private static DmfCell ReadCell(Cursor cursor, DmfSystem system, int channel, int effectColumns, int instrumentCount, bool lenient, string where)
     {
         int at = cursor.Offset;
         int note = cursor.Int16("note");
         int octave = cursor.Int16("octave");
         Require(note is (>= 0 and <= 12) or NoteOff, cursor, at, $"{where}: note {note} isn't 0–12 or 100 (off)");
-        Require(note != 0 || octave == 0, cursor, at, $"{where}: empty note with octave {octave}");
+        Require(lenient || note != 0 || octave == 0, cursor, at, $"{where}: empty note with octave {octave}");
 
         at = cursor.Offset;
         int volume = cursor.Int16("volume");

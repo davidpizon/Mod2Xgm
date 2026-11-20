@@ -11,7 +11,18 @@ namespace Mod2Xgm.Tests.Dmf;
 /// <param name="TotalSamples">Length in 44.1 kHz samples.</param>
 /// <param name="Events">Every write and stream command, in order.</param>
 /// <param name="DataBlockSizes">Size of each data block (DAC samples), in order.</param>
-internal sealed record VgmLog(int Ym2612ClockHz, int Sn76489ClockHz, int TotalSamples, IReadOnlyList<VgmEvent> Events, IReadOnlyList<int> DataBlockSizes)
+/// <param name="DataBlocks">Each data block's bytes (8-bit unsigned DAC samples for DefleMask's export), in order.</param>
+/// <param name="LoopSamples">Length of the looped part in 44.1 kHz samples (0: the song doesn't loop).</param>
+/// <param name="RateHz">The header's rate field: DefleMask writes the song's tick rate (docs/formats/dmf.md#what-deflemask-shows).</param>
+internal sealed record VgmLog(
+    int Ym2612ClockHz,
+    int Sn76489ClockHz,
+    int TotalSamples,
+    IReadOnlyList<VgmEvent> Events,
+    IReadOnlyList<int> DataBlockSizes,
+    IReadOnlyList<byte[]> DataBlocks,
+    int LoopSamples,
+    int RateHz)
 {
     /// <summary>VGM time base: samples per second.</summary>
     public const double SampleRate = 44100;
@@ -29,6 +40,7 @@ internal sealed record VgmLog(int Ym2612ClockHz, int Sn76489ClockHz, int TotalSa
         int start = version >= 0x150 ? 0x34 + I32(file, 0x34) : 0x40;
         List<VgmEvent> events = [];
         List<int> blocks = [];
+        List<byte[]> data = [];
         int time = 0;
         for (int at = start; at < file.Length;)
         {
@@ -64,10 +76,11 @@ internal sealed record VgmLog(int Ym2612ClockHz, int Sn76489ClockHz, int TotalSa
                     at++;
                     break;
                 case 0x66:
-                    return new VgmLog(I32(file, 0x2C), I32(file, 0x0C), I32(file, 0x18), events, blocks);
+                    return new VgmLog(I32(file, 0x2C), I32(file, 0x0C), I32(file, 0x18), events, blocks, data, I32(file, 0x20), I32(file, 0x24));
                 case 0x67:
                     int size = I32(file, at + 3);
                     blocks.Add(size);
+                    data.Add(file[(at + 7)..(at + 7 + size)]);
                     at += 7 + size;
                     break;
                 case >= 0x90 and <= 0x95:

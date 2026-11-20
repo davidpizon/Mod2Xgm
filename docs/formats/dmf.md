@@ -265,6 +265,34 @@ bug. Its exports of the other four probes match DefleMask's too: FM 440 / 523 Hz
 440 / 440 / 660 Hz at 32 / 32 / 8 kHz streams, custom Hz key-ons at 0, 1, 2, 3 s, and the ext. CH3 chord. (Its VGMs
 are version 1.71 and run one 50 Hz frame longer.)
 
+## DefleMask's playback rules seen in its VGM exports
+
+[DMF sanity check, [ADR 0129](../adr/0129-dmf-sanity-check.md): David's DefleMask songs in `tests/data/dmf/` against
+DefleMask's VGM exports of them (VGM 1.61)] The test's DMF player (`tests/Mod2Xgm.Tests/Dmf/Sanity/DmfPlayer.cs`) follows
+these. **Verify** marks a rule seen in one song only.
+
+- **Start.** Every export begins with `22 = 08`, `27 = 00` (`40` with ext. CH3), pan `C0` on all six channels,
+  key-off on every channel and PSG attenuation `F` on all four.
+- **Waits are whole ticks**: 735 samples at 60 Hz, 787 at 56 Hz. A 56 Hz song (custom Hz) can't keep its tempo on the
+  console, where SGDK plays XGM2 frames at the VBlank rate ([ADR 0128](../adr/0128-xgm2-real-frame-rate.md)).
+- **DAC** through VGM data blocks (one per sample, after its pitch code and amp are applied) and stream commands
+  (`90`/`91` set-up, `92` rate, `95` start block, `94` stop).
+- **FM volume** adds to a carrier's TL: `TL + ⌊(127 − TL) · (127 − v) / 127⌋`.
+- **A new instrument writes its patch on its row**, note or not — on FM6 with the DAC on too.
+- **PSG volume subtracts** from the volume macro: attenuation = `15 − max(0, macro − (15 − v))`.
+- **`0Axy` counts quarter steps**, carried between ticks.
+- **`01xx` skips the tick it is set on; `02xx` doesn't.**
+- **Arpeggio and vibrato advance after the tick**, so a note's first tick plays position 0. **`E0xx` (arpeggio speed)
+  is global**, not per channel.
+- **Note 0 with an octave is a C** of that octave. DefleMask saves such cells, and macro loops past the macro's end;
+  the test's reader takes both leniently.
+- **PSG notes above A-7 are period 1** (A#-7 would be 7).
+- **Noise at a fixed rate** (`20x0`): the note picks the rate by semitone mod 3, C → N/2048, C# → N/1024,
+  D → N/512, then again from D#. **Verify** (one song).
+- **CH3 has one pan register**, so ext. CH3's operator channels share `08xx`.
+- **A C may be written at the octave below**, F-number 1288 and up, not 644 at its own block. Same pitch, other
+  registers; slides then move in that block's steps. **Verify** (seen in blue_electric; the player doesn't do it).
+
 ## What DefleMask shows
 
 [Probe] Useful when reading DMF files in DefleMask's editor:
