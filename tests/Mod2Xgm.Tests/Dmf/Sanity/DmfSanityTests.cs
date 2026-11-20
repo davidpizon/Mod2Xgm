@@ -62,7 +62,7 @@ public sealed class DmfSanityTests
 /// </summary>
 internal static class DmfSanityReport
 {
-    private static readonly Dictionary<string, SongResult> Results = new(StringComparer.Ordinal);
+    private static readonly Dictionary<string, SongResult> Results = [with(StringComparer.Ordinal)];
     private static readonly Lock Writing = new();
 
     /// <summary>The local songs' folder.</summary>
