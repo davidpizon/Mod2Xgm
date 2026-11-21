@@ -16,6 +16,10 @@ public sealed class Xgm2WriterTests
     private const int DataOffset = 0x104;
     private const int Block = 256;
 
+    /// <summary>The <c>$9x</c> commands that set all 24 slots silent (level 127), part 0's then part 1's, as a loop frame starts.</summary>
+    private static readonly byte[] SilentSlots = [.. new[] { 0, 1 }.SelectMany(part => new[] { 0x0, 0x1, 0x2, 0x4, 0x5, 0x6, 0x8, 0x9, 0xa, 0xc, 0xd, 0xe }
+        .SelectMany(r => new[] { (byte)(0x90 | r), (byte)(0xfe | part) }))];
+
     /// <summary>An empty one-frame song is the header, an all-empty SID table, and streams that wait, go quiet and end.</summary>
     [Fact]
     public void Write_WithEmptySong_WritesHeaderAndSilentEnd()
@@ -43,7 +47,8 @@ public sealed class Xgm2WriterTests
 
     /// <summary>
     /// A three-frame song that loops to frame 1, spelled out byte by byte: the loop frame sets the chips back as they were,
-    /// every key and PSG volume included (up and off where nothing was set yet), and the loop command ends the last frame.
+    /// every key, slot level and PSG volume included (up, silent and off where nothing was set yet), and the loop command
+    /// ends the last frame.
     /// </summary>
     [Fact]
     public void Write_WithLoopingSong_WritesEveryByte()
@@ -81,6 +86,7 @@ public sealed class Xgm2WriterTests
         byte[] fm =
         [
             0xe0, 0xb4, 0xc0, 0xf8, 0xf0, 0x10, 0x01, 0x00,
+            .. SilentSlots,
             0xe0, 0xb4, 0xc0, 0xf8, 0xf0, 0xf8, 0x01, 0xf8, 0x02, 0xf8, 0x04, 0xf8, 0x05, 0xf8, 0x06, 0x10, 0x01, 0xe8, 0x30, 0x71, 0x00,
             0x10, 0x00,
             0xff, 0x08, 0x00, 0x00,
@@ -289,7 +295,33 @@ public sealed class Xgm2WriterTests
         byte[] sut = Fm(Xgm2Writer.Write(stream, Notes()));
 
         // Assert
-        Assert.Equal([0xe1, 0xa0, 0x69, 0xa4, 0x22, 0x90, 0x20, 0x00, 0xe1, 0xa4, 0x22, 0xa0, 0x69, 0x90, 0x20], sut[..15]);
+        byte[] silent = [.. SilentSlots.Chunk(2).Where(c => c[0] != 0x90 || c[1] != 0xfe).SelectMany(c => c)];
+        Assert.Equal([0xe1, 0xa0, 0x69, 0xa4, 0x22, 0x90, 0x20, 0x00, .. silent, 0xe1, 0xa4, 0x22, 0xa0, 0x69, 0x90, 0x20], sut[..(15 + silent.Length)]);
+    }
+
+    /// <summary>
+    /// A note keyed up at the song's end goes quiet at the loop: every slot whose level the first time through hadn't set
+    /// yet is set silent before the loop's first writes, so a pan there can't bring its release back (docs/adr/0134-loop-silences-release-tails.md).
+    /// </summary>
+    [Fact]
+    public void Write_WithNoteReleasingAtLoopToStart_SilencesItsSlotsBeforeTheFirstWrites()
+    {
+        // Arrange
+        GenesisStream stream = new(
+            [
+                [ChipEvent.Fm(0, 0xb5, 0xc0)],
+                [ChipEvent.Fm(0, 0x41, 0x10), ChipEvent.Fm(0, 0x28, 0xf1)],
+                [ChipEvent.Fm(0, 0x28, 0x01)],
+            ],
+            LoopFrame: 0,
+            Pal: false,
+            NtscRate);
+
+        // Act
+        byte[] sut = Fm(Xgm2Writer.Write(stream, Notes()));
+
+        // Assert
+        Assert.Equal([.. SilentSlots, 0xf8, 0x00, 0xf8, 0x01, 0xf8, 0x02, 0xf8, 0x04, 0xf8, 0x05, 0xf8, 0x06, 0xe0, 0xb5, 0xc0], sut[..(SilentSlots.Length + 15)]);
     }
 
     /// <summary>The same stored copy played twice gets one sample id; another copy gets the next.</summary>
@@ -378,8 +410,8 @@ public sealed class Xgm2WriterTests
         // Act
         byte[] sut = Fm(Xgm2Writer.Write(stream, Notes()));
 
-        // Assert: frame 0 sets the keys up; frame 1 plays, and stops before the loop command ends it.
-        Assert.Equal([0x00, 0x11, 0x01, 0x11, 0x00, 0xff, 0x00, 0x00, 0x00], sut[12..]);
+        // Assert: frame 0 sets the slots silent and the keys up; frame 1 plays, and stops before the loop command ends it.
+        Assert.Equal([0x00, 0x11, 0x01, 0x11, 0x00, 0xff, 0x00, 0x00, 0x00], sut[(SilentSlots.Length + 12)..]);
     }
 
     /// <summary>A recording is stored only as far as a play reaches, plus two frames: here 3 frames at 60 Hz of a 1 s recording.</summary>
