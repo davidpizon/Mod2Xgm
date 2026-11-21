@@ -16,7 +16,7 @@ internal static class FmCodeFingerprint
     /// The files whose code can change a fit, relative to the repository root: the searches, the evaluator and its note
     /// renders and scores, the analysis of those renders, the chip model, the library seeds and the cache's file format.
     /// </summary>
-    public static IReadOnlyList<string> Files { get; } =
+    private static IReadOnlyList<string> Files { get; } =
     [
         "src/Analysis/SampleAnalyzer.cs",
         "src/Mapping/FmPatchLibrary.cs",
