@@ -143,7 +143,7 @@ internal sealed record HarmonicPatch(IReadOnlyList<int> Harmonics, double Captur
     /// Each harmonic's level, in dB, from the fundamental up to the highest measured (index 0 is harmonic 1); a harmonic
     /// with no power is <see cref="SilentDb"/>. A chord's notes are read from it (docs/adr/0133-simple-fm-chords.md).
     /// </summary>
-    public IReadOnlyList<float> LevelsDb { get; init; } = [];
+    public IReadOnlyList<float> LevelsDb { get; private init; } = [];
 
     /// <summary>The power (mean square) of the sinusoid at DFT bin <paramref name="bin"/> of <paramref name="frames"/>.</summary>
     private static double BinPower(ReadOnlySpan<float> frames, double mean, int bin)

@@ -213,7 +213,7 @@ internal sealed class LoopSpectrum
     {
         for (int j = Math.Max(0, i - reach); j <= Math.Min(bands.Count - 1, i + reach); j++)
         {
-            if (bands[j].Share > bands[i].Share || (j < i && bands[j].Share == bands[i].Share))
+            if (j < i ? bands[j].Share >= bands[i].Share : bands[j].Share > bands[i].Share)
             {
                 return false;
             }
@@ -264,23 +264,23 @@ internal readonly record struct LoopNote(double CyclesPerFrame, double Share);
 internal sealed record LoopChord(IReadOnlyList<LoopNote> Notes, double Share, int Series)
 {
     /// <summary>Fewest notes a chord is played with: three, a triad (David, 2026-11-21: triads first, not two-note fifths).</summary>
-    public const int MinNotes = 3;
+    private const int MinNotes = 3;
 
     /// <summary>Most notes a chord is played with, as the optimizer's chords (docs/adr/0114-fm-chords.md).</summary>
-    public const int MaxNotes = 4;
+    private const int MaxNotes = 4;
 
     /// <summary>
     /// Most harmonic series a chord's partials make: more is a chorused, detuned or noisy sound, not separate notes.
     /// Eight lets in ai_renaissance's sample 3 (a G# C D# chord whose recording adds faint series); the corpus's noisy
     /// loops make nine or more.
     /// </summary>
-    public const int MaxSeries = 8;
+    private const int MaxSeries = 8;
 
     /// <summary>Fewest pitch classes among the notes: a fifth and its octave (C#, G#, C#) is two, not a triad.</summary>
-    public const int MinPitchClasses = 3;
+    private const int MinPitchClasses = 3;
 
     /// <summary>The least share of the loop's power its notes must hold together.</summary>
-    public const double MinShare = 0.5;
+    private const double MinShare = 0.5;
 
     /// <summary>True when the loop is a chord to play as one: <see cref="MinNotes"/>–<see cref="MaxNotes"/> notes making most of it.</summary>
     public bool IsChord => Notes.Count is >= MinNotes and <= MaxNotes && Series <= MaxSeries && Share >= MinShare
