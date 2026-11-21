@@ -52,3 +52,10 @@ the XGM2 stayed at −22 dB for all 4.8 s.
   musix-omg-plz-help (3, 5.4 dB), musix-rubbish (7, 3.1 dB; 21, 14.1 dB), allsort (20, 3.1 dB),
   jam_-_highway_encounter (13, 13 dB) and FunkyChristmas (23, 17.1 dB). Others have tails within 1 dB of the hit.
 - The harness's `genesis` column renders the DMF, so it doesn't measure this change. A/B clips of the XGM2 render do.
+- **Listening round 35** (David, 2026-11-20, blind, XGM2 with `--require-dac 19`):
+  - Mid-song, 4:25–4:40: David chose this change, because "the original notes seem to have a brief decay", which it
+    plays better.
+  - The last 10 s: David chose the old version. In those bars the melody rests and channel 2 repeats sample 1, a chord
+    sample, which plays its bottom note on FM (ADR 0125). The old held melody note filled out the chord by accident.
+    With it gone, one FM note is left where the original has a chord. What is missing at the end is sample 1's chord,
+    not the fade.
