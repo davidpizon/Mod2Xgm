@@ -146,6 +146,7 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0130](0130-xgm2-hold-compensation.md) | XGM and XGM2 recordings don't make up for the treble the driver's hold takes off | 2026-11-20 | Rejected |
 | [0131](0131-tail-loop-decay.md) | An FM note for a sample with a tail loop fades as the recording does (XGM and XGM2) | 2026-11-20 | Proposed |
 | [0132](0132-lead-fundamental.md) | The Lead FM patch sounds at its own pitch, not an octave up | 2026-11-21 | Proposed |
+| [0133](0133-simple-fm-chords.md) | The simple mapper plays a chord sample's notes on FM voices of their own | 2026-11-21 | Proposed |
 
 ## Open questions
 

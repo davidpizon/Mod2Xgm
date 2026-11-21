@@ -43,6 +43,9 @@ internal sealed record HarmonicPatch(IReadOnlyList<int> Harmonics, double Captur
     /// </summary>
     private const double MinBandShare = 0.01;
 
+    /// <summary>The level given a harmonic with no power at all, in dB: far below anything heard.</summary>
+    private const float SilentDb = -200;
+
     /// <summary>
     /// Measures the harmonics of <paramref name="sample"/>'s loop as a tone of <paramref name="periodFrames"/> frames per
     /// cycle; <c>null</c> when the sample doesn't loop, it is silent, or its loop isn't a whole number of cycles and holds
@@ -126,7 +129,8 @@ internal sealed record HarmonicPatch(IReadOnlyList<int> Harmonics, double Captur
         FmPatch? patch = capture >= MinCapture && chosen.Length > 0 ? Build(chosen, power) : null;
         double strong = loudest * Math.Pow(10, -SamplePitch.StrongDb / 10);
         int lowest = Enumerable.Range(1, highest).FirstOrDefault(k => power[k] > 0 && power[k] >= strong, 1);
-        return new HarmonicPatch(chosen, capture, patch) { Lowest = lowest };
+        float[] levels = [.. Enumerable.Range(1, highest).Select(k => power[k] > 0 ? (float)(10 * Math.Log10(power[k])) : SilentDb)];
+        return new HarmonicPatch(chosen, capture, patch) { Lowest = lowest, LevelsDb = levels };
     }
 
     /// <summary>
@@ -134,6 +138,12 @@ internal sealed record HarmonicPatch(IReadOnlyList<int> Harmonics, double Captur
     /// a chord, whose common cycle sits below every note in it (docs/adr/0125-chord-samples.md).
     /// </summary>
     public int Lowest { get; init; } = 1;
+
+    /// <summary>
+    /// Each harmonic's level, in dB, from the fundamental up to the highest measured (index 0 is harmonic 1); a harmonic
+    /// with no power is <see cref="SilentDb"/>. A chord's notes are read from it (docs/adr/0133-simple-fm-chords.md).
+    /// </summary>
+    public IReadOnlyList<float> LevelsDb { get; init; } = [];
 
     /// <summary>The power (mean square) of the sinusoid at DFT bin <paramref name="bin"/> of <paramref name="frames"/>.</summary>
     private static double BinPower(ReadOnlySpan<float> frames, double mean, int bin)

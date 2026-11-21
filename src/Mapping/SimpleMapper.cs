@@ -1,5 +1,6 @@
 using System.Globalization;
 using Mod2Xgm.Model;
+using Mod2Xgm.Optimizer;
 
 namespace Mod2Xgm.Mapping;
 
@@ -27,6 +28,9 @@ internal sealed class SimpleMapper(DacLoser loser = DacLoser.Default) : IChannel
 {
     /// <summary>MOD channels beyond this many have no FM channel (FM1–5; FM6 is the DAC) and are left out.</summary>
     private const int MappedChannels = 5;
+
+    /// <summary>The FM columns a chord's notes may sound on: FM1–FM5, never FM6, which the DAC shares (docs/adr/0133-simple-fm-chords.md).</summary>
+    private const int ChordColumns = (int)GenesisChannel.Fm6;
 
     /// <summary>The Amiga period of ProTracker's C-2 (docs/formats/mod.md#pitch), for saying what pitch a sample sounds at.</summary>
     private const int C2Period = 428;
@@ -127,6 +131,14 @@ internal sealed class SimpleMapper(DacLoser loser = DacLoser.Default) : IChannel
         private int _noiseToFm;
         private int _noiseDropped;
 
+        // Chord voices (docs/adr/0133-simple-fm-chords.md): each sample's chord notes (null: not a chord), the FM columns each
+        // MOD channel's chord sounds on beside its own, the MOD channel each column's chord voice belongs to, and the tallies.
+        private readonly Dictionary<int, IReadOnlyList<ChordTone>?> _chords = [];
+        private readonly List<int>[] _chordColumns;
+        private readonly int[] _chordOwner = [.. Enumerable.Repeat(-1, ChordColumns)];
+        private readonly SortedDictionary<int, (int Notes, int Short)> _chordNotes = [];
+        private int _chordCut;
+
         // The MOD channel whose note the DAC and the noise channel last started, so silencing a track stops only its own sound.
         private int _dacSource = -1;
         private int _noiseSource = -1;
@@ -150,6 +162,7 @@ internal sealed class SimpleMapper(DacLoser loser = DacLoser.Default) : IChannel
             _instrument = [.. Enumerable.Repeat(-1, song.Channels.Count)];
             _volume = [.. Enumerable.Repeat(1.0, song.Channels.Count)];
             _sounding = [.. Enumerable.Repeat(Sounding.Nothing, song.Channels.Count)];
+            _chordColumns = [.. Enumerable.Range(0, song.Channels.Count).Select(_ => new List<int>())];
         }
 
         /// <summary>Instruments (0-based) on a side that lost the DAC to the PSG noise in this pass: they would jump to the middle.</summary>
@@ -364,12 +377,21 @@ internal sealed class SimpleMapper(DacLoser loser = DacLoser.Default) : IChannel
                 else if (volumeSet && _sounding[c] == Sounding.Fm)
                 {
                     planned[c] = planned[c] with { Volume = _volume[c], Source = c };
+                    foreach (int column in _chordColumns[c].Where(column => planned[column].Note is null))
+                    {
+                        planned[column] = planned[column] with { Volume = _volume[c], Source = c };
+                    }
                 }
 
                 pending.Add((c, own));
             }
 
             Place(candidates, planned);
+            foreach (Candidate candidate in candidates)
+            {
+                Chord(candidate, planned);
+            }
+
             foreach ((int channel, List<Effect> own) in pending.Where(p => p.Effects.Count > 0))
             {
                 GenesisChannel target = _sounding[channel] switch
@@ -380,6 +402,13 @@ internal sealed class SimpleMapper(DacLoser loser = DacLoser.Default) : IChannel
                 };
                 effects[(int)target].AddRange(own);
                 source[(int)target] ??= channel;
+
+                // The chord's other voices follow its channel's effects, as its own voice does.
+                foreach (int column in _sounding[channel] == Sounding.Fm ? _chordColumns[channel] : [])
+                {
+                    effects[column].AddRange(own);
+                    source[column] ??= channel;
+                }
             }
 
             PlanCell[] result = [.. planned.Select((cell, i) => effects[i].Count == 0 ? cell : cell with { Effects = effects[i], Source = cell.Source ?? source[i] })];
@@ -529,6 +558,14 @@ internal sealed class SimpleMapper(DacLoser loser = DacLoser.Default) : IChannel
             }
 
             _sounding[c] = kind;
+            if ((int)column < ChordColumns && _chordOwner[(int)column] is var owner and >= 0 && owner != c)
+            {
+                // A track's own note comes first: the chord on this column loses that voice until its next note.
+                _chordColumns[owner].Remove((int)column);
+                _chordOwner[(int)column] = -1;
+                _chordCut++;
+            }
+
             if (column == GenesisChannel.Fm6 && kind == Sounding.Dac)
             {
                 _dacSource = c;
@@ -559,7 +596,102 @@ internal sealed class SimpleMapper(DacLoser loser = DacLoser.Default) : IChannel
                 planned[(int)stop] = planned[(int)stop] with { NoteOff = true, Source = c };
             }
 
+            StopChord(c, [], planned);
             _sounding[c] = Sounding.Nothing;
+        }
+
+        /// <summary>
+        /// Plays the rest of the chord of <paramref name="candidate"/>'s note, once every note of the row has its channel
+        /// (docs/adr/0133-simple-fm-chords.md). The note's own voice plays the chord's lowest note; each of the others goes
+        /// to an FM column nothing else sounds on (FM1–FM5: its previous ones first, then those no track of the song owns),
+        /// at its share of the level. With fewer free columns than notes, the top notes are left out. A note that isn't a
+        /// chord lets go of the chord voices its channel had.
+        /// </summary>
+        private void Chord(Candidate candidate, PlanCell[] planned)
+        {
+            int c = candidate.Channel;
+            PlanCell own = planned[c];
+            if (_sounding[c] != Sounding.Fm || own is not { Note: not null, Voice.Kind: VoiceKind.Fm } || own.Source != c
+                || ChordOf(candidate.Instrument) is not { } tones)
+            {
+                StopChord(c, [], planned);
+                return;
+            }
+
+            List<int> columns = [.. _chordColumns[c]
+                .Concat(Enumerable.Range(0, ChordColumns).OrderBy(k => k < _song.Channels.Count ? 1 : 0).ThenBy(k => k))
+                .Distinct()
+                .Where(k => k != c && Free(k, c, planned))
+                .Take(tones.Count - 1)];
+            StopChord(c, columns, planned);
+            int sample = _song.Instruments[candidate.Instrument].Sample;
+            planned[c] = own with { Cents = tones[0].Cents, Level = tones[0].Level };
+            for (int i = 0; i < columns.Count; i++)
+            {
+                planned[columns[i]] = new PlanCell(own.Note, own.Voice, own.Volume, false, [], c, sample) { Cents = tones[i + 1].Cents, Level = tones[i + 1].Level };
+                _chordOwner[columns[i]] = c;
+            }
+
+            _chordColumns[c].Clear();
+            _chordColumns[c].AddRange(columns);
+            (int notes, int fewer) = _chordNotes.GetValueOrDefault(sample);
+            _chordNotes[sample] = (notes + 1, fewer + (columns.Count + 1 < tones.Count ? 1 : 0));
+        }
+
+        /// <summary>
+        /// True when FM column <paramref name="k"/> has nothing on it this row and nothing sounding but MOD channel
+        /// <paramref name="c"/>'s own chord voice: no track's own FM note, no other track's chord.
+        /// </summary>
+        private bool Free(int k, int c, PlanCell[] planned) =>
+            planned[k].Note is null
+            && (k >= _song.Channels.Count || _sounding[k] != Sounding.Fm)
+            && (_chordOwner[k] == -1 || _chordOwner[k] == c);
+
+        /// <summary>Lets go of MOD channel <paramref name="c"/>'s chord voices, except those on <paramref name="keep"/>.</summary>
+        private void StopChord(int c, IReadOnlyCollection<int> keep, PlanCell[] planned)
+        {
+            foreach (int column in _chordColumns[c].Where(column => !keep.Contains(column)))
+            {
+                if (planned[column].Note is null)
+                {
+                    planned[column] = planned[column] with { NoteOff = true, Source = c };
+                }
+
+                _chordOwner[column] = -1;
+            }
+
+            _chordColumns[c].RemoveAll(column => !keep.Contains(column));
+        }
+
+        /// <summary>
+        /// The notes of the chord <paramref name="instrument"/>'s FM notes stand for, lowest first, each with its share of
+        /// the level (their powers add up to 1, so the chord is as loud as one voice was); <c>null</c> when it isn't a chord.
+        /// A chord is a sustained tone whose cycle sits below every note in it (docs/adr/0125-chord-samples.md); its notes
+        /// are read from its harmonics as the optimizer reads them (<see cref="SoundMenu.ChordTones"/>, docs/adr/0114-fm-chords.md).
+        /// </summary>
+        private IReadOnlyList<ChordTone>? ChordOf(int instrument)
+        {
+            int sample = _song.Instruments[instrument].Sample;
+            if (_routes[instrument].Primary != Primary.Fm)
+            {
+                return null;
+            }
+
+            if (!_chords.TryGetValue(sample, out IReadOnlyList<ChordTone>? tones))
+            {
+                tones = null;
+                if (Harmonics(sample) is { Patch: null, Lowest: > 1, LevelsDb.Count: > 0 } harmonic
+                    && SoundMenu.ChordTones([[.. harmonic.LevelsDb]]) is { Count: > 1 } found)
+                {
+                    double[] amplitude = [.. found.Select(h => Math.Pow(10, harmonic.LevelsDb[h - 1] / 20))];
+                    double total = Math.Sqrt(amplitude.Sum(a => a * a));
+                    tones = [.. found.Select((h, i) => new ChordTone(h, amplitude[i] / total))];
+                }
+
+                _chords[sample] = tones;
+            }
+
+            return tones;
         }
 
         /// <summary>
@@ -591,6 +723,20 @@ internal sealed class SimpleMapper(DacLoser loser = DacLoser.Default) : IChannel
             Tally("{Count} --require-dac notes started on the same row as a louder one and could not use the DAC; left out (the DAC plays one sample at a time)", _dacDropped);
             Tally("{Count} --require-psg notes started on the same row as a louder one and could not use the PSG noise channel; left out (it plays one sound at a time)", _noiseDropped);
             Tally("{Count} noise notes started on the same row as a louder one and could not use the PSG noise channel; played by FM instead", _noiseToFm);
+
+            foreach ((int sample, (int notes, int fewer)) in _chordNotes)
+            {
+                // _chordNotes holds only samples ChordOf found a chord in.
+                IReadOnlyList<ChordTone> tones = _chords[sample] ?? [];
+                _notes.Add(
+                    "Sample {Sample}: a chord (harmonics {Harmonics} of its cycle), so each of its {Count} FM notes plays the chord's notes on FM channels of their own; {Fewer} found fewer free FM channels than notes and left out the top ones",
+                    Label(sample, _song.Samples[sample].Name),
+                    string.Join(", ", tones.Select(t => t.Harmonic)),
+                    notes,
+                    fewer);
+            }
+
+            Tally("{Count} chord voices stopped early, where the track that owns their FM channel played a note", _chordCut);
 
             foreach ((int sample, int count) in _ignored)
             {
