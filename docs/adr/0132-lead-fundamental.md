@@ -46,7 +46,5 @@ The 12-note chroma checks of [ADR 0125](0125-chord-samples.md) ignore the octave
 - Every sample the simple mapper gives the Lead patch (brightness 0.25–0.45) sounds an octave lower than before, at its
   own pitch.
 - The optimizer and FM fitter start from the library, so a Lead start point now sits at the right octave.
-- It doesn't fix the stray note. Playing the file through its loop in BlastEm showed nothing carried over the jump:
-  `Xgm2Writer` already lifts every key at the loop frame ([xgm.md](../formats/xgm.md)). The stray note is the ending chord.
-  In the last bars the melody rests, and sample 1's C–E–G chord plays on one FM voice as a lone C (David, 2026-11-21).
-  Playing that chord as a chord is a separate decision.
+- It doesn't fix the stray note. That turned out to be the ending chord's release tail, which the loop's first frame
+  moved from the right speaker to both, heard as a short new note ([ADR 0134](0134-loop-silences-release-tails.md)).
