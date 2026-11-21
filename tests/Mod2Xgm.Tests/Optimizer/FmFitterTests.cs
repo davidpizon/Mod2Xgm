@@ -124,7 +124,7 @@ public sealed class FmFitterTests
         NoteScore score = new(1, 2, 3);
 
         // Assert
-        Assert.Equal("ALG 4 FB 5 MULT 1 1 2 2, LFO 3 FMS 2 AMS 1, SSG-EG", FmFitReport.Settings(new FmFit(patch, 3, FmFitSource.Genetic, score)));
+        Assert.Equal("ALG 4 FB 3 MULT 1 1 2 2, LFO 3 FMS 2 AMS 1, SSG-EG", FmFitReport.Settings(new FmFit(patch, 3, FmFitSource.Genetic, score)));
         Assert.Equal("ALG 7 FB 0 MULT 1 1 1 1, no LFO", FmFitReport.Settings(new FmFit(FmPatchLibrary.Sine, null, FmFitSource.Library, score)));
         Assert.Equal(["library", "exhaustive", "genetic"], Enum.GetValues<FmFitSource>().Select(FmFitReport.SourceName));
     }

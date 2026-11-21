@@ -14,7 +14,7 @@ public sealed class FmStructureSearchTests
         FmStructure structure = FmStructure.Of(FmPatchLibrary.Lead);
 
         // Assert
-        Assert.Equal(new FmStructure(4, 5, 1, 1, 2, 2, 34), structure);
+        Assert.Equal(new FmStructure(4, 3, 1, 1, 2, 2, 40), structure);
     }
 
     /// <summary>Without modulators the TL is the default.</summary>

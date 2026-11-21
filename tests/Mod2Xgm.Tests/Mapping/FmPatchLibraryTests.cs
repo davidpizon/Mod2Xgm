@@ -6,7 +6,7 @@ namespace Mod2Xgm.Tests.Mapping;
 
 /// <summary>
 /// Tests for <see cref="FmPatchLibrary"/>: its notes start with a ramp of about 1 ms, not the one-sample step of attack
-/// rate 31 that clicks (docs/adr/0121-soft-fm-attack.md).
+/// rate 31 that clicks (docs/adr/0121-soft-fm-attack.md), and the Lead patch sounds at its own pitch (docs/adr/0132-lead-fundamental.md).
 /// </summary>
 public sealed class FmPatchLibraryTests
 {
@@ -44,6 +44,39 @@ public sealed class FmPatchLibraryTests
         // Assert
         Assert.DoesNotContain(31, rates);
         Assert.Contains(FmPatchLibrary.SoftAttackRate, rates);
+    }
+
+    /// <summary>
+    /// A Lead note's fundamental is at least as loud as its octave, so it is heard at its own pitch: the heavier modulation
+    /// it had put the octave 25 dB above the note, and FunkyChristmas's melody and chord sounded an octave high
+    /// (docs/adr/0132-lead-fundamental.md).
+    /// </summary>
+    [Fact]
+    public void Lead_OnChip_FundamentalIsAtLeastAsLoudAsItsOctave()
+    {
+        // Arrange
+        FmPatch sut = FmPatchLibrary.Lead;
+
+        // Act
+        float[] note = FmNoteRenderer.Render(sut, null, 220, 0.3);
+
+        // Assert
+        Assert.True(Power(note, 220) >= Power(note, 440), "the octave is louder than the note");
+    }
+
+    /// <summary>The power of <paramref name="note"/> at <paramref name="hz"/> from 0.1 s to its end, by Goertzel's filter.</summary>
+    private static double Power(float[] note, double hz)
+    {
+        int from = (int)(0.1 * SampleAnalyzer.AnalysisRateHz);
+        double k = 2 * Math.Cos(2 * Math.PI * hz / SampleAnalyzer.AnalysisRateHz), a = 0, b = 0;
+        for (int i = from; i < note.Length; i++)
+        {
+            double y = note[i] + (k * a) - b;
+            b = a;
+            a = y;
+        }
+
+        return (a * a) + (b * b) - (k * a * b);
     }
 
     /// <summary>The loudest sample of <paramref name="note"/> between <paramref name="from"/> and <paramref name="to"/> seconds.</summary>

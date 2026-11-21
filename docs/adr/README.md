@@ -145,6 +145,7 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0129](0129-dmf-sanity-check.md) | DMF sanity check: DefleMask songs to XGM2, checked against DefleMask's VGM exports | 2026-11-20 | Proposed |
 | [0130](0130-xgm2-hold-compensation.md) | XGM and XGM2 recordings don't make up for the treble the driver's hold takes off | 2026-11-20 | Rejected |
 | [0131](0131-tail-loop-decay.md) | An FM note for a sample with a tail loop fades as the recording does (XGM and XGM2) | 2026-11-20 | Proposed |
+| [0132](0132-lead-fundamental.md) | The Lead FM patch sounds at its own pitch, not an octave up | 2026-11-21 | Proposed |
 
 ## Open questions
 
