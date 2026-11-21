@@ -190,6 +190,78 @@ public sealed class SimpleMapperTests
     }
 
     /// <summary>
+    /// A chord sample's notes (harmonics 4, 5, 6 and 8 of its cycle) each play on an FM channel of their own: its own
+    /// channel the lowest, FM5 (no track's) next, then the idle tracks' channels, all following its MOD channel, their
+    /// levels together as loud as one voice (docs/adr/0133-simple-fm-chords.md).
+    /// </summary>
+    [Fact]
+    public void Map_WithChordLoop_PlaysEachNoteOnAFreeFmChannel()
+    {
+        // Act
+        (GenesisPlan plan, List<string> notes) = Map(Build([[RowOf(Play(Chord))]]));
+
+        // Assert
+        GenesisChannel[] columns = [GenesisChannel.Fm1, GenesisChannel.Fm5, GenesisChannel.Fm2, GenesisChannel.Fm3];
+        PlanCell[] cells = [.. columns.Select(c => CellAt(plan, c))];
+        Assert.Equal([2400, 1200 * Math.Log2(5), 1200 * Math.Log2(6), 3600], cells.Select(c => Math.Round(c.Cents, 6)), (a, b) => Math.Abs(a - b) < 1e-3);
+        Assert.All(cells, c => Assert.Equal((0, VoiceKind.Fm), (c.Source ?? -1, c.Voice?.Kind ?? VoiceKind.PsgTone)));
+        Assert.Equal(1, cells.Sum(c => c.Level * c.Level), 6);
+        Assert.Null(CellAt(plan, GenesisChannel.Fm4).Note);
+        Assert.Contains(notes, n => n.Contains("a chord (harmonics 4, 5, 6, 8 of its cycle), so each of its 1 FM notes plays the chord's notes on FM channels of their own; 0 found fewer", StringComparison.Ordinal));
+    }
+
+    /// <summary>With the other tracks playing on their own FM channels, only FM5 is free: the chord keeps its two lowest notes and leaves out the top ones.</summary>
+    [Fact]
+    public void Map_WithOtherTracksSounding_LeavesOutTheChordsTopNotes()
+    {
+        // Act
+        (GenesisPlan plan, List<string> notes) = Map(Build([[RowOf(Play(Chord), Play(Organ), Play(Organ), Play(Organ))]]));
+
+        // Assert
+        Assert.Equal(1200 * Math.Log2(5), CellAt(plan, GenesisChannel.Fm5).Cents, 3);
+        Assert.Equal(1, CellAt(plan, GenesisChannel.Fm2).Source);
+        Assert.Contains(notes, n => n.Contains("so each of its 1 FM notes plays the chord's notes on FM channels of their own; 1 found fewer free FM channels than notes", StringComparison.Ordinal));
+    }
+
+    /// <summary>A plain note on the chord's MOD channel lets go of the chord's other voices.</summary>
+    [Fact]
+    public void Map_WithPlainNoteAfterChord_LetsGoOfTheChordVoices()
+    {
+        // Act
+        (GenesisPlan plan, _) = Map(Build([[RowOf(Play(Chord)), RowOf(Play(Organ))]]));
+
+        // Assert
+        PlanCell[] released = [.. new[] { GenesisChannel.Fm5, GenesisChannel.Fm2, GenesisChannel.Fm3 }.Select(c => CellAt(plan, c, row: 1))];
+        Assert.All(released, c => Assert.Equal((true, 0), (c.NoteOff, c.Source ?? -1)));
+        Assert.Equal(0, CellAt(plan, GenesisChannel.Fm1, row: 1).Cents);
+    }
+
+    /// <summary>A track's own note takes its FM channel back from a chord voice there, with a note counting the voices cut.</summary>
+    [Fact]
+    public void Map_WithTrackNoteOnChordChannel_TakesTheChannelBack()
+    {
+        // Act
+        (GenesisPlan plan, List<string> notes) = Map(Build([[RowOf(Play(Chord)), RowOf(Cell.Empty, Play(Organ))]]));
+
+        // Assert
+        Assert.Equal(1, CellAt(plan, GenesisChannel.Fm2, row: 1).Source);
+        Assert.Equal(0, CellAt(plan, GenesisChannel.Fm2, row: 1).Cents);
+        Assert.Contains(notes, n => n.Contains("1 chord voices stopped early, where the track that owns their FM channel played a note", StringComparison.Ordinal));
+    }
+
+    /// <summary>A volume change on the chord's MOD channel reaches every voice of the chord.</summary>
+    [Fact]
+    public void Map_WithVolumeChangeDuringChord_SetsItOnEveryVoice()
+    {
+        // Act
+        (GenesisPlan plan, _) = Map(Build([[RowOf(Play(Chord)), RowOf(new Cell(null, null, 0.25, []))]]));
+
+        // Assert
+        PlanCell[] voices = [.. new[] { GenesisChannel.Fm1, GenesisChannel.Fm5, GenesisChannel.Fm2, GenesisChannel.Fm3 }.Select(c => CellAt(plan, c, row: 1))];
+        Assert.All(voices, c => Assert.Equal((0.25, 0), (c.Volume ?? -1, c.Source ?? -1)));
+    }
+
+    /// <summary>
     /// A chorused chord with no cycle at all plays its bottom note, unlifted, with a note saying so
     /// (docs/adr/0125-chord-samples.md).
     /// </summary>
