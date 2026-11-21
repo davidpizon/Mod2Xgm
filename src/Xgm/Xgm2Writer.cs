@@ -113,6 +113,9 @@ internal static class Xgm2Writer
     private const byte RegFirstSlot = 0x30;
     private const byte RegLastSlot = 0x9f;
     private const byte RegTl = 0x40;
+
+    /// <summary>A slot's total level at its quietest: 127, about 95 dB down (docs/genesis-audio.md).</summary>
+    private const byte SilentTl = 0x7f;
     private const byte RegAlgorithm = 0xb0;
     private const byte RegPan = 0xb4;
 
@@ -400,6 +403,17 @@ internal static class Xgm2Writer
         {
             MoveFm(f);
             _fmLoop = Fm.Count;
+
+            // A slot whose level the first time through hadn't set yet was silent then. The song's end may leave a note
+            // releasing on it, which the loop's first writes (a pan, say) would bring back as a new note, so it goes
+            // quiet (docs/adr/0134-loop-silences-release-tails.md).
+            foreach ((int part, byte register) in Enumerable.Range(0, 2)
+                .SelectMany(part => Enumerable.Range(0, 0x10).Select(r => (part, (byte)(RegTl + r))))
+                .Where(k => IsTl(k.Item2) && !_fm.ContainsKey(k)))
+            {
+                Command((byte)(FmSetTl | (register & 0x0f)), (byte)((SilentTl << 1) | part));
+            }
+
             foreach (((int part, byte register), byte value) in _fm.OrderBy(r => r.Key.Part).ThenBy(r => RestoreOrder(r.Key.Register)))
             {
                 AddRaw(part, register, value);

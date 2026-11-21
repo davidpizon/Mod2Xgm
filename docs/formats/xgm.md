@@ -122,7 +122,9 @@ together, `$9x` for every other total level, `$Ex` raw writes (8 per command, on
 LFO, `$FA`/`$FB` for `$27`'s CH3 bit, `$1x` PCM at the low priority, waits; for PSG, tone (`$2x`) and volume set
 (`$8x`–`$Bx`), every noise-register write sent. A register written twice between two other commands is sent once.
 At the loop frame it sets back every register, key, LFO, CH3 bit and PSG channel as they were on the first time
-through (keys up and PSG volumes off where none was set yet); recordings still sounding at the jump are stopped. A
+through (keys up, slot levels silent and PSG volumes off where none was set yet, so a note releasing at the song's end
+can't be brought back by the loop's first writes, [ADR 0134](../adr/0134-loop-silences-release-tails.md)); recordings
+still sounding at the jump are stopped. A
 song that ends gets one more frame that lets every key up, turns the PSG off and stops every PCM channel. Recordings
 with the same bytes are stored once, each only as far as a play reaches (plus two frames).
 Optimize to delta/combined commands later, with byte-exact tests guarding output equivalence.
