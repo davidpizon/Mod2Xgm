@@ -228,7 +228,7 @@ public sealed class HarnessReportTests
         // Assert
         Assert.Equal(HarnessReport.FmFitHeader, lines[0]);
         Assert.Equal("alpha,1,\"bass, low\",1,Lead,7.123,3.5,3,genetic,3,35,4,3.5,5,\"ALG 7 FB 0 MULT 1 1 1 1, LFO 5 FMS 2 AMS 0\",yes,1234,12.3,no", lines[1]);
-        Assert.Equal("alpha,1,\"bass, low\",2,Lead,7.123,,,library,7.123,90.5,9.5,7.123,,\"ALG 4 FB 5 MULT 1 1 2 2, no LFO\",no,11,0.5,yes", lines[2]);
+        Assert.Equal("alpha,1,\"bass, low\",2,Lead,7.123,,,library,7.123,90.5,9.5,7.123,,\"ALG 4 FB 3 MULT 1 1 2 2, no LFO\",no,11,0.5,yes", lines[2]);
         Assert.Equal(string.Empty, lines[3]);
         Assert.Equal(HarnessReport.FmFitCsv(results), HarnessReport.FmFitCsv(results));
     }

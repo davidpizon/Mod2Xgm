@@ -29,12 +29,16 @@ internal static class FmPatchLibrary
         0,
         [Op(mult: 1, tl: 22), Op(mult: 2, tl: 34), Op(mult: 4, tl: 44), Op(mult: 1, tl: 22, detune: 1)]);
 
-    /// <summary>Two modulator → carrier pairs with feedback (algorithm 4): a bright, buzzy lead.</summary>
+    /// <summary>
+    /// Two modulator → carrier pairs with feedback (algorithm 4): a bright, buzzy lead. OP1 modulates lightly enough that the
+    /// note itself stays louder than its octave, so the lead sounds at its own pitch, not an octave up
+    /// (docs/adr/0132-lead-fundamental.md).
+    /// </summary>
     public static FmPatch Lead { get; } = new(
         "Lead",
         4,
-        5,
-        [Op(mult: 1, tl: 30, dr: 4), Op(mult: 1, tl: 0), Op(mult: 2, tl: 38, dr: 4), Op(mult: 2, tl: 8)]);
+        3,
+        [Op(mult: 1, tl: 42, dr: 4), Op(mult: 1, tl: 0), Op(mult: 2, tl: 38, dr: 4), Op(mult: 2, tl: 8)]);
 
     /// <summary>One modulator driving three carriers (algorithm 5) with feedback: a brassy, harmonically rich tone.</summary>
     public static FmPatch Brass { get; } = new(
