@@ -610,6 +610,32 @@ public sealed class GenesisRendererTests
         Assert.Equal(-6, Db(quiet.Left, quiet.SampleRate, 0.2, 1.0) - Db(loud.Left, loud.SampleRate, 0.2, 1.0), 1.0);
     }
 
+    /// <summary>
+    /// On XGM2 a held FM note of a sample whose loop is a quiet tail after its recording fades with the recording, 20 dB
+    /// into the tail, and the render says so once; the DMF render, like DefleMask, holds the note's level
+    /// (docs/adr/0131-tail-loop-decay.md).
+    /// </summary>
+    [Fact]
+    public void Render_WithTailLoopOnXgm2_FadesIntoTheTail()
+    {
+        // Arrange: 8192 frames of a loud sine (0.29 s at the note's rate), then a 1536-frame loop 20 dB quieter.
+        float[] data = [.. Enumerable.Range(0, 8192 + 1536).Select(i => (float)((i < 8192 ? 0.5 : 0.05) * Math.Sin(2 * Math.PI * i / 64)))];
+        Song song = SongOf(1, new Sample("tail", data, new SampleLoop(8192, 1536)));
+        GenesisPlan plan = PlanOf([FmPatchLibrary.Sine], [], Row((GenesisChannel.Fm1, Note(VoiceKind.Fm))));
+        Playback playback = PlaybackOf(20, (r, t) => Playing(r == 0 && t == 0));
+        ConversionNotes notes = new(Logger.None);
+
+        // Act
+        StereoAudio sut = GenesisRenderer.Render(plan, song, playback, ChipRate with { Driver = PcmDriver.Xgm2 }, notes);
+        StereoAudio dmf = Render(plan, song, playback);
+
+        // Assert
+        double hit = Db(sut.Left, sut.SampleRate, 0.05, 0.25);
+        Assert.Equal(-20, Db(sut.Left, sut.SampleRate, 1.0, 2.0) - hit, 1.0);
+        Assert.Equal(0, Db(dmf.Left, dmf.SampleRate, 1.0, 2.0) - Db(dmf.Left, dmf.SampleRate, 0.05, 0.25), 0.5);
+        Assert.Single(notes.Messages, m => m.Contains("fade as its recording does, to 20 dB under the hit", StringComparison.Ordinal));
+    }
+
     /// <summary>Several recordings at once play on the PCM columns of a plan with more than one PCM voice.</summary>
     [Fact]
     public void Render_WithSecondPcmColumn_AddsItToTheMix()

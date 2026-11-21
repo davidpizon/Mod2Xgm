@@ -39,9 +39,13 @@ internal sealed class PlanVoicing(GenesisPlan plan, Song song)
     /// <summary>What's left of a noise sample's highs on the PSG: 12 dB down, David's pick over 6 dB, as the PSG's noise reaches far higher than the MOD's samples (docs/adr/0087-greedy-allocator.md).</summary>
     private const double TunedNoiseGain = 0.25;
 
+    /// <summary>Frames of the recording <see cref="FmDecay"/> measures at a time: as many as a sample's loudest window (<see cref="VoiceLevel.Loudest"/>).</summary>
+    private const int DecayWindowFrames = 256;
+
     private readonly Dictionary<int, SamplePitch> _pitches = [];
     private readonly Dictionary<int, int> _noiseNotes = [];
     private readonly Dictionary<(int Sample, int Patch), (double Gain, bool Limited)> _fmLevels = [];
+    private readonly Dictionary<(int Sample, int Patch), double> _decayScales = [];
 
     /// <summary>The pitch an FM note sounds at, in semitones from C-0 with a fraction; <paramref name="measured"/> says how it was found.</summary>
     /// <param name="note">The MOD note: its playback rate, and its name for the fallback.</param>
@@ -113,6 +117,55 @@ internal sealed class PlanVoicing(GenesisPlan plan, Song song)
         }
 
         return level;
+    }
+
+    /// <summary>
+    /// For a sample whose loop is a short tail after a long recording (<see cref="LoopKind.Tail"/>), the factor on an FM
+    /// note's level <paramref name="frame"/> frames into the sample, so the note fades as the recording does into its
+    /// tail instead of holding at the hit's level (docs/adr/0131-tail-loop-decay.md); 1 for any other sample. The note's
+    /// level (<see cref="FmLevel"/>) matches the hit to the patch's attack; the factor is the recording's level there
+    /// against its hit, with the patch's own fall to its sustain level taken out, and never more than 1.
+    /// </summary>
+    /// <param name="sample">The song sample the note plays.</param>
+    /// <param name="patch">The FM patch it plays on.</param>
+    /// <param name="frame">Where in the sample the note is, in frames.</param>
+    public double FmDecay(int sample, int patch, double frame)
+    {
+        double scale = DecayScale(sample, patch);
+        return scale <= 0 ? 1 : Math.Min(1, scale * VoiceLevel.WindowRms(song.Samples[sample], (int)frame, DecayWindowFrames));
+    }
+
+    /// <summary>
+    /// The factor <see cref="FmDecay"/> settles at once a note plays <paramref name="sample"/>'s tail on
+    /// <paramref name="patch"/>, or <c>null</c> when the sample's notes don't fade (its loop isn't a tail).
+    /// </summary>
+    public double? FmTailDecay(int sample, int patch)
+    {
+        double scale = DecayScale(sample, patch);
+        return song.Samples[sample].Loop is { } loop && scale > 0
+            ? Math.Min(1, scale * VoiceLevel.WindowRms(song.Samples[sample], loop.Start, loop.Length))
+            : null;
+    }
+
+    /// <summary>
+    /// What <see cref="FmDecay"/> multiplies a window's RMS by: the patch's attack over its sustained level, over the
+    /// sample's loudest window; 0 when the sample's notes don't fade.
+    /// </summary>
+    private double DecayScale(int sample, int patch)
+    {
+        if (!_decayScales.TryGetValue((sample, patch), out double scale))
+        {
+            Sample played = song.Samples[sample];
+            FmPatch fm = plan.FmPatches[patch];
+            double attack = VoiceLevel.Fm(fm, sustained: false).Rms;
+            double sustained = VoiceLevel.Fm(fm, sustained: true).Rms;
+            double loudest = VoiceLevel.Loudest(played);
+            bool tail = played.Loop is not null && LoopShape.Of(played, SampleTraits.Analyze(played)) == LoopKind.Tail;
+            scale = tail && sustained > 0 && loudest > 0 ? attack / sustained / loudest : 0;
+            _decayScales[(sample, patch)] = scale;
+        }
+
+        return scale;
     }
 
     /// <summary>

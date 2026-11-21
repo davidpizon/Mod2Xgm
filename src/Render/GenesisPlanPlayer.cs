@@ -17,6 +17,7 @@ namespace Mod2Xgm.Render;
 /// note-off or note cut (docs/adr/0095-voices-stop-with-the-mod-note.md) the channel takes that song channel's pitch, volume
 /// and pan from every tick. What the hardware can't change stays as the note started: a DAC note's pitch (its sample's one
 /// rate, ADR 0040) and, on the DMF, its volume (XGM and XGM2 bake a fade into its copy, docs/adr/0120-faded-recordings.md), a noise note's rate, a PSG tone's pitch (as its DMF notes, which can't slide; docs/adr/0087-greedy-allocator.md).
+/// On XGM and XGM2 an FM note of a sample whose loop is a tail fades as its recording does (docs/adr/0131-tail-loop-decay.md).
 /// </summary>
 internal sealed class GenesisPlanPlayer
 {
@@ -33,6 +34,9 @@ internal sealed class GenesisPlanPlayer
 
     /// <summary>Below this attenuation, in TL steps (48 dB), a level goes straight to where it is going: the step is too quiet to hear.</summary>
     private const int QuietSteps = 64;
+
+    /// <summary>A tail loop's FM notes are noted as fading when its tail plays at least this far under the hit, in dB (docs/adr/0131-tail-loop-decay.md).</summary>
+    private const double NotedDecayDb = 1;
 
     private const int PsgOff = PsgLevels.Off;
 
@@ -86,6 +90,7 @@ internal sealed class GenesisPlanPlayer
     private readonly Dictionary<(int Channel, int Tick), NoteFade> _fades = [];
     private readonly Dictionary<(int Sample, int Frames), double> _noisePeaks = [];
     private readonly Dictionary<string, int> _tallies = [];
+    private readonly HashSet<int> _decaying = [];
     private readonly PanLog? _pans;
 
     /// <summary>Prepares the chips for a render: LFO and channel 3's special mode off, every channel on both sides.</summary>
@@ -254,6 +259,10 @@ internal sealed class GenesisPlanPlayer
             if (track.Sounding)
             {
                 Update(c, t);
+                if (track.Kind != VoiceKind.Dac)
+                {
+                    track.Frame += _ticks[t].Channels[track.Source].Pitch.PlaybackRateHz * _durations[t];
+                }
             }
 
             if (track.CutTick == t)
@@ -500,6 +509,8 @@ internal sealed class GenesisPlanPlayer
                 track.ReleasedEarly = false;
                 track.Centred = _voicing.CentredBass(ch.Pitch, sample, ch.Pan);
                 track.Gain = FmGain(track, sample, voice.Index) * cell.Level;
+                track.Frame = ch.Started?.StartFrame ?? 0;
+                NoteDecay(sample, voice.Index);
                 track.Cents = cell.Cents;
                 track.Sounding = true;
                 Update(c, t);
@@ -542,6 +553,7 @@ internal sealed class GenesisPlanPlayer
                     track.ReleasedEarly = false;
                 }
 
+                track.Frame = ch.Started?.StartFrame ?? 0;
                 KeyOn(c);
                 break;
             case VoiceKind.Dac:
@@ -583,6 +595,25 @@ internal sealed class GenesisPlanPlayer
     /// docs/adr/0112-retry-list.md). A DMF's plan never has one.
     /// </summary>
     private double SongGain => Math.Pow(10, _plan.SongGainDb / 20);
+
+    /// <summary>
+    /// Says once per sample, on XGM and XGM2, that its FM notes fade as its recording does into its tail loop
+    /// (docs/adr/0131-tail-loop-decay.md). The DMF keeps a note's level, as DefleMask changes it only on a row.
+    /// </summary>
+    private void NoteDecay(int sample, int patch)
+    {
+        if (_chips.Driver == PcmDriver.Dmf || _voicing.FmTailDecay(sample, patch) is not { } tail)
+        {
+            return;
+        }
+
+        double db = -20 * Math.Log10(tail);
+        if (db >= NotedDecayDb && _decaying.Add(sample))
+        {
+            string label = string.Create(CultureInfo.InvariantCulture, $"{sample + 1} \"{_song.Samples[sample].Name}\"");
+            _notes.Add("Sample {Sample}: its FM notes fade as its recording does, to {Db:0.#} dB under the hit in its tail loop", label, db);
+        }
+    }
 
     /// <summary>The factor on the MOD volume of <paramref name="sample"/> on FM patch <paramref name="patch"/>, as this note is panned.</summary>
     private double FmGain(Track track, int sample, int patch) =>
@@ -636,7 +667,7 @@ internal sealed class GenesisPlanPlayer
                 break;
             case VoiceKind.PsgNoise:
             case VoiceKind.PsgTone:
-                UpdateNoise(c, track, ch, _durations[t]);
+                UpdateNoise(c, track, ch);
                 break;
         }
     }
@@ -655,7 +686,10 @@ internal sealed class GenesisPlanPlayer
             }
         }
 
-        double level = ch.Volume * track.Gain * SongGain;
+        // On XGM and XGM2 a tail loop's note fades as its recording does (docs/adr/0131-tail-loop-decay.md); DefleMask changes a
+        // channel's volume only on a row, so the DMF keeps the note's level.
+        double decay = _chips.Driver == PcmDriver.Dmf ? 1 : _voicing.FmDecay(track.Sample, track.Voice.Index, track.Frame);
+        double level = ch.Volume * track.Gain * SongGain * decay;
         int target = level <= 0 ? MaxTl : (int)Math.Round(-20 * Math.Log10(level) / TlStepDb, MidpointRounding.AwayFromZero);
         // DefleMask sets a channel's volume at once, so the DMF render does too.
         int steps = starting || track.LevelSteps < 0 || _chips.Driver == PcmDriver.Dmf ? target : Ramp(track.LevelSteps, target);
@@ -718,7 +752,7 @@ internal sealed class GenesisPlanPlayer
 
     private void StartNoise(Track track, ChannelTick ch, int t)
     {
-        track.NoiseFrame = ch.Started?.StartFrame ?? 0;
+        track.Frame = ch.Started?.StartFrame ?? 0;
         int frames = Math.Max(1, (int)(ch.Pitch.PlaybackRateHz * _durations[t]));
         track.NoiseWindow = frames;
         track.NoisePeak = NoisePeak(track.Sample, frames);
@@ -730,14 +764,13 @@ internal sealed class GenesisPlanPlayer
     /// The noise follows its sample's loudness tick by tick, as the DMF's noise instrument does: the tick's stretch of the
     /// sample against its loudest stretch, times the MOD volume, at the nearest of the chip's levels (docs/adr/0067-psg-volume-levels.md). Past a one-shot sample's end it is silent.
     /// </summary>
-    private void UpdateNoise(int c, Track track, ChannelTick ch, double seconds)
+    private void UpdateNoise(int c, Track track, ChannelTick ch)
     {
         Sample sample = _song.Samples[track.Sample];
-        double rms = WindowRms(sample, (int)track.NoiseFrame, track.NoiseWindow);
+        double rms = VoiceLevel.WindowRms(sample, (int)track.Frame, track.NoiseWindow);
         double level = ch.Volume * track.Gain * SongGain * (track.NoisePeak > 0 ? rms / track.NoisePeak : 0);
         int volume = PsgLevels.Nearest(level);
         WritePsgVolume(c, track, volume);
-        track.NoiseFrame += ch.Pitch.PlaybackRateHz * seconds;
     }
 
     private void WritePsgVolume(int c, Track track, int volume)
@@ -769,36 +802,13 @@ internal sealed class GenesisPlanPlayer
             int end = sample.Loop is { } loop ? loop.Start + loop.Length : sample.Length;
             for (int from = 0; from < end; from += frames)
             {
-                peak = Math.Max(peak, WindowRms(sample, from, Math.Min(frames, end - from)));
+                peak = Math.Max(peak, VoiceLevel.WindowRms(sample, from, Math.Min(frames, end - from)));
             }
 
             _noisePeaks[(index, frames)] = peak;
         }
 
         return peak;
-    }
-
-    /// <summary>The RMS of <paramref name="frames"/> frames from <paramref name="from"/>, through the loop; 0 past a one-shot sample's end.</summary>
-    private static double WindowRms(Sample sample, int from, int frames)
-    {
-        double sum = 0;
-        for (int i = 0; i < frames; i++)
-        {
-            int at = from + i;
-            if (sample.Loop is { } loop && at >= loop.Start + loop.Length)
-            {
-                at = loop.Start + ((at - loop.Start) % loop.Length);
-            }
-
-            if (at >= sample.Length)
-            {
-                break;
-            }
-
-            sum += (double)sample.Data[at] * sample.Data[at];
-        }
-
-        return frames > 0 ? Math.Sqrt(sum / frames) : 0;
     }
 
     /// <summary>Plays a DAC note: its sample from the frame the tick player starts at, at the volume it starts with and, on XGM and XGM2, with its fade. False when it stays silent.</summary>
@@ -1057,8 +1067,8 @@ internal sealed class GenesisPlanPlayer
         /// <summary>The PSG volume last written (0 loudest, 15 off), or −1.</summary>
         public int Volume { get; set; } = -1;
 
-        /// <summary>Where in its sample a noise note is, in frames.</summary>
-        public double NoiseFrame { get; set; }
+        /// <summary>Where in its sample a noise or FM note is at the start of the tick, in frames: a noise note follows the sample's loudness, an FM note a tail loop's recording.</summary>
+        public double Frame { get; set; }
 
         /// <summary>Frames of the sample one tick covered when the noise note started.</summary>
         public int NoiseWindow { get; set; } = 1;
