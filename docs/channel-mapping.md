@@ -12,7 +12,10 @@ played by one of five built-in patches, by brightness ([ADR 0118](adr/0118-harmo
 chorused tone plays its bottom note on one FM voice: a loop with no cycle is placed at its lowest strong partial, and a
 built-in patch for a loop that repeats at a chord's common cycle is lifted to its lowest strong harmonic
 ([ADR 0125](adr/0125-chord-samples.md)). A loop that repeats at a chord's common cycle plays the chord's other notes on FM channels nothing else sounds on (FM1–FM5,
-never another track's note), top notes left out first when there's no room ([ADR 0133](adr/0133-simple-fm-chords.md)). A loop that isn't a tone (noise, or a short tail after a long recording with no clear pitch) counts as playing once
+never another track's note), top notes left out first when there's no room ([ADR 0133](adr/0133-simple-fm-chords.md)). So
+does a loop with no cycle whose partials make a triad or four-note chord: three or four harmonic series on at least three
+pitch classes, read from the spectrum of ADR 0125, holding at least half its power; a fifth still plays one voice
+([ADR 0135](adr/0135-loop-chords.md)). A loop that isn't a tone (noise, or a short tail after a long recording with no clear pitch) counts as playing once
 ([ADR 0117](adr/0117-tail-and-noise-loops.md)). Each choice, and the pitch FM notes are placed at, is a conversion note; a clash on the DAC is won by the louder note and the loser moves to the PSG noise channel (if
 noise) or FM. `--no-dac` keeps everything off the DAC. Mixing clashing drums into one sample is left to the optimizer
 as a separate candidate.

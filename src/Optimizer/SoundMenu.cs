@@ -22,12 +22,13 @@ namespace Mod2Xgm.Optimizer;
 internal sealed record RegionSounds(double LowRateHz, double HighRateHz, FmPatch? Patch, double? FmDb, double? ToneDb, double? NoiseDb, FmPatch? Second = null, double FirstLevel = 1, double SpreadCents = 0, FmRegionFeatures? Features = null, ChordVoices? Chord = null);
 
 /// <summary>One note of a chord sample, played by an FM voice of its own (docs/adr/0114-fm-chords.md).</summary>
-/// <param name="Harmonic">Which harmonic of the root the analysis measures the note is (the root is 1).</param>
+/// <param name="Harmonic">Which harmonic of the root the analysis measures the note is (the root is 1); 0 for a note read
+/// from a loop with no one cycle, which isn't a harmonic of anything (docs/adr/0135-loop-chords.md).</param>
 /// <param name="Level">The factor on the voice's level, as its share of the chord: 1 for the loudest note.</param>
 internal sealed record ChordTone(int Harmonic, double Level)
 {
-    /// <summary>How far the note is above the root the sample's FM note plays at, in cents.</summary>
-    public double Cents => 1200 * Math.Log2(Harmonic);
+    /// <summary>How far the note is above the root the sample's FM note plays at, in cents: the harmonic's interval, unless set.</summary>
+    public double Cents { get; init; } = Harmonic > 0 ? 1200 * Math.Log2(Harmonic) : 0;
 }
 
 /// <summary>A chord sample's notes played as FM voices of one patch, each at its own pitch (docs/adr/0114-fm-chords.md).</summary>

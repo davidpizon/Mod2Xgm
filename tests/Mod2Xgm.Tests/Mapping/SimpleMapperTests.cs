@@ -14,7 +14,8 @@ public sealed class SimpleMapperTests
     /// Instrument numbers in <see cref="Build"/>: a looped sine, two tonal drums, a noise hit, an empty slot, a hit of
     /// noise with a short looped tail, a looped hiss, a decaying tone with a short looped tail, a looped tone whose
     /// second harmonic is louder than its fundamental, a looped sawtooth, a looped six-note chord (harmonics 4, 5, 6, 8, 10
-    /// and 12 of its cycle) and a looped chorused chord with no cycle at all.
+    /// and 12 of its cycle), a looped chorused chord with no cycle at all and a looped A major triad whose common cycle
+    /// is too long to search.
     /// </summary>
     private const int Organ = 0;
 
@@ -29,6 +30,7 @@ public sealed class SimpleMapperTests
     private const int Saw = 9;
     private const int Chord = 10;
     private const int Pad = 11;
+    private const int Triad = 12;
 
     /// <summary>
     /// A note is placed at the pitch the tick player plays it at (ADR 0061: the instrument's finetune is in it), on every
@@ -276,6 +278,25 @@ public sealed class SimpleMapperTests
         Assert.Contains(notes, n => n.Contains("no one cycle repeats in its loop (a chord, or a chorused tone), so its FM notes play its lowest strong note", StringComparison.Ordinal));
     }
 
+
+    /// <summary>
+    /// A loop with no cycle short enough to find, whose partials make an A major triad, plays each of its notes on an FM
+    /// channel of its own at its interval above the bottom note, with a note naming the notes read from the loop
+    /// (docs/adr/0135-loop-chords.md).
+    /// </summary>
+    [Fact]
+    public void Map_WithTriadLoop_PlaysEachNoteOnAFreeFmChannel()
+    {
+        // Act
+        (GenesisPlan plan, List<string> notes) = Map(Build([[RowOf(Play(Triad))]]));
+
+        // Assert
+        PlanCell[] cells = [.. new[] { GenesisChannel.Fm1, GenesisChannel.Fm5, GenesisChannel.Fm2 }.Select(c => CellAt(plan, c))];
+        Assert.Equal([0, 1200 * Math.Log2(69 / 55.0), 1200 * Math.Log2(82 / 55.0)], cells.Select(c => c.Cents), (a, b) => Math.Abs(a - b) < 5);
+        Assert.Equal(1, cells.Sum(c => c.Level * c.Level), 6);
+        Assert.Null(CellAt(plan, GenesisChannel.Fm3).Note);
+        Assert.Contains(notes, n => n.Contains("a chord (A0, C#1, E1 at C-2, read from its loop), so each of its 1 FM notes plays the chord's notes", StringComparison.Ordinal));
+    }
     /// <summary>
     /// A sample whose loop is a short tail after a long recording with no clear pitch is played like one that plays once:
     /// on the DAC, with a note saying what the mapper took it to be before the one saying where it plays
@@ -899,6 +920,7 @@ public sealed class SimpleMapperTests
         float[] saw = [.. Enumerable.Range(0, 64).Select(i => (float)((i / 32.0) - 1))];
         float[] chord = [.. Enumerable.Range(0, 128).Select(i => (float)new[] { 4, 5, 6, 8, 10, 12 }.Sum(k => 0.15 * Math.Sin(2 * Math.PI * k * i / 128)))];
         float[] pad = [.. Enumerable.Range(0, 16384).Select(i => (float)new[] { 55, 56, 69, 70, 82, 83 }.Sum(k => 0.15 * Math.Sin(2 * Math.PI * k * i / 16384)))];
+        float[] triad = [.. Enumerable.Range(0, 16384).Select(i => (float)new[] { 55, 69, 82 }.Sum(r => (0.2 * Math.Sin(2 * Math.PI * r * i / 16384)) + (0.1 * Math.Sin(4 * Math.PI * r * i / 16384)) + (0.07 * Math.Sin(6 * Math.PI * r * i / 16384))))];
         Sample[] samples =
         [
             new("organ", tone, new SampleLoop(0, 1024)),
@@ -913,6 +935,7 @@ public sealed class SimpleMapperTests
             new("saw", saw, new SampleLoop(0, 64)),
             new("chord", chord, new SampleLoop(0, 128)),
             new("pad", pad, new SampleLoop(0, 16384)),
+            new("triad", triad, new SampleLoop(0, 16384)),
         ];
         Instrument[] instruments = [.. samples.Select((_, i) => new Instrument(i, 0.5, 0))];
         Pattern[] built = [.. patterns.Select(rows => new Pattern([.. rows.Select(r => r.Cells.Count == channels ? r : new Row([.. r.Cells.Take(channels), .. Enumerable.Repeat(Cell.Empty, channels - r.Cells.Count)]))]))];

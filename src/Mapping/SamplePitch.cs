@@ -92,6 +92,12 @@ internal readonly record struct SamplePitch(double? PeriodFrames)
         LoopSpectrum.Of(sample)?.BottomNote(ChordCents, StrongDb, 1.0 / MaxLag) is { } cyclesPerFrame ? 1 / cyclesPerFrame : null;
 
     /// <summary>
+    /// The notes a tone loop with no one cycle (<see cref="Chord"/>) is made of, read from its partials
+    /// (docs/adr/0135-loop-chords.md); <c>null</c> when it doesn't loop or has no partial.
+    /// </summary>
+    public static LoopChord? LoopChordOf(Sample sample) => LoopSpectrum.Of(sample)?.Chord(ChordCents, 1.0 / MaxLag);
+
+    /// <summary>
     /// How far, in cents, a library FM patch standing for the sample <paramref name="harmonic"/> measures plays above its measured pitch
     /// (docs/adr/0125-chord-samples.md): a loop whose cycle is a chord's common cycle (a just major triad is harmonics 4, 5
     /// and 6 of the cycle two octaves below its root) is heard at its lowest strong harmonic, which a patch that sounds its own
