@@ -72,6 +72,88 @@ public sealed class LoopSpectrumTests
         Assert.InRange(bottom ?? double.NaN, 100 / 16384.0, 101 / 16384.0);
     }
 
+    /// <summary>
+    /// A C major triad (C4, E4, G4 at C-2, roots 517, 651 and 775 cycles over the loop, each with its second and third
+    /// harmonic) is three notes in three series holding all of its power: a chord (docs/adr/0135-loop-chords.md).
+    /// </summary>
+    [Fact]
+    public void Chord_WithTriad_FindsItsThreeNotes()
+    {
+        // Arrange
+        LoopSpectrum? sut = LoopSpectrum.Of(new Sample("triad", Triad(517, 651, 775), new SampleLoop(0, 16384)));
+
+        // Act
+        LoopChord? chord = sut?.Chord(SamplePitch.ChordCents, 1 / 1024.0);
+
+        // Assert
+        Assert.NotNull(chord);
+        Assert.Equal([517, 651, 775], chord.Notes.Select(n => Math.Round(n.CyclesPerFrame * 16384)));
+        Assert.Equal((3, 3, true), (chord.Series, chord.PitchClasses, chord.IsChord));
+        Assert.InRange(chord.Share, 0.95, 1.0);
+    }
+
+    /// <summary>A fifth (C4 and G4) is two notes, not a triad: no chord yet (David, 2026-11-21: triads first).</summary>
+    [Fact]
+    public void Chord_WithFifth_IsNoChord()
+    {
+        // Arrange
+        LoopSpectrum? sut = LoopSpectrum.Of(new Sample("fifth", Triad(517, 775), new SampleLoop(0, 16384)));
+
+        // Act
+        LoopChord? chord = sut?.Chord(SamplePitch.ChordCents, 1 / 1024.0);
+
+        // Assert
+        Assert.Equal((2, false), (chord?.Notes.Count, chord?.IsChord));
+    }
+
+    /// <summary>A chorused tone (each harmonic doubled a few cents apart) is one note, not a chord.</summary>
+    [Fact]
+    public void Chord_WithChorusedTone_FindsOneNote()
+    {
+        // Arrange
+        float[] frames = Partials(16384, (517, 0.3), (518, 0.3), (1034, 0.15), (1036, 0.15), (1551, 0.1), (1554, 0.1));
+        LoopSpectrum? sut = LoopSpectrum.Of(new Sample("chorus", frames, new SampleLoop(0, 16384)));
+
+        // Act
+        LoopChord? chord = sut?.Chord(SamplePitch.ChordCents, 1 / 1024.0);
+
+        // Assert
+        Assert.Equal((1, false), (chord?.Notes.Count, chord?.IsChord));
+    }
+
+    /// <summary>White noise makes many series and no notes that hold most of it: no chord.</summary>
+    [Fact]
+    public void Chord_WithNoise_IsNoChord()
+    {
+        // Arrange
+        float[] frames = [.. new Random(3).GetItems([-1f, 1f], 16384)];
+        LoopSpectrum? sut = LoopSpectrum.Of(new Sample("noise", frames, new SampleLoop(0, 16384)));
+
+        // Act
+        LoopChord? chord = sut?.Chord(SamplePitch.ChordCents, 1 / 1024.0);
+
+        // Assert
+        Assert.False(chord?.IsChord ?? true);
+    }
+
+    /// <summary>Three notes that are a fifth and its octave (C#, G#, C#) fall on two pitch classes: not a triad.</summary>
+    [Fact]
+    public void IsChord_WithFifthAndOctave_IsFalse()
+    {
+        // Arrange
+        LoopChord sut = new([new LoopNote(0.01, 0.3), new LoopNote(0.015, 0.3), new LoopNote(0.04, 0.3)], 0.9, 3);
+
+        // Act
+        bool isChord = sut.IsChord;
+
+        // Assert
+        Assert.Equal((2, false), (sut.PitchClasses, isChord));
+    }
+
+    /// <summary>16384 frames of notes at <paramref name="roots"/> cycles over them, each with its second and third harmonic.</summary>
+    private static float[] Triad(params int[] roots) =>
+        Partials(16384, [.. roots.SelectMany(r => new[] { (r, 0.3), (2 * r, 0.15), (3 * r, 0.1) })]);
+
     /// <summary><paramref name="frames"/> frames of sines of whole numbers of cycles over them, at the given amplitudes.</summary>
     private static float[] Partials(int frames, params (int Cycles, double Amplitude)[] partials) =>
         [.. Enumerable.Range(0, frames).Select(i => (float)partials.Sum(p => p.Amplitude * Math.Sin(2 * Math.PI * p.Cycles * i / frames)))];

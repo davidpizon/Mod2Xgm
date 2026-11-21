@@ -35,6 +35,9 @@ internal sealed class SimpleMapper(DacLoser loser = DacLoser.Default) : IChannel
     /// <summary>The Amiga period of ProTracker's C-2 (docs/formats/mod.md#pitch), for saying what pitch a sample sounds at.</summary>
     private const int C2Period = 428;
 
+    /// <summary>The note names of the 12 semitones from C, for conversion notes.</summary>
+    private static readonly string[] SemitoneNames = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+
 
     /// <inheritdoc />
     public GenesisPlan Map(Song song, Playback playback, MappingOptions options, ConversionNotes notes)
@@ -134,6 +137,9 @@ internal sealed class SimpleMapper(DacLoser loser = DacLoser.Default) : IChannel
         // Chord voices (docs/adr/0133-simple-fm-chords.md): each sample's chord notes (null: not a chord), the FM columns each
         // MOD channel's chord sounds on beside its own, the MOD channel each column's chord voice belongs to, and the tallies.
         private readonly Dictionary<int, IReadOnlyList<ChordTone>?> _chords = [];
+
+        // How each chord sample's notes were found, for its conversion note: its harmonics, or the notes read from its loop.
+        private readonly Dictionary<int, string> _chordFound = [];
         private readonly List<int>[] _chordColumns;
         private readonly int[] _chordOwner = [.. Enumerable.Repeat(-1, ChordColumns)];
         private readonly SortedDictionary<int, (int Notes, int Short)> _chordNotes = [];
@@ -298,7 +304,9 @@ internal sealed class SimpleMapper(DacLoser loser = DacLoser.Default) : IChannel
                 double lift = SamplePitch.LibraryLiftCents(harmonic);
                 if (pitch.Chord)
                 {
-                    return new Why("Sample {Sample}: no one cycle repeats in its loop (a chord, or a chorused tone), so its FM notes play its lowest strong note (C-2 sounds at {Hz:0.#} Hz)", [label, hz]);
+                    // What the loop's partials make is said either way, so a chord left as one note can be checked by ear.
+                    LoopChord? loop = SamplePitch.LoopChordOf(_song.Samples[sample]);
+                    return new Why("Sample {Sample}: no one cycle repeats in its loop (a chord, or a chorused tone), so its FM notes play its lowest strong note (C-2 sounds at {Hz:0.#} Hz); its partials make {Notes} notes in {Series} harmonic series, holding {Share:0} % of its power", [label, hz, loop?.Notes.Count ?? 0, loop?.Series ?? 0, (loop?.Share ?? 0) * 100]);
                 }
 
                 if (harmonic is not null && lift > 0)
@@ -686,6 +694,15 @@ internal sealed class SimpleMapper(DacLoser loser = DacLoser.Default) : IChannel
                     double[] amplitude = [.. found.Select(h => Math.Pow(10, harmonic.LevelsDb[h - 1] / 20))];
                     double total = Math.Sqrt(amplitude.Sum(a => a * a));
                     tones = [.. found.Select((h, i) => new ChordTone(h, amplitude[i] / total))];
+                    _chordFound[sample] = string.Create(CultureInfo.InvariantCulture, $"harmonics {string.Join(", ", found)} of its cycle");
+                }
+                else if (SamplePitch.Measure(_song.Samples[sample]) is { Chord: true, PeriodFrames: { } bottom }
+                    && SamplePitch.LoopChordOf(_song.Samples[sample]) is { IsChord: true } loop)
+                {
+                    // A loop with no one cycle whose partials make three or four notes (docs/adr/0135-loop-chords.md): each
+                    // note at its distance from the bottom note the sample's FM notes are placed at.
+                    tones = [.. loop.Notes.Select(n => new ChordTone(0, Math.Sqrt(n.Share / loop.Share)) { Cents = 1200 * Math.Log2(n.CyclesPerFrame * bottom) })];
+                    _chordFound[sample] = string.Create(CultureInfo.InvariantCulture, $"{string.Join(", ", loop.Notes.Select(n => NoteName(n.CyclesPerFrame * AmigaPitch.PalClockHz / C2Period)))} at C-2, read from its loop");
                 }
 
                 _chords[sample] = tones;
@@ -727,11 +744,10 @@ internal sealed class SimpleMapper(DacLoser loser = DacLoser.Default) : IChannel
             foreach ((int sample, (int notes, int fewer)) in _chordNotes)
             {
                 // _chordNotes holds only samples ChordOf found a chord in.
-                IReadOnlyList<ChordTone> tones = _chords[sample] ?? [];
                 _notes.Add(
-                    "Sample {Sample}: a chord (harmonics {Harmonics} of its cycle), so each of its {Count} FM notes plays the chord's notes on FM channels of their own; {Fewer} found fewer free FM channels than notes and left out the top ones",
+                    "Sample {Sample}: a chord ({Found}), so each of its {Count} FM notes plays the chord's notes on FM channels of their own; {Fewer} found fewer free FM channels than notes and left out the top ones",
                     Label(sample, _song.Samples[sample].Name),
-                    string.Join(", ", tones.Select(t => t.Harmonic)),
+                    _chordFound[sample],
                     notes,
                     fewer);
             }
@@ -791,7 +807,14 @@ internal sealed class SimpleMapper(DacLoser loser = DacLoser.Default) : IChannel
             effect is PositionJump or PatternBreak or PatternLoopStart or PatternLoop or PatternDelay or SetSpeed or SetTempo or StopSong;
 
         /// <summary>"3 "bass"": the 1-based number trackers show, and the name.</summary>
-        private static string Label(int sample, string name) =>
+        /// <summary>The nearest note to <paramref name="hz"/>, as a tracker names it (A-4 is 440 Hz), e.g. <c>G3</c>.</summary>
+    private static string NoteName(double hz)
+    {
+        int midi = (int)Math.Round(69 + (12 * Math.Log2(hz / 440)));
+        return string.Create(CultureInfo.InvariantCulture, $"{SemitoneNames[((midi % 12) + 12) % 12]}{(midi / 12) - 1}");
+    }
+
+    private static string Label(int sample, string name) =>
             string.Create(CultureInfo.InvariantCulture, $"{sample + 1} \"{name}\"");
     }
 }
