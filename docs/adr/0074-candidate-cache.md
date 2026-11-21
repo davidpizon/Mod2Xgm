@@ -1,6 +1,6 @@
 # ADR 0074: Candidate cache: every kind kept per build, FM fits per region's sound, the rest per song file (T8.6)
 
-- **Status:** Accepted
+- **Status:** Accepted; FM fits kept across builds since [ADR 0136](0136-fm-fits-across-builds.md)
 - **Date:** 2026-11-02
 
 ## Context

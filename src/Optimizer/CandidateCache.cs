@@ -8,8 +8,10 @@ namespace Mod2Xgm.Optimizer;
 /// Keeps the optimizer's candidates on disk so a rerun doesn't make them again (plan T8.6,
 /// docs/adr/0074-candidate-cache.md): FM fits per pitch region, keyed by the region's sound, so a sample a song shares with
 /// another is fitted once; PSG, PCM, pre-mix and CH3 candidates per song, keyed by the song (<see cref="SongAnalysis.Source"/>).
-/// Every key holds the build (<see cref="Build"/>), and a new build deletes the other builds' folders (David). A result
-/// from the cache is the one made, with how long it took then, marked <c>Cached</c>.
+/// FM fits are kept across builds, in a folder of their own for <see cref="FmFitterVersion"/> (David, 2026-11-21,
+/// docs/adr/0136-fm-fits-across-builds.md); every other kind is kept per build (<see cref="Build"/>). A new build deletes
+/// the other builds' folders, and a new fitter version the other versions'. A result from the cache is the one made, with
+/// how long it took then, marked <c>Cached</c>.
 /// </summary>
 /// <remarks>
 /// Safe to use from many threads and processes: an entry is written to a temporary file and renamed into place. An entry
@@ -18,7 +20,7 @@ namespace Mod2Xgm.Optimizer;
 /// </remarks>
 internal sealed partial class CandidateCache
 {
-    /// <summary>Bumped when the file layout changes; the build is in every key anyway.</summary>
+    /// <summary>Bumped when the file layout changes; the build, or for FM fits the fitter version, is in every folder anyway.</summary>
     private const int FormatVersion = 1;
 
     private static ReadOnlySpan<byte> Magic => "M2XC"u8;
@@ -26,7 +28,7 @@ internal sealed partial class CandidateCache
     private readonly ILogger _logger;
     private int _warned;
 
-    /// <summary>A cache in <paramref name="root"/>'s folder for this build; deletes the other builds' folders there.</summary>
+    /// <summary>A cache in <paramref name="root"/>'s folders for this build and fitter version; deletes the other builds' and versions' folders there.</summary>
     /// <param name="root">The cache folder (<see cref="DefaultRoot"/>, or <c>--cache-dir</c>).</param>
     /// <param name="logger">Where a cache that can't be used is reported, once, and damaged entries at <c>Debug</c>.</param>
     public CandidateCache(string root, ILogger logger)
@@ -36,8 +38,23 @@ internal sealed partial class CandidateCache
         _logger = logger;
         Root = Path.GetFullPath(root);
         Folder = Path.Combine(Root, BuildFolderName);
-        DeleteOtherBuilds();
+        FmFolder = Path.Combine(Root, FmFolderName);
+        DeleteOthers(BuildFolderName, BuildFolderPattern());
+        DeleteOthers(FmFolderName, FmFolderPattern());
     }
+
+    /// <summary>
+    /// The FM fitter's version: FM fits are kept across builds until it changes (docs/adr/0136-fm-fits-across-builds.md).
+    /// Bump it whenever a change to the fitting code could change a fit; <c>CandidateCacheTests</c> fails until it is
+    /// bumped and the fingerprint of that code there is updated.
+    /// </summary>
+    public const int FmFitterVersion = 1;
+
+    /// <summary>The folder FM fits go in, under <see cref="Root"/>: one per <see cref="FmFitterVersion"/>.</summary>
+    public static string FmFolderName { get; } = "fm-v" + FmFitterVersion.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>This fitter version's folder, which FM fits go in.</summary>
+    public string FmFolder { get; }
 
     /// <summary>
     /// The compiled code's fingerprint: the Mod2Xgm assembly's module version ID, which a deterministic build changes when,
@@ -260,10 +277,14 @@ internal sealed partial class CandidateCache
         }
     }
 
-    private string PathOf(Fingerprint key, string kind) => Path.Combine(Folder, kind, key.ToHex() + ".bin");
+    /// <summary>Where an entry lives: FM fits in <see cref="FmFolder"/>, the rest in this build's <see cref="Folder"/>.</summary>
+    private string PathOf(Fingerprint key, string kind) => Path.Combine(kind == "fm" ? FmFolder : Folder, kind, key.ToHex() + ".bin");
 
-    /// <summary>Deletes every other build's folder in <see cref="Root"/>: only folders named as this class names them.</summary>
-    private void DeleteOtherBuilds()
+    /// <summary>
+    /// Deletes every folder in <see cref="Root"/> that <paramref name="pattern"/> matches but <paramref name="keep"/>: only
+    /// folders named as this class names them.
+    /// </summary>
+    private void DeleteOthers(string keep, Regex pattern)
     {
         if (!Directory.Exists(Root))
         {
@@ -273,16 +294,16 @@ internal sealed partial class CandidateCache
         foreach (string folder in Directory.EnumerateDirectories(Root))
         {
             string name = Path.GetFileName(folder);
-            if (name != BuildFolderName && BuildFolderPattern().IsMatch(name))
+            if (name != keep && pattern.IsMatch(name))
             {
                 try
                 {
                     Directory.Delete(folder, recursive: true);
-                    _logger.Debug("Deleted another build's candidate cache {Folder}", folder);
+                    _logger.Debug("Deleted an old candidate cache folder {Folder}", folder);
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {
-                    _logger.Debug("Another build's candidate cache {Folder} can't be deleted ({Message})", folder, ex.Message);
+                    _logger.Debug("Old candidate cache folder {Folder} can't be deleted ({Message})", folder, ex.Message);
                 }
             }
         }
@@ -401,4 +422,7 @@ internal sealed partial class CandidateCache
 
     [GeneratedRegex("^build-[0-9a-f]{32}$")]
     private static partial Regex BuildFolderPattern();
+
+    [GeneratedRegex("^fm-v[0-9]+$")]
+    private static partial Regex FmFolderPattern();
 }

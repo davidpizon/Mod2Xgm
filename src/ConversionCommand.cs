@@ -466,7 +466,7 @@ internal static class ConversionCommand
             options.MaxPcmBytes is { } budget ? budget.ToString(CultureInfo.InvariantCulture) + " bytes" : "none (what the format holds)",
             options.ReserveSfxChannels,
             !options.NoConsolidate,
-            options.NoCache ? "off" : Path.Combine(options.CacheDirectory ?? CandidateCache.DefaultRoot, CandidateCache.BuildFolderName));
+            options.NoCache ? "off" : Path.GetFullPath(options.CacheDirectory ?? CandidateCache.DefaultRoot));
         LogSampleList(logger, "Ignoring samples {Samples}", options.IgnoreSamples);
         LogSampleList(logger, "Samples required as FM {Samples}", options.RequireFm);
         LogSampleList(logger, "Samples required as DAC {Samples}", options.RequireDac);
