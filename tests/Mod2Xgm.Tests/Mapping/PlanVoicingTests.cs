@@ -111,6 +111,69 @@ public sealed class PlanVoicingTests
         Assert.Equal(oneShot.FmLevel(0, 0).Gain, gain, 6);
     }
 
+    /// <summary>
+    /// An FM note of a sample whose loop is a quiet tail after a long recording plays the hit at full level and fades with
+    /// the recording into the tail's level, not holding the hit (FunkyChristmas's last melody note; docs/adr/0131-tail-loop-decay.md).
+    /// </summary>
+    [Fact]
+    public void FmDecay_WithQuietTailLoop_FallsToTheTailsLevel()
+    {
+        // Arrange: 8192 frames of a loud tone, then a 1536-frame loop 20 dB quieter.
+        GenesisPlan plan = PlanOf(false) with { FmPatches = [FmPatchLibrary.Sine] };
+        PlanVoicing sut = new(plan, SongOf(TailSample()));
+
+        // Act
+        double hit = sut.FmDecay(0, 0, 0);
+        double tail = sut.FmDecay(0, 0, 9000);
+        double? settles = sut.FmTailDecay(0, 0);
+
+        // Assert
+        Assert.Equal(1, hit, 3);
+        Assert.Equal(0.1, tail, 3);
+        Assert.Equal(0.1, settles!.Value, 3);
+    }
+
+    /// <summary>A sample that plays once, or whose loop is its held tone, never fades on FM: its level is set as before.</summary>
+    [Fact]
+    public void FmDecay_WithToneLoopOrOneShot_StaysAtOne()
+    {
+        // Arrange
+        GenesisPlan plan = PlanOf(false) with { FmPatches = [FmPatchLibrary.Sine] };
+        float[] data = [.. Sine(8192, 0.5, period: 64), .. Sine(1536, 0.05, period: 64)];
+        PlanVoicing sut = new(plan, SongOf(new Sample("tone", data, new SampleLoop(0, data.Length))));
+        PlanVoicing oneShot = new(plan, SongOf(new Sample("once", data, null)));
+
+        // Act
+        double tone = sut.FmDecay(0, 0, 9000);
+        double once = oneShot.FmDecay(0, 0, 9000);
+
+        // Assert
+        Assert.Equal(1, tone);
+        Assert.Equal(1, once);
+        Assert.Null(sut.FmTailDecay(0, 0));
+        Assert.Null(oneShot.FmTailDecay(0, 0));
+    }
+
+    /// <summary>
+    /// A patch that falls further on its own than the recording does (its carrier decays 24 dB to its sustain level) is
+    /// left to fall by itself: the factor takes the patch's own fall out, so it stays at 1 rather than fading twice.
+    /// </summary>
+    [Fact]
+    public void FmDecay_WithPatchFallingFurtherThanTheRecording_StaysAtOne()
+    {
+        // Arrange
+        FmOperator muted = new(1, 0, 127, 0, 31, false, 0, 0, 0, 8);
+        FmPatch falling = new("falling", 7, 0, [new FmOperator(1, 0, 0, 0, 31, false, 10, 0, 8, 8), muted, muted, muted]);
+        GenesisPlan plan = PlanOf(false) with { FmPatches = [falling] };
+        PlanVoicing sut = new(plan, SongOf(TailSample()));
+
+        // Act
+        double tail = sut.FmDecay(0, 0, 9000);
+
+        // Assert
+        Assert.Equal(1, tail);
+    }
+
     /// <summary>Semitones from C-0 turn into hertz around A-4 at 440 Hz.</summary>
     [Theory]
     [InlineData(PlanVoicing.A4, 440.0)]
@@ -127,6 +190,10 @@ public sealed class PlanVoicingTests
 
     private static float[] Sine(int frames, double level, int period) =>
         [.. Enumerable.Range(0, frames).Select(i => (float)(level * Math.Sin(2 * Math.PI * i / period)))];
+
+    /// <summary>8192 frames of a tone at 0.5, then a 1536-frame loop of it 20 dB quieter: a loop that is a tail (ADR 0117).</summary>
+    private static Sample TailSample() =>
+        new("tail", [.. Sine(8192, 0.5, period: 64), .. Sine(1536, 0.05, period: 64)], new SampleLoop(8192, 1536));
 
     private static Song SongOf(float[] data) => SongOf(new Sample("s", data, null));
 

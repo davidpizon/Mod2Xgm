@@ -155,6 +155,33 @@ internal static class VoiceLevel
         return loudest;
     }
 
+    /// <summary>
+    /// The RMS of <paramref name="frames"/> frames of <paramref name="sample"/> from <paramref name="from"/> (full scale = 1),
+    /// going round the loop as a held note does; 0 past a one-shot sample's end.
+    /// </summary>
+    public static double WindowRms(Sample sample, int from, int frames)
+    {
+        ArgumentNullException.ThrowIfNull(sample);
+        double sum = 0;
+        for (int i = 0; i < frames; i++)
+        {
+            int at = from + i;
+            if (sample.Loop is { } loop && at >= loop.Start + loop.Length)
+            {
+                at = loop.Start + ((at - loop.Start) % loop.Length);
+            }
+
+            if (at >= sample.Length)
+            {
+                break;
+            }
+
+            sum += (double)sample.Data[at] * sample.Data[at];
+        }
+
+        return frames > 0 ? Math.Sqrt(sum / frames) : 0;
+    }
+
     private static double Rms(ReadOnlySpan<float> data)
     {
         if (data.IsEmpty)
