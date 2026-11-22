@@ -94,6 +94,13 @@ internal sealed class Ym3438 : IFmRegisters
     }
 
     /// <summary>
+    /// True when FM channel <paramref name="channel"/> (0–5: part × 3 + channel) is keyed off and every operator has
+    /// released to full attenuation, or never sounded: the XGM2 writer may then send its patch early
+    /// (docs/adr/0139-xgm2-frame-budget.md).
+    /// </summary>
+    public bool ChannelSilent(int channel) => _fm.ChannelSilent(channel);
+
+    /// <summary>
     /// Plays one sample per element of <paramref name="left"/> and <paramref name="right"/> (the same length): integers
     /// up to about ±<see cref="FullScale"/>.
     /// </summary>

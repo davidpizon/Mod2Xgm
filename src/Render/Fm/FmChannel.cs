@@ -87,6 +87,9 @@ internal sealed class FmChannel
         return true;
     }
 
+    /// <summary>True when no key write is waiting and all four operators are <see cref="FmOperator.Silent"/>.</summary>
+    public bool Silent => !_op1KeyWaiting && _op.All(op => op.Silent);
+
     /// <summary>Prepares every operator; true while any can still be heard.</summary>
     public bool Prepare()
     {

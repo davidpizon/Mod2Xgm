@@ -101,6 +101,13 @@ internal sealed class FmOperator
         _keyedOn = false;
     }
 
+    /// <summary>
+    /// True when the operator is keyed off and its envelope has released to full attenuation (or it never sounded):
+    /// until the next key on, which starts the phase at 0, nothing written to its registers can be heard
+    /// (docs/adr/0139-xgm2-frame-budget.md).
+    /// </summary>
+    public bool Silent => _keyonLive == 0 && _keyState == 0 && _envState == EnvelopeState.Release && _envAttenuation >= 0x3ff;
+
     /// <summary>Reads the registers into the cache and applies a pending key on or off.</summary>
     /// <returns>True while the operator can still be heard.</returns>
     public bool Prepare()

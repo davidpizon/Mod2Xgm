@@ -9,7 +9,9 @@ namespace Mod2Xgm.Tests.Dmf.Sanity;
 /// Reads an XGM2 file back into the chip writes SGDK's driver makes, frame by frame (docs/formats/xgm.md#xgm2-layout-from-xgm2txt-version-byte-0x10),
 /// for the DMF sanity check (docs/testing.md#dmf-sanity-check). It follows the spec, not the writer: waits, the frame
 /// splitter (which ends the driver's frame without counting it) and the loop command are timed as the driver plays them.
-/// Only the commands <see cref="Xgm2Writer"/> uses are read; any other throws, so a writer change can't go unnoticed.
+/// The delta, pan and frequency commands are read against what the driver stored, as <c>drv_xgm2_ym_fct.i80</c> keeps it
+/// (<see cref="DriverState"/>): its own model, not the writer's (docs/adr/0139-xgm2-frame-budget.md). Only the commands
+/// <see cref="Xgm2Writer"/> uses are read; any other throws, so a writer change can't go unnoticed.
 /// </summary>
 internal static class Xgm2Decoder
 {
@@ -68,6 +70,7 @@ internal static class Xgm2Decoder
     private static int? DecodeFm(ReadOnlySpan<byte> fm, List<List<ChipWrite>> frames, IReadOnlyList<Xgm2Sample> samples, sbyte[][] data)
     {
         Dictionary<int, int> frameAt = [];
+        DriverState driver = new();
         int frame = 0;
         int at = 0;
         while (true)
@@ -111,19 +114,97 @@ internal static class Xgm2Decoder
 
                     Add(frames, frame, ChipWrite.Fm(part, 0xB0 + ch, fm[d++]));
                     Add(frames, frame, ChipWrite.Fm(part, 0xB4 + ch, fm[d]));
+                    for (int s = 0; s < 4; s++)
+                    {
+                        driver.Tl[(part * 16) + (s * 4) + ch] = fm[at + 1 + 4 + s];
+                    }
+
+                    driver.Pan[(part * 3) + ch] = fm[d];
                     at += 1 + (SlotRegisters * 4) + 2;
+                    break;
+                case 0x3 or 0x8:
+                    // Frequency set (+ end of frame): 14 bits, high byte first, bit 14 a key off before, bit 15 a key on after.
+                    SetFrequency(frames, frame, driver, low, fm[at + 1], fm[at + 2], keys: true);
+                    at += 3;
+                    frame += high == 0x8 ? 1 : 0;
+                    break;
+                case 0x4:
+                    Add(frames, frame, ChipWrite.Fm(0, 0x28, (low & 0x07) | ((low & 0x08) != 0 ? 0xF0 : 0x00)));
+                    at++;
+                    break;
+                case 0x5:
+                    // Key sequence: bit 3 clear is off then on, set is on then off.
+                    bool onFirst = (low & 0x08) != 0;
+                    Add(frames, frame, ChipWrite.Fm(0, 0x28, (low & 0x07) | (onFirst ? 0xF0 : 0x00)));
+                    Add(frames, frame, ChipWrite.Fm(0, 0x28, (low & 0x07) | (onFirst ? 0x00 : 0xF0)));
+                    at++;
+                    break;
+                case 0x6 or 0x7:
+                    // Pan: the driver keeps the stored AMS/PMS bits and puts the pan in bits 7-6.
+                    int panPart = high == 0x7 ? 1 : 0;
+                    int panChannel = low & 0x03;
+                    int stored = driver.Pan[(panPart * 3) + panChannel];
+                    if (stored < 0)
+                    {
+                        throw new InvalidDataException($"XGM2 pan command ${command:X2} at {at} before the driver stored a pan for its channel.");
+                    }
+
+                    int pan = (stored & 0x3F) | (((low >> 2) & 0x03) << 6);
+                    driver.Pan[(panPart * 3) + panChannel] = pan;
+                    Add(frames, frame, ChipWrite.Fm(panPart, 0xB4 + panChannel, pan));
+                    at++;
                     break;
                 case 0x9:
                     byte level = fm[at + 1];
+                    driver.Tl[((level & 1) * 16) + low] = level >> 1;
                     Add(frames, frame, ChipWrite.Fm(level & 1, 0x40 + low, level >> 1));
                     at += 2;
+                    break;
+                case 0xA or 0xB:
+                    // Frequency delta (+ end of frame): b0 subtracts, b7-b1 the delta less 1, on the driver's 16 bits.
+                    byte step = fm[at + 1];
+                    ref int freq = ref driver.Frequency(low);
+                    if (freq < 0)
+                    {
+                        throw new InvalidDataException($"XGM2 frequency delta ${command:X2} at {at} before the driver stored a frequency.");
+                    }
+
+                    int delta = (step >> 1) + 1;
+                    int next = (freq + ((step & 1) != 0 ? -delta : delta)) & 0xFFFF;
+                    SetFrequency(frames, frame, driver, low, next >> 8, next & 0xFF, keys: false);
+                    at += 2;
+                    frame += high == 0xB ? 1 : 0;
+                    break;
+                case 0xD:
+                    // TL delta + end of frame: b0 the part, b1 subtracts, b7-b2 the delta less 1.
+                    byte change = fm[at + 1];
+                    int tlPart = change & 1;
+                    int tl = driver.Tl[(tlPart * 16) + low];
+                    if (tl < 0)
+                    {
+                        throw new InvalidDataException($"XGM2 TL delta ${command:X2} at {at} before the driver stored a level.");
+                    }
+
+                    int tlDelta = (change >> 2) + 1;
+                    tl = (tl + ((change & 2) != 0 ? -tlDelta : tlDelta)) & 0xFF;
+                    driver.Tl[(tlPart * 16) + low] = tl;
+                    Add(frames, frame, ChipWrite.Fm(tlPart, 0x40 + low, tl & 0x7F));
+                    at += 2;
+                    frame++;
                     break;
                 case 0xE:
                     int writes = (low & 0x07) + 1;
                     int rawPart = (low >> 3) & 1;
                     for (int w = 0; w < writes; w++)
                     {
-                        Add(frames, frame, ChipWrite.Fm(rawPart, fm[at + 1 + (w * 2)], fm[at + 2 + (w * 2)]));
+                        int register = fm[at + 1 + (w * 2)];
+                        int value = fm[at + 2 + (w * 2)];
+                        if (register is >= 0xB4 and <= 0xB6)
+                        {
+                            driver.Pan[(rawPart * 3) + (register & 0x03)] = value;
+                        }
+
+                        Add(frames, frame, ChipWrite.Fm(rawPart, register, value));
                     }
 
                     at += 1 + (writes * 2);
@@ -165,6 +246,31 @@ internal static class Xgm2Decoder
                 default:
                     throw Unsupported("FM", command, at);
             }
+        }
+    }
+
+    /// <summary>
+    /// A frequency set as the driver makes it: a key off first if asked (bit 14), the high byte then the low byte (to
+    /// <c>$AC</c>/<c>$A8</c> for a CH3 slot, bit 3 of <paramref name="x"/>), then a key on if asked (bit 15). The chip
+    /// ignores bits 7-6 of the high byte, where the driver leaves the key flags, so they are written as 0.
+    /// </summary>
+    private static void SetFrequency(List<List<ChipWrite>> frames, int frame, DriverState driver, int x, int high, int low, bool keys)
+    {
+        driver.Frequency(x) = (high << 8) | low;
+        bool slot = (x & 0x08) != 0;
+        int part = slot ? 0 : (x >> 2) & 1;
+        int index = x & 0x03;
+        int key = (part * 4) + index;
+        if (keys && !slot && (high & 0x40) != 0)
+        {
+            Add(frames, frame, ChipWrite.Fm(0, 0x28, key));
+        }
+
+        Add(frames, frame, ChipWrite.Fm(part, (slot ? 0xAC : 0xA4) + index, high & 0x3F));
+        Add(frames, frame, ChipWrite.Fm(part, (slot ? 0xA8 : 0xA0) + index, low));
+        if (keys && !slot && (high & 0x80) != 0)
+        {
+            Add(frames, frame, ChipWrite.Fm(0, 0x28, 0xF0 | key));
         }
     }
 
@@ -234,6 +340,22 @@ internal static class Xgm2Decoder
         {
             frames[frame].Add(w);
         }
+    }
+
+    /// <summary>What SGDK's XGM2 driver stores for the delta and pan commands (FM_STATE in <c>drv_xgm2_ym_fct.i80</c>); −1 where nothing was stored yet.</summary>
+    private sealed class DriverState
+    {
+        private readonly int[] _frequency = [.. Enumerable.Repeat(-1, 6)];
+        private readonly int[] _slotFrequency = [-1, -1, -1];
+
+        /// <summary>Each slot's total level, by part × 16 + the register's low nibble.</summary>
+        public int[] Tl { get; } = [.. Enumerable.Repeat(-1, 32)];
+
+        /// <summary>Each channel's <c>$B4</c> byte, by part × 3 + channel.</summary>
+        public int[] Pan { get; } = [.. Enumerable.Repeat(-1, 6)];
+
+        /// <summary>The 16 bits stored for the channel or CH3 slot a frequency command's <paramref name="x"/> names.</summary>
+        public ref int Frequency(int x) => ref (x & 0x08) != 0 ? ref _slotFrequency[x & 0x03] : ref _frequency[((x >> 2) & 1) * 3 + (x & 0x03)];
     }
 
     private static NotSupportedException Unsupported(string stream, byte command, int at) =>

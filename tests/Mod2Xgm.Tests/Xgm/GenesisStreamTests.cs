@@ -90,6 +90,28 @@ public sealed class GenesisStreamTests
         Assert.Contains(ChipEvent.Fm(0, 0x22, (byte)expected), sut.Frames[0]);
     }
 
+    /// <summary>Each recorded frame carries the order and row playing then, for the busy-frame note (docs/adr/0139-xgm2-frame-budget.md).</summary>
+    [Fact]
+    public void RecordXgm2_WithTicks_RecordsEachFramesPosition()
+    {
+        // Arrange
+        Timing timing = new(6, 125);
+        Song song = new("t", [new Channel(0)], [0], null, [new Pattern([new Row([Cell.Empty]), new Row([Cell.Empty])])], [], [], timing);
+        PlanRow row = new([.. Enumerable.Repeat(PlanCell.Empty, GenesisPlan.ChannelCount)], []);
+        GenesisPlan plan = new("t", [[row, row]], null, timing, [], []);
+        ChannelTick[] quiet = [new ChannelTick(false, new NotePitch(48, 0, 8287), 0, 0, null, new SampleBlock(0, 0, 0))];
+        Playback playback = new([new PlaybackTick(0, 0.05, 0, 0, 0, false, quiet), new PlaybackTick(0.05, 0.05, 0, 1, 0, false, quiet)], null, PlaybackEnd.Stops);
+
+        // Act
+        GenesisStream sut = GenesisStream.RecordXgm2(plan, song, playback, Region.Ntsc, ResamplingMode.Smooth, new ConversionNotes(Logger.None));
+
+        // Assert
+        Assert.NotNull(sut.Positions);
+        Assert.Equal(sut.Frames.Count, sut.Positions.Count);
+        Assert.Equal((0, 0), sut.Positions[0]);
+        Assert.Equal((0, 1), sut.Positions[^1]);
+    }
+
     /// <summary>A notes collector and the sink that sees the conversion notes it logs.</summary>
     private static (ConversionNotes Notes, CollectingSink Sink) Notes()
     {

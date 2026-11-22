@@ -10,7 +10,7 @@ namespace Mod2Xgm.Tests.Optimizer;
 internal static class FmCodeFingerprint
 {
     /// <summary>The fingerprint <c>CandidateCache.FmFitterVersion</c> was last set for.</summary>
-    public const string Expected = "4aa7d9b220152f9a9c0af2e50e613579bf6690220c9b8504223ccd961b2b4b10";
+    public const string Expected = "dff217a24304c1f4b786261bd85c8f8f3ac356950246624e3d562e40ccebb7d9";
 
     /// <summary>
     /// The files whose code can change a fit, relative to the repository root: the searches, the evaluator and its note

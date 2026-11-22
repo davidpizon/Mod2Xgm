@@ -116,18 +116,26 @@ v1 of the writer: single-track, unpacked, no GD3 (flags b1–b3 = 0).
 | `$8x`–`$Bx` | 1 | Volume set ch0–3 (x = attenuation) |
 | `$Cx`–`$Fx` | 1 | Volume delta ch0–3 |
 
-The writer (`src/Xgm/Xgm2Writer.cs`, [ADR 0099](../adr/0099-xgm2-writer-records-the-player.md)) is the simplest
-correct encoder: `$2x` load instrument for a channel whose whole patch (28 slot registers, `$B0`, `$B4`) is written
-together, `$9x` for every other total level, `$Ex` raw writes (8 per command, one part) for the rest, `$F8` key, `$F9`
-LFO, `$FA`/`$FB` for `$27`'s CH3 bit, `$1x` PCM at the low priority, waits; for PSG, tone (`$2x`) and volume set
-(`$8x`–`$Bx`), every noise-register write sent. A register written twice between two other commands is sent once.
-At the loop frame it sets back every register, key, LFO, CH3 bit and PSG channel as they were on the first time
-through (keys up, slot levels silent and PSG volumes off where none was set yet, so a note releasing at the song's end
-can't be brought back by the loop's first writes, [ADR 0134](../adr/0134-loop-silences-release-tails.md)); recordings
-still sounding at the jump are stopped. A
+The writer (`src/Xgm/Xgm2Writer.cs`, [ADR 0099](../adr/0099-xgm2-writer-records-the-player.md), FM commands per
+[ADR 0139](../adr/0139-xgm2-frame-budget.md)) tracks what the chip and the driver hold (`src/Xgm/Xgm2FmState.cs`) and
+sends only registers whose value changes. For FM it uses: `$2x` load instrument when a channel's 30 patch registers
+are all known and it is smaller than the writes it replaces; `$9x` set and `$Dx` delta (at a frame's end) for total
+levels; `$3x` frequency set, with a key-on after it folded into b15 and a key-off before it into b14, `$Ax`/`$Bx`
+frequency delta when the driver's stored value is known and the step fits; `$6x`/`$7x` for a pan-only `$B4` change;
+`$4x` for a key change of all four operators, `$5x` for an off-then-on or on-then-off pair, `$F8` for any other key;
+`$8x`/`$Bx`/`$Dx` in place of a frame's last command and its 1-frame wait; `$Ex` raw writes (8 per command, one part)
+for the rest; `$F9` LFO, `$FA`/`$FB` for `$27`'s CH3 bit, `$1x` PCM at the low priority, waits. A frequency low byte
+goes alone only when the part's shared F-number high latch already holds its channel's high byte; while the latch is
+unknown, frequency writes go raw in the recording's order. For PSG: tone (`$2x`) and volume set (`$8x`–`$Bx`), every
+noise-register write sent. A register written twice between two other commands is sent once.
+At the loop frame it forgets what the chip holds and sets back every register, key, LFO, CH3 bit and PSG channel as
+they were on the first time through (keys up, slot levels silent and PSG volumes off where none was set yet, so a note
+releasing at the song's end can't be brought back by the loop's first writes, [ADR 0134](../adr/0134-loop-silences-release-tails.md));
+recordings still sounding at the jump are stopped. A frame that still splits gives its patch writes (those before a
+channel's key on) to earlier frames where the YM3438 model has that channel silent, on every pass through the loop
+(`src/Xgm/Xgm2PatchMover.cs`); frames left at 80 % of the budget or more get a conversion note. A
 song that ends gets one more frame that lets every key up, turns the PSG off and stops every PCM channel. Recordings
 with the same bytes are stored once, each only as far as a play reaches (plus two frames).
-Optimize to delta/combined commands later, with byte-exact tests guarding output equivalence.
 
 What SGDK's XGM2 driver and xgm2tool need (checked in their source, 2026-11-09):
 

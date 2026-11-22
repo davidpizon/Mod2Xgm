@@ -19,15 +19,35 @@ internal sealed record Xgm2Sample(int Id, int Sample, string Name, int Bytes, bo
 /// <param name="PsgBytes">The PSG stream's bytes, before padding.</param>
 /// <param name="Frames">Frames the song lasts, one pass.</param>
 /// <param name="LoopFrame">The frame it loops back to, or <c>null</c>.</param>
-internal sealed record Xgm2Output(byte[] Bytes, IReadOnlyList<Xgm2Sample> Samples, int FmBytes, int PsgBytes, int Frames, int? LoopFrame);
+internal sealed record Xgm2Output(byte[] Bytes, IReadOnlyList<Xgm2Sample> Samples, int FmBytes, int PsgBytes, int Frames, int? LoopFrame)
+{
+    /// <summary>What the writer did to keep the FM stream within SGDK's driver budget.</summary>
+    public Xgm2Stats Stats { get; init; } = Xgm2Stats.None;
+}
+
+/// <summary>What the XGM2 writer did to keep each frame's FM commands small (docs/adr/0139-xgm2-frame-budget.md), for <c>--verbose</c>.</summary>
+/// <param name="Splits">Frame splitters left in the stream.</param>
+/// <param name="BusyFrames">Frames that don't split but use 80 % of the budget or more.</param>
+/// <param name="Dropped">Register writes not sent because the chip already held their value.</param>
+/// <param name="LoadInstruments">Load instrument commands (<c>$2x</c>).</param>
+/// <param name="Compact">Compact commands: <c>$3x</c>–<c>$8x</c>, <c>$Ax</c>, <c>$Bx</c> and <c>$Dx</c>.</param>
+/// <param name="Moved">Register writes moved to an earlier frame where their channel is silent.</param>
+/// <param name="Stuck">Register writes in frames that still split, which had no earlier frame to go to.</param>
+internal sealed record Xgm2Stats(int Splits, int BusyFrames, int Dropped, int LoadInstruments, int Compact, int Moved, int Stuck)
+{
+    /// <summary>Nothing done: a file not made by <see cref="Xgm2Writer.Write"/>.</summary>
+    public static readonly Xgm2Stats None = new(0, 0, 0, 0, 0, 0, 0);
+}
 
 /// <summary>
 /// Writes the uncompiled XGM2 file SGDK's xgm2tool and rescomp read (docs/formats/xgm.md#xgm2-layout-from-xgm2txt-version-byte-0x10,
 /// plan T10.1, docs/adr/0099-xgm2-writer-records-the-player.md): single track, unpacked, no GD3. The FM stream uses
 /// load instrument (<c>$2x</c>) for a channel's whole patch, total level (<c>$9x</c>), raw register writes (<c>$Ex</c>)
-/// for the rest, key (<c>$F8</c>), LFO (<c>$F9</c>), CH3 mode (<c>$FA</c>/<c>$FB</c>) and PCM
+/// for the rest, XGM2's compact FM commands (<c>$3x</c>–<c>$8x</c>, <c>$Ax</c>, <c>$Bx</c>, <c>$Dx</c>; see
+/// <see cref="Xgm2FmState"/>), key (<c>$4x</c>, <c>$F8</c>), LFO (<c>$F9</c>), CH3 mode (<c>$FA</c>/<c>$FB</c>) and PCM
 /// (<c>$1x</c>) commands; the PSG stream tone (<c>$2x</c>) and volume (<c>$8x</c>–<c>$Bx</c>) commands; both end each
-/// frame with a wait. The shorter delta and combined commands are left for later; golden tests guard the output.
+/// frame with a wait. Only what changes on the chip is sent, and patch writes move out of frames over the driver's
+/// budget where their channel is silent (docs/adr/0139-xgm2-frame-budget.md); golden tests guard the output.
 /// </summary>
 internal static class Xgm2Writer
 {
@@ -70,10 +90,15 @@ internal static class Xgm2Writer
     private const int FmMaxLongWait = 271;
     private const byte FmPcm = 0x10;
     private const byte FmPcmHalfSpeed = 0x04;
-    private const byte FmRawWrite = 0xe0;
-    private const int FmMaxRawWrites = 8;
     private const byte FmLoadInstrument = 0x20;
+    private const byte FmKeyAll = 0x40;
+    private const byte FmKeyAllOn = 0x08;
+    private const byte FmKeySequence = 0x50;
+    private const byte FmKeySequenceOnOff = 0x08;
+    private const byte FmSetFreqWait = 0x80;
     private const byte FmSetTl = 0x90;
+    private const byte FmFreqDeltaWait = 0xb0;
+    private const byte FmTlDeltaWait = 0xd0;
     private const byte FmKey = 0xf8;
     private const byte FmLfo = 0xf9;
     private const byte FmCh3On = 0xfa;
@@ -93,6 +118,19 @@ internal static class Xgm2Writer
     /// <summary>The most bytes the command that ends a frame takes: a long wait.</summary>
     private const int FrameEndBytes = 2;
 
+    /// <summary>The bytes of commands a frame holds before the writer splits it: 222, room left for the splitter and the frame's end.</summary>
+    public const int FrameBudget = MaxFrameBytes - 1 - FrameEndBytes;
+
+    /// <summary>
+    /// A frame this busy, 80 % of <see cref="FrameBudget"/> (178 bytes) or more, is noted (docs/xgm2-frame-budget.md,
+    /// change 4): it has room for about one more FM note start, and busy frames are what keep SGDK's Z80 driver from
+    /// refilling its PCM buffer in time. Change 3 also prefers to move writes into frames below it.
+    /// </summary>
+    public const int BusyFrameBytes = ((FrameBudget * 4) + 4) / 5;
+
+    /// <summary>Frames named in the busy-frame notes.</summary>
+    private const int BusiestFramesNoted = 5;
+
     // PSG stream commands (docs/formats/xgm.md#psg-stream-commands).
     private const byte PsgWaitLong = 0x0e;
     private const int PsgMaxShortWait = 14;
@@ -110,17 +148,10 @@ internal static class Xgm2Writer
     private const byte RegKey = 0x28;
     private const byte RegDacData = 0x2a;
     private const byte RegDacEnable = 0x2b;
-    private const byte RegFirstSlot = 0x30;
-    private const byte RegLastSlot = 0x9f;
     private const byte RegTl = 0x40;
 
     /// <summary>A slot's total level at its quietest: 127, about 95 dB down (docs/genesis-audio.md).</summary>
     private const byte SilentTl = 0x7f;
-    private const byte RegAlgorithm = 0xb0;
-    private const byte RegPan = 0xb4;
-
-    /// <summary>A channel's patch: 7 registers of 4 slots, then algorithm and pan, as <c>$2x</c> carries them.</summary>
-    private const int PatchRegisters = (7 * 4) + 2;
     private const byte Ch3SpecialBit = 0x40;
     private const int KeyChannelBits = 0x07;
 
@@ -147,6 +178,15 @@ internal static class Xgm2Writer
         ArgumentNullException.ThrowIfNull(notes);
         Encoder encoder = new(stream);
         encoder.Run();
+
+        // Frames that still split give up their patch writes to earlier frames where the channel is silent (change 3).
+        PatchMoves moves = Xgm2PatchMover.Move(stream, Load, Load(encoder), FrameBudget, BusyFrameBytes - 1);
+        if (moves.Moved > 0)
+        {
+            encoder = new Encoder(moves.Stream);
+            encoder.Run();
+        }
+
         IReadOnlyList<Xgm2Sample> samples = encoder.Samples(stream.PcmRateHz);
         if (stream.LoopFrame > 0)
         {
@@ -157,6 +197,8 @@ internal static class Xgm2Writer
         {
             notes.Add("{Count} frame splits: some frames hold more FM writes than SGDK's XGM2 driver takes at once, so the writes after each split play one frame later", encoder.Splits);
         }
+
+        int busy = NoteBusyFrames(stream, encoder, notes);
 
         if (encoder.CarriedOverLoop > 0)
         {
@@ -194,7 +236,67 @@ internal static class Xgm2Writer
         sdat.CopyTo(span[DataOffset..]);
         fm.CopyTo(span[(DataOffset + (slen * Alignment))..]);
         psg.CopyTo(span[(DataOffset + ((slen + fmlen) * Alignment))..]);
-        return new Xgm2Output(file, samples, fm.Length, psg.Length, stream.Frames.Count, stream.LoopFrame);
+        return new Xgm2Output(file, samples, fm.Length, psg.Length, stream.Frames.Count, stream.LoopFrame)
+        {
+            Stats = new Xgm2Stats(encoder.Splits, busy, encoder.Dropped, encoder.LoadInstruments, encoder.Compact, moves.Moved, moves.Stuck),
+        };
+    }
+
+    /// <summary>Encodes <paramref name="stream"/> for its frame loads, for <see cref="Xgm2PatchMover"/>.</summary>
+    private static FrameLoad Load(GenesisStream stream)
+    {
+        Encoder encoder = new(stream);
+        encoder.Run();
+        return Load(encoder);
+    }
+
+    private static FrameLoad Load(Encoder encoder) => new(encoder.FrameBytes, encoder.SplitFrames);
+
+    /// <summary>
+    /// Notes the frames that don't split but use <see cref="BusyFrameBytes"/> or more (change 4 of
+    /// docs/xgm2-frame-budget.md): how many, then the busiest few with where they are in the song, so a musician can find
+    /// them in the tracker. Returns how many there are.
+    /// </summary>
+    private static int NoteBusyFrames(GenesisStream stream, Encoder encoder, ConversionNotes notes)
+    {
+        HashSet<int> split = [.. encoder.SplitFrames];
+        List<int> busy = [.. Enumerable.Range(0, encoder.FrameBytes.Count).Where(f => encoder.FrameBytes[f] >= BusyFrameBytes && !split.Contains(f))];
+        List<int> busiest = [.. busy.OrderByDescending(f => encoder.FrameBytes[f]).ThenBy(f => f).Take(BusiestFramesNoted)];
+        for (int i = 0; i < busiest.Count; i++)
+        {
+            int f = busiest[i];
+            double seconds = f / stream.FrameRate;
+            (int order, int row) = stream.Positions is { } positions && f < positions.Count ? positions[f] : (-1, -1);
+            string channels = string.Join(", ", Enumerable.Range(0, 6).Where(c => (encoder.FrameChannels[f] & (1 << c)) != 0).Select(c => FormattableString.Invariant($"FM{c + 1}")));
+            if (i == 0)
+            {
+                notes.Add(
+                    "{Count} frames use 80% or more of the {Budget} bytes of FM commands SGDK's XGM2 driver takes per frame; the busiest: frame {Frame} ({Seconds:0.00} s, order {Order} row {Row}) {Bytes} bytes, {Writes} register writes on {Channels:l}",
+                    busy.Count,
+                    FrameBudget,
+                    f,
+                    seconds,
+                    order,
+                    row,
+                    encoder.FrameBytes[f],
+                    encoder.FrameWrites[f],
+                    channels);
+            }
+            else
+            {
+                notes.Add(
+                    "Busy XGM2 frame {Frame} ({Seconds:0.00} s, order {Order} row {Row}): {Bytes} bytes, {Writes} register writes on {Channels:l}",
+                    f,
+                    seconds,
+                    order,
+                    row,
+                    encoder.FrameBytes[f],
+                    encoder.FrameWrites[f],
+                    channels);
+            }
+        }
+
+        return busy.Count;
     }
 
     /// <summary>A block's size in 256-byte units, rounded up.</summary>
@@ -227,6 +329,12 @@ internal static class Xgm2Writer
 
         private readonly List<(int Part, byte Register, byte Value)> _raw = [];
 
+        /// <summary>What the chip and SGDK's driver hold from the FM stream so far.</summary>
+        private readonly Xgm2FmState _state = new();
+
+        /// <summary>The last command sent and where it starts, while nothing has come after it in its frame; or <c>null</c>.</summary>
+        private (int Position, FmCommand Command)? _last;
+
         /// <summary>Each PCM channel's playing recording (its id), the frame it started and its rate, or <c>null</c>.</summary>
         private readonly (int Id, int Frame, double RateHz)?[] _pcm = new (int, int, double)?[PcmChannels];
 
@@ -241,7 +349,11 @@ internal static class Xgm2Writer
 
         private byte? _lfo;
         private bool? _ch3;
+        /// <summary>The frame of the FM bytes written so far.</summary>
         private int _fmFrame;
+
+        /// <summary>The frame being encoded: its wait is written with its first command, so a frame whose writes all drop costs nothing.</summary>
+        private int _fmTarget;
         private int _psgFrame;
         private int _fmLoop = NoLoop;
         private int _fmFrameBytes;
@@ -261,6 +373,27 @@ internal static class Xgm2Writer
 
         /// <summary>Recordings still playing at the loop frame, which a loop can't restart partway.</summary>
         public int CarriedOverLoop { get; private set; }
+
+        /// <summary>Each song frame's FM bytes, the wait that ends it and any splitter included.</summary>
+        public List<int> FrameBytes { get; } = [];
+
+        /// <summary>Each song frame's YM3438 register writes, as SGDK's driver makes them for its commands.</summary>
+        public List<int> FrameWrites { get; } = [];
+
+        /// <summary>Each song frame's FM channels written: bit <c>part × 3 + channel</c>.</summary>
+        public List<int> FrameChannels { get; } = [];
+
+        /// <summary>The song frames a frame splitter went into, in order.</summary>
+        public List<int> SplitFrames { get; } = [];
+
+        /// <summary>Register writes not sent because the chip already held their value.</summary>
+        public int Dropped { get; private set; }
+
+        /// <summary>Load instrument commands sent.</summary>
+        public int LoadInstruments { get; private set; }
+
+        /// <summary>Compact commands sent (<c>$3x</c>–<c>$8x</c>, <c>$Ax</c>, <c>$Bx</c>, <c>$Dx</c>).</summary>
+        public int Compact { get; private set; }
 
         /// <summary>Encodes every frame, then the end: a loop back, or silence and the end.</summary>
         public void Run()
@@ -291,7 +424,7 @@ internal static class Xgm2Writer
                 MoveFm(last);
                 foreach (int channel in _keys.Keys)
                 {
-                    Command(FmKey, (byte)channel);
+                    SendKey((byte)channel);
                 }
 
                 MovePsg(last);
@@ -402,16 +535,22 @@ internal static class Xgm2Writer
         private void StartLoop(int f)
         {
             MoveFm(f);
+            AdvanceFm();
             _fmLoop = Fm.Count;
+
+            // The second time through may leave the chip otherwise than the first: everything is sent again, and what the
+            // restore doesn't set is unknown from here.
+            _state.Forget();
 
             // A slot whose level the first time through hadn't set yet was silent then. The song's end may leave a note
             // releasing on it, which the loop's first writes (a pan, say) would bring back as a new note, so it goes
             // quiet (docs/adr/0134-loop-silences-release-tails.md).
             foreach ((int part, byte register) in Enumerable.Range(0, 2)
                 .SelectMany(part => Enumerable.Range(0, 0x10).Select(r => (part, (byte)(RegTl + r))))
-                .Where(k => IsTl(k.Item2) && !_fm.ContainsKey(k)))
+                .Where(k => Xgm2FmState.IsTl(k.Item2) && !_fm.ContainsKey(k)))
             {
-                Command((byte)(FmSetTl | (register & 0x0f)), (byte)((SilentTl << 1) | part));
+                Send(new FmCommand([(byte)(FmSetTl | (register & 0x0f)), (byte)((SilentTl << 1) | part)], FmCommandKind.Other, 1, 1 << ((part * 3) + (register & 0x03))));
+                _state.SetLevel(part, register, SilentTl);
             }
 
             foreach (((int part, byte register), byte value) in _fm.OrderBy(r => r.Key.Part).ThenBy(r => RestoreOrder(r.Key.Register)))
@@ -422,18 +561,18 @@ internal static class Xgm2Writer
             FlushRaw();
             if (_lfo is { } lfo)
             {
-                Command(FmLfo, lfo);
+                Send(new FmCommand([FmLfo, lfo], FmCommandKind.Other, 1, 0));
             }
 
             if (_ch3 is { } ch3)
             {
-                Command(ch3 ? FmCh3On : FmCh3Off);
+                Send(new FmCommand([ch3 ? FmCh3On : FmCh3Off], FmCommandKind.Other, 1, 0));
             }
 
             // Every channel's key as it was, up for one not yet keyed: a note held at the song's end mustn't go on sounding.
             foreach (int channel in KeyChannels)
             {
-                Command(FmKey, _keys.TryGetValue(channel, out byte key) ? key : (byte)channel);
+                SendKey(_keys.TryGetValue(channel, out byte key) ? key : (byte)channel);
             }
 
             for (int c = 0; c < PcmChannels; c++)
@@ -500,20 +639,26 @@ internal static class Xgm2Writer
             switch (register)
             {
                 case RegKey:
-                    FlushRaw();
-                    Command(FmKey, value);
-                    _keys[value & KeyChannelBits] = value;
+                    // A key on of all four operators can ride on the channel's frequency set ($3x, bit 15).
+                    int channel = value & KeyChannelBits;
+                    bool allOn = (value & 0xf0) == 0xf0 && (channel & 0x03) != 3;
+                    if (!FlushRaw(allOn ? channel : -1))
+                    {
+                        SendKey(value);
+                    }
+
+                    _keys[channel] = value;
                     break;
                 case RegLfo:
                     FlushRaw();
-                    Command(FmLfo, value);
+                    Send(new FmCommand([FmLfo, value], FmCommandKind.Other, 1, 0));
                     _lfo = value;
                     break;
                 case RegCh3Mode:
                     // The driver owns the timers in $27; only the CH3 mode bit is the music's.
                     FlushRaw();
                     _ch3 = (value & Ch3SpecialBit) != 0;
-                    Command(_ch3.Value ? FmCh3On : FmCh3Off);
+                    Send(new FmCommand([_ch3.Value ? FmCh3On : FmCh3Off], FmCommandKind.Other, 1, 0));
                     break;
                 case RegDacData or RegDacEnable:
                     throw new InvalidOperationException($"The player wrote DAC register ${register:X2}, which XGM2's driver owns.");
@@ -527,101 +672,116 @@ internal static class Xgm2Writer
         private void AddRaw(int part, byte register, byte value) => _raw.Add((part, register, value));
 
         /// <summary>
-        /// The register writes waiting, in as few bytes as the driver takes them while keeping its own state right
-        /// (<c>drv_xgm2_ym_fct.i80</c>): a channel whose whole patch is written gets one load instrument (<c>$2x</c>,
-        /// 31 bytes for some 64 as raw writes), from the values the writes leave; every other total level goes through
-        /// <c>$9x</c>, since the driver keeps each slot's level to add the game's volume to and a raw write to <c>$4x</c>
-        /// would leave that stale; the rest are raw writes, 8 per <c>$Ex</c>, one part each. Their order within the group
-        /// doesn't matter: they land in the same frame, and a register written twice is sent once, with its last value.
+        /// Sends the register writes waiting in as few bytes as the driver takes them while keeping its own state right
+        /// (<see cref="Xgm2FmState"/>; docs/adr/0139-xgm2-frame-budget.md). <paramref name="keyOn"/> is the channel keyed
+        /// on, all four operators, straight after (or −1); returns true when that key on went into the last command.
         /// </summary>
-        private void FlushRaw()
+        private bool FlushRaw(int keyOn = -1)
         {
             if (_raw.Count == 0)
             {
-                return;
+                return false;
             }
 
-            HashSet<(int Part, int Channel)> patches = [];
-            foreach (IGrouping<(int Part, int Channel), (int Part, byte Register, byte Value)> channel in _raw
-                .Where(w => PatchChannel(w.Register) >= 0)
-                .GroupBy(w => (w.Part, PatchChannel(w.Register))))
-            {
-                if (channel.Select(w => w.Register).Distinct().Count() == PatchRegisters)
-                {
-                    patches.Add(channel.Key);
-                    Command(LoadInstrument(channel.Key.Part, channel.Key.Channel));
-                }
-            }
-
-            // The last write of each register left, in the order the registers were first written.
-            List<(int Part, byte Register, byte Value)> rest = [.. _raw
-                .Where(w => !patches.Contains((w.Part, PatchChannel(w.Register))))
-                .Select(w => (w.Part, w.Register))
-                .Distinct()
-                .Select(k => (k.Part, k.Register, _fm[k]))];
-            List<(int Part, byte Register, byte Value)> group = [];
-            foreach ((int part, byte register, byte value) in rest.Where(w => !IsTl(w.Register)))
-            {
-                if (group.Count == FmMaxRawWrites || (group.Count > 0 && group[0].Part != part))
-                {
-                    Raw(group);
-                }
-
-                group.Add((part, register, value));
-            }
-
-            Raw(group);
-            foreach ((int part, byte register, byte value) in rest.Where(w => IsTl(w.Register)))
-            {
-                // $9x: slot in bits 3-2 and channel in bits 1-0 of x, as in the register; level in bits 7-1, part in bit 0.
-                Command((byte)(FmSetTl | (register & 0x0f)), (byte)((value << 1) | part));
-            }
-
+            bool afterKeyOff = keyOn >= 0 && _fmTarget == _fmFrame && _last is { Command: { Kind: FmCommandKind.KeyOff } off } && off.Key == keyOn;
+            FmFlush flush = _state.Flush(_raw, keyOn, afterKeyOff);
             _raw.Clear();
+            Dropped += flush.Dropped;
+            foreach (FmCommand command in flush.Commands)
+            {
+                if (command.TakesKeyOff)
+                {
+                    // The key off just sent is now bit 14 of the frequency set: take its byte back.
+                    Fm.RemoveAt(Fm.Count - 1);
+                    _fmFrameBytes--;
+                    FrameBytes[_fmFrame]--;
+                    FrameWrites[_fmFrame]--;
+                    Compact--;
+                }
+
+                Send(command);
+            }
+
+            return flush.KeyFolded;
         }
 
         /// <summary>
-        /// A <c>$2x</c> command with the channel's patch as the registers hold it: per register <c>$30</c>–<c>$90</c> its four
-        /// slots, then <c>$B0</c> and <c>$B4</c> (xgm2tool's <c>XGMFMCommand.convertToLoadInstCommand</c>).
+        /// A <c>$28</c> write: <c>$4x</c> (1 byte) for a key on or off of all four operators, folded with the key just sent
+        /// for the same channel into a key sequence (<c>$5x</c>) when nothing came between; otherwise <c>$F8</c>.
         /// </summary>
-        private byte[] LoadInstrument(int part, int channel)
+        private void SendKey(byte value)
         {
-            byte[] command = new byte[1 + PatchRegisters];
-            command[0] = (byte)(FmLoadInstrument | (part << 2) | channel);
-            int d = 1;
-            for (int r = 0; r < 7; r++)
+            AdvanceFm();
+            int channel = value & KeyChannelBits;
+            int operators = value & 0xf0;
+            int bit = (channel & 0x03) == 3 ? 0 : Xgm2FmState.KeyChannelBit(channel);
+            if (bit == 0 || operators is not (0 or 0xf0))
             {
-                for (int s = 0; s < 4; s++)
-                {
-                    command[d++] = _fm[(part, (byte)(RegFirstSlot + (r << 4) + (s << 2) + channel))];
-                }
+                Send(new FmCommand([FmKey, value], FmCommandKind.Other, 1, bit));
+                return;
             }
 
-            command[d++] = _fm[(part, (byte)(RegAlgorithm + channel))];
-            command[d] = _fm[(part, (byte)(RegPan + channel))];
-            return command;
+            bool on = operators != 0;
+            if (_last is { } last && last.Command.Key == channel && last.Command.Kind == (on ? FmCommandKind.KeyOff : FmCommandKind.KeyOn) && last.Position == Fm.Count - 1)
+            {
+                // $5x: x = channel and port, bit 3 the order (0: off then on, 1: on then off).
+                Fm[last.Position] = (byte)(FmKeySequence | channel | (on ? 0 : FmKeySequenceOnOff));
+                FrameWrites[_fmFrame]++;
+                _last = null;
+                return;
+            }
+
+            Send(new FmCommand([(byte)(FmKeyAll | channel | (on ? FmKeyAllOn : 0))], on ? FmCommandKind.KeyOn : FmCommandKind.KeyOff, 1, bit) { Key = channel });
         }
 
-        /// <summary>One <c>$Ex</c> command of up to 8 writes to one part; empties <paramref name="group"/>.</summary>
-        private void Raw(List<(int Part, byte Register, byte Value)> group)
+        /// <summary>Adds <paramref name="command"/> and remembers it as the last one, for the folds.</summary>
+        private void Send(FmCommand command)
         {
-            if (group.Count > 0)
+            Command(command.Bytes);
+            _last = (Fm.Count - command.Bytes.Length, command);
+            FrameWrites[_fmFrame] += command.Writes;
+            FrameChannels[_fmFrame] |= command.Channels;
+            switch (command.Bytes[0] >> 4)
             {
-                Command([(byte)(FmRawWrite | (group[0].Part << 3) | (group.Count - 1)), .. group.SelectMany(w => new[] { w.Register, w.Value })]);
-                group.Clear();
+                case FmLoadInstrument >> 4:
+                    LoadInstruments++;
+                    break;
+                case >= 0x3 and <= 0x8 or 0xa or 0xb or 0xd:
+                    Compact++;
+                    break;
             }
         }
 
-        /// <summary>The channel (0–2 within its part) a patch register (<c>$30</c>–<c>$9F</c>, <c>$B0</c>–<c>$B6</c>) belongs to, or −1.</summary>
-        private static int PatchChannel(byte register)
+        /// <summary>
+        /// Ends the frame in its last command instead of a one-frame wait (<c>$00</c>), when that is a frequency set, a
+        /// frequency delta or a level that fits a delta: <c>$8x</c>, <c>$Bx</c> and <c>$Dx</c> end the driver's frame with no
+        /// wait set, which is the same (<c>FM_nextFrame_done</c> in <c>drv_xgm2_ym_fct.i80</c>).
+        /// </summary>
+        private bool FoldFrameEnd()
         {
-            int channel = register & 0x03;
-            bool patch = register is (>= RegFirstSlot and <= RegLastSlot) or (>= RegAlgorithm and <= RegPan + 2);
-            return patch && channel < 3 ? channel : -1;
-        }
+            if (_last is not { } last)
+            {
+                return false;
+            }
 
-        /// <summary>True for a slot's total level register (<c>$40</c>–<c>$4E</c>, not a fourth-channel address).</summary>
-        private static bool IsTl(byte register) => register is >= RegTl and < RegTl + 0x10 && (register & 0x03) != 3;
+            int x = Fm[last.Position] & 0x0f;
+            switch (last.Command.Kind)
+            {
+                case FmCommandKind.Frequency:
+                    Fm[last.Position] = (byte)(FmSetFreqWait | x);
+                    return true;
+                case FmCommandKind.FrequencyDelta:
+                    Fm[last.Position] = (byte)(FmFreqDeltaWait | x);
+                    return true;
+                case FmCommandKind.Level when last.Command.LevelDelta is { } delta:
+                    Fm[last.Position] = (byte)(FmTlDeltaWait | x);
+                    Fm[last.Position + 1] = delta;
+                    Compact++;
+                    return true;
+                default:
+                    return false;
+            }
+        }
 
         /// <summary>A PSG byte: a latch (channel, tone or volume, low bits) or a data byte (a tone's high 6 bits).</summary>
         private void ApplyPsg(byte value)
@@ -700,38 +860,79 @@ internal static class Xgm2Writer
         /// </summary>
         private void Command(params byte[] bytes)
         {
+            AdvanceFm();
+            Grow(_fmFrame);
+            _last = null;
+
             // The frame's last command (a wait of up to 2 bytes, or the splitter) counts too, and the frame stays under 256.
-            if (_fmFrameBytes + bytes.Length > MaxFrameBytes - 1 - FrameEndBytes)
+            if (_fmFrameBytes + bytes.Length > FrameBudget)
             {
                 Fm.Add(FmFrameSplit);
                 _fmFrameBytes = 0;
                 _fmLag++;
                 Splits++;
+                FrameBytes[_fmFrame]++;
+                SplitFrames.Add(_fmFrame);
             }
 
             Fm.AddRange(bytes);
             _fmFrameBytes += bytes.Length;
+            FrameBytes[_fmFrame] += bytes.Length;
         }
 
-        /// <summary>Ends the FM stream's frames up to <paramref name="frame"/> with waits.</summary>
+        /// <summary>Makes the per-frame counts reach <paramref name="frame"/>.</summary>
+        private void Grow(int frame)
+        {
+            while (FrameBytes.Count <= frame)
+            {
+                FrameBytes.Add(0);
+                FrameWrites.Add(0);
+                FrameChannels.Add(0);
+            }
+        }
+
+        /// <summary>
+        /// Moves the FM stream on to <paramref name="frame"/>, after sending what waits for the frame before; the wait itself is
+        /// written with the frame's first byte (<see cref="AdvanceFm"/>). A one-frame wait goes into the frame's
+        /// last command where it can (<see cref="FoldFrameEnd"/>).
+        /// </summary>
         private void MoveFm(int frame)
         {
-            if (frame > _fmFrame)
+            if (frame > _fmTarget)
             {
                 FlushRaw();
+                _fmTarget = frame;
+            }
+        }
 
+        /// <summary>
+        /// Writes the wait from the frame of the bytes so far to the frame being encoded (<see cref="MoveFm"/>), just before
+        /// that frame's first byte.
+        /// </summary>
+        private void AdvanceFm()
+        {
+            if (_fmTarget > _fmFrame)
+            {
                 // Frames the driver already spent on a split frame come off the wait; with none left, the next commands
                 // run in the frame the driver is on.
-                int frames = frame - _fmFrame;
+                int frames = _fmTarget - _fmFrame;
                 int behind = Math.Min(frames, _fmLag);
                 _fmLag -= behind;
                 if (frames > behind)
                 {
-                    Wait(Fm, frames - behind, FmMaxShortWait, FmWaitLong, FmMaxLongWait);
+                    if (frames - behind > 1 || !FoldFrameEnd())
+                    {
+                        Grow(_fmFrame);
+                        int before = Fm.Count;
+                        Wait(Fm, frames - behind, FmMaxShortWait, FmWaitLong, FmMaxLongWait);
+                        FrameBytes[_fmFrame] += Fm.Count - before;
+                    }
+
                     _fmFrameBytes = 0;
                 }
 
-                _fmFrame = frame;
+                _last = null;
+                _fmFrame = _fmTarget;
             }
         }
 
