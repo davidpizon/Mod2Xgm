@@ -1,6 +1,8 @@
+using Mod2Xgm.Analysis;
 using Mod2Xgm.Cli;
 using Mod2Xgm.Mapping;
 using Mod2Xgm.Model;
+using Mod2Xgm.Optimizer;
 
 namespace Mod2Xgm.Tests.Mapping;
 
@@ -895,6 +897,115 @@ public sealed class SimpleMapperTests
         Assert.False(CellAt(plan, GenesisChannel.Fm6, row: 2).NoteOff);
     }
 
+    /// <summary>
+    /// With a fit closer than its built-in patch, a looped sample's FM notes play the fit, at the sample's own pitch, and
+    /// a note says so (docs/adr/0137-simple-mapper-fitted-patches.md).
+    /// </summary>
+    [Fact]
+    public void Map_WithCloserFit_PlaysFittedPatch()
+    {
+        // Arrange
+        Song song = Build([[RowOf(Play(0))]]);
+        FittedFm fits = FitsFor(song, 0, Fitted("Fit 1.1", -1));
+
+        // Act
+        (GenesisPlan plan, List<string> notes) = Map(song, fits: fits);
+
+        // Assert
+        PlanCell cell = CellAt(plan, GenesisChannel.Fm1);
+        Assert.Equal("Fit 1.1", plan.FmPatches[cell.Voice!.Value.Index].Name);
+        Assert.Equal(0, cell.Cents);
+        Assert.Contains(notes, n => n.Contains("an FM patch fitted to pitch region 1, for all its notes", StringComparison.Ordinal));
+    }
+
+    /// <summary>A fit no closer than the built-in patch leaves it playing, and a note says why.</summary>
+    [Fact]
+    public void Map_WithFartherFit_KeepsBuiltInPatch()
+    {
+        // Arrange
+        Song song = Build([[RowOf(Play(0))]]);
+        (GenesisPlan plain, _) = Map(song);
+        FittedFm fits = FitsFor(song, 0, Fitted("Fit 1.1", 1000));
+
+        // Act
+        (GenesisPlan plan, List<string> notes) = Map(song, fits: fits);
+
+        // Assert
+        Assert.Equal(plain.FmPatches.Single().Name, plan.FmPatches.Single().Name);
+        Assert.Contains(notes, n => n.Contains("keeps the built-in", StringComparison.Ordinal));
+    }
+
+    /// <summary>A fit that is closest with the LFO sets the plan's LFO rate, and a note says so.</summary>
+    [Fact]
+    public void Map_WithLfoFit_SetsPlanLfoRate()
+    {
+        // Arrange
+        Song song = Build([[RowOf(Play(0))]]);
+        FittedFm fits = FitsFor(song, 0, Fitted("Fit 1.1", -2, lfoRate: 4));
+
+        // Act
+        (GenesisPlan plan, List<string> notes) = Map(song, fits: fits);
+
+        // Assert
+        Assert.Equal(4, plan.LfoRate);
+        Assert.Contains(notes, n => n.Contains("The song's LFO runs at rate 4", StringComparison.Ordinal));
+    }
+
+    /// <summary>Without fits the plan leaves the LFO off.</summary>
+    [Fact]
+    public void Map_WithoutFits_LeavesLfoOff()
+    {
+        // Arrange
+        Song song = Build([[RowOf(Play(0))]]);
+
+        // Act
+        (GenesisPlan plan, _) = Map(song);
+
+        // Assert
+        Assert.Null(plan.LfoRate);
+    }
+
+    /// <summary>A chord's notes play on several voices, so with fits it keeps its built-in patch, and a note says so.</summary>
+    [Fact]
+    public void Map_WithFitsForChord_KeepsBuiltInPatch()
+    {
+        // Arrange
+        Song song = Build([[RowOf(Play(10))]]);
+        FittedFm fits = FitsFor(song, 10, Fitted("Fit 11.1", -1));
+
+        // Act
+        (GenesisPlan plan, List<string> notes) = Map(song, fits: fits);
+
+        // Assert
+        Assert.DoesNotContain(plan.FmPatches, p => p.Name == "Fit 11.1");
+        Assert.Contains(notes, n => n.Contains("keeps its built-in patch instead of a fitted one", StringComparison.Ordinal));
+    }
+
+    /// <summary>The samples worth fitting are the looped ones played on FM with one voice: not drums, noise or chords.</summary>
+    [Fact]
+    public void FmSamples_ForSong_ListsSingleVoiceFmSamples()
+    {
+        // Arrange
+        Song song = Build([[RowOf(Play(0))]]);
+
+        // Act
+        IReadOnlySet<int> fm = SimpleMapper.FmSamples(song, MappingOptions.Default);
+
+        // Assert
+        Assert.Contains(0, fm);
+        Assert.DoesNotContain(1, fm);
+        Assert.DoesNotContain(6, fm);
+        Assert.DoesNotContain(10, fm);
+    }
+
+    /// <summary><paramref name="song"/>'s sample <paramref name="sample"/> analyzed at C-2, with <paramref name="fit"/> for its one region.</summary>
+    private static FittedFm FitsFor(Song song, int sample, FmFit fit) =>
+        new([SampleAnalyzer.Analyze(sample, song.Samples[sample], [8287])], [new FmSampleFit(sample, song.Samples[sample].Name, [new FmRegionFit(0, fit, fit, null, fit, fit with { LfoRate = null, Patch = fit.Patch with { Fms = 0 }, Score = fit.Score with { MelDb = Math.Max(fit.Score.MelDb, -1) } }, 0, TimeSpan.Zero)])]);
+
+    /// <summary>A made-up fit called <paramref name="name"/> at <paramref name="melDb"/> (below 0 beats any real patch); with <paramref name="lfoRate"/>, it uses the LFO.</summary>
+    private static FmFit Fitted(string name, double melDb, int? lfoRate = null) =>
+        new(FmPatchLibrary.Sine with { Name = name, Fms = lfoRate is null ? 0 : 3 }, lfoRate, FmFitSource.Exhaustive, new NoteScore(melDb, 0, null));
+
     /// <summary>A pitch at <paramref name="semitone"/>, played at <paramref name="rate"/>.</summary>
     private static NotePitch Note(int semitone = 48, double rate = 8287) => new(semitone, 0, rate);
 
@@ -946,12 +1057,12 @@ public sealed class SimpleMapperTests
     private static Song Panned(Song song, params double[] pans) =>
         new(song.Title, [.. pans.Select(p => new Channel(p))], song.Orders, song.LoopOrder, song.Patterns, song.Instruments, song.Samples, song.Timing);
 
-    /// <summary>Maps <paramref name="song"/>; without <paramref name="playback"/> (no tick player for a song built in code) every note is treated as never played.</summary>
-    private static (GenesisPlan Plan, List<string> Notes) Map(Song song, MappingOptions? options = null, Playback? playback = null, DacLoser loser = DacLoser.Default)
+    /// <summary>Maps <paramref name="song"/>, with <paramref name="fits"/> when given; without <paramref name="playback"/> (no tick player for a song built in code) every note is treated as never played.</summary>
+    private static (GenesisPlan Plan, List<string> Notes) Map(Song song, MappingOptions? options = null, Playback? playback = null, DacLoser loser = DacLoser.Default, FittedFm? fits = null)
     {
         CollectingSink sink = new();
         ConversionNotes notes = new(sink.CreateLogger());
-        IChannelMapper sut = new SimpleMapper(loser);
+        IChannelMapper sut = new SimpleMapper(loser, fits);
         GenesisPlan plan = sut.Map(song, playback ?? new Playback([], null, PlaybackEnd.Stops), options ?? MappingOptions.Default, notes);
         return (plan, [.. notes.Messages]);
     }

@@ -1,4 +1,4 @@
-── mod2xgm VERSION · song.mod → DMF · quality normal · 7 steps ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+── mod2xgm VERSION · song.mod → DMF · quality fast · 7 steps ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 ✓ [1/7] Check paths #s
 note Sample 8 badname: the name contains unprintable bytes; the header may be damaged
 File         song.mod (21802 bytes)                      
@@ -47,7 +47,6 @@ note Sample 8 badname: holds 64 bytes but is never played
 │ 30 │ ""             │      0 │ —         │   0 │    0 │     0 │ empty  │
 │ 31 │ ""             │      0 │ —         │   0 │    0 │     0 │ empty  │
 ╰────┴────────────────┴────────┴───────────┴─────┴──────┴───────┴────────╯
---quality normal: the optimizer isn't built yet (plan M9), so the simple mapper is used
 ✓ [3/7] Scan sample use #s
 ✓ [4/7] Build song model #s
 ✓ [5/7] Play ticks #s

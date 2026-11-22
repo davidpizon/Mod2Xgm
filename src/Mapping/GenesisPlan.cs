@@ -261,4 +261,10 @@ internal sealed record GenesisPlan(
     /// a retry's harness rule sets it (<see cref="Optimizer.LevelRules"/>, docs/adr/0112-retry-list.md); a DMF ignores it.
     /// </summary>
     public double SongGainDb { get; init; }
+
+    /// <summary>
+    /// The LFO rate (0–7) the song runs at, for FM patches fitted with it, or <c>null</c> to leave the LFO off. The LFO
+    /// is one setting for the whole chip, so it is one per song (docs/adr/0137-simple-mapper-fitted-patches.md).
+    /// </summary>
+    public int? LfoRate { get; init; }
 }

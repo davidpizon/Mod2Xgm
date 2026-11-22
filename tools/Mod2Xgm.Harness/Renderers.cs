@@ -194,7 +194,7 @@ internal sealed class GenesisRendererCheck(int sampleRate, Serilog.ILogger logge
     public CandidateRender Render(SongFiles song)
     {
         ArgumentNullException.ThrowIfNull(song);
-        ConversionOptions options = new() { InputPath = song.ModPath };
+        ConversionOptions options = new() { InputPath = song.ModPath, Quality = CorpusRun.HarnessQuality };
         ConversionNotes silent = new(Logger.None);
         ModModule module = ModReader.Read(File.ReadAllBytes(song.ModPath), silent, options.Player);
         Song model = ModToSong.Convert(module, options.AmigaClockHz, silent);

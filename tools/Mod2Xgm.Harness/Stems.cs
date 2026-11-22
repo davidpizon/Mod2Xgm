@@ -54,7 +54,7 @@ internal sealed class StemSource
     {
         ArgumentNullException.ThrowIfNull(mod);
         ArgumentNullException.ThrowIfNull(converted);
-        ConversionOptions options = new() { InputPath = "stems.mod" };
+        ConversionOptions options = new() { InputPath = "stems.mod", Quality = CorpusRun.HarnessQuality };
         ConversionNotes silent = new(Logger.None);
         ModModule module = ModReader.Read(mod, silent, options.Player);
         Song song = ModToSong.Convert(module, options.AmigaClockHz, silent);

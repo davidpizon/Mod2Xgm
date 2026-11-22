@@ -63,6 +63,12 @@ internal sealed class CorpusRun(
     CandidateCache? cache = null,
     bool dropClues = false)
 {
+    /// <summary>
+    /// The quality the harness converts at: <c>fast</c>, the built-in FM patches, as before plan T5.3q. Fitted patches
+    /// (<c>normal</c>, docs/adr/0137-simple-mapper-fitted-patches.md) take minutes a song, too long for a corpus run.
+    /// </summary>
+    public const Quality HarnessQuality = Quality.Fast;
+
     /// <summary>The step id of the song at <paramref name="modPath"/> (docs/cli-output.md#the-harness).</summary>
     public static string PhaseId(string modPath) => "song:" + Path.GetFileNameWithoutExtension(modPath);
 
@@ -336,7 +342,7 @@ internal sealed class CorpusRun(
         {
             try
             {
-                ConversionCommand.Execute(new ConversionOptions { InputPath = song.ModPath, OutputPath = song.DmfPath, Force = true }, songLogger, a => found = a);
+                ConversionCommand.Execute(new ConversionOptions { InputPath = song.ModPath, OutputPath = song.DmfPath, Force = true, Quality = HarnessQuality }, songLogger, a => found = a);
             }
             finally
             {

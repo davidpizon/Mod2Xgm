@@ -144,7 +144,7 @@ fits an FM patch to each pitch region of a `SampleAnalysis`. `FmNoteRenderer` pl
 (`Render/FmVoice` loads the patch, shared with `GenesisPlanPlayer`) and `FmEvaluator` scores it against the region's
 harmonics and mel bands. `FmExhaustiveSearch` and `FmGeneticSearch` choose the algorithm and multiples (`FmStructure`),
 `FmLocalSearch` fits the levels, envelopes, SSG-EG and LFO, and `FmFitReport` logs the result. Nothing in the
-conversion uses it yet (M9); the harness runs it with `--fm-fit`. `NoteScorer` is the ruler both FM and PSG
+optimizer reads it (M9), and at `--quality normal` and `best` the simple mapper plays its fits where they sound closer (`Mapping/FittedFm`, [ADR 0137](adr/0137-simple-mapper-fitted-patches.md)); the harness runs it with `--fm-fit`. `NoteScorer` is the ruler both FM and PSG
 candidates are scored with, and `AnalysisResampler` brings either chip's output to the analysis rate.
 
 **PSG candidates** (`src/Optimizer`, plan T8.3, [ADR 0070](adr/0070-psg-candidates.md)) — part of pass 3: `PsgFitter`

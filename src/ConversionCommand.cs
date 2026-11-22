@@ -54,7 +54,7 @@ internal static class ConversionCommand
 
         bool verbose = logger.IsEnabled(LogEventLevel.Debug);
         string input = Path.GetFullPath(options.InputPath);
-        progress.Begin(new RunInfo(input, FormatName(options.Format), QualityName(options.Quality), Phases(options, verbose || analyzed is not null || options.UsesOptimizer)));
+        progress.Begin(new RunInfo(input, FormatName(options.Format), QualityName(options.Quality), Phases(options, verbose || analyzed is not null || options.UsesOptimizer || FitsSimple(options))));
         IPhase phase = progress.Start(PhaseCheck);
         CheckInput(input);
 
@@ -135,9 +135,9 @@ internal static class ConversionCommand
         MappingOptions mapping = MappingOptions.From(options);
         progress.SetSongSize(SongSize.Samples, Enumerable.Range(0, song.Samples.Count).Count(s => !song.Samples[s].IsEmpty && !mapping.Ignore.Contains(s)));
         SongAnalysis? analysis = null;
-        if (verbose || analyzed is not null || options.UsesOptimizer)
+        if (verbose || analyzed is not null || options.UsesOptimizer || FitsSimple(options))
         {
-            // The optimizer reads it; --verbose shows it (docs/adr/0068-sample-analysis.md).
+            // The optimizer and the simple mapper's fits read it; --verbose shows it (docs/adr/0068-sample-analysis.md).
             phase = progress.Start(PhaseAnalyze);
             IReadOnlyList<SampleAnalysis> analyses = SampleAnalyzer.AnalyzeSong(song, playback, mapping.Ignore, phase);
             analysis = new(song, playback, analyses, SongVoices.Count(song, playback))
@@ -165,8 +165,16 @@ internal static class ConversionCommand
             phase.Done();
         }
 
+        FittedFm? fitted = null;
+        if (analysis is not null && FitsSimple(options))
+        {
+            phase = progress.Start(PhaseFit);
+            fitted = FitSimple(analysis, mapping, options, logger, phase);
+            phase.Done();
+        }
+
         phase = progress.Start(PhaseMap);
-        GenesisPlan plan = (optimizer ?? (IChannelMapper)new SimpleMapper(options.DacLoser ?? DacLoser.Default)).Map(song, playback, mapping, notes);
+        GenesisPlan plan = (optimizer ?? (IChannelMapper)new SimpleMapper(options.DacLoser ?? DacLoser.Default, fitted)).Map(song, playback, mapping, notes);
         logger.Debug(
             "Mapped {Orders} orders: {FmPatches} FM patches, {DacSamples} DAC samples",
             plan.Patterns.Count,
@@ -221,6 +229,32 @@ internal static class ConversionCommand
         CandidateCache? cache = options.NoCache ? null : new CandidateCache(options.CacheDirectory ?? CandidateCache.DefaultRoot, logger);
         FmFitOptions fm = new(SoundMenu.FmRendersPerStep, options.Seed, Lfo: false);
         return SoundMenu.Make(analysis, limits.Target, mapping, fm, cache, work, options.Chords);
+    }
+
+    /// <summary>
+    /// True when the simple mapper plays fitted FM patches: <c>--quality normal</c> or <c>best</c> without the optimizer
+    /// (plan T5.3q, docs/adr/0137-simple-mapper-fitted-patches.md).
+    /// </summary>
+    private static bool FitsSimple(ConversionOptions options) => !options.UsesOptimizer && options.Quality != Quality.Fast;
+
+    /// <summary>
+    /// Fits FM patches to every sample the simple mapper plays on FM with one voice, with the LFO, kept in the candidate
+    /// cache; samples are fitted in parallel (docs/adr/0137-simple-mapper-fitted-patches.md).
+    /// </summary>
+    private static FittedFm FitSimple(SongAnalysis analysis, MappingOptions mapping, ConversionOptions options, ILogger logger, IWorkCounter work)
+    {
+        CandidateCache? cache = options.NoCache ? null : new CandidateCache(options.CacheDirectory ?? CandidateCache.DefaultRoot, logger);
+        IReadOnlySet<int> fm = SimpleMapper.FmSamples(analysis.Song, mapping);
+        SampleAnalysis[] samples = [.. analysis.Samples.Where(a => fm.Contains(a.Sample))];
+        FmFitOptions fitOptions = FittedFm.Options(options.Quality == Quality.Best, options.Seed);
+        FmSampleFit[] fits = new FmSampleFit[samples.Length];
+        work.SetTotal(fits.Length);
+        Parallel.For(0, fits.Length, i =>
+        {
+            fits[i] = FmFitter.Fit(samples[i], fitOptions, cache);
+            work.Advance();
+        });
+        return new FittedFm(samples, fits);
     }
 
     /// <summary>Plans the DMF's timing, builds it, prints report section 3 and writes the file (unless <c>--info</c>).</summary>
@@ -319,7 +353,7 @@ internal static class ConversionCommand
             steps.Add((PhaseAnalyze, "Analyze samples", "samples"));
         }
 
-        if (options.UsesOptimizer)
+        if (options.UsesOptimizer || FitsSimple(options))
         {
             steps.Add((PhaseFit, "Fit sounds", "samples"));
         }
@@ -421,7 +455,7 @@ internal static class ConversionCommand
         if (options.Quality != Quality.Fast && !options.UsesOptimizer)
         {
             logger.Information(
-                "--quality {Quality:l}: the optimizer isn't built yet (plan M9), so the simple mapper is used",
+                "--quality {Quality:l}: the optimizer isn't built yet (plan M9), so the simple mapper is used, with FM patches fitted to the samples where they sound closer",
                 options.Quality == Quality.Best ? "best" : "normal");
         }
     }

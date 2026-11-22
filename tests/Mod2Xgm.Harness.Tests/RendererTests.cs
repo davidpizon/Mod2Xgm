@@ -141,7 +141,7 @@ public sealed class RendererTests
         Assert.SkipWhen(furnace is null, "Furnace isn't installed");
         using TempDirectory temp = new();
         SongFiles song = new("fx-poly1", TestFiles.ShortSong, temp.Combine("fx-poly1.dmf"), temp.Path);
-        ConversionCommand.Execute(new ConversionOptions { InputPath = song.ModPath, OutputPath = song.DmfPath }, Logger.None);
+        ConversionCommand.Execute(new ConversionOptions { InputPath = song.ModPath, OutputPath = song.DmfPath, Quality = Quality.Fast }, Logger.None);
         FurnaceRenderer sut = new(furnace, TimeSpan.FromMinutes(5));
 
         // Act

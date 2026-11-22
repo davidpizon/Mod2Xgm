@@ -215,7 +215,7 @@ internal sealed class PanSwapRun(IReadOnlyList<string> songs, string outputDirec
     private static string[] SampleNames(string song)
     {
         ConversionNotes silent = new(Serilog.Core.Logger.None);
-        ConversionOptions options = new() { InputPath = song };
+        ConversionOptions options = new() { InputPath = song, Quality = CorpusRun.HarnessQuality };
         ModModule module = ModReader.Read(File.ReadAllBytes(song), silent, options.Player);
         Song model = ModToSong.Convert(module, options.AmigaClockHz, silent);
         return [.. model.Samples.Select(s => s.Name)];

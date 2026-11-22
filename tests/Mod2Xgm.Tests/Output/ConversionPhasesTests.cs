@@ -19,6 +19,7 @@ public sealed class ConversionPhasesTests
         ConversionOptions options = new()
         {
             InputPath = "song.mod",
+            Quality = Quality.Fast,
             Format = Enum.Parse<OutputFormat>(format, ignoreCase: true),
             RenderWav = renderWav,
             InfoOnly = true,
@@ -29,6 +30,20 @@ public sealed class ConversionPhasesTests
 
         // Assert
         Assert.Equal(expected, string.Join(' ', phases.Select(p => p.Id)));
+    }
+
+    /// <summary>At <c>--quality normal</c> the simple mapper's FM patches are fitted, so the run has a step that fits sounds.</summary>
+    [Fact]
+    public void Phases_WithNormalQuality_FitsSounds()
+    {
+        // Arrange
+        ConversionOptions options = new() { InputPath = "song.mod", Quality = Quality.Normal, InfoOnly = true };
+
+        // Act
+        IReadOnlyList<PhaseInfo> phases = ConversionCommand.Phases(options, analyzes: true);
+
+        // Assert
+        Assert.Equal("check read scan model play analyze fit map write", string.Join(' ', phases.Select(p => p.Id)));
     }
 
     /// <summary>The steps are numbered from 1 within the run, whatever the mix.</summary>

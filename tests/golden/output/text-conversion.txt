@@ -1,4 +1,4 @@
-run mod2xgm=VERSION input=song.mod format=dmf quality=normal steps=7
+run mod2xgm=VERSION input=song.mod format=dmf quality=fast steps=7
 step 1/7 check start | eta ?
 step 1/7 check done | #s
 step 2/7 read start | eta ?
@@ -40,7 +40,6 @@ sample 28 "" len=0 loop=- vol=0 fine=0 notes=0 empty
 sample 29 "" len=0 loop=- vol=0 fine=0 notes=0 empty
 sample 30 "" len=0 loop=- vol=0 fine=0 notes=0 empty
 sample 31 "" len=0 loop=- vol=0 fine=0 notes=0 empty
-info --quality normal: the optimizer isn't built yet (plan M9), so the simple mapper is used
 step 3/7 scan done | #s
 step 4/7 model start | eta ?
 step 4/7 model done | #s

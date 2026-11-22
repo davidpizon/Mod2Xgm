@@ -12,7 +12,7 @@ public sealed class StemsTests
     private static (byte[] Mod, ModModule Module, StemSource Source) Prepare(TempDirectory temp)
     {
         string dmf = temp.Combine("song.dmf");
-        ConversionCommand.Execute(new ConversionOptions { InputPath = TestFiles.ShortSong, OutputPath = dmf, Force = true }, Logger.None);
+        ConversionCommand.Execute(new ConversionOptions { InputPath = TestFiles.ShortSong, OutputPath = dmf, Force = true, Quality = Quality.Fast }, Logger.None);
         byte[] mod = File.ReadAllBytes(TestFiles.ShortSong);
         return (mod, ModReader.Read(mod, new ConversionNotes(Logger.None)), StemSource.Prepare(mod, File.ReadAllBytes(dmf)));
     }

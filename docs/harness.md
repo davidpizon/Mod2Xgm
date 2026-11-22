@@ -13,7 +13,7 @@ For each MOD (the corpus in `tests/data/corpus/` by default):
    sound as `openmpt123 --render`), straight into memory, and asks libopenmpt how long the song is.
 2. **Song timeline.** It plays the MOD with the converter's tick player (`ModTickPlayer`, PAL) and checks it against
    libopenmpt, row by row ([below](#song-timeline)).
-3. **Conversion.** It converts the MOD in-process with the default options, exactly as `mod2xgm song.mod` does, to
+3. **Conversion.** It converts the MOD in-process with the default options but `--quality fast`, as `mod2xgm song.mod --quality fast` does (fitted FM patches take minutes a song, [ADR 0137](adr/0137-simple-mapper-fitted-patches.md)), to
    `dmf/song.dmf`. The whole console output goes to `logs/song.log`.
 4. **Renderings of the conversion:**
    - **furnace**: Furnace's command line renders the fresh DMF to `wav/song.furnace.wav`. This is automatic, so every
