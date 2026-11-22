@@ -141,6 +141,11 @@ internal sealed class CommandLineDefinition
         Description = "Folder for the fitted-patch cache (default: the user's cache folder).",
     };
 
+    public Option<bool> NoModels { get; } = new("--no-models")
+    {
+        Description = "Don't use the listening models, even when the model folder has them.",
+    };
+
     public Option<int> ReserveSfxChannels { get; } = new("--reserve-sfx-channels")
     {
         Description = "PCM channels to leave free for game sound effects (XGM up to 4, XGM2 up to 3).",
@@ -207,6 +212,7 @@ internal sealed class CommandLineDefinition
             Seed,
             NoCache,
             CacheDir,
+            NoModels,
             ReserveSfxChannels,
             RenderWav,
             Info,

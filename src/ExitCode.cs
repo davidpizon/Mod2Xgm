@@ -10,4 +10,5 @@ internal enum ExitCode
     OutputNotWritable = 4,
     InternalError = 5,
     DoesNotFit = 6,
+    ModelFolderInvalid = 7,
 }

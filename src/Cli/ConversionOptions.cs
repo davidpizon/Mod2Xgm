@@ -145,6 +145,13 @@ internal sealed record ConversionOptions
 
     /// <summary>The candidate cache's folder (<c>--cache-dir</c>); <c>null</c> for the user's cache folder (docs/adr/0074-candidate-cache.md).</summary>
     public string? CacheDirectory { get; init; }
+
+    /// <summary>
+    /// The listening-model folder to use when it is set up, or <c>null</c> for none: the command line gives
+    /// <see cref="Models.ModelFolder.DefaultPath"/> unless <c>--no-models</c> is given (docs/cli.md#listening-models). Options
+    /// made in code (tests, the harness) use no models unless they set it.
+    /// </summary>
+    public string? ModelsDirectory { get; init; }
     public int ReserveSfxChannels { get; init; }
 
     /// <summary>True when a WAV of the Genesis render is written too (<c>--render-wav</c>, docs/adr/0059-genesis-renderer.md).</summary>

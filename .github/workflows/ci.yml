@@ -100,6 +100,31 @@ jobs:
           code=$?
           set -e
           [ "$code" -eq 1 ] && [ ! -s "$out/usage.out" ] && [ ! -s "$out/usage.err" ]
+      - name: Smoke test with a model folder
+        shell: bash
+        run: |
+          # The model folder (docs/cli.md#listening-models, ADR 0138): ONNX Runtime from the package the harness restores, a
+          # stand-in CLAP file (nothing runs it yet), set up by the same script that makes the models downloads.
+          dotnet restore tools/Mod2Xgm.Harness/Mod2Xgm.Harness.csproj
+          models=$(pwsh -NoProfile -Command "Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'Mod2Xgm/models'")
+          mkdir -p "$models"
+          printf 'stand-in' > "$models/clap.onnx"
+          pwsh -NoProfile -File tools/models-archive/New-ModelsArchive.ps1 -Install -Source "$models"
+          bin="artifacts/publish/${{ matrix.rid }}/Mod2Xgm"
+          [ -f "$bin.exe" ] && bin="$bin.exe"
+          out="$RUNNER_TEMP/smoke-models"
+          mkdir -p "$out"
+          "$bin" tests/data/corpus/cancan.mod --progress text --quality fast --output "$out/with.dmf" > "$out/with.out"
+          grep 'Listening models: clap (models set 1' "$out/with.out"
+          "$bin" tests/data/corpus/cancan.mod --progress text --quality fast --no-models --output "$out/without.dmf" > "$out/without.out"
+          ! grep -q 'Listening models' "$out/without.out"
+          # A damaged model file stops the run with exit 7.
+          printf 'damaged' > "$models/clap.onnx"
+          set +e
+          "$bin" tests/data/corpus/cancan.mod --progress text --quality fast --output "$out/damaged.dmf" > "$out/damaged.out" 2>&1
+          code=$?
+          set -e
+          [ "$code" -eq 7 ] && [ ! -f "$out/damaged.dmf" ]
 
   coverage:
     name: Code coverage

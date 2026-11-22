@@ -76,6 +76,7 @@ libraries for these.
 /tools/sn76489-reference/   C++ tool that makes the SN76489 reference outputs with MAME and Nuked-PSG (ADR 0057)
 /tools/pcm-driver-reference/ C++ tool that runs SGDK's XGM / XGM2 Z80 drivers on an emulated Z80 (ADR 0066)
 /tools/onnx-export/         Python script that exports the pretrained listening models to ONNX for the harness (ADR 0104)
+/tools/models-archive/      PowerShell script that makes the listening-models zips, or sets up the model folder, on a developer PC (ADR 0138)
 /.vs/                       Visual Studio state — never edit or commit (git-ignored)
 ```
 
@@ -187,8 +188,8 @@ compiler, analyzer, trim/AOT, NuGet or MSBuild warning fails the build.
    test-only **xUnit v3** and **Moq** (ADR 0081); harness-only **libopenmpt** (native, BSD-3, loaded at run time by `tools/Mod2Xgm.Harness`,
    never by the converter; ADR 0047), **R128Net** (EBU R128 loudness, MIT, pure C#; on trial, ADR 0053) and **ONNX Runtime**
    (`Microsoft.ML.OnnxRuntime`, MIT, runs the pretrained listening models exported by `tools/onnx-export`, kept outside
-   the repository; ADR 0104; the converter may also load it and the models from the optional model folder, never bundled
-   in the executable, once T9.4s3 has checked its AOT support, ADR 0111); the
+   the repository; ADR 0104; the converter references only its managed API, `Microsoft.ML.OnnxRuntime.Managed`, and loads
+   the native library and the models from the optional model folder, never bundled in the executable, ADR 0111, ADR 0138); the
    **ymfm** YM3438 core ported to C# (BSD-3, ADR 0056); **MAME**'s Sega PSG (`sn76496.cpp`) ported to C# (BSD-3,
    ADR 0057); only in `tools/ym3438-reference` (never shipped, no code copied), ymfm's C++ and **Nuked-OPN2** (LGPL-2.1),
    built once to make the reference outputs (ADR 0056); and, only in `tools/sn76489-reference` (never shipped, no code

@@ -151,6 +151,7 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0135](0135-loop-chords.md) | The simple mapper reads a triad's notes from a loop with no one cycle | 2026-11-21 | Proposed |
 | [0136](0136-fm-fits-across-builds.md) | FM fits are kept across builds, until the fitter's version changes | 2026-11-21 | Proposed |
 | [0137](0137-simple-mapper-fitted-patches.md) | The simple mapper plays a fitted FM patch per sample where it sounds closer, with one LFO rate for the song | 2026-11-21 | Proposed |
+| [0138](0138-model-folder.md) | The model folder: checked by a models set and ONNX Runtime version, exit 7, zips made on a developer PC | 2026-11-21 | Proposed |
 
 ## Open questions
 
