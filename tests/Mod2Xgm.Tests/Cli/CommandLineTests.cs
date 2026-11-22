@@ -480,6 +480,28 @@ public sealed class CommandLineTests
         Assert.Equal("my cache", Assert.IsType<ConversionOptions>(result.Options).CacheDirectory);
     }
 
+    /// <summary>Without <c>--no-models</c> the run uses the default model folder when it is set up (docs/cli.md#listening-models).</summary>
+    [Fact]
+    public void Invoke_WithoutNoModels_BindsDefaultModelFolder()
+    {
+        // Act
+        Outcome result = Run("song.mod");
+
+        // Assert
+        Assert.Equal(Mod2Xgm.Models.ModelFolder.DefaultPath, Assert.IsType<ConversionOptions>(result.Options).ModelsDirectory);
+    }
+
+    /// <summary><c>--no-models</c> leaves the model folder alone, whatever it holds.</summary>
+    [Fact]
+    public void Invoke_WithNoModels_BindsNoModelFolder()
+    {
+        // Act
+        Outcome result = Run("song.mod", "--no-models");
+
+        // Assert
+        Assert.Null(Assert.IsType<ConversionOptions>(result.Options).ModelsDirectory);
+    }
+
     /// <summary><c>--cache-dir</c> can't be combined with <c>--no-cache</c>.</summary>
     [Fact]
     public void Invoke_WithCacheDirAndNoCache_ReturnsUsageError()

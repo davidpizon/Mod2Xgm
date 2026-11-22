@@ -121,6 +121,7 @@ public sealed class OutputLayerTests
     [InlineData(nameof(ExitCode.InvalidInput), "invalid-input")]
     [InlineData(nameof(ExitCode.OutputNotWritable), "output-not-writable")]
     [InlineData(nameof(ExitCode.DoesNotFit), "does-not-fit")]
+    [InlineData(nameof(ExitCode.ModelFolderInvalid), "model-folder")]
     [InlineData(nameof(ExitCode.InternalError), "internal")]
     public void Kind_WithExitCode_ReturnsStableWord(string code, string kind)
     {

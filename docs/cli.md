@@ -34,6 +34,7 @@ mod2xgm <input.mod> [options]
 | `--seed <n>` | 0 | Optimizer seed; same input + options + seed → same output. |
 | `--no-cache` | off | Don't read or write the fitted-patch cache (the optimizer's candidates: FM fits kept until the fitter changes, the rest per build; [ADR 0074](adr/0074-candidate-cache.md), [ADR 0136](adr/0136-fm-fits-across-builds.md)). Without `--mapping optimizer`, only the FM fits of `--quality normal` and `best` are kept there ([ADR 0137](adr/0137-simple-mapper-fitted-patches.md)). It also neither reads nor writes the timing history the time estimates use ([cli-output.md](cli-output.md#time-estimate)). |
 | `--cache-dir <path>` | user cache folder | Where the fitted-patch cache lives: `%LOCALAPPDATA%\Mod2Xgm\Cache` on Windows, `~/Library/Caches/Mod2Xgm` on macOS, `$XDG_CACHE_HOME/mod2xgm` (or `~/.cache/mod2xgm`) elsewhere. Each build keeps its own `build-…` folder and deletes the other builds' on first use; delete the folder to clear it. Empty, or with `--no-cache` → exit 1. |
+| `--no-models` | off | Don't use the listening models, whatever the model folder holds: the result is what a PC without them gets. Without it, a run uses the model folder whenever it is set up ([Listening models](#listening-models)). |
 | `--reserve-sfx-channels <n>` | 0 | Leave n PCM channels free for game sound effects (XGM ≤ 4, XGM2 ≤ 3). |
 | `--render-wav [path]` | off | Also write a WAV of a Genesis playing the conversion: 16-bit stereo, 44.1 kHz, rendered in-app on the chip models with the output format's PCM driver ([ADR 0059](adr/0059-genesis-renderer.md)). Without a path it goes next to the output as `song.genesis.wav`. Same checks as the output file (see [Output naming](#output-naming)). Works with `--info` (only the WAV is written). With `--format xgm` the WAV is written but no song file, and the exit code stays 1. Put it **after** the input or give a path: `mod2xgm --render-wav song.mod` takes `song.mod` as the WAV's path. |
 | `--info` | off | Dry run: read, report and convert in memory (all report sections and conversion notes), but write no output file. |
@@ -173,6 +174,29 @@ Emulating Ultimate Soundtracker (the default for 15-sample files; --player protr
 Emulating ProTracker 2 (chosen with --player)
 ```
 
+## Listening models
+
+The converter can use pretrained listening models (CLAP) from a **model folder**
+([ADR 0111](adr/0111-neither-and-listening-models.md), [ADR 0138](adr/0138-model-folder.md)): .NET's
+`LocalApplicationData/Mod2Xgm/models`, that is `%LOCALAPPDATA%\Mod2Xgm\models` on Windows,
+`~/Library/Application Support/Mod2Xgm/models` on macOS and `~/.local/share/Mod2Xgm/models` (or `$XDG_DATA_HOME`) elsewhere.
+They are a separate download, `mod2xgm-models-set<N>-<platform>.zip`, attached to a release: unzip it into that folder.
+The converter never downloads anything. The zip holds the ONNX files, ONNX Runtime's native library for the platform, its
+licences and `models.txt`.
+
+- **No folder, or no `models.txt` in it:** the models aren't used and nothing is said. The converter stays one file.
+- **A folder with `models.txt`:** before reading the MOD, the converter checks it: the models set it was made for (this
+  version needs set 1: CLAP), the ONNX Runtime version (1.32.0), every listed file's SHA-256, and that ONNX Runtime loads
+  from the folder. A folder made for an older or newer converter keeps working as long as both match. Anything wrong stops
+  the run with **exit 7** and says what to fix, never a silent fallback; `--no-models` converts without the folder.
+- **Every run that uses them says so**, after the report's header lines:
+  `Listening models: clap (models set 1, ONNX Runtime 1.32.0) from <folder>` (nothing with `--progress silent`).
+- **What they change:** nothing yet. Each use (the "acceptable?" check, instrument labels, FM patch choice) is proven in
+  the harness and in blind rounds before it changes a conversion (ADR 0111's gate, plan T9.4s4–T9.4s6).
+
+`tools/models-archive/New-ModelsArchive.ps1` makes the zips on a developer PC, and with `-Install` sets up the folder there
+([its README](../tools/models-archive/README.md)).
+
 ## Exit codes
 
 | Code | Meaning |
@@ -184,6 +208,7 @@ Emulating ProTracker 2 (chosen with --player)
 | 4 | Output exists and `--force` not given, or output not writable |
 | 5 | Conversion failed (internal error) |
 | 6 | Song doesn't fit the target: `--no-consolidate` was given, or the `--require-dac` samples alone exceed the PCM slots/bytes |
+| 7 | The model folder is set up but can't be used: damaged, incomplete, or made for another models set or ONNX Runtime version ([Listening models](#listening-models)) |
 
 A usage error never prints the whole help and never asks for what is missing: it prints each problem on its own line and the
 usage line, then exits 1 (plan T17.2):

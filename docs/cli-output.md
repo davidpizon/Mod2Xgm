@@ -222,7 +222,7 @@ quoted only when it holds a space, a quote, `=` or `|` (or is empty), so a bare 
 `"` and `\` are escaped and control characters show as `·`.
 
 Errors go to stderr: `error exit=2 kind=input-not-found message="Input file not found: song.mod"`. `kind` is one of
-`usage`, `input-not-found`, `invalid-input`, `output-not-writable`, `does-not-fit`, `internal`. A usage error adds
+`usage`, `input-not-found`, `invalid-input`, `output-not-writable`, `does-not-fit`, `model-folder`, `internal`. A usage error adds
 `missing=<names>` (comma-separated) and `usage="mod2xgm <input.mod> [options]"`; a crash adds one `stack <line>` per
 line of the stack trace. The XGM2 line is printed verbatim as
 `info NOTE: SGDK expects XGM2 files to use the .XGM file extension.` so the exact sentence stays in the output.
@@ -250,7 +250,7 @@ Written with `Utf8JsonWriter`, so nothing is serialized by reflection. Strings a
 | `info` | `message` (e.g. the XGM2 extension line, verbatim) |
 | `timing` | `phases` (`[{"id":"map","seconds":4.0,"done":2,"unit":"orders"}]`), `total_s` |
 | `result` | `exit`, `output` / `wav` (`null` when not written), `notes`, `seconds` |
-| `error` | `code`, `error` (`usage`, `input-not-found`, `invalid-input`, `output-not-writable`, `internal`, `does-not-fit`), `message`, `problems`, `missing` and `usage` (usage errors), `stack` (exit 5 only) |
+| `error` | `code`, `error` (`usage`, `input-not-found`, `invalid-input`, `output-not-writable`, `internal`, `does-not-fit`, `model-folder`), `message`, `problems`, `missing` and `usage` (usage errors), `stack` (exit 5 only) |
 
 The last line of every run is `result` or `error`. The schema is documented here and checked by a test that
 parses every line of the golden run (`tests/golden/output/json-conversion.jsonl`); changing a field's meaning bumps `v`.

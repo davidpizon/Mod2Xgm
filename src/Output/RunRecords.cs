@@ -105,6 +105,7 @@ internal sealed record RunFailure(
         ExitCode.InvalidInput => "invalid-input",
         ExitCode.OutputNotWritable => "output-not-writable",
         ExitCode.DoesNotFit => "does-not-fit",
+        ExitCode.ModelFolderInvalid => "model-folder",
         _ => "internal",
     };
 }

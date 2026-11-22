@@ -1,7 +1,8 @@
 # ADR 0111: "Neither" answers, retries, and listening models the converter loads from an optional folder
 
 - **Status:** Accepted (David, 2026-11-14); supersedes in part [ADR 0104](0104-pretrained-embeddings.md) (the converter
-  may now load the models) and adds to [ADR 0106](0106-cant-tell-smaller-wins.md) and [ADR 0110](0110-price-ruler.md)
+  may now load the models) and adds to [ADR 0106](0106-cant-tell-smaller-wins.md) and [ADR 0110](0110-price-ruler.md); superseded in part by
+  [ADR 0138](0138-model-folder.md) (a folder from another version, the models download)
 - **Date:** 2026-11-14
 
 ## Context

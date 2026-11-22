@@ -16,6 +16,7 @@
     <PackageReference Include="System.CommandLine" />
     <PackageReference Include="NWaves" />
     <PackageReference Include="Spectre.Console" />
+    <PackageReference Include="Microsoft.ML.OnnxRuntime.Managed" />
   </ItemGroup>
 
   <ItemGroup>

@@ -120,6 +120,7 @@ internal static class OptionsBinder
             Seed = parseResult.GetValue(definition.Seed),
             NoCache = noCache,
             CacheDirectory = cacheDirectory,
+            ModelsDirectory = parseResult.GetValue(definition.NoModels) ? null : Models.ModelFolder.DefaultPath,
             ReserveSfxChannels = reserveSfx,
             RenderWav = parseResult.GetResult(definition.RenderWav) is not null,
             RenderWavPath = parseResult.GetValue(definition.RenderWav),

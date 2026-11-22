@@ -42,7 +42,8 @@ internal static partial class OutputRuns
         .Build();
 
     /// <summary>
-    /// Converts <see cref="Song"/> with <paramref name="args"/> and <c>--progress <paramref name="mode"/></c> (and
+    /// Converts <see cref="Song"/> with <paramref name="args"/> and <c>--progress <paramref name="mode"/></c> (with
+    /// <c>--no-models</c> on every run, so the PC's model folder never shows in the output, and
     /// <c>--no-cache</c>, so no timing history is read, and <c>--quality fast</c>, so no FM patch is fitted for minutes); the exit code and both streams, made stable.
     /// </summary>
     public static (int Code, string Output, string Error) Convert(string mode, params string[] args) =>
@@ -62,7 +63,7 @@ internal static partial class OutputRuns
         using StringWriter output = new();
         using StringWriter error = new();
         int code = Program.Run(
-            [input, "--progress", mode, .. args],
+            [input, "--progress", mode, "--no-models", .. args],
             static a => CommandLineDefinition.Invoke(a, Program.ConvertMod, TextWriter.Null, TextWriter.Null),
             output,
             error,

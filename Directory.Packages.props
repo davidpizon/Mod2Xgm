@@ -10,10 +10,15 @@
     <!-- Console output in fancy mode (ADR 0077); core package only, Spectre.Console.Cli is not AOT-compatible. -->
     <PackageVersion Include="Spectre.Console" Version="0.57.2" />
   </ItemGroup>
+  <ItemGroup Label="Models">
+    <!-- ONNX Runtime's managed API for the converter; its native library is loaded only from the model folder (ADR 0111). -->
+    <PackageVersion Include="Microsoft.ML.OnnxRuntime.Managed" Version="1.32.0" />
+  </ItemGroup>
   <ItemGroup Label="Harness">
     <!-- tools/Mod2Xgm.Harness only, never the converter (ADR 0053). -->
     <PackageVersion Include="R128Net" Version="1.1.2" />
-    <!-- Runs the pretrained listening models in the harness only, MIT (ADR 0104). -->
+    <!-- Runs the pretrained listening models in the harness, MIT (ADR 0104); also brings the native library the model-folder
+         tests and tools/models-archive copy. Keep it at the version of Microsoft.ML.OnnxRuntime.Managed (ModelFolderTests checks). -->
     <PackageVersion Include="Microsoft.ML.OnnxRuntime" Version="1.32.0" />
   </ItemGroup>
   <ItemGroup Label="Tests">

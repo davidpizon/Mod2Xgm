@@ -7,6 +7,7 @@ using Mod2Xgm.Mapping;
 using Mod2Xgm.Mod;
 using Mod2Xgm.Model;
 using Mod2Xgm.Model.Window;
+using Mod2Xgm.Models;
 using Mod2Xgm.Optimizer;
 using Mod2Xgm.Output;
 using Mod2Xgm.Render;
@@ -75,6 +76,8 @@ internal static class ConversionCommand
             }
         }
 
+        // A model folder that is set up but can't work stops the run before any work (docs/cli.md#listening-models).
+        ModelFolder? models = options.ModelsDirectory is { } modelsDirectory ? ModelFolder.Open(modelsDirectory) : null;
         phase.Done();
         phase = progress.Start(PhaseRead);
         ConversionNotes notes = new(logger);
@@ -112,6 +115,7 @@ internal static class ConversionCommand
         TargetLimits limits = TargetLimits.For(options, notes);
         LogLimits(limits, logger);
         LogQuality(options, logger);
+        LogModels(models, logger);
 
         phase.Done();
         phase = progress.Start(PhaseModel);
@@ -457,6 +461,23 @@ internal static class ConversionCommand
             logger.Information(
                 "--quality {Quality:l}: the optimizer isn't built yet (plan M9), so the simple mapper is used, with FM patches fitted to the samples where they sound closer",
                 options.Quality == Quality.Best ? "best" : "normal");
+        }
+    }
+
+    /// <summary>
+    /// Every run that uses the listening models says which, and from where, so two results from one MOD can be told apart
+    /// (docs/adr/0111-neither-and-listening-models.md). They change no plan yet (plan T9.4s3).
+    /// </summary>
+    private static void LogModels(ModelFolder? models, ILogger logger)
+    {
+        if (models is not null)
+        {
+            logger.Information(
+                "Listening models: {Models:l} (models set {Set}, ONNX Runtime {OnnxRuntime:l}) from {Folder:l}",
+                string.Join(", ", models.Models.Select(m => m.Name)),
+                ModelFolder.ModelsSet,
+                models.OnnxRuntimeVersion,
+                models.Path);
         }
     }
 

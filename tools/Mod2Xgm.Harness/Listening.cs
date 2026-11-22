@@ -687,13 +687,14 @@ internal sealed class ListeningRemake(IReadOnlyList<string> songs, string output
     /// Converts <paramref name="songPath"/> for <paramref name="format"/> with <paramref name="recipeText"/>, writing the
     /// output to <c>stem.out</c> and the render to <c>stem.genesis.wav</c>, whose path it returns. <paramref name="analyzed"/>
     /// gets the conversion's song analysis when given, and <paramref name="pans"/> the render's sides (docs/adr/0108-pan-swap-count.md);
-    /// <paramref name="name"/> names the version in an error.
+    /// <paramref name="name"/> names the version in an error. It converts with <c>--no-models</c>, so a remade round never
+    /// depends on the PC's model folder (docs/adr/0138-model-folder.md).
     /// </summary>
     internal static string Render(string songPath, string format, string recipeText, string stem, Action<SongAnalysis>? analyzed, string name, PanLog? pans = null)
     {
         Recipe recipe = Recipe.Parse(recipeText);
         string wav = stem + ".genesis.wav";
-        string[] args = [songPath, "--format", format, .. recipe.Arguments, "--output", stem + ".out", "--render-wav", wav, "--force", "--progress", "silent"];
+        string[] args = [songPath, "--format", format, .. recipe.Arguments, "--output", stem + ".out", "--render-wav", wav, "--force", "--progress", "silent", "--no-models"];
 
         // A render left by an earlier run must never stand in for this one (a recipe of --help converts nothing).
         File.Delete(wav);

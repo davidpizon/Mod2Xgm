@@ -19,6 +19,8 @@
     <PackageReference Include="xunit.v3" />
     <PackageReference Include="Moq" />
     <PackageReference Include="Spectre.Console.Testing" />
+    <!-- ONNX Runtime's native library, which the model-folder tests copy into a test folder (ADR 0138). -->
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" />
     <PackageReference Include="xunit.runner.visualstudio">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
