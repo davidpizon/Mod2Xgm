@@ -99,7 +99,7 @@ public sealed class GenesisStreamTests
         Song song = new("t", [new Channel(0)], [0], null, [new Pattern([new Row([Cell.Empty]), new Row([Cell.Empty])])], [], [], timing);
         PlanRow row = new([.. Enumerable.Repeat(PlanCell.Empty, GenesisPlan.ChannelCount)], []);
         GenesisPlan plan = new("t", [[row, row]], null, timing, [], []);
-        ChannelTick[] quiet = [new ChannelTick(false, new NotePitch(48, 0, 8287), 0, 0, null, new SampleBlock(0, 0, 0))];
+        ChannelTick[] quiet = [new(false, new NotePitch(48, 0, 8287), 0, 0, null, new SampleBlock(0, 0, 0))];
         Playback playback = new([new PlaybackTick(0, 0.05, 0, 0, 0, false, quiet), new PlaybackTick(0.05, 0.05, 0, 1, 0, false, quiet)], null, PlaybackEnd.Stops);
 
         // Act

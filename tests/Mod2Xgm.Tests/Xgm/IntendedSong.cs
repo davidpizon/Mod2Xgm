@@ -55,8 +55,8 @@ internal static class IntendedSong
         ArgumentNullException.ThrowIfNull(stream);
         ArgumentNullException.ThrowIfNull(output);
         ChipLog intended = Log(stream);
-        ChipLog decoded = Xgm2Decoder.Decode(output.Bytes, output.Samples);
-        decoded = decoded with { Frames = [.. Enumerable.Range(0, intended.Frames.Count).Select(f => f < decoded.Frames.Count ? decoded.Frames[f] : [])] };
+        ChipLog read = Xgm2Decoder.Decode(output.Bytes, output.Samples);
+        ChipLog decoded = read with { Frames = [.. Enumerable.Range(0, intended.Frames.Count).Select(f => f < read.Frames.Count ? read.Frames[f] : [])] };
         (List<FrameDifference> differences, int count) = CompareState(Effective(intended), Effective(decoded), Xgm2PatchMover.SilentChannels(stream), stream.LoopFrame);
         double frameSeconds = 1 / stream.FrameRate;
         StereoAudio a = SoundCheck.Render(intended, PcmDriver.Xgm2, frameSeconds);
@@ -70,7 +70,7 @@ internal static class IntendedSong
     /// <paramref name="stream"/> as a chip log: its FM and PSG writes and its PCM plays and stops, frame by frame. A play
     /// names the first song sample whose recording has the same bytes, as the file does: the writer stores those once.
     /// </summary>
-    public static ChipLog Log(GenesisStream stream)
+    private static ChipLog Log(GenesisStream stream)
     {
         ArgumentNullException.ThrowIfNull(stream);
         List<(sbyte[] Data, int Sample)> stored = [];
@@ -117,13 +117,13 @@ internal static class IntendedSong
             List<ChipWrite> writes = [];
             foreach (ChipWrite w in frame)
             {
-                if (w.Target == ChipTarget.Fm && w.Register is (>= 0xA4 and <= 0xA6) or (>= 0xAC and <= 0xAE))
+                if (w is { Target: ChipTarget.Fm, Register: (>= 0xA4 and <= 0xA6) or (>= 0xAC and <= 0xAE) })
                 {
                     latch[(w.Part * 2) + (w.Register >= 0xAC ? 1 : 0)] = w.Value & 0x3F;
                     continue;
                 }
 
-                if (w.Target == ChipTarget.Fm && w.Register is (>= 0xA0 and <= 0xA2) or (>= 0xA8 and <= 0xAA))
+                if (w is { Target: ChipTarget.Fm, Register: (>= 0xA0 and <= 0xA2) or (>= 0xA8 and <= 0xAA) })
                 {
                     int value = latch[(w.Part * 2) + (w.Register >= 0xA8 ? 1 : 0)];
                     if (value >= 0)
@@ -205,7 +205,8 @@ internal static class IntendedSong
         long length = Math.Min(count, Math.Min(a.Left.Length, b.Left.Length));
         for (long i = 0; i < length; i++)
         {
-            if (a.Left[i] != b.Left[i] || a.Right[i] != b.Right[i])
+            // Bit for bit: the same writes must render the very same samples.
+            if (!a.Left[i].Equals(b.Left[i]) || !a.Right[i].Equals(b.Right[i]))
             {
                 return i;
             }

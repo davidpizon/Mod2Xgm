@@ -119,14 +119,14 @@ internal static class Xgm2Writer
     private const int FrameEndBytes = 2;
 
     /// <summary>The bytes of commands a frame holds before the writer splits it: 222, room left for the splitter and the frame's end.</summary>
-    public const int FrameBudget = MaxFrameBytes - 1 - FrameEndBytes;
+    private const int FrameBudget = MaxFrameBytes - 1 - FrameEndBytes;
 
     /// <summary>
     /// A frame this busy, 80 % of <see cref="FrameBudget"/> (178 bytes) or more, is noted (docs/xgm2-frame-budget.md,
     /// change 4): it has room for about one more FM note start, and busy frames are what keep SGDK's Z80 driver from
     /// refilling its PCM buffer in time. Change 3 also prefers to move writes into frames below it.
     /// </summary>
-    public const int BusyFrameBytes = ((FrameBudget * 4) + 4) / 5;
+    private const int BusyFrameBytes = ((FrameBudget * 4) + 4) / 5;
 
     /// <summary>Frames named in the busy-frame notes.</summary>
     private const int BusiestFramesNoted = 5;
