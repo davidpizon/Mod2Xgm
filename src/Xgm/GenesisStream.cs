@@ -77,6 +77,12 @@ internal sealed record GenesisStream(IReadOnlyList<IReadOnlyList<ChipEvent>> Fra
     public double FrameRate => GenesisChips.FrameRateHz(Pal ? Region.Pal : Region.Ntsc);
 
     /// <summary>
+    /// The song's order and row at each frame's start (the tick playing then), for notes that point into the tracker; or
+    /// <c>null</c> for a stream not recorded from a song.
+    /// </summary>
+    public IReadOnlyList<(int Order, int Row)>? Positions { get; init; }
+
+    /// <summary>
     /// Plays <paramref name="plan"/> with the same player the Genesis render uses, on XGM2's PCM driver, and records what it
     /// tells the hardware, frame by frame: each tick goes to the frame it starts in. Says in a note how many ticks share a
     /// frame with the tick before, whose changes then play together. Frames are the console's real VBlanks, so the song
@@ -135,7 +141,20 @@ internal sealed record GenesisStream(IReadOnlyList<IReadOnlyList<ChipEvent>> Fra
         int? loop = playback.LoopTick is { } loopTick && loopTick < ticks.Count ? frameOf[loopTick] : null;
         double ymClock = pal ? Ym3438.PalClockHz : Ym3438.NtscClockHz;
         IReadOnlyList<IReadOnlyList<ChipEvent>> frames = PcmAhead(recorder.Frames, Xgm2PcmDriver.LeadFrames(ymClock, rate), loop, rate, notes);
-        return new GenesisStream(frames, loop, pal, Xgm2PcmDriver.BeatRateHz(ymClock));
+
+        // Each frame's order and row: the last tick starting in it or before it.
+        (int Order, int Row)[] positions = new (int, int)[frames.Count];
+        for (int f = 0, t = 0; f < positions.Length; f++)
+        {
+            while (t + 1 < ticks.Count && frameOf[t + 1] <= f)
+            {
+                t++;
+            }
+
+            positions[f] = ticks.Count == 0 ? (0, 0) : (ticks[t].Order, ticks[t].Row);
+        }
+
+        return new GenesisStream(frames, loop, pal, Xgm2PcmDriver.BeatRateHz(ymClock)) { Positions = positions };
     }
 
     /// <summary>

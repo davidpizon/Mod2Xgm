@@ -85,11 +85,11 @@ public sealed class Xgm2WriterTests
         byte[] sdat = [0x81, 0x7f, 0xff];
         byte[] fm =
         [
-            0xe0, 0xb4, 0xc0, 0xf8, 0xf0, 0x10, 0x01, 0x00,
+            0xe0, 0xb4, 0xc0, 0x48, 0x10, 0x01, 0x00,
             .. SilentSlots,
-            0xe0, 0xb4, 0xc0, 0xf8, 0xf0, 0xf8, 0x01, 0xf8, 0x02, 0xf8, 0x04, 0xf8, 0x05, 0xf8, 0x06, 0x10, 0x01, 0xe8, 0x30, 0x71, 0x00,
+            0xe0, 0xb4, 0xc0, 0x48, 0x41, 0x42, 0x44, 0x45, 0x46, 0x10, 0x01, 0xe8, 0x30, 0x71, 0x00,
             0x10, 0x00,
-            0xff, 0x08, 0x00, 0x00,
+            0xff, 0x07, 0x00, 0x00,
         ];
         byte[] psg = [0x20, 0x15, 0x82, 0x00, 0x20, 0x15, 0x82, 0x9f, 0xaf, 0xbf, 0x00, 0x0f, 0x04, 0x00, 0x00];
         expected.AsSpan(DataOffset, Block).Fill(0x80);
@@ -118,7 +118,7 @@ public sealed class Xgm2WriterTests
         byte[] sut = Fm(Xgm2Writer.Write(new GenesisStream(frames, null, false, NtscRate), Notes()));
 
         // Assert
-        Assert.Equal([0xf8, 0x00, .. wait, 0xf8, 0x00], sut[..(wait.Length + 4)]);
+        Assert.Equal([0x40, .. wait, 0x40], sut[..(wait.Length + 2)]);
     }
 
     /// <summary>The PSG stream waits up to 14 frames in one byte, up to 270 in two, and longer in several.</summary>
@@ -202,7 +202,7 @@ public sealed class Xgm2WriterTests
         Assert.Equal([0x26, .. Enumerable.Range(0, 28).Select(i => (byte)i), 0x3c, 0xc0, 0xe8, 0xa6, 0x22, 0x00], sut[..35]);
     }
 
-    /// <summary>A register written twice before the next command is sent once, with its last value.</summary>
+    /// <summary>A register written twice before the next command is sent once, with its last value: here one <c>$8x</c> frequency set that ends the frame.</summary>
     [Fact]
     public void Write_WithRegisterWrittenTwice_SendsLastValue()
     {
@@ -213,7 +213,7 @@ public sealed class Xgm2WriterTests
         byte[] sut = Fm(Xgm2Writer.Write(stream, Notes()));
 
         // Assert
-        Assert.Equal([0xe1, 0xa4, 0x23, 0xa0, 0x70, 0x00], sut[..6]);
+        Assert.Equal([0x80, 0x23, 0x70], sut[..3]);
     }
 
     /// <summary>
@@ -239,7 +239,7 @@ public sealed class Xgm2WriterTests
         const int first = 13 * 17;
         const int rest = 11 * 17;
         Assert.Equal(0xf0, sut[first]);
-        Assert.Equal([0xf8, 0x00, 0x01, 0xf8, 0x01], sut[(first + 1 + rest)..(first + 1 + rest + 5)]);
+        Assert.Equal([0x40, 0x01, 0x41], sut[(first + 1 + rest)..(first + 1 + rest + 3)]);
         Assert.Contains(notes.Messages, m => m.StartsWith("1 frame splits:", StringComparison.Ordinal));
     }
 
@@ -284,7 +284,10 @@ public sealed class Xgm2WriterTests
         Assert.Equal([0x2c, 0x04, 0xb3, 0x00, 0x2c, 0x04, 0x00], sut[..7]);
     }
 
-    /// <summary>At the loop, a channel's block and F-number high byte are set back just before its low byte, which latches them.</summary>
+    /// <summary>
+    /// While the shared F-number latch is unknown, frequency writes go raw in the recording's order; at the loop, the chip is
+    /// forgotten and the channel's frequency is set back with one <c>$3x</c>, high byte first, after its levels.
+    /// </summary>
     [Fact]
     public void Write_WithLoop_RestoresFrequencyHighByteBeforeLowByte()
     {
@@ -296,7 +299,7 @@ public sealed class Xgm2WriterTests
 
         // Assert
         byte[] silent = [.. SilentSlots.Chunk(2).Where(c => c[0] != 0x90 || c[1] != 0xfe).SelectMany(c => c)];
-        Assert.Equal([0xe1, 0xa0, 0x69, 0xa4, 0x22, 0x90, 0x20, 0x00, .. silent, 0xe1, 0xa4, 0x22, 0xa0, 0x69, 0x90, 0x20], sut[..(15 + silent.Length)]);
+        Assert.Equal([0x90, 0x20, 0xe1, 0xa0, 0x69, 0xa4, 0x22, 0x00, .. silent, 0x90, 0x20, 0x30, 0x22, 0x69], sut[..(13 + silent.Length)]);
     }
 
     /// <summary>
@@ -321,7 +324,7 @@ public sealed class Xgm2WriterTests
         byte[] sut = Fm(Xgm2Writer.Write(stream, Notes()));
 
         // Assert
-        Assert.Equal([.. SilentSlots, 0xf8, 0x00, 0xf8, 0x01, 0xf8, 0x02, 0xf8, 0x04, 0xf8, 0x05, 0xf8, 0x06, 0xe0, 0xb5, 0xc0], sut[..(SilentSlots.Length + 15)]);
+        Assert.Equal([.. SilentSlots, 0x40, 0x41, 0x42, 0x44, 0x45, 0x46, 0xe0, 0xb5, 0xc0], sut[..(SilentSlots.Length + 9)]);
     }
 
     /// <summary>The same stored copy played twice gets one sample id; another copy gets the next.</summary>
@@ -397,7 +400,7 @@ public sealed class Xgm2WriterTests
         byte[] sut = Fm(Xgm2Writer.Write(stream, Notes()));
 
         // Assert
-        Assert.Equal([0xf8, 0xf1, 0x12, 0x01, 0x00, 0xf8, 0x01, 0x12, 0x00, 0xff, 0xff, 0xff, 0xff], sut);
+        Assert.Equal([0x49, 0x12, 0x01, 0x00, 0x41, 0x12, 0x00, 0xff, 0xff, 0xff, 0xff], sut);
     }
 
     /// <summary>A recording still sounding where a looping song jumps back is stopped in the last frame, so it can't play into the loop's opening.</summary>
@@ -411,7 +414,7 @@ public sealed class Xgm2WriterTests
         byte[] sut = Fm(Xgm2Writer.Write(stream, Notes()));
 
         // Assert: frame 0 sets the slots silent and the keys up; frame 1 plays, and stops before the loop command ends it.
-        Assert.Equal([0x00, 0x11, 0x01, 0x11, 0x00, 0xff, 0x00, 0x00, 0x00], sut[(SilentSlots.Length + 12)..]);
+        Assert.Equal([0x00, 0x11, 0x01, 0x11, 0x00, 0xff, 0x00, 0x00, 0x00], sut[(SilentSlots.Length + 6)..]);
     }
 
     /// <summary>A recording is stored only as far as a play reaches, plus two frames: here 3 frames at 60 Hz of a 1 s recording.</summary>

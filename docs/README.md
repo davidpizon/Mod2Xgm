@@ -15,6 +15,7 @@
 | [formats/DMF_SPECS.txt](formats/DMF_SPECS.txt) | Official DefleMask DMF spec (v1.0.0+), verbatim copy |
 | [formats/xgm.md](formats/xgm.md) | SGDK XGM and XGM2 output |
 | [formats/xgm.txt](formats/xgm.txt) | Official SGDK XGM v1.01 spec, verbatim copy |
+| [xgm2-frame-budget.md](xgm2-frame-budget.md) | XGM2 per-frame FM byte budget: FunkyChristmas stutter findings and proposed writer changes (proposal) |
 | [genesis-audio.md](genesis-audio.md) | YM2612 / SN76489 facts the converter relies on |
 | [testing.md](testing.md) | Test strategy and test data rules |
 | [testing-principles.md](testing-principles.md) | How each test is written: AAA, `sut`, naming, unit vs integration, Moq |

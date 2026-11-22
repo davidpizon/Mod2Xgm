@@ -131,6 +131,9 @@ internal sealed class FmEngine
         }
     }
 
+    /// <summary>True when channel <paramref name="chnum"/> (0–5) is keyed off and silent (<see cref="FmChannel.Silent"/>).</summary>
+    public bool ChannelSilent(int chnum) => _channels[chnum].Silent;
+
     /// <summary>Writes FM register <paramref name="regnum"/> (<c>$100</c> added for port 1).</summary>
     public void Write(int regnum, byte data)
     {

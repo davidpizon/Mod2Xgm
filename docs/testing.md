@@ -172,6 +172,21 @@ leaves it out, and `M2X_DMF_SANITY_SONGS` (comma-separated names without `.dmf`)
 Run it in a terminal you can watch. The probes in `tests/golden/dmf-probes/` check the same pieces in CI
 (`SanityPathTests`).
 
+## XGM2 intended-song check
+
+[ADR 0139](adr/0139-xgm2-frame-budget.md). The XGM2 writer drops writes the chip already holds, uses the compact
+commands and moves patch writes earlier, so `Xgm2IntendedSongTests` checks that none of it changes the song: each
+file is decoded as SGDK's driver plays it (`Xgm2Decoder`, with its own model of the driver's stored state) and compared
+with the recorded `GenesisStream` (`IntendedSong`). Every frame must leave the chips as the recording does, with the
+frequency high byte read through the shared latch, on every channel the YM3438 model doesn't have silent, and both
+must render to the same samples. Hand-made streams run in CI; four corpus songs are `Slow`. A local song can be
+checked too (never commit it):
+
+```powershell
+$env:M2X_XGM2_ACCEPT_MOD = 'C:\path\song.mod'; $env:M2X_XGM2_ACCEPT_DAC = '19'
+dotnet test tests/Mod2Xgm.Tests -- --filter-method "*Xgm2IntendedSongTests.Write_ForLocalSong*"
+```
+
 ## Manual / oracle checks (not CI)
 - Open `.dmf` in DefleMask; play it. Export VGM from DefleMask and compare register activity when useful.
 - Build an SGDK test ROM that plays the `.xgm` / `.xgm2`; run in BlastEm / Genesis Plus GX.

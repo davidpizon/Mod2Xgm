@@ -29,6 +29,17 @@ internal static class Xgm2Report
             ("psg", psg),
             ("dac", xgm2.Samples.Count),
             ("pcm_bytes", PcmBytes(xgm2))));
+        Xgm2Stats stats = xgm2.Stats;
+        logger.Debug(
+            "XGM2 FM stream: {Bytes} bytes; {Dropped} writes not sent (the chip already held them), {Loads} load instruments, {Compact} compact commands; {Moved} writes moved to earlier frames, {Stuck} couldn't move; {Splits} frame splits, {Busy} frames at 80% of the budget or more",
+            xgm2.FmBytes,
+            stats.Dropped,
+            stats.LoadInstruments,
+            stats.Compact,
+            stats.Moved,
+            stats.Stuck,
+            stats.Splits,
+            stats.BusyFrames);
         for (int i = 0; i < xgm2.Samples.Count; i++)
         {
             Xgm2Sample sample = xgm2.Samples[i];
