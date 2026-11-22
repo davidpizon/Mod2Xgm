@@ -147,7 +147,7 @@ public sealed class DmfPatternTranslatorTests
         DmfConversion.Result result = DmfConversion.Convert(mod, transform: plan => plan with { LfoRate = 3 });
 
         // Assert
-        Assert.Contains(Enum.GetValues<GenesisChannel>().Take(GenesisPlan.ChannelCount).SelectMany(c => result.Effects(c, 0)), e => e.Code == 0x10 && e.Value == 0x13);
+        Assert.Contains(Enum.GetValues<GenesisChannel>().Take(GenesisPlan.ChannelCount).SelectMany(c => result.Effects(c, 0)), e => e is { Code: 0x10, Value: 0x13 });
     }
 
     /// <summary>A cell needing more than four effects keeps the most important four and says how many went.</summary>

@@ -101,7 +101,7 @@ internal sealed record FitChoice(int? LfoRate, IReadOnlyDictionary<int, SamplePa
                 lfoSamples += closest.Fit.LfoRate is null ? 0 : 1;
             }
 
-            samples[one.Sample] = new SamplePatch(patch, closest.Region, one.Regions, one.Notes, closest.Db, one.BuiltInDb);
+            samples[one.Sample] = new SamplePatch(patch, closest.FitRegion,one.Regions, one.Notes, closest.Db, one.BuiltInDb);
         }
 
         return new FitChoice(lfoSamples > 0 ? rate : null, samples, lfoSamples);
@@ -174,7 +174,7 @@ internal sealed record FitChoice(int? LfoRate, IReadOnlyDictionary<int, SamplePa
         return at > 0 && set > 0 ? Math.Abs(20 * Math.Log10(at / set)) : NoteScorer.RangeDb;
     }
 
-    /// <summary>The level of <paramref name="patch"/> held at <paramref name="hz"/>, as <see cref="SoundMenu.Measured"/> hears it.</summary>
+    /// <summary>The level of <paramref name="patch"/> held at <paramref name="hz"/>, as <see cref="SoundMenu.Measured(FmPatch, double?, bool)"/> hears it.</summary>
     private static double Heard(FmPatch patch, int? lfoRate, double hz, bool loops) =>
         VoiceLevel.Heard(FmNoteRenderer.Render(patch, FmEvaluator.Lfo(patch, lfoRate), hz, SampleAnalyzer.RegionSeconds), SampleAnalyzer.AnalysisRateHz, loops);
 
@@ -200,8 +200,8 @@ internal sealed record FitChoice(int? LfoRate, IReadOnlyDictionary<int, SamplePa
         public double Weight => Math.Max(1, Notes);
     }
 
-    /// <summary>One fit a sample may play, made for <paramref name="Region"/>, with its note-weighted distance over all regions.</summary>
-    private sealed record Candidate(int Region, FmFit Fit, double Db);
+    /// <summary>One fit a sample may play, made for pitch region <paramref name="FitRegion"/>, with its note-weighted distance over all regions.</summary>
+    private sealed record Candidate(int FitRegion, FmFit Fit, double Db);
 
     /// <summary>
     /// One sample's candidates and its built-in patch's distance; <paramref name="Floor"/> is the closest it gets without
