@@ -242,7 +242,7 @@ fit's cost (David, [ADR 0069](adr/0069-fm-patch-fitting.md)); every other column
 cache, the same one as `mod2xgm`'s ([ADR 0074](adr/0074-candidate-cache.md)), and a rerun of the same build reads it back
 instead of making it again. A candidate from the cache is the one made, with the renders and seconds it took then; the
 last column of each of those CSVs, `cached`, says `yes` for it. So a rerun's CSVs equal the first run's except for
-`cached`. A new build starts with an empty cache. `--no-cache` makes everything again. Reports stay in `artifacts/`. The simple mapper's baseline, which later changes
+`cached`. A new build starts with an empty cache, but for FM fits, which are kept until the fitter's version changes ([ADR 0136](adr/0136-fm-fits-across-builds.md)). `--no-cache` makes everything again. Reports stay in `artifacts/`. The simple mapper's baseline, which later changes
 are measured against, is committed in [tests/golden/harness-baseline/](../tests/golden/harness-baseline/README.md)
 ([ADR 0049](adr/0049-simple-mapper-baseline.md)).
 

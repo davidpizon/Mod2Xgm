@@ -225,6 +225,71 @@ public sealed class CandidateCacheTests
         Assert.True(File.Exists(folder.Combine("readme.txt")));
     }
 
+    /// <summary>
+    /// A new fitter version deletes the other versions' FM folders, and a new build keeps them: FM fits outlive builds
+    /// (docs/adr/0136-fm-fits-across-builds.md).
+    /// </summary>
+    [Fact]
+    public void Constructor_WithNewFitterVersion_DeletesOnlyOtherFmFolders()
+    {
+        // Arrange
+        using TempDirectory folder = new();
+        string oldVersion = folder.Combine("fm-v0");
+        string notOurs = folder.Combine("fm-vnotes");
+        string mine = folder.Combine(CandidateCache.FmFolderName);
+        foreach (string f in (string[])[oldVersion, notOurs, Path.Combine(mine, "fm")])
+        {
+            Directory.CreateDirectory(f);
+        }
+
+        // Act
+        CandidateCache sut = new(folder.Path, Logger.None);
+
+        // Assert
+        Assert.Equal(mine, sut.FmFolder);
+        Assert.False(Directory.Exists(oldVersion));
+        Assert.True(Directory.Exists(notOurs));
+        Assert.True(Directory.Exists(Path.Combine(mine, "fm")));
+    }
+
+    /// <summary>An FM fit kept by an earlier build (its build folder gone) is read back, not fitted again.</summary>
+    [Fact]
+    [Trait("Speed", "Slow")]
+    public void FmRegion_AfterNewBuild_ReadsKeptFit()
+    {
+        // Arrange
+        using TempDirectory folder = new();
+        CandidateCache earlier = new(folder.Path, Logger.None);
+        _ = FmFitter.Fit(FmTargets.Analyze(FmTargets.Saw), Quick, earlier);
+        _ = earlier.Psg(Song.Value, Song.Value.Samples[0]);
+        Directory.Delete(earlier.Folder, recursive: true);
+        CandidateCache sut = new(folder.Path, Logger.None);
+
+        // Act
+        FmSampleFit fit = FmFitter.Fit(FmTargets.Analyze(FmTargets.Saw), Quick, sut);
+
+        // Assert
+        Assert.True(Assert.Single(fit.Regions).Cached);
+        Assert.Single(Directory.GetFiles(Path.Combine(sut.FmFolder, "fm")));
+        Assert.False(sut.Psg(Song.Value, Song.Value.Samples[0]).Cached);
+    }
+
+    /// <summary>
+    /// The FM fitting code is the one <see cref="CandidateCache.FmFitterVersion"/> was set for: a change to it fails here
+    /// until the version is bumped and <see cref="FmCodeFingerprint"/> updated, so kept fits never go stale.
+    /// </summary>
+    [Fact]
+    public void FmFitterVersion_ForFittingCode_MatchesItsFingerprint()
+    {
+        // Act
+        string fingerprint = FmCodeFingerprint.Of(FmCodeFingerprint.RepositoryRoot());
+
+        // Assert
+        Assert.True(
+            FmCodeFingerprint.Expected == fingerprint,
+            $"The FM fitting code changed. If a fit could come out differently, bump CandidateCache.FmFitterVersion (now {CandidateCache.FmFitterVersion}); either way, set FmCodeFingerprint.Expected to \"{fingerprint}\".");
+    }
+
     /// <summary>A cache folder that can't be written is reported once, and the candidates are made anyway.</summary>
     [Fact]
     [Trait("Speed", "Slow")]
@@ -331,6 +396,7 @@ public sealed class CandidateCacheTests
         Assert.True(Path.IsPathRooted(root));
         Assert.EndsWith(OperatingSystem.IsWindows() ? Path.Combine("Mod2Xgm", "Cache") : OperatingSystem.IsMacOS() ? Path.Combine("Caches", "Mod2Xgm") : "mod2xgm", root, StringComparison.Ordinal);
         Assert.Matches("^build-[0-9a-f]{32}$", CandidateCache.BuildFolderName);
+        Assert.Matches("^fm-v[0-9]+$", CandidateCache.FmFolderName);
         Assert.NotEqual(Guid.Empty, CandidateCache.Build);
     }
 

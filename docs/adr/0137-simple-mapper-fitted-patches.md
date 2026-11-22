@@ -90,7 +90,7 @@ songs he ships improved now (2026-11-21):
 ## Consequences
 
 - A default conversion (`normal`) now takes minutes where it took seconds, the first time only: the cache keeps the
-  fits, across builds once [ADR 0136](0136-fm-fits-across-builds.md) is merged.
+  fits, across builds ([ADR 0136](0136-fm-fits-across-builds.md)).
 - Rounds 38–41 on FunkyChristmas (fitted patches against today's, in-app XGM2 renders against the original) took the
   fitter's score from 3 of 4 wins with a "neither" to 4 of 4, once each sample kept one sound without SSG-EG. CLAP
   judges next (plan T9.4s3).

@@ -149,6 +149,7 @@ Every design decision in Mod2Xgm is an ADR: one numbered file here, in the order
 | [0133](0133-simple-fm-chords.md) | The simple mapper plays a chord sample's notes on FM voices of their own | 2026-11-21 | Proposed |
 | [0134](0134-loop-silences-release-tails.md) | At the XGM2 loop, FM notes releasing at the song's end go quiet | 2026-11-21 | Proposed |
 | [0135](0135-loop-chords.md) | The simple mapper reads a triad's notes from a loop with no one cycle | 2026-11-21 | Proposed |
+| [0136](0136-fm-fits-across-builds.md) | FM fits are kept across builds, until the fitter's version changes | 2026-11-21 | Proposed |
 | [0137](0137-simple-mapper-fitted-patches.md) | The simple mapper plays a fitted FM patch per sample where it sounds closer, with one LFO rate for the song | 2026-11-21 | Proposed |
 
 ## Open questions

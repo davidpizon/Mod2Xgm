@@ -162,7 +162,7 @@ the voice's operators), every combination judged together against the MOD mix (`
 Offered for DMF and XGM2 only. Nothing in the conversion uses them yet (M9); the harness runs them with `--ch3`.
 
 **Candidate cache** (`src/Optimizer`, plan T8.6, [ADR 0074](adr/0074-candidate-cache.md)) — `CandidateCache` keeps every
-kind of candidate on disk, one file per key in a folder per build (the Mod2Xgm assembly's module version ID), and
+kind of candidate on disk, one file per key: FM fits in a folder per fitter version (`fm-v1`, [ADR 0136](adr/0136-fm-fits-across-builds.md)), the rest in a folder per build (the Mod2Xgm assembly's module version ID), and
 `CandidateCodec` writes and reads them. FM fits are keyed per pitch region by its sound (`FmFitter.Fit` takes the cache),
 the song-wide kinds by `SongAnalysis.Source`: the MOD file and the options that change the analysis, set by the
 conversion. A result read back carries `Cached`. The harness uses it unless `--no-cache`; the conversion will in M9.
