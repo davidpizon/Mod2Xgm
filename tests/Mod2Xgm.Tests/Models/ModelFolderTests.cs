@@ -12,10 +12,10 @@ namespace Mod2Xgm.Tests.Models;
 /// folder and is named on every run that uses it.
 /// </summary>
 [Trait("Category", "Integration")]
-public sealed class ModelFolderTests(LoadedModelFolder loaded) : IClassFixture<LoadedModelFolder>
+public sealed class ModelFolderTests
 {
     /// <summary>The bytes the stand-in model file holds: the checks hash it, nothing runs it yet.</summary>
-    internal static readonly byte[] StandInModel = [1, 2, 3, 4];
+    private static readonly byte[] StandInModel = [1, 2, 3, 4];
 
     /// <summary>A folder that doesn't exist isn't set up: no models, no error.</summary>
     [Fact]
@@ -51,7 +51,7 @@ public sealed class ModelFolderTests(LoadedModelFolder loaded) : IClassFixture<L
     public void Open_WithCompleteFolder_ReturnsModelsAndVersion()
     {
         // Act
-        ModelFolder? sut = ModelFolder.Open(loaded.Path);
+        ModelFolder? sut = ModelFolder.Open(LoadedModelFolder.Path);
 
         // Assert
         Assert.NotNull(sut);
@@ -99,7 +99,7 @@ public sealed class ModelFolderTests(LoadedModelFolder loaded) : IClassFixture<L
         // Arrange
         using TempDirectory temp = new();
         Complete(temp);
-        temp.CreateFile("clap.onnx", [9, 9]);
+        temp.CreateFile("clap.onnx", "damaged"u8.ToArray());
 
         // Act
         ConversionException error = Assert.Throws<ConversionException>(() => ModelFolder.Open(temp.Path));
@@ -243,14 +243,14 @@ public sealed class ModelFolderTests(LoadedModelFolder loaded) : IClassFixture<L
     {
         // Arrange
         using TempDirectory temp = new();
-        ConversionOptions options = new() { Quality = Quality.Fast, InputPath = temp.CreateFile("song.mod"), ModelsDirectory = loaded.Path };
+        ConversionOptions options = new() { Quality = Quality.Fast, InputPath = temp.CreateFile("song.mod"), ModelsDirectory = LoadedModelFolder.Path };
         CollectingSink sink = new();
 
         // Act
         ConversionCommand.Execute(options, sink.CreateLogger());
 
         // Assert
-        Assert.Contains(sink.Messages(LogEventLevel.Information), m => m.StartsWith("Listening models: clap (models set 1, ONNX Runtime ", StringComparison.Ordinal) && m.EndsWith(loaded.Path, StringComparison.Ordinal));
+        Assert.Contains(sink.Messages(LogEventLevel.Information), m => m.StartsWith("Listening models: clap (models set 1, ONNX Runtime ", StringComparison.Ordinal) && m.EndsWith(LoadedModelFolder.Path, StringComparison.Ordinal));
     }
 
     /// <summary>A run without a model folder prints no models line.</summary>
@@ -289,9 +289,17 @@ public sealed class ModelFolderTests(LoadedModelFolder loaded) : IClassFixture<L
 
     /// <summary>
     /// Sets <paramref name="temp"/> up as a model folder: a stand-in CLAP file, ONNX Runtime's native library from the test
-    /// binaries, and a manifest for <paramref name="set"/> and <paramref name="onnxRuntime"/>.
+    /// binaries, and a manifest for <paramref name="set"/> and <paramref name="onnxRuntime"/>. ONNX Runtime is loaded from
+    /// <see cref="LoadedModelFolder"/> first, so this folder's copy is never loaded and can be deleted.
     /// </summary>
-    internal static void Complete(TempDirectory temp, int set = ModelFolder.ModelsSet, string? onnxRuntime = null)
+    private static void Complete(TempDirectory temp, int set = ModelFolder.ModelsSet, string? onnxRuntime = null)
+    {
+        _ = LoadedModelFolder.Path;
+        Fill(temp, set, onnxRuntime);
+    }
+
+    /// <summary>Puts a stand-in CLAP file, ONNX Runtime and a manifest in <paramref name="temp"/>, loading nothing.</summary>
+    internal static void Fill(TempDirectory temp, int set = ModelFolder.ModelsSet, string? onnxRuntime = null)
     {
         string model = temp.CreateFile("clap.onnx", StandInModel);
         File.Copy(NativeLibrary(), temp.Combine(ModelFolder.NativeLibraryName));
@@ -309,34 +317,22 @@ public sealed class ModelFolderTests(LoadedModelFolder loaded) : IClassFixture<L
 }
 
 /// <summary>
-/// One complete model folder for <see cref="ModelFolderTests"/>, opened first so ONNX Runtime is loaded from it: a loaded
-/// library stays locked on Windows for the life of the process, so the other tests' copies of it are never loaded and their
-/// folders can be deleted.
+/// One complete model folder for <see cref="ModelFolderTests"/>, opened before any other so ONNX Runtime is loaded from
+/// it: a loaded library stays locked on Windows for the life of the process, so the other tests' copies of it are never
+/// loaded and their folders can be deleted. The folder itself stays in the temporary folder.
 /// </summary>
-public sealed class LoadedModelFolder : IDisposable
+internal static class LoadedModelFolder
 {
-    private readonly TempDirectory _temp = new();
+    private static readonly Lazy<string> Folder = new(Create);
 
-    /// <summary>Sets the folder up and opens it, loading ONNX Runtime from it.</summary>
-    public LoadedModelFolder()
+    /// <summary>The folder's full path; the first use sets it up and loads ONNX Runtime from it.</summary>
+    public static string Path => Folder.Value;
+
+    private static string Create()
     {
-        ModelFolderTests.Complete(_temp);
-        _ = ModelFolder.Open(_temp.Path);
-    }
-
-    /// <summary>The folder's full path.</summary>
-    public string Path => _temp.Path;
-
-    /// <summary>Deletes the folder where it can; the loaded library keeps it on Windows until the test run ends.</summary>
-    public void Dispose()
-    {
-        try
-        {
-            _temp.Dispose();
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            // The library loaded from the folder can't be deleted while the process runs (Windows); it is in the temp folder.
-        }
+        TempDirectory temp = new();
+        ModelFolderTests.Fill(temp);
+        _ = ModelFolder.Open(temp.Path);
+        return temp.Path;
     }
 }

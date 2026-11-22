@@ -24,7 +24,7 @@ internal sealed record ModelFolder(string Path, IReadOnlyList<ModelFile> Models,
     public const int ModelsSet = 1;
 
     /// <summary>The models set <see cref="ModelsSet"/> needs: CLAP only (ADR 0111).</summary>
-    public static IReadOnlyList<string> RequiredModels { get; } = ["clap"];
+    private static IReadOnlyList<string> RequiredModels { get; } = ["clap"];
 
     /// <summary>The file that says what the folder holds and what it was made for (docs/cli.md#listening-models).</summary>
     public const string ManifestName = "models.txt";
@@ -220,7 +220,7 @@ internal static class OnnxRuntimeLoader
                 {
                     throw new ConversionException(
                         ExitCode.ModelFolderInvalid,
-                        $"The model folder {folder} can't be used: {System.IO.Path.GetFileName(library)} doesn't load on this system; the models download for this system has the right one. Fix it, or add --no-models to convert without it.");
+                        $"The model folder {folder} can't be used: {Path.GetFileName(library)} doesn't load on this system; the models download for this system has the right one. Fix it, or add --no-models to convert without it.");
                 }
 
                 _handle = handle;
