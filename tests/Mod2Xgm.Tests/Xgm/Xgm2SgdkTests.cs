@@ -111,7 +111,7 @@ public sealed class Xgm2SgdkTests
         string input = corpusSong.Length == 0
             ? temp.CreateFile("song.mod")
             : temp.CreateFile("song.mod", File.ReadAllBytes(Path.Combine(RepoPaths.Root, "tests", "data", "corpus", corpusSong)));
-        ConversionOptions options = new() { InputPath = input, Format = OutputFormat.Xgm2 };
+        ConversionOptions options = new() { InputPath = input, Format = OutputFormat.Xgm2, Quality = Quality.Fast };
         ConversionCommand.Execute(options, Logger.None);
         byte[] file = File.ReadAllBytes(temp.Combine("song.xgm2"));
         File.WriteAllBytes(temp.Combine("song.xgm"), file);

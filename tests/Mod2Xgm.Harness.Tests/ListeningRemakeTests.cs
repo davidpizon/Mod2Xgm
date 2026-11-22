@@ -169,12 +169,15 @@ public sealed class ListeningRemakeTests : IDisposable
         public IReadOnlyList<double> RowTimes(byte[] mod, IReadOnlyList<(int Order, int Row)> rows) => [.. rows.Select(_ => 0.0)];
     }
 
-    /// <summary>An answers file with one unanswered one-second question on the short song.</summary>
+    /// <summary>An answers file with one unanswered one-second question on the short song; both versions convert at <c>--quality fast</c>, so no FM patch is fitted for minutes.</summary>
     private string Answers(string format, string recipeA, string recipeB)
     {
         string path = Path.Combine(_folder, "answers.tsv");
-        string row = string.Join('\t', "2026-11-10", "r1", "q1", Path.GetFileName(TestFiles.ShortSong), "1", "1", format, recipeA, recipeB, "", "", "", "", "", "", "");
+        string row = string.Join('\t', "2026-11-10", "r1", "q1", Path.GetFileName(TestFiles.ShortSong), "1", "1", format, Fast(recipeA), Fast(recipeB), "", "", "", "", "", "", "");
         File.WriteAllText(path, AnswersFile.Header + "\n" + row + "\n");
         return path;
     }
+
+    /// <summary>The recipe with <c>--quality fast</c> added.</summary>
+    private static string Fast(string recipe) => (recipe + " --quality fast").Trim();
 }

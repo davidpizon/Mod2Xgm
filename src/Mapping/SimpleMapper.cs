@@ -24,7 +24,12 @@ namespace Mod2Xgm.Mapping;
 /// is a different candidate for the optimizer (plan T8.5), not done here.
 /// </summary>
 /// <param name="loser">Where a drum that loses the DAC to a louder one plays (plan T9.4r, docs/adr/0109-pan-swap-cost.md).</param>
-internal sealed class SimpleMapper(DacLoser loser = DacLoser.Default) : IChannelMapper
+/// <param name="fits">
+/// FM patches fitted to the samples (<c>--quality normal</c> or <c>best</c>; plan T5.3q, docs/adr/0137-simple-mapper-fitted-patches.md):
+/// each pitch region plays its fit where the fit sounds closer than the built-in patch, and the song's LFO runs at the rate
+/// that helps its fits most. <c>null</c> for the built-in patches only.
+/// </param>
+internal sealed class SimpleMapper(DacLoser loser = DacLoser.Default, FittedFm? fits = null) : IChannelMapper
 {
     /// <summary>MOD channels beyond this many have no FM channel (FM1–5; FM6 is the DAC) and are left out.</summary>
     private const int MappedChannels = 5;
@@ -53,13 +58,26 @@ internal sealed class SimpleMapper(DacLoser loser = DacLoser.Default) : IChannel
 
         if (loser != DacLoser.NoiseAllSong)
         {
-            return new Run(song, playback, options, notes, loser, new HashSet<int>()).Execute();
+            return new Run(song, playback, options, notes, loser, new HashSet<int>(), fits).Execute();
         }
 
         // A first, silent pass finds the drums on a side that lose the DAC somewhere; they play the PSG noise all song.
         Run probe = new(song, playback, options, new ConversionNotes(Serilog.Core.Logger.None), DacLoser.Noise, new HashSet<int>());
         probe.Execute();
-        return new Run(song, playback, options, notes, loser, probe.SideLosers).Execute();
+        return new Run(song, playback, options, notes, loser, probe.SideLosers, fits).Execute();
+    }
+
+    /// <summary>
+    /// The samples whose notes the mapper plays on FM with one voice, so a fitted patch may take over from the built-in one
+    /// (docs/adr/0137-simple-mapper-fitted-patches.md): the ones worth fitting. A chord's notes play on several voices and
+    /// keep their built-in patch.
+    /// </summary>
+    public static IReadOnlySet<int> FmSamples(Song song, MappingOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(song);
+        ArgumentNullException.ThrowIfNull(options);
+        Run probe = new(song, new Playback([], null, PlaybackEnd.Stops), options, new ConversionNotes(Serilog.Core.Logger.None), DacLoser.Noise, new HashSet<int>());
+        return probe.BuiltIns().Keys.ToHashSet();
     }
 
     private enum Primary
@@ -149,13 +167,18 @@ internal sealed class SimpleMapper(DacLoser loser = DacLoser.Default) : IChannel
         private int _dacSource = -1;
         private int _noiseSource = -1;
 
+        // The fitted patches the song plays and its LFO rate (docs/adr/0137-simple-mapper-fitted-patches.md); none without fits.
+        private readonly bool _fitsGiven;
+        private readonly FitChoice _fits;
+
         /// <param name="song">The song.</param>
         /// <param name="playback">How it plays.</param>
         /// <param name="options">The user's mapping options.</param>
         /// <param name="notes">Where conversion notes go.</param>
         /// <param name="loser">Where a drum that loses the DAC plays.</param>
         /// <param name="noiseAllSong">Instruments (0-based) that play the PSG noise all song, found by a first pass (<see cref="DacLoser.NoiseAllSong"/>).</param>
-        public Run(Song song, Playback playback, MappingOptions options, ConversionNotes notes, DacLoser loser, IReadOnlySet<int> noiseAllSong)
+        /// <param name="fits">FM patches fitted to the samples, or <c>null</c> for the built-in ones only.</param>
+        public Run(Song song, Playback playback, MappingOptions options, ConversionNotes notes, DacLoser loser, IReadOnlySet<int> noiseAllSong, FittedFm? fits = null)
         {
             _song = song;
             _playback = playback;
@@ -169,6 +192,27 @@ internal sealed class SimpleMapper(DacLoser loser = DacLoser.Default) : IChannel
             _volume = [.. Enumerable.Repeat(1.0, song.Channels.Count)];
             _sounding = [.. Enumerable.Repeat(Sounding.Nothing, song.Channels.Count)];
             _chordColumns = [.. Enumerable.Range(0, song.Channels.Count).Select(_ => new List<int>())];
+            _fitsGiven = fits is not null;
+            _fits = fits is null ? FitChoice.None : FitChoice.Choose(fits, BuiltIns());
+        }
+
+        /// <summary>
+        /// The built-in patch of every sample a fitted patch may take over from: those whose notes go to FM, with one
+        /// voice (not a chord, docs/adr/0137-simple-mapper-fitted-patches.md), by sample index.
+        /// </summary>
+        public IReadOnlyDictionary<int, BuiltInFm> BuiltIns()
+        {
+            Dictionary<int, BuiltInFm> builtIn = [];
+            for (int i = 0; i < _routes.Length; i++)
+            {
+                int sample = _song.Instruments[i].Sample;
+                if (_routes[i].Primary == Primary.Fm && ChordOf(i) is null && !builtIn.ContainsKey(sample))
+                {
+                    builtIn[sample] = new BuiltInFm(_routes[i].Fallback, LiftCents(sample), _song.Samples[sample].Loop is not null);
+                }
+            }
+
+            return builtIn;
         }
 
         /// <summary>Instruments (0-based) on a side that lost the DAC to the PSG noise in this pass: they would jump to the middle.</summary>
@@ -195,7 +239,7 @@ internal sealed class SimpleMapper(DacLoser loser = DacLoser.Default) : IChannel
             ReportTallies();
             DacSample[] dac = [.. _dacSamples.Select(sample => new DacSample(sample, DacRate(sample)))];
             HashSet<int> recordings = [.. _song.Instruments.Where((_, i) => _routes[i].Primary == Primary.Dac).Select(instrument => instrument.Sample)];
-            return new GenesisPlan(_song.Title, patterns, _song.LoopOrder, _song.Timing, _patches, dac) { PcmSamples = recordings };
+            return new GenesisPlan(_song.Title, patterns, _song.LoopOrder, _song.Timing, _patches, dac) { PcmSamples = recordings, LfoRate = _fits.LfoRate };
         }
 
         /// <summary>Decides how one instrument's notes are played; lossy choices get a note.</summary>
@@ -541,7 +585,9 @@ internal sealed class SimpleMapper(DacLoser loser = DacLoser.Default) : IChannel
 
         private void PlaceOnFm(Candidate candidate, PlanCell[] planned)
         {
-            FmPatch patch = _routes[candidate.Instrument].Fallback;
+            int sample = _song.Instruments[candidate.Instrument].Sample;
+            FmPatch? fitted = _routes[candidate.Instrument].Primary == Primary.Fm ? _fits.PatchFor(sample) : null;
+            FmPatch patch = fitted ?? _routes[candidate.Instrument].Fallback;
             int index = _patches.IndexOf(patch);
             if (index < 0)
             {
@@ -550,6 +596,11 @@ internal sealed class SimpleMapper(DacLoser loser = DacLoser.Default) : IChannel
             }
 
             Sound(candidate, (GenesisChannel)candidate.Channel, new PlanVoice(VoiceKind.Fm, index), Sounding.Fm, planned);
+            if (fitted is not null)
+            {
+                // A fit was made at the sample's own pitch, so it isn't lifted as a built-in patch for a chord's cycle is.
+                planned[candidate.Channel] = planned[candidate.Channel] with { Cents = 0 };
+            }
         }
 
         /// <summary>Starts the note on <paramref name="column"/> and stops what its MOD channel was sounding elsewhere.</summary>
@@ -753,6 +804,11 @@ internal sealed class SimpleMapper(DacLoser loser = DacLoser.Default) : IChannel
             }
 
             Tally("{Count} chord voices stopped early, where the track that owns their FM channel played a note", _chordCut);
+            if (_fits.LfoRate is { } rate)
+            {
+                // The LFO is one setting for the whole chip, so the other fits play without it (docs/adr/0137-simple-mapper-fitted-patches.md).
+                _notes.Add("The song's LFO runs at rate {Rate}, for the fits that sound closer with it (samples: {Samples}); every other FM sound plays without it", rate, _fits.LfoSamples);
+            }
 
             foreach ((int sample, int count) in _ignored)
             {
@@ -798,8 +854,57 @@ internal sealed class SimpleMapper(DacLoser loser = DacLoser.Default) : IChannel
 
             if (route.Primary == Primary.Fm)
             {
-                Why pitch = PitchNote(_song.Instruments[instrument].Sample);
+                int sample = _song.Instruments[instrument].Sample;
+                Why pitch = PitchNote(sample);
                 _notes.Add(pitch.Template, pitch.Values);
+                ExplainFits(instrument, sample);
+            }
+        }
+
+        /// <summary>Says whether an FM sample plays a fitted patch for all its notes, and why (docs/adr/0137-simple-mapper-fitted-patches.md).</summary>
+        private void ExplainFits(int instrument, int sample)
+        {
+            if (!_fitsGiven)
+            {
+                return;
+            }
+
+            string label = Label(sample, _song.Samples[sample].Name);
+            if (ChordOf(instrument) is not null)
+            {
+                _notes.Add("Sample {Sample}: its notes play as a chord on several FM voices, so it keeps its built-in patch instead of a fitted one", label);
+                return;
+            }
+
+            if (_fits.Samples.GetValueOrDefault(sample) is not { } choice)
+            {
+                return;
+            }
+
+            if (choice.Fitted is { } fitted)
+            {
+                _notes.Add(
+                    "Sample {Sample}: plays {Patch}, an FM patch fitted to pitch region {Region}{Lfo}, for all its notes: {FitDb:0.00} dB from the sample by the fitter's log-mel score over its {Regions} pitch regions ({Notes} notes), where the built-in {BuiltIn} is {BuiltInDb:0.00} dB",
+                    label,
+                    fitted.Name,
+                    choice.FitRegion + 1,
+                    fitted.UsesLfo ? " with the song's LFO" : string.Empty,
+                    choice.FitDb,
+                    choice.Regions,
+                    choice.Notes,
+                    _routes[instrument].Fallback.Name,
+                    choice.BuiltInDb);
+            }
+            else
+            {
+                _notes.Add(
+                    "Sample {Sample}: keeps the built-in {BuiltIn}: {BuiltInDb:0.00} dB from the sample by the fitter's log-mel score over its {Regions} pitch regions ({Notes} notes), no farther than its closest fit's {FitDb:0.00} dB",
+                    label,
+                    _routes[instrument].Fallback.Name,
+                    choice.BuiltInDb,
+                    choice.Regions,
+                    choice.Notes,
+                    choice.FitDb);
             }
         }
 

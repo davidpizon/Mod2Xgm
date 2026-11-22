@@ -1,4 +1,9 @@
+using Mod2Xgm.Audio;
+using Mod2Xgm.Cli;
+using Mod2Xgm.Mapping;
+using Mod2Xgm.Model;
 using Mod2Xgm.Xgm;
+using Serilog.Core;
 using Serilog.Events;
 
 namespace Mod2Xgm.Tests.Xgm;
@@ -64,6 +69,26 @@ public sealed class GenesisStreamTests
 
     /// <summary>A PCM play of <see cref="Sound"/> on channel 0.</summary>
     private static ChipEvent Play() => ChipEvent.Play(0, Sound, false, 0, "1 \"x\"");
+
+    /// <summary>A plan with an LFO rate turns the chip's LFO on at that rate in the first frame (docs/adr/0137-simple-mapper-fitted-patches.md).</summary>
+    [Theory]
+    [InlineData(5, 0x0D)]
+    [InlineData(null, 0x00)]
+    public void RecordXgm2_WithLfoRate_SetsLfoInFirstFrame(int? rate, int expected)
+    {
+        // Arrange
+        Timing timing = new(6, 125);
+        Song song = new("t", [new Channel(0)], [0], null, [new Pattern([new Row([Cell.Empty])])], [], [], timing);
+        PlanRow row = new([.. Enumerable.Repeat(PlanCell.Empty, GenesisPlan.ChannelCount)], []);
+        GenesisPlan plan = new GenesisPlan("t", [[row]], null, timing, [], []) { LfoRate = rate };
+        Playback playback = new([new PlaybackTick(0, 0.02, 0, 0, 0, false, [new ChannelTick(false, new NotePitch(48, 0, 8287), 0, 0, null, new SampleBlock(0, 0, 0))])], null, PlaybackEnd.Stops);
+
+        // Act
+        GenesisStream sut = GenesisStream.RecordXgm2(plan, song, playback, Region.Ntsc, ResamplingMode.Smooth, new ConversionNotes(Logger.None));
+
+        // Assert
+        Assert.Contains(ChipEvent.Fm(0, 0x22, (byte)expected), sut.Frames[0]);
+    }
 
     /// <summary>A notes collector and the sink that sees the conversion notes it logs.</summary>
     private static (ConversionNotes Notes, CollectingSink Sink) Notes()

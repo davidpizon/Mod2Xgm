@@ -230,7 +230,7 @@ public sealed class ProgramTests
         string[] progress = ["--progress", mode];
         (string[] Args, Func<string[], ExitCode> Body) run = name switch
         {
-            "success" => ([temp.CreateFile("song.mod"), .. progress], Convert),
+            "success" => ([temp.CreateFile("song.mod"), "--quality", "fast", .. progress], Convert),
             "usage" => (["song.mod", "--bogus", .. progress], Convert),
             "missing-input" => (progress, Convert),
             "not-found" => ([temp.Combine("missing.mod"), .. progress], Convert),

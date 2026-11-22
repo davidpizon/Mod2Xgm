@@ -43,17 +43,17 @@ internal static partial class OutputRuns
 
     /// <summary>
     /// Converts <see cref="Song"/> with <paramref name="args"/> and <c>--progress <paramref name="mode"/></c> (and
-    /// <c>--no-cache</c>, so no timing history is read); the exit code and both streams, made stable.
+    /// <c>--no-cache</c>, so no timing history is read, and <c>--quality fast</c>, so no FM patch is fitted for minutes); the exit code and both streams, made stable.
     /// </summary>
     public static (int Code, string Output, string Error) Convert(string mode, params string[] args) =>
-        Run(mode, ["--no-cache", .. args]);
+        Run(mode, ["--no-cache", "--quality", "fast", .. args]);
 
     /// <summary>
     /// Converts <see cref="Song"/> in <c>--progress <paramref name="mode"/></c> with the cache (and the timing history) in
     /// <paramref name="cacheDirectory"/>; its stdout, made stable.
     /// </summary>
     public static string ConvertWithCache(string mode, string cacheDirectory, params string[] args) =>
-        Run(mode, ["--cache-dir", cacheDirectory, .. args]).Output;
+        Run(mode, ["--cache-dir", cacheDirectory, "--quality", "fast", .. args]).Output;
 
     private static (int Code, string Output, string Error) Run(string mode, string[] args)
     {

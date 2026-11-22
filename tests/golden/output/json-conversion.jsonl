@@ -1,4 +1,4 @@
-{"v":1,"type":"run","version":"VERSION","input":"TEMP/song.mod","format":"dmf","quality":"normal","steps":[{"n":1,"id":"check","name":"Check paths","unit":""},{"n":2,"id":"read","name":"Read MOD","unit":"bytes"},{"n":3,"id":"scan","name":"Scan sample use","unit":"rows"},{"n":4,"id":"model","name":"Build song model","unit":""},{"n":5,"id":"play","name":"Play ticks","unit":""},{"n":6,"id":"map","name":"Map channels","unit":""},{"n":7,"id":"write","name":"Write DMF","unit":""}]}
+{"v":1,"type":"run","version":"VERSION","input":"TEMP/song.mod","format":"dmf","quality":"fast","steps":[{"n":1,"id":"check","name":"Check paths","unit":""},{"n":2,"id":"read","name":"Read MOD","unit":"bytes"},{"n":3,"id":"scan","name":"Scan sample use","unit":"rows"},{"n":4,"id":"model","name":"Build song model","unit":""},{"n":5,"id":"play","name":"Play ticks","unit":""},{"n":6,"id":"map","name":"Map channels","unit":""},{"n":7,"id":"write","name":"Write DMF","unit":""}]}
 {"v":1,"type":"phase","n":1,"of":7,"id":"check","event":"start","done":0,"total":0,"unit":"","elapsed_s":0,"eta_s":0,"total_eta_s":0,"eta_partial":true}
 {"v":1,"type":"phase","n":1,"of":7,"id":"check","event":"end","done":0,"total":0,"unit":"","elapsed_s":0,"eta_s":0,"total_eta_s":0,"eta_partial":true}
 {"v":1,"type":"phase","n":2,"of":7,"id":"read","event":"start","done":0,"total":0,"unit":"bytes","elapsed_s":0,"eta_s":0,"total_eta_s":0,"eta_partial":true}
@@ -40,7 +40,6 @@
 {"v":1,"type":"sample","n":29,"name":"","length":0,"volume":0,"finetune":0,"notes":0,"status":"empty"}
 {"v":1,"type":"sample","n":30,"name":"","length":0,"volume":0,"finetune":0,"notes":0,"status":"empty"}
 {"v":1,"type":"sample","n":31,"name":"","length":0,"volume":0,"finetune":0,"notes":0,"status":"empty"}
-{"v":1,"type":"info","message":"--quality normal: the optimizer isn't built yet (plan M9), so the simple mapper is used"}
 {"v":1,"type":"phase","n":3,"of":7,"id":"scan","event":"end","done":128,"total":128,"unit":"rows","elapsed_s":0,"eta_s":0,"total_eta_s":0,"eta_partial":true}
 {"v":1,"type":"phase","n":4,"of":7,"id":"model","event":"start","done":0,"total":0,"unit":"","elapsed_s":0,"eta_s":0,"total_eta_s":0,"eta_partial":true}
 {"v":1,"type":"phase","n":4,"of":7,"id":"model","event":"end","done":0,"total":0,"unit":"","elapsed_s":0,"eta_s":0,"total_eta_s":0,"eta_partial":true}

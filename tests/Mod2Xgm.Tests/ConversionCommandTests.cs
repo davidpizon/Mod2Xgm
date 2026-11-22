@@ -25,7 +25,7 @@ public sealed class ConversionCommandTests
     {
         // Arrange
         using TempDirectory temp = new();
-        ConversionOptions options = new() { InputPath = temp.CreateFile("song.mod") };
+        ConversionOptions options = new() { Quality = Quality.Fast, InputPath = temp.CreateFile("song.mod") };
 
         // Act
         ExitCode code = ConversionCommand.Execute(options);
@@ -40,7 +40,7 @@ public sealed class ConversionCommandTests
     {
         // Arrange
         using TempDirectory temp = new();
-        ConversionOptions options = new() { InputPath = temp.Combine("missing.mod") };
+        ConversionOptions options = new() { Quality = Quality.Fast, InputPath = temp.Combine("missing.mod") };
 
         // Act & Assert
         Assert.Equal(ExitCode.InputNotFound, CodeOf(() => ConversionCommand.Execute(options)));
@@ -52,7 +52,7 @@ public sealed class ConversionCommandTests
     {
         // Arrange
         using TempDirectory temp = new();
-        ConversionOptions options = new() { InputPath = temp.Path };
+        ConversionOptions options = new() { Quality = Quality.Fast, InputPath = temp.Path };
 
         // Act & Assert
         Assert.Equal(ExitCode.InputNotFound, CodeOf(() => ConversionCommand.Execute(options)));
@@ -66,7 +66,7 @@ public sealed class ConversionCommandTests
         using TempDirectory temp = new();
         string input = temp.CreateFile("song.mod");
         temp.CreateFile("song.dmf");
-        ConversionOptions options = new() { InputPath = input };
+        ConversionOptions options = new() { Quality = Quality.Fast, InputPath = input };
 
         // Act
         ConversionException error = Assert.Throws<ConversionException>(() => ConversionCommand.Execute(options));
@@ -84,7 +84,7 @@ public sealed class ConversionCommandTests
         using TempDirectory temp = new();
         string input = temp.CreateFile("song.mod");
         temp.CreateFile("song.dmf");
-        ConversionOptions options = new() { InputPath = input, Force = true };
+        ConversionOptions options = new() { Quality = Quality.Fast, InputPath = input, Force = true };
 
         // Act
         ExitCode code = ConversionCommand.Execute(options);
@@ -101,7 +101,7 @@ public sealed class ConversionCommandTests
         using TempDirectory temp = new();
         string input = temp.CreateFile("song.mod");
         temp.CreateFile("song.dmf");
-        ConversionOptions options = new() { InputPath = input, InfoOnly = true };
+        ConversionOptions options = new() { Quality = Quality.Fast, InputPath = input, InfoOnly = true };
 
         // Act
         ExitCode code = ConversionCommand.Execute(options);
@@ -117,7 +117,7 @@ public sealed class ConversionCommandTests
         // Arrange
         using TempDirectory temp = new();
         string input = temp.CreateFile("song.mod");
-        ConversionOptions options = new() { InputPath = input, OutputPath = input, Force = true };
+        ConversionOptions options = new() { Quality = Quality.Fast, InputPath = input, OutputPath = input, Force = true };
 
         // Act & Assert
         Assert.Equal(ExitCode.OutputNotWritable, CodeOf(() => ConversionCommand.Execute(options)));
@@ -131,6 +131,7 @@ public sealed class ConversionCommandTests
         using TempDirectory temp = new();
         ConversionOptions options = new()
         {
+            Quality = Quality.Fast,
             InputPath = temp.CreateFile("song.mod"),
             OutputPath = Path.Combine(temp.Path, "missing", "song.dmf"),
         };
@@ -145,7 +146,7 @@ public sealed class ConversionCommandTests
     {
         // Arrange
         using TempDirectory temp = new();
-        ConversionOptions options = new() { InputPath = temp.CreateFile("song.mod"), OutputPath = temp.Path };
+        ConversionOptions options = new() { Quality = Quality.Fast, InputPath = temp.CreateFile("song.mod"), OutputPath = temp.Path };
 
         // Act & Assert
         Assert.Equal(ExitCode.OutputNotWritable, CodeOf(() => ConversionCommand.Execute(options)));
@@ -158,7 +159,7 @@ public sealed class ConversionCommandTests
         // Arrange
         using TempDirectory temp = new();
         CollectingSink sink = new();
-        ConversionOptions options = new() { InputPath = temp.CreateFile("song.mod") };
+        ConversionOptions options = new() { Quality = Quality.Fast, InputPath = temp.CreateFile("song.mod") };
 
         // Act
         ConversionCommand.Execute(options, sink.CreateLogger());
@@ -180,7 +181,7 @@ public sealed class ConversionCommandTests
         using TempDirectory temp = new();
         CollectingSink sink = new();
         byte[] bytes = new ModBuilder { Soundtracker = soundtracker, RestartPosition = soundtracker ? 120 : 127 }.WithSample(1, "kick", 64).Build();
-        ConversionOptions options = new() { InputPath = temp.CreateFile("song.mod", bytes), InfoOnly = true, Player = player is null ? null : Enum.Parse<ModPlayer>(player) };
+        ConversionOptions options = new() { Quality = Quality.Fast, InputPath = temp.CreateFile("song.mod", bytes), InfoOnly = true, Player = player is null ? null : Enum.Parse<ModPlayer>(player) };
 
         // Act
         ConversionCommand.Execute(options, sink.CreateLogger());
@@ -196,7 +197,7 @@ public sealed class ConversionCommandTests
         // Arrange
         using TempDirectory temp = new();
         CollectingSink sink = new();
-        ConversionOptions options = new() { InputPath = temp.CreateFile("song.mod"), InfoOnly = true };
+        ConversionOptions options = new() { Quality = Quality.Fast, InputPath = temp.CreateFile("song.mod"), InfoOnly = true };
 
         // Act
         ConversionCommand.Execute(options, sink.CreateLogger());
@@ -212,7 +213,7 @@ public sealed class ConversionCommandTests
         // Arrange
         using TempDirectory temp = new();
         CollectingSink sink = new();
-        ConversionOptions options = new() { InputPath = temp.CreateFile("song.mod"), MaxPcmBytes = 128 * 1024 };
+        ConversionOptions options = new() { Quality = Quality.Fast, InputPath = temp.CreateFile("song.mod"), MaxPcmBytes = 128 * 1024 };
 
         // Act
         ConversionCommand.Execute(options, sink.CreateLogger());
@@ -230,6 +231,7 @@ public sealed class ConversionCommandTests
         CollectingSink sink = new();
         ConversionOptions options = new()
         {
+            Quality = Quality.Fast,
             InputPath = temp.CreateFile("song.mod"),
             IgnoreSamples = new HashSet<int> { 7, 3 },
             RequireFm = new HashSet<int> { 9 },
@@ -256,7 +258,7 @@ public sealed class ConversionCommandTests
         // Arrange
         using TempDirectory temp = new();
         CollectingSink sink = new();
-        ConversionOptions options = new() { InputPath = temp.CreateFile("song.mod") };
+        ConversionOptions options = new() { Quality = Quality.Fast, InputPath = temp.CreateFile("song.mod") };
 
         // Act
         ConversionCommand.Execute(options, sink.CreateLogger(LogEventLevel.Debug));
@@ -276,7 +278,7 @@ public sealed class ConversionCommandTests
         // Arrange
         using TempDirectory temp = new();
         CollectingSink sink = new();
-        ConversionOptions options = new() { InputPath = temp.CreateFile("song.mod") };
+        ConversionOptions options = new() { Quality = Quality.Fast, InputPath = temp.CreateFile("song.mod") };
 
         // Act
         ConversionCommand.Execute(options, sink.CreateLogger(LogEventLevel.Information));
@@ -291,7 +293,7 @@ public sealed class ConversionCommandTests
     {
         // Arrange
         using TempDirectory temp = new();
-        ConversionOptions options = new() { InputPath = temp.CreateFile("song.mod", [1, 2, 3, 4]) };
+        ConversionOptions options = new() { Quality = Quality.Fast, InputPath = temp.CreateFile("song.mod", [1, 2, 3, 4]) };
 
         // Act & Assert
         Assert.Equal(ExitCode.InvalidInput, CodeOf(() => ConversionCommand.Execute(options)));
@@ -309,7 +311,7 @@ public sealed class ConversionCommandTests
             stream.SetLength(ConversionCommand.MaxInputBytes + 1);
         }
 
-        ConversionOptions options = new() { InputPath = path };
+        ConversionOptions options = new() { Quality = Quality.Fast, InputPath = path };
 
         // Act
         ConversionException error = Assert.Throws<ConversionException>(() => ConversionCommand.Execute(options));
@@ -334,7 +336,7 @@ public sealed class ConversionCommandTests
         using TempDirectory temp = new();
         string path = temp.CreateFile("song.mod");
         File.SetUnixFileMode(path, UnixFileMode.None);
-        ConversionOptions options = new() { InputPath = path };
+        ConversionOptions options = new() { Quality = Quality.Fast, InputPath = path };
         try
         {
             // Act & Assert
@@ -353,7 +355,7 @@ public sealed class ConversionCommandTests
         // Arrange
         using TempDirectory temp = new();
         CollectingSink sink = new();
-        ConversionOptions options = new() { InputPath = temp.CreateFile("song.mod") };
+        ConversionOptions options = new() { Quality = Quality.Fast, InputPath = temp.CreateFile("song.mod") };
 
         // Act
         ConversionCommand.Execute(options, sink.CreateLogger());
@@ -371,7 +373,7 @@ public sealed class ConversionCommandTests
         // Arrange
         using TempDirectory temp = new();
         CollectingSink sink = new();
-        ConversionOptions options = new() { InputPath = temp.CreateFile("song.mod"), InfoOnly = infoOnly };
+        ConversionOptions options = new() { Quality = Quality.Fast, InputPath = temp.CreateFile("song.mod"), InfoOnly = infoOnly };
 
         // Act
         ConversionCommand.Execute(options, sink.CreateLogger());
@@ -393,7 +395,7 @@ public sealed class ConversionCommandTests
         // Arrange
         using TempDirectory temp = new();
         CollectingSink sink = new();
-        ConversionOptions options = new() { InputPath = temp.CreateFile("song.mod"), IgnoreSamples = new HashSet<int> { 1 } };
+        ConversionOptions options = new() { Quality = Quality.Fast, InputPath = temp.CreateFile("song.mod"), IgnoreSamples = new HashSet<int> { 1 } };
 
         // Act
         ConversionCommand.Execute(options, sink.CreateLogger());
@@ -409,7 +411,7 @@ public sealed class ConversionCommandTests
         // Arrange
         using TempDirectory temp = new();
         byte[] mod = new ModBuilder().WithSample(1, "kick", 64).WithCell(0, row: 0, channel: 0, sample: 1, period: 428).WithCell(0, row: 0, channel: 1, sample: 1, period: 428).Build();
-        ConversionOptions options = new() { InputPath = temp.CreateFile("song.mod", mod), InfoOnly = true };
+        ConversionOptions options = new() { Quality = Quality.Fast, InputPath = temp.CreateFile("song.mod", mod), InfoOnly = true };
         SongAnalysis? found = null;
 
         // Act
@@ -436,6 +438,7 @@ public sealed class ConversionCommandTests
         byte[] soundtracker = new ModBuilder { Soundtracker = true }.WithSample(1, "kick", 64).WithCell(0, row: 0, channel: 0, sample: 1, period: 428).Build();
         ConversionOptions options = new()
         {
+            Quality = Quality.Fast,
             InputPath = temp.CreateFile("song.mod", soundtracker),
             IgnoreSamples = new HashSet<int> { 3, 20, 16 },
             RequireFm = new HashSet<int> { 31 },
@@ -461,7 +464,7 @@ public sealed class ConversionCommandTests
     {
         // Arrange
         using TempDirectory temp = new();
-        ConversionOptions options = new() { InputPath = temp.CreateFile("song.mod") };
+        ConversionOptions options = new() { Quality = Quality.Fast, InputPath = temp.CreateFile("song.mod") };
 
         // Act
         ExitCode code = ConversionCommand.Execute(options);
@@ -481,7 +484,7 @@ public sealed class ConversionCommandTests
         // Arrange
         using TempDirectory temp = new();
         string output = temp.CreateFile("out.bin", [1, 2, 3]);
-        ConversionOptions options = new() { InputPath = temp.CreateFile("song.mod"), OutputPath = output, Force = true };
+        ConversionOptions options = new() { Quality = Quality.Fast, InputPath = temp.CreateFile("song.mod"), OutputPath = output, Force = true };
 
         // Act
         ConversionCommand.Execute(options);
@@ -497,7 +500,7 @@ public sealed class ConversionCommandTests
         // Arrange
         using TempDirectory temp = new();
         CollectingSink sink = new();
-        ConversionOptions options = new() { InputPath = temp.CreateFile("song.mod"), InfoOnly = true };
+        ConversionOptions options = new() { Quality = Quality.Fast, InputPath = temp.CreateFile("song.mod"), InfoOnly = true };
 
         // Act
         ConversionCommand.Execute(options, sink.CreateLogger());
@@ -516,7 +519,7 @@ public sealed class ConversionCommandTests
         // Arrange
         using TempDirectory temp = new();
         CollectingSink sink = new();
-        ConversionOptions options = new() { InputPath = temp.CreateFile("song.mod"), InfoOnly = infoOnly };
+        ConversionOptions options = new() { Quality = Quality.Fast, InputPath = temp.CreateFile("song.mod"), InfoOnly = infoOnly };
 
         // Act
         ConversionCommand.Execute(options, sink.CreateLogger());
@@ -538,7 +541,7 @@ public sealed class ConversionCommandTests
         using TempDirectory temp = new();
         CollectingSink sink = new();
         const string extension = "xgm";
-        ConversionOptions options = new() { InputPath = temp.CreateFile("song.mod"), Format = OutputFormat.Xgm };
+        ConversionOptions options = new() { Quality = Quality.Fast, InputPath = temp.CreateFile("song.mod"), Format = OutputFormat.Xgm };
 
         // Act
         ConversionException error = Assert.Throws<ConversionException>(() => ConversionCommand.Execute(options, sink.CreateLogger()));
@@ -559,7 +562,7 @@ public sealed class ConversionCommandTests
         // Arrange
         using TempDirectory temp = new();
         CollectingSink sink = new();
-        ConversionOptions options = new() { InputPath = temp.CreateFile("song.mod"), Format = OutputFormat.Xgm2 };
+        ConversionOptions options = new() { Quality = Quality.Fast, InputPath = temp.CreateFile("song.mod"), Format = OutputFormat.Xgm2 };
 
         // Act
         ExitCode code = ConversionCommand.Execute(options, sink.CreateLogger());
@@ -576,7 +579,7 @@ public sealed class ConversionCommandTests
         // Arrange
         using TempDirectory temp = new();
         CollectingSink sink = new();
-        ConversionOptions options = new() { InputPath = temp.CreateFile("song.mod"), Format = OutputFormat.Xgm2 };
+        ConversionOptions options = new() { Quality = Quality.Fast, InputPath = temp.CreateFile("song.mod"), Format = OutputFormat.Xgm2 };
 
         // Act
         ConversionCommand.Execute(options, sink.CreateLogger());
@@ -599,7 +602,7 @@ public sealed class ConversionCommandTests
         // Arrange
         using TempDirectory temp = new();
         CollectingSink sink = new();
-        ConversionOptions options = new() { InputPath = temp.CreateFile("song.mod"), Format = OutputFormat.Xgm2, InfoOnly = true };
+        ConversionOptions options = new() { Quality = Quality.Fast, InputPath = temp.CreateFile("song.mod"), Format = OutputFormat.Xgm2, InfoOnly = true };
 
         // Act
         ConversionCommand.Execute(options, sink.CreateLogger());
@@ -619,7 +622,7 @@ public sealed class ConversionCommandTests
         // Arrange
         using TempDirectory temp = new();
         CollectingSink sink = new();
-        ConversionOptions options = new() { InputPath = temp.CreateFile("song.mod"), Format = OutputFormat.Xgm2, InputRegion = Region.Ntsc, OutputRegion = Region.Pal };
+        ConversionOptions options = new() { Quality = Quality.Fast, InputPath = temp.CreateFile("song.mod"), Format = OutputFormat.Xgm2, InputRegion = Region.Ntsc, OutputRegion = Region.Pal };
 
         // Act
         ConversionCommand.Execute(options, sink.CreateLogger());
@@ -635,7 +638,7 @@ public sealed class ConversionCommandTests
         // Arrange
         using TempDirectory temp = new();
         CollectingSink sink = new();
-        ConversionOptions options = new() { InputPath = temp.CreateFile("song.mod"), Format = OutputFormat.Xgm };
+        ConversionOptions options = new() { Quality = Quality.Fast, InputPath = temp.CreateFile("song.mod"), Format = OutputFormat.Xgm };
 
         // Act
         Assert.Throws<ConversionException>(() => ConversionCommand.Execute(options, sink.CreateLogger()));
@@ -651,7 +654,7 @@ public sealed class ConversionCommandTests
         // Arrange
         using TempDirectory temp = new();
         CollectingSink sink = new();
-        ConversionOptions options = new() { InputPath = temp.CreateFile("song.mod", OverlappingRecordings()) };
+        ConversionOptions options = new() { Quality = Quality.Fast, InputPath = temp.CreateFile("song.mod", OverlappingRecordings()) };
 
         // Act
         ExitCode code = ConversionCommand.Execute(options, sink.CreateLogger());
@@ -669,7 +672,7 @@ public sealed class ConversionCommandTests
     {
         // Arrange
         using TempDirectory temp = new();
-        ConversionOptions options = new() { InputPath = temp.CreateFile("song.mod", OverlappingRecordings()), NoConsolidate = true };
+        ConversionOptions options = new() { Quality = Quality.Fast, InputPath = temp.CreateFile("song.mod", OverlappingRecordings()), NoConsolidate = true };
 
         // Act
         ConversionException error = Assert.Throws<ConversionException>(() => ConversionCommand.Execute(options, new CollectingSink().CreateLogger()));
@@ -686,7 +689,7 @@ public sealed class ConversionCommandTests
         // Arrange
         using TempDirectory temp = new();
         CollectingSink sink = new();
-        ConversionOptions options = new() { InputPath = temp.CreateFile("song.mod"), NoConsolidate = true };
+        ConversionOptions options = new() { Quality = Quality.Fast, InputPath = temp.CreateFile("song.mod"), NoConsolidate = true };
 
         // Act
         ExitCode code = ConversionCommand.Execute(options, sink.CreateLogger());
@@ -730,6 +733,7 @@ public sealed class ConversionCommandTests
         using TempDirectory temp = new();
         ConversionOptions options = new()
         {
+            Quality = Quality.Fast,
             InputPath = temp.CreateFile("song.mod", OverlappingRecordings()),
             Mapping = ConversionOptions.OptimizerMapping,
             NoConsolidate = true,
@@ -751,7 +755,7 @@ public sealed class ConversionCommandTests
     public void Phases_WithMapping_ListsFitOnlyForOptimizer(string? mapping, bool expected)
     {
         // Arrange
-        ConversionOptions options = new() { InputPath = "song.mod", Mapping = mapping };
+        ConversionOptions options = new() { Quality = Quality.Fast, InputPath = "song.mod", Mapping = mapping };
 
         // Act
         bool fits = ConversionCommand.Phases(options, analyzes: expected).Any(p => p.Id == "fit");
@@ -776,16 +780,16 @@ public sealed class ConversionCommandTests
         Assert.DoesNotContain(sink.Messages(LogEventLevel.Information), m => m.Contains("optimizer", StringComparison.Ordinal));
     }
 
-    /// <summary>Until the optimizer exists, <c>normal</c> and <c>best</c> say they use the simple mapper.</summary>
+    /// <summary>Until the optimizer exists, <c>normal</c> and <c>best</c> say they use the simple mapper, with fitted FM patches.</summary>
     [Theory]
-    [InlineData(nameof(Quality.Normal), "--quality normal: the optimizer isn't built yet (plan M9), so the simple mapper is used")]
-    [InlineData(nameof(Quality.Best), "--quality best: the optimizer isn't built yet (plan M9), so the simple mapper is used")]
+    [InlineData(nameof(Quality.Normal), "--quality normal: the optimizer isn't built yet (plan M9), so the simple mapper is used, with FM patches fitted to the samples where they sound closer")]
+    [InlineData(nameof(Quality.Best), "--quality best: the optimizer isn't built yet (plan M9), so the simple mapper is used, with FM patches fitted to the samples where they sound closer")]
     public void Execute_WithOptimizerQuality_SaysSimpleMapperIsUsed(string quality, string expected)
     {
         // Arrange
         using TempDirectory temp = new();
         CollectingSink sink = new();
-        ConversionOptions options = new() { InputPath = temp.CreateFile("song.mod"), Quality = Enum.Parse<Quality>(quality), InfoOnly = true };
+        ConversionOptions options = new() { InputPath = temp.CreateFile("song.mod"), Quality = Enum.Parse<Quality>(quality), InfoOnly = true, NoCache = true };
 
         // Act
         ConversionCommand.Execute(options, sink.CreateLogger());
@@ -801,7 +805,7 @@ public sealed class ConversionCommandTests
         // Arrange
         using TempDirectory temp = new();
         CollectingSink sink = new();
-        ConversionOptions options = new() { InputPath = temp.CreateFile("song.mod"), IgnoreSamples = new HashSet<int> { 1 } };
+        ConversionOptions options = new() { Quality = Quality.Fast, InputPath = temp.CreateFile("song.mod"), IgnoreSamples = new HashSet<int> { 1 } };
 
         // Act
         ConversionCommand.Execute(options, sink.CreateLogger());
@@ -821,7 +825,7 @@ public sealed class ConversionCommandTests
         using TempDirectory temp = new();
         string output = temp.CreateFile("song.dmf", [0]);
         File.SetAttributes(output, FileAttributes.ReadOnly);
-        ConversionOptions options = new() { InputPath = temp.CreateFile("song.mod"), Force = true };
+        ConversionOptions options = new() { Quality = Quality.Fast, InputPath = temp.CreateFile("song.mod"), Force = true };
         try
         {
             // Act
@@ -844,7 +848,7 @@ public sealed class ConversionCommandTests
         // Arrange
         using TempDirectory temp = new();
         CollectingSink sink = new();
-        ConversionOptions options = new() { InputPath = temp.CreateFile("song.mod"), RenderWav = true };
+        ConversionOptions options = new() { Quality = Quality.Fast, InputPath = temp.CreateFile("song.mod"), RenderWav = true };
 
         // Act
         ExitCode code = ConversionCommand.Execute(options, sink.CreateLogger());
@@ -863,7 +867,7 @@ public sealed class ConversionCommandTests
     {
         // Arrange
         using TempDirectory temp = new();
-        ConversionOptions options = new() { InputPath = temp.CreateFile("song.mod"), InfoOnly = true, RenderWav = true, RenderWavPath = temp.Combine("x.wav") };
+        ConversionOptions options = new() { Quality = Quality.Fast, InputPath = temp.CreateFile("song.mod"), InfoOnly = true, RenderWav = true, RenderWavPath = temp.Combine("x.wav") };
 
         // Act
         ConversionCommand.Execute(options);
@@ -883,7 +887,7 @@ public sealed class ConversionCommandTests
         string input = temp.CreateFile("song.mod");
         temp.CreateFile("song.xgm");
         const string driver = "Xgm PCM";
-        ConversionOptions options = new() { InputPath = input, Format = OutputFormat.Xgm, RenderWav = true };
+        ConversionOptions options = new() { Quality = Quality.Fast, InputPath = input, Format = OutputFormat.Xgm, RenderWav = true };
 
         // Act
         ConversionException error = Assert.Throws<ConversionException>(() => ConversionCommand.Execute(options, sink.CreateLogger()));
@@ -903,7 +907,7 @@ public sealed class ConversionCommandTests
         using TempDirectory temp = new();
         string input = temp.CreateFile("song.mod");
         temp.CreateFile("song.genesis.wav");
-        ConversionOptions options = new() { InputPath = input, RenderWav = true };
+        ConversionOptions options = new() { Quality = Quality.Fast, InputPath = input, RenderWav = true };
 
         // Act & Assert
         Assert.Equal(ExitCode.OutputNotWritable, CodeOf(() => ConversionCommand.Execute(options)));
@@ -917,7 +921,7 @@ public sealed class ConversionCommandTests
         using TempDirectory temp = new();
         string input = temp.CreateFile("song.mod");
         temp.CreateFile("song.genesis.wav");
-        ConversionOptions options = new() { InputPath = input, RenderWav = true, Force = true };
+        ConversionOptions options = new() { Quality = Quality.Fast, InputPath = input, RenderWav = true, Force = true };
 
         // Act
         ExitCode code = ConversionCommand.Execute(options);
@@ -933,7 +937,7 @@ public sealed class ConversionCommandTests
         // Arrange
         using TempDirectory temp = new();
         string input = temp.CreateFile("song.mod");
-        ConversionOptions options = new() { InputPath = input, RenderWav = true, RenderWavPath = input, Force = true };
+        ConversionOptions options = new() { Quality = Quality.Fast, InputPath = input, RenderWav = true, RenderWavPath = input, Force = true };
 
         // Act & Assert
         Assert.Equal(ExitCode.OutputNotWritable, CodeOf(() => ConversionCommand.Execute(options)));
@@ -946,7 +950,7 @@ public sealed class ConversionCommandTests
         // Arrange
         using TempDirectory temp = new();
         string input = temp.CreateFile("song.mod");
-        ConversionOptions options = new() { InputPath = input, RenderWav = true, RenderWavPath = temp.Combine("song.dmf"), Force = true };
+        ConversionOptions options = new() { Quality = Quality.Fast, InputPath = input, RenderWav = true, RenderWavPath = temp.Combine("song.dmf"), Force = true };
 
         // Act & Assert
         Assert.Equal(ExitCode.OutputNotWritable, CodeOf(() => ConversionCommand.Execute(options)));
@@ -964,6 +968,7 @@ public sealed class ConversionCommandTests
         CollectingSink sink = new();
         ConversionOptions options = new()
         {
+            Quality = Quality.Fast,
             InputPath = temp.CreateFile("song.mod", FourOrders()),
             Format = OutputFormat.Xgm2,
             RenderWav = true,
@@ -991,6 +996,7 @@ public sealed class ConversionCommandTests
         CollectingSink sink = new();
         ConversionOptions options = new()
         {
+            Quality = Quality.Fast,
             InputPath = temp.CreateFile("song.mod", FourOrders()),
             InfoOnly = true,
             Window = new SongWindowRequest(new TimePosition(10), null, null, null),
@@ -1011,7 +1017,7 @@ public sealed class ConversionCommandTests
         // Arrange
         using TempDirectory temp = new();
         CollectingSink sink = new();
-        ConversionOptions options = new() { InputPath = temp.CreateFile("song.mod", FourOrders()), Window = new SongWindowRequest(null, new TrackerPosition(9, 0), null, null) };
+        ConversionOptions options = new() { Quality = Quality.Fast, InputPath = temp.CreateFile("song.mod", FourOrders()), Window = new SongWindowRequest(null, new TrackerPosition(9, 0), null, null) };
 
         // Act
         ConversionException ex = Assert.Throws<ConversionException>(() => ConversionCommand.Execute(options, sink.CreateLogger()));
@@ -1028,7 +1034,7 @@ public sealed class ConversionCommandTests
     {
         // Arrange
         using TempDirectory temp = new();
-        ConversionOptions options = new() { InputPath = temp.CreateFile("song.mod", FourOrders()), InfoOnly = true, Window = new SongWindowRequest(new TimePosition(100), null, null, null) };
+        ConversionOptions options = new() { Quality = Quality.Fast, InputPath = temp.CreateFile("song.mod", FourOrders()), InfoOnly = true, Window = new SongWindowRequest(new TimePosition(100), null, null, null) };
 
         // Act & Assert
         Assert.Equal(ExitCode.UsageError, CodeOf(() => ConversionCommand.Execute(options, Logger.None)));
@@ -1041,7 +1047,7 @@ public sealed class ConversionCommandTests
     public void Phases_WithWindow_ListsWindowStepOnlyThen(bool window)
     {
         // Arrange
-        ConversionOptions options = new() { InputPath = "song.mod", Window = window ? new SongWindowRequest(new TimePosition(1), null, null, null) : null };
+        ConversionOptions options = new() { Quality = Quality.Fast, InputPath = "song.mod", Window = window ? new SongWindowRequest(new TimePosition(1), null, null, null) : null };
 
         // Act
         bool listed = ConversionCommand.Phases(options, analyzes: false).Any(p => p.Id == "window");

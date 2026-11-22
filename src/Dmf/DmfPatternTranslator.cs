@@ -77,6 +77,12 @@ internal sealed class DmfPatternTranslator
     private const int NoteCutCode = 0xEC;
     private const int NoteDelayCode = 0xED;
     private const int DacModeCode = 0x17;
+
+    /// <summary><c>10xy</c>: the LFO, on when x is 1, at rate y (docs/formats/dmf.md#effects).</summary>
+    private const int LfoCode = 0x10;
+
+    /// <summary><c>10xy</c>'s x for "on".</summary>
+    private const int LfoOn = 0x10;
     private const int NoiseModeCode = 0x20;
 
     /// <summary><c>20xy</c> value for fixed-rate white noise (docs/formats/dmf.md#effects).</summary>
@@ -322,6 +328,12 @@ internal sealed class DmfPatternTranslator
             {
                 // Arpeggio steps once per tick; the DMF ticks faster, so each step lasts that many ticks.
                 flow.Add(new Planned(KeepFirst, new DmfEffect(ArpeggioSpeed, Math.Min(byte.MaxValue, translator._timing.TicksPerSourceTick))));
+            }
+
+            if (order == 0 && row == 0 && translator._plan.LfoRate is { } rate)
+            {
+                // The LFO is one setting for the chip, set once for the song (docs/adr/0137-simple-mapper-fitted-patches.md).
+                flow.Add(new Planned(KeepFirst, new DmfEffect(LfoCode, LfoOn | (rate & 7))));
             }
 
             if (planRow.Flow.OfType<PatternDelay>().FirstOrDefault() is { } delay)

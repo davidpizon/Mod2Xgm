@@ -136,6 +136,20 @@ public sealed class DmfPatternTranslatorTests
         Assert.Equal(16, FineOf(result) - FineOf(plain));
     }
 
+    /// <summary>A plan's LFO rate is set once, on the first row, as <c>10xy</c> with x on (docs/adr/0137-simple-mapper-fitted-patches.md).</summary>
+    [Fact]
+    public void Build_WithLfoRate_WritesLfoOnFirstRow()
+    {
+        // Arrange
+        byte[] mod = Song().WithCell(0, 0, 0, Lead, C2).Build();
+
+        // Act
+        DmfConversion.Result result = DmfConversion.Convert(mod, transform: plan => plan with { LfoRate = 3 });
+
+        // Assert
+        Assert.Contains(Enum.GetValues<GenesisChannel>().Take(GenesisPlan.ChannelCount).SelectMany(c => result.Effects(c, 0)), e => e is { Code: 0x10, Value: 0x13 });
+    }
+
     /// <summary>A cell needing more than four effects keeps the most important four and says how many went.</summary>
     [Fact]
     public void Build_WithManyEffects_KeepsFourMostImportant()

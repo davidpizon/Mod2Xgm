@@ -16,7 +16,9 @@ never another track's note), top notes left out first when there's no room ([ADR
 does a loop with no cycle whose partials make a triad or four-note chord: three or four harmonic series on at least three
 pitch classes, read from the spectrum of ADR 0125, holding at least half its power; a fifth still plays one voice
 ([ADR 0135](adr/0135-loop-chords.md)). A loop that isn't a tone (noise, or a short tail after a long recording with no clear pitch) counts as playing once
-([ADR 0117](adr/0117-tail-and-noise-loops.md)). Each choice, and the pitch FM notes are placed at, is a conversion note; a clash on the DAC is won by the louder note and the loser moves to the PSG noise channel (if
+([ADR 0117](adr/0117-tail-and-noise-loops.md)). At `--quality normal` and `best`, each such one-voice FM sample plays one FM
+patch for all its notes: the fit closest over its pitch regions, weighed by notes and played without SSG-EG, wherever it sounds closer than the
+built-in patch by the fitter's log-mel score, and the song runs one LFO rate, the one its fits gain most from ([ADR 0137](adr/0137-simple-mapper-fitted-patches.md)). Each choice, and the pitch FM notes are placed at, is a conversion note; a clash on the DAC is won by the louder note and the loser moves to the PSG noise channel (if
 noise) or FM. `--no-dac` keeps everything off the DAC. Mixing clashing drums into one sample is left to the optimizer
 as a separate candidate.
 

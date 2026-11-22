@@ -57,6 +57,9 @@ internal sealed class GenesisPlanPlayer
     // YM3438 registers (docs/genesis-audio.md).
     private const byte RegKeyOn = 0x28;
     private const byte RegLfo = 0x22;
+
+    /// <summary>Register <c>$22</c>'s bit that turns the LFO on; the low 3 bits are its rate (docs/genesis-audio.md).</summary>
+    private const byte LfoOn = 0x08;
     private const byte RegCh3Mode = 0x27;
     private const byte RegTl = 0x40;
     private const byte RegFnumLow = 0xa0;
@@ -130,7 +133,7 @@ internal sealed class GenesisPlanPlayer
             throw new ArgumentException($"The playback has {_ticks[0].Channels.Count} channels; the song has {song.Channels.Count}.", nameof(playback));
         }
 
-        chips.Ports.WriteRegister(0, RegLfo, 0);
+        chips.Ports.WriteRegister(0, RegLfo, plan.LfoRate is { } rate ? (byte)(LfoOn | (rate & 7)) : (byte)0);
         chips.Ports.WriteRegister(0, RegCh3Mode, 0);
         for (int c = 0; c <= (int)GenesisChannel.Fm6; c++)
         {
@@ -730,8 +733,8 @@ internal sealed class GenesisPlanPlayer
         FmVoice.LoadPatch(_chips.Ports, c, patch);
         Array.Fill(track.CarrierTl, -1);
 
-        // The plan has no LFO rate yet, so the LFO stays off (plan M9 picks one per song, docs/adr/0069-fm-patch-fitting.md);
-        // the sensitivities are still the patch's, as the DMF stores them.
+        // The LFO runs at the plan's one rate, or stays off (docs/adr/0137-simple-mapper-fitted-patches.md); the
+        // sensitivities are the patch's, as the DMF stores them.
         byte sensitivity = (byte)((patch.Ams << 4) | patch.Fms);
         if (sensitivity != track.Sensitivity)
         {
