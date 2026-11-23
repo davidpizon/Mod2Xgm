@@ -117,7 +117,7 @@ jobs:
       - name: Qodana scan
         id: qodana
         continue-on-error: true
-        uses: JetBrains/qodana-action@v2026.2.2
+        uses: JetBrains/qodana-action@v2026.3.1
         with:
           args: ${{ steps.options.outputs.args }}
           pr-mode: false
